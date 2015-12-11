@@ -1273,6 +1273,7 @@ static int nand_do_read_ops(struct mtd_info *mtd, loff_t from,
 							  page);
 			if (ret < 0)
 				break;
+			ret = 0;
 
 			/* Transfer not aligned data */
 			if (!aligned) {
