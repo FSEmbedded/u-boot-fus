@@ -815,8 +815,8 @@ static void fus_nfc_write_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
 }
 
 
-/* Read main data of page with ECC enabled; if there is an ECC error, don't
-   change the related data areas of the buffers. */
+/* Read main data of page with ECC enabled; if there is an ECC error, return
+   the raw (uncorrected) data */
 static int fus_nfc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 			     uint8_t *buf, int page)
 {
@@ -912,21 +912,22 @@ static int fus_nfc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 
 		/* Copy data to OOB buffer; here we do swap the bytes; the
 		   data is at the beginning of the NFC RAM */
-		nfc_copy_from_nfc(chip, chip->oob_poi + size, mtd->oobsize, 0);
+		nfc_copy_from_nfc(chip, chip->oob_poi + size, mtd->oobavail, 0);
 
 		return 0;
 	}
 
-	/* The page is uncorrectable; however this can also happen with a
-	   totally empty (=erased) page, in which case we should return OK.
-	   But this means that we must reload the page in raw mode. However we
-	   can use NAND_CMD_RNDOUT as the NAND flash still has the data in its
-	   page cache. We start by reloading the OOB area of the page to NFC
-	   RAM as we need this data anyway. */
-	chip->cmdfunc(mtd, NAND_CMD_RNDOUT, mtd->writesize, -1);
+	/*
+	 * The page is uncorrectable; however this can also happen with a
+	 * totally empty (=erased) page, in which case we should return OK.
+	 * But this means that we must reload the page in raw mode. However we
+	 * can use NAND_CMD_RNDOUT as the NAND flash still has the data in its
+	 * page cache.
+	 */
+	chip->cmdfunc(mtd, NAND_CMD_RNDOUT, 0, -1);
 
-	/* Set size to load OOB area */
-	nfc_write(chip, NFC_SECTOR_SIZE, mtd->oobsize);
+	/* Set size to load main and OOB area in one go */
+	nfc_write(chip, NFC_SECTOR_SIZE, mtd->writesize + mtd->oobsize);
 
 	/* Set ECC mode to BYPASS, one virtual page */
 	nfc_write(chip, NFC_FLASH_CONFIG,
@@ -948,87 +949,54 @@ static int fus_nfc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 
 	/* Copy the user part of the OOB to the internal OOB buffer in any
 	   case. This may or may not be empty. Here we do swap the bytes. */
-	nfc_copy_from_nfc(chip, chip->oob_poi + size, mtd->oobavail, size);
+	nfc_copy_from_nfc(chip, chip->oob_poi + size, mtd->oobavail,
+			  mtd->writesize + size);
 
-	/* By checking the ECC area we can quickly detect a non-empty page.
-	   Because also an empty page may show bitflips (e.g. by write
-	   disturbs caused by writes to a nearby page), we accept up to
-	   bitflip_threshold non-empty bits. */
+	/*
+	 * Check the main part up to and including the ECC for empty.
+	 * Because also an empty page may show bitflips (e.g. by write
+	 * disturbs caused by writes to a nearby page), we accept up to
+	 * bitflip_threshold non-empty bits.
+	 *
+	 * Remark:
+	 * The last up to three bytes may be unaligned, so we read them as
+	 * bytes with byte swappping. But for everything before that do 4-byte
+	 * compares to be faster; byte order does not matter when comparing to
+	 * 0xFFFFFFFF or when counting zero bits.
+	 */
 	zerobits = 0;
-	limit = mtd->bitflip_threshold;
-	i = size;
+	limit = (int)mtd->bitflip_threshold;
+	i = mtd->writesize + size;
 	do {
-		zerobits += count_zeroes(nfc_read_ram(chip, i-1) | 0xFFFFFF00);
+		u32 data;
+
+		if (i & 3)
+			data = nfc_read_ram(chip, --i) | 0xFFFFFF00;
+		else {
+			i -= 4;
+			data = nfc_read(chip, NFC_MAIN_AREA(0) + i);
+		}
+		zerobits += count_zeroes(data);
 		if (zerobits > limit)
 			break;
-	} while (--i);
+	} while (i);
 
-	if (!i) {
-		/* OK, ECC area is empty. Now reload main area to NFC RAM.
-		   Theoretically we could split this into smaller parts to
-		   speed up the non-empty case. However if the ECC part is
-		   empty, it is highly probable that the whole main part is
-		   empty, too. So it's not worth the trouble. */
+	/* If this is an empty page, "correct" any bitflips by returning 0xFF,
+	   not the actually read data */
+	if (zerobits <= limit) {
+		memset(buf, 0xFF, mtd->writesize);
+		memset(chip->oob_poi, 0xFF, size);
 
-		/* Issue NAND_CMD_RNDOUT to reload main area */
-		chip->cmdfunc(mtd, NAND_CMD_RNDOUT, 0, -1);
+		mtd->ecc_stats.corrected += zerobits;
 
-		/* Set size to load main area */
-		nfc_write(chip, NFC_SECTOR_SIZE, mtd->writesize);
-
-		/* Set ECC mode to BYPASS, one virtual page */
-		nfc_write(chip, NFC_FLASH_CONFIG,
-			  prv->cfgbase
-			  | (0 << CONFIG_STOP_ON_WERR_SHIFT)
-			  | (0 << CONFIG_ECC_SRAM_ADDR_SHIFT)
-			  | (0 << CONFIG_ECC_SRAM_REQ_SHIFT)
-			  | (0 << CONFIG_DMA_REQ_SHIFT)
-			  | (ECC_BYPASS << CONFIG_ECC_MODE_SHIFT)
-			  | (0 << CONFIG_FAST_FLASH_SHIFT)
-			  | (0 << CONFIG_ID_COUNT_SHIFT)
-			  | (0 << CONFIG_BOOT_MODE_SHIFT)
-			  | (0 << CONFIG_ADDR_AUTO_INCR_SHIFT)
-			  | (0 << CONFIG_BUFNO_AUTO_INCR_SHIFT)
-			  | (1 << CONFIG_PAGE_CNT_SHIFT));
-
-		/* Actually trigger reading and wait until done */
-		chip->cmdfunc(mtd, NAND_CMD_RNDOUTSTART, -1, -1);
-
-		/* Do 4-byte compares to be faster; byte order does not matter
-		   when comparing to 0xFFFFFFFF or when counting zero bits. */
-		i = mtd->writesize;
-		do {
-			u32 data = nfc_read(chip, NFC_MAIN_AREA(0) + i - 4);
-
-			zerobits += count_zeroes(data);
-			if (zerobits > limit)
-				break;
-			i -= 4;
-		} while (i);
-		if (!i) {
-			/* Main area is empty, too, fill with 0xFF */
-			memset(buf, 0xFF, mtd->writesize);
-
-			/* FIXME: If we had bitflips, we finally want to
-			   return -EUCLEAN from the read call, to make the
-			   filesystem aware of this fact. But we must not
-			   return -EUCLEAN here, because then reading will be
-			   stopped after this page with an error. Instead we
-			   must trigger the calling function to return
-			   -EUCLEAN after the whole read is done. We do this
-			   by (incorrectly) increasing the stats.corrected
-			   count by at least bitflip_threshold. In reality we
-			   only have corrected zerobits bits. */
-			if (zerobits)
-				mtd->ecc_stats.corrected += limit;
-
-			return 0;
-		}
+		return zerobits;
 	}
 
-	/* This page is not empty, it is an actual read error. Update
-	   ecc_stats. Please note that buf and the first part of chip->oob_poi
-	   remain completely unchanged in this case. */
+	/* The page is not empty, it is a real read error. Update ecc_stats
+	   and return the raw data. Do byte swaps on ECC data only. */
+	memcpy(buf, chip->IO_ADDR_R + NFC_MAIN_AREA(0), mtd->writesize);
+	nfc_copy_from_nfc(chip, chip->oob_poi, size, mtd->writesize);
+
 	mtd->ecc_stats.failed++;
 	printf("Non-correctable error in page at 0x%08llx\n",
 	       (loff_t)page << chip->page_shift);
