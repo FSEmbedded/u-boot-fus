@@ -26,7 +26,7 @@
 #include <asm/processor.h>
 
 #define	DRV_NAME		"fsl_nfc_fus"
-#define	DRV_VERSION		"V1.1"
+#define	DRV_VERSION		"V1.2"
 
 #define ECC_STATUS_OFFS		0x8F8
 #define ECC_STATUS_MASK		0x80
@@ -787,6 +787,7 @@ static int fus_nfc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 	/* Get the ECC status */
 	ecc_status = nfc_read_ram(chip, ECC_STATUS_OFFS + 7);
 	if (!(ecc_status & ECC_STATUS_MASK)) {
+	correctable:
 		/* Correctable error or no error at all: update ecc_stats */
 		mtd->ecc_stats.corrected += ecc_status & ECC_ERR_COUNT;
 
@@ -845,6 +846,93 @@ static int fus_nfc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 
 		return 0;
 	}
+
+#ifdef CONFIG_CMD_NAND_CONVERT
+	/*
+	 * We originally assumed that only NAND flashes with 64 bytes OOB area
+	 * will be used on Vybrid. This assumption was wrong and also NAND
+	 * flashes with 224 bytes OOB area were used. Then the NAND page
+	 * layout was broken, but by a lucky coincidence, this worked
+	 * astonishingly stable because U-Boot and Linux used rather similar
+	 * driver code and continued to undestand the data that was written by
+	 * each of them.
+	 *
+	 * However the NBoot NAND driver is different and there the layout
+	 * computation resulted in a slightly different page layout on these
+	 * flashes with larger OOB area. It placed ECC and OOB data at a
+	 * different position in the page in these cases. This was no problem
+	 * as long as U-Boot was only written and updated by NBoot. But the
+	 * U-Boot MTD partition could not be read in U-Boot and Linux because
+	 * of the different layout and resulting ECC errors. And vice versa if
+	 * the U-Boot partition was written by U-Boot or Linux, NBoot could
+	 * not read this partition anymore because of the different page
+	 * layout. In this case the board did not boot anymore!
+	 *
+	 * The problem was caused by a static NAND layout here that only
+	 * worked for 64 bytes OOB and constantly used oobavail=30 for 16
+	 * correctable ECC bits. We have already fixed this behaviour in
+	 * U-Boot and Linux, by computing the layout and oobavail dynamically
+	 * at run-time after the OOB size is known. Now U-Boot, Linux and
+	 * NBoot use the same page layout for all OOB sizes.
+	 *
+	 * However there are boards in the field with 224 bytes OOB that use
+	 * the old style and need to be updated to newer U-Boot and Linux
+	 * versions that use the new style. This requires converting the whole
+	 * NAND flash content from old style to new style. We do this by
+	 * reading the data in old style, erasing the NAND flash and writing
+	 * back the data in new style with the new command "nand convert".
+	 *
+	 * This means we need to add the capability to read data in old style
+	 * here. In fact we allow this function to read new *and* old style.
+	 * The code above can read data in new style. If this fails because of
+	 * uncorrectable ECC errors, we will also try to reload the data in old
+	 * style. Only if this also fails, we will check for an empty page or
+	 * return an uncorrectable ECC error.
+	 *
+	 * We can use NAND_CMD_RNDOUT as the NAND flash still has the data in
+	 * its page cache.
+	 *
+	 * Remark:
+	 * If we have 64 bytes OOB, then old and new style are the same. In
+	 * this case a second read does not make sense.
+	 */
+	if (mtd->oobsize != 64) {
+		uint32_t old_oobavail;
+
+		old_oobavail = mtd->oobsize - ecc_bytes[prv->eccmode] - 4;
+		chip->cmdfunc(mtd, NAND_CMD_RNDOUT, 0, -1);
+
+		/* Set size to load main area, BBM, dummy bytes and ECC */
+		nfc_write(chip, NFC_SECTOR_SIZE,
+			  mtd->writesize + mtd->oobsize - old_oobavail);
+
+		/* Set ECC mode, position of ECC status, one virtual page */
+		nfc_write(chip, NFC_FLASH_CONFIG,
+			  prv->cfgbase
+			  | (0 << CONFIG_STOP_ON_WERR_SHIFT)
+			  | ((ECC_STATUS_OFFS >> 3) << CONFIG_ECC_SRAM_ADDR_SHIFT)
+			  | (1 << CONFIG_ECC_SRAM_REQ_SHIFT)
+			  | (0 << CONFIG_DMA_REQ_SHIFT)
+			  | (prv->eccmode << CONFIG_ECC_MODE_SHIFT)
+			  | (0 << CONFIG_FAST_FLASH_SHIFT)
+			  | (0 << CONFIG_ID_COUNT_SHIFT)
+			  | (0 << CONFIG_BOOT_MODE_SHIFT)
+			  | (0 << CONFIG_ADDR_AUTO_INCR_SHIFT)
+			  | (0 << CONFIG_BUFNO_AUTO_INCR_SHIFT)
+			  | (1 << CONFIG_PAGE_CNT_SHIFT));
+
+		/* Actually trigger transfer and wait until done */
+		chip->cmdfunc(mtd, NAND_CMD_RNDOUTSTART, -1, -1);
+
+		/* Get the ECC status; if OK, we had old style layout and can
+		   read the data now. Please note thate the user OOB data will
+		   not return the correct values in this case, but this does
+		   not matter, we never used these anyway. */
+		ecc_status = nfc_read_ram(chip, ECC_STATUS_OFFS + 7);
+		if (!(ecc_status & ECC_STATUS_MASK))
+			goto correctable;
+	}
+#endif
 
 	/*
 	 * The page is uncorrectable; however this can also happen with a
@@ -918,7 +1006,7 @@ static int fus_nfc_read_page(struct mtd_info *mtd, struct nand_chip *chip,
 
 		mtd->ecc_stats.corrected += zerobits;
 
-		return zerobits;
+		return 0;
 	}
 
 	/* The page is not empty, it is a real read error. Update ecc_stats

@@ -375,6 +375,7 @@
 #undef CONIFG_CMD_MP		/* no multi processor support */
 #define CONFIG_CMD_MTDPARTS	/* support MTD partitions (mtdparts, chpart) */
 #define	CONFIG_CMD_NAND		/* support for common NAND flash memories */
+#define CONFIG_CMD_NAND_CONVERT	/* support for NAND format conversion */
 #define CONFIG_CMD_NET		/* support BOOTP and TFTP (bootp, tftpboot) */
 #define CONFIG_CMD_NFS		/* support download via NFS */
 #undef CONFIG_CMD_ONENAND	/* no support for ONENAND flash memories */
