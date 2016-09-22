@@ -35,7 +35,7 @@ static u32 CheckUBoot(ulong addr)
 	u8* csf_addr = NULL;
 	u32 j = NULL;
 	int i = NULL;
-	for(i=0; i<((CONFIG_UBOOTNB0_SIZE*1024)/4);i++)
+	for(i=0; i<((CONFIG_UBOOTNB0_SIZE)/4);i++)
 	{
 		temp_val = *check_addr;
 		*check_addr = *current_addr;
@@ -43,7 +43,7 @@ static u32 CheckUBoot(ulong addr)
 		check_addr++;
 		current_addr++;
 	}
-	ivt_addr = (u32*) (download_addr + ((CONFIG_UBOOTNB0_SIZE*1024)-0x4));
+	ivt_addr = (u32*) (download_addr + ((CONFIG_UBOOTNB0_SIZE)-0x4));
 	csf_addr = (u8*) (ivt_addr[0] + download_addr);
 
 	/* check functions  */
@@ -54,7 +54,7 @@ static u32 CheckUBoot(ulong addr)
 	current_addr = addr;
 	temp_val = NULL;
 	check_addr = download_addr;
-	for(i=0; i<((CONFIG_UBOOTNB0_SIZE*1024)/4);i++)
+	for(i=0; i<((CONFIG_UBOOTNB0_SIZE)/4);i++)
 	{
 		temp_val = *current_addr;
 		*current_addr = *check_addr;
@@ -81,7 +81,7 @@ static int Init_HAB(ulong addr)
   u8 csf_val = 0;
   u32 j=NULL;
   ulong size_offset = NULL;
-  ivt_addr = (u32*) (addr + ((CONFIG_UBOOTNB0_SIZE*1024)-0x4));
+  ivt_addr = (u32*) (addr + ((CONFIG_UBOOTNB0_SIZE)-0x4));
   csf_addr = (u8*) (ivt_addr[0] + addr);
   csf_val = *csf_addr;
 	if(csf_val == vgl)
@@ -96,7 +96,7 @@ static int Init_HAB(ulong addr)
 			{
 				size_offset = download_addr - addr;
 			}
-			if(size_offset >= (CONFIG_UBOOTNB0_SIZE*1024))
+			if(size_offset >= (CONFIG_UBOOTNB0_SIZE))
 			{
 				j = CheckUBoot(addr);
 				if(j == HAB_SUCCESS)
@@ -137,18 +137,19 @@ int CheckIfUBoot(int argc, char*const argv[], int *idx, loff_t *off, loff_t *siz
 	}
 	if(*off == part->offset)
 	{
-		if((unsigned long long) *size == CONFIG_UBOOTNB0_SIZE*1024)
+		if((unsigned long long) *size == CONFIG_UBOOTNB0_SIZE)
 		{
-			/* HAB check  */
+            /* HAB check  */
 			hab_ok = Init_HAB(addr);
 		}else
 		{
-			printf("\n Error: No U-Boot found. Expected Size: %x, current Size: %x \n", CONFIG_UBOOTNB0_SIZE*1024,(unsigned long long)*size);
+			printf("\n Error: No U-Boot found. Expected Size: %d, current Size: %d \n", CONFIG_UBOOTNB0_SIZE,(unsigned long long)*size);
 		}
 	}else
 	{
 		if((*off < part->offset && (*off+*size) < part->offset) || *off > part->offset)
 			{
+                printf("\n!!!6!!!\n");
 				/* andere Partition  */
 				hab_ok = 1;
 			}else
