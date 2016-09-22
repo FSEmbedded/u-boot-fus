@@ -14,7 +14,7 @@
 void DisplayEvent(uint8_t *event_data, size_t bytes)
 {
 	uint32_t i;
-	if((event_data) && (byte > 0))
+	if((event_data) && (bytes > 0))
 	{
 		for(i = 0; i < bytes; i++)
 		{
@@ -45,8 +45,8 @@ void GetHABStatus(void)
     uint32_t index = 0; // Loop index
     uint8_t event_data[128]; // Event Data Buffer
     size_t bytes = sizeof(event_data); //event size in bytes
-    hab_config_t = config = 0;
-    hab_state_t 0 state = 0;
+    hab_config_t config = 0;
+    hab_state_t state = 0;
     /* Check HAB Status  */
     if(hab->report_status(&config, &state) != HAB_SUCCESS)
     {

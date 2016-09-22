@@ -24,14 +24,14 @@ static u32 CheckUBoot(ulong addr)
 #endif
 #ifdef HAB_RVT_VYBRID
 	struct rvt* hab = (struct rvt*)0x00000054;
-	u32* check_addr = 0x80100000;	
+	u32* check_addr = 0x80100000;
 #endif
 
 	uint8_t cid = (uint8_t) 0;
 	u32 download_addr = check_addr;
 	u32* current_addr = addr;
 	u32 temp_val;
-	u32* ivt_addr = NULL;	
+	u32* ivt_addr = NULL;
 	u8* csf_addr = NULL;
 	u32 j = NULL;
 	int i = NULL;
@@ -84,7 +84,7 @@ static int Init_HAB(ulong addr)
   ivt_addr = (u32*) (addr + ((CONFIG_UBOOTNB0_SIZE*1024)-0x4));
   csf_addr = (u8*) (ivt_addr[0] + addr);
   csf_val = *csf_addr;
-	if(csf_val == vgl) 
+	if(csf_val == vgl)
 	{
 		printf("\n Boot-Image with CSF-File\n");
 		if(addr != download_addr)
@@ -121,14 +121,14 @@ static int Init_HAB(ulong addr)
 }
 
 
-int CheckIfUBoot(int argc, char* argv[], int *idx, loff_t *off, loff_t *size, loff_t *maxsize, ulong addr)
+int CheckIfUBoot(int argc, char*const argv[], int *idx, loff_t *off, loff_t *size, loff_t *maxsize, ulong addr)
 {
 	int hab_ok = 0;
 	struct mtd_device *dev;
 	struct part_info *part;
 	u8 pnum;
 	int ret;
-	ret = finde_dev_and_part("UBoot", &dev, &pnum, &part);
+	ret = find_dev_and_part("UBoot", &dev, &pnum, &part);
 	if(argc == 0)
 	{
 		*off = 0;
@@ -149,7 +149,7 @@ int CheckIfUBoot(int argc, char* argv[], int *idx, loff_t *off, loff_t *size, lo
 	{
 		if((*off < part->offset && (*off+*size) < part->offset) || *off > part->offset)
 			{
-				/* andere Partition  */				
+				/* andere Partition  */
 				hab_ok = 1;
 			}else
 			{

@@ -29,6 +29,12 @@
 #include <jffs2/jffs2.h>
 #include <nand.h>
 
+/* for HAB use  */
+#ifdef CONFIG_SECURITY_HAB
+#include <checkboot.h>
+#endif
+
+
 #if defined(CONFIG_CMD_MTDPARTS)
 
 /* partition handling routines */
@@ -651,7 +657,7 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #ifdef CONFIG_CMD_NAND_CONVERT
 	if (strncmp(cmd, "convert", 6) == 0) {
 		size_t rwsize;
-		
+
 
 		if (argc == 3) {
 			s = argv[2];
@@ -749,9 +755,23 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 							 NULL, maxsize,
 							 (u_char *)addr);
 			else
-				ret = nand_write_skip_bad(nand, off, &rwsize,
+            {
+                int UBoot_ok = 1;
+                /* HAB  */
+#ifdef CONFIG_SECURITY_HAB
+                UBoot_ok = CheckIfUBoot(argc - 3, argv + 3, &dev, &off, &size, &maxsize, addr);
+#endif
+                if(UBoot_ok == 1)
+                {
+				    ret = nand_write_skip_bad(nand, off, &rwsize,
 							  NULL, maxsize,
 							  (u_char *)addr, 0);
+
+                }else
+                {
+                    ret = 1;
+                }
+            }
 #ifdef CONFIG_CMD_NAND_TRIMFFS
 		} else if (!strcmp(s, ".trimffs")) {
 			if (read) {

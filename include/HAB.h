@@ -56,7 +56,7 @@ typedef enum hab_state
 {
     HAB_STATE_INITIAL = 0x33,   /* initialising state  */
     HAB_STATE_CHECK = 0x55,     /* check state  */
-    HAB_STATE NONSECURE = 0x66, /* Non secure state  */
+    HAB_STATE_NONSECURE = 0x66, /* Non secure state  */
     HAB_STATE_TRUSTED = 0x99,   /* Trusted state  */
     HAB_STATE_SECURE = 0xaa,    /* secure state  */
     HAB_STATE_FAIL_SOFT = 0xcc, /* soft fail state  */
@@ -93,7 +93,7 @@ struct rvt
     hab_status_t(*authenticate_image)(uint8_t cid, ptrdiff_t ivt_offset, void **start, size_t *bytes, hab_loader_callback_f loader);
 
     /* execute a boot configuration script  */
-    hab_status_t(run_dcd)(const uint8_t *dcd);
+    hab_status_t(*run_dcd)(const uint8_t *dcd);
 
     /* execute an authentication script  */
     hab_status_t(*run_csf)(const uint8_t *csf, uint8_t cid);
