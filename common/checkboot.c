@@ -15,12 +15,13 @@
 #include <nand.h>
 #include <config.h>
 
-static u32 CheckUBoot(ulong addr)
+//static u32 CheckUBoot(ulong addr)
+u32 CheckUBoot(ulong addr)
 {
 
 #ifdef HAB_RVT_iMX6
 	struct rvt* hab = (struct rvt*)0x00000098;
-	u32* check_addr = 0x10100000;
+	u32* check_addr = (u32*) 0x10100000;
 #endif
 #ifdef HAB_RVT_VYBRID
 	struct rvt* hab = (struct rvt*)0x00000054;
@@ -28,8 +29,8 @@ static u32 CheckUBoot(ulong addr)
 #endif
 
 	uint8_t cid = (uint8_t) 0;
-	u32 download_addr = check_addr;
-	u32* current_addr = addr;
+	u32* download_addr = check_addr;
+	u32* current_addr = (u32*) addr;
 	u32 temp_val;
 	u32* ivt_addr = NULL;
 	u8* csf_addr = NULL;
@@ -51,8 +52,8 @@ static u32 CheckUBoot(ulong addr)
 	j=hab->run_csf(csf_addr,cid);
 	hab->exit();
 	/* copy Image back to old Download address  */
-	current_addr = addr;
-	temp_val = NULL;
+	*current_addr = addr;
+	temp_val = 0x00000000;
 	check_addr = download_addr;
 	for(i=0; i<((CONFIG_UBOOTNB0_SIZE)/4);i++)
 	{
@@ -65,7 +66,8 @@ static u32 CheckUBoot(ulong addr)
 	return j;
 }
 
-static int Init_HAB(ulong addr)
+//static int Init_HAB(ulong addr)
+int Init_HAB(ulong addr)
 {
 #ifdef HAB_RVT_iMX6
   u32 download_addr = 0x10100000;
@@ -101,7 +103,7 @@ static int Init_HAB(ulong addr)
 				j = CheckUBoot(addr);
 				if(j == HAB_SUCCESS)
 				{
-					printf("\ Boot-Image successfully tested!\n");
+					printf("\n Boot-Image successfully tested!\n");
 					hab_ok = 1;
 				}else
 				{
@@ -127,8 +129,9 @@ int CheckIfUBoot(int argc, char*const argv[], int *idx, loff_t *off, loff_t *siz
 	struct mtd_device *dev;
 	struct part_info *part;
 	u8 pnum;
-	int ret;
-	ret = find_dev_and_part("UBoot", &dev, &pnum, &part);
+	//int ret;
+	//ret = find_dev_and_part("UBoot", &dev, &pnum, &part);
+	find_dev_and_part("UBoot", &dev, &pnum, &part);
 	if(argc == 0)
 	{
 		*off = 0;
@@ -143,7 +146,7 @@ int CheckIfUBoot(int argc, char*const argv[], int *idx, loff_t *off, loff_t *siz
 			hab_ok = Init_HAB(addr);
 		}else
 		{
-			printf("\n Error: No U-Boot found. Expected Size: %d, current Size: %d \n", CONFIG_UBOOTNB0_SIZE,(unsigned long long)*size);
+			printf("\n Error: No U-Boot found. Expected Size: %d, current Size: %llu \n", CONFIG_UBOOTNB0_SIZE,(unsigned long long)*size);
 		}
 	}else
 	{

@@ -13,6 +13,8 @@
 #include <common.h>
 
 int CheckIfUBoot(int argc, char*const argv[], int *idx, loff_t *off, loff_t *size, loff_t *maxsize, ulong addr);
-static int Init_HAB(ulong addr);
-static u32 CheckUBoot(ulong addr);
+//static int Init_HAB(ulong addr);
+//static u32 CheckUBoot(ulong addr);
+int Init_HAB(ulong addr);
+u32 CheckUBoot(ulong addr);
 #endif

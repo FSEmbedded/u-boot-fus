@@ -46,7 +46,7 @@ void GetHABStatus(void)
     uint8_t event_data[128]; // Event Data Buffer
     size_t bytes = sizeof(event_data); //event size in bytes
     hab_config_t config = 0;
-    hab_state_t state = 0;
+    hab_status_t state = 0;
     /* Check HAB Status  */
     if(hab->report_status(&config, &state) != HAB_SUCCESS)
     {
