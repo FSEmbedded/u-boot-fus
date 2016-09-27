@@ -12,7 +12,7 @@
  *
  * The following addresses are given as offsets of the device.
  *
- * NAND flash layout with separate Kernel MTD partition 
+ * NAND flash layout with separate Kernel MTD partition
  * -------------------------------------------------------------------------
  * 0x0000_0000 - 0x0001_FFFF: NBoot: NBoot image, primary copy (128KB)
  * 0x0002_0000 - 0x0003_FFFF: NBoot: NBoot image, secondary copy (128KB)
@@ -419,7 +419,7 @@
 #undef CONFIG_CMD_CPLBINFO	/* No display of PPC CPLB tables */
 #undef CONFIG_CMD_CRAMFS	/* No support for CRAMFS filesystem */
 #undef CONFIG_CMD_DATE		/* No date command */
-#undef CONFIG_CMD_DFU		/* No support for device firmware update */ 
+#undef CONFIG_CMD_DFU		/* No support for device firmware update */
 #define CONFIG_CMD_DHCP		/* Support TFTP boot after DHCP request */
 #undef CONFIG_CMD_DIAG		/* No support for board selftest */
 #undef CONFIG_CMD_DNS		/* No lookup of IP via a DNS name server */
@@ -760,5 +760,18 @@
 #define CONFIG_USE_ARCH_MEMMOVE
 #define CONFIG_USE_ARCH_MEMSET
 #define CONFIG_USE_ARCH_MEMSET32
+
+
+/*************************************************************************
+ * Security include
+ ************************************************************************/
+#define CONFIG_SECURITY_HAB
+#define HAB_RVT_VYBRID
+#define CONFIG_FSL_CAAM
+#define CONFIG_SECURE_BOOT
+#define CONFIG_SYS_FSL_SEC_COMPAT
+#define CONFIG_CMD_DEKBLOB
+#define CONFIG_SYS_FSL_SEC_LE
+
 
 #endif /* !__FSVYBRID_CONFIG_H */

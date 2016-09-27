@@ -8,8 +8,12 @@
  *
  ******************************************************************************/
 
+/* HAB includes  */
+
 #include <checkboot.h>
 #include <HAB.h>
+#include <asm/arch-mx6/sys_proto.h>          // is_cpu_type
+
 #include <common.h>
 #include <jffs2/jffs2.h>
 #include <nand.h>
@@ -19,19 +23,31 @@
 u32 CheckUBoot(ulong addr)
 {
 
+    struct rvt* hab = (struct rvt*) 0x00000000;
+
 #ifdef HAB_RVT_iMX6
-	struct rvt* hab = (struct rvt*)0x00000098;
+    /*imx6 solo,dual light */
+    if(is_cpu_type(MXC_CPU_MX6SOLO))
+    {
+	    hab = (struct rvt*) 0x00000098;
+    }else if(is_cpu_type(MXC_CPU_MX6Q))
+    {
+        hab = (struct rvt*) 0x00000094;
+    }
 	u32* check_addr = (u32*) 0x10100000;
+    //u32* check_addr = 0x10100000;
 #endif
 #ifdef HAB_RVT_VYBRID
-	struct rvt* hab = (struct rvt*)0x00000054;
-	u32* check_addr = 0x80100000;
+	hab = (struct rvt*)0x00000054;
+	u32* check_addr = (u32*) 0x80100000;
 #endif
 
 	uint8_t cid = (uint8_t) 0;
-	u32* download_addr = check_addr;
+	u32 download_addr = (u32) check_addr;
 	u32* current_addr = (u32*) addr;
-	u32 temp_val;
+	//u32 download_addr = check_addr;
+    //u32* current_addr = addr;
+    u32 temp_val;
 	u32* ivt_addr = NULL;
 	u8* csf_addr = NULL;
 	u32 j = NULL;
@@ -54,7 +70,9 @@ u32 CheckUBoot(ulong addr)
 	/* copy Image back to old Download address  */
 	*current_addr = addr;
 	temp_val = 0x00000000;
-	check_addr = download_addr;
+    //current_addr = addr;
+    //temp_val = NULL;
+	check_addr = (u32*) download_addr;
 	for(i=0; i<((CONFIG_UBOOTNB0_SIZE)/4);i++)
 	{
 		temp_val = *current_addr;
@@ -89,6 +107,7 @@ int Init_HAB(ulong addr)
 	if(csf_val == vgl)
 	{
 		printf("\n Boot-Image with CSF-File\n");
+
 		if(addr != download_addr)
 		{
 			if(addr > download_addr)
@@ -152,7 +171,6 @@ int CheckIfUBoot(int argc, char*const argv[], int *idx, loff_t *off, loff_t *siz
 	{
 		if((*off < part->offset && (*off+*size) < part->offset) || *off > part->offset)
 			{
-                printf("\n!!!6!!!\n");
 				/* andere Partition  */
 				hab_ok = 1;
 			}else
@@ -163,15 +181,4 @@ int CheckIfUBoot(int argc, char*const argv[], int *idx, loff_t *off, loff_t *siz
 	printf("\n");
 	return hab_ok;
 }
-
-
-
-
-
-
-
-
-
-
-
 
