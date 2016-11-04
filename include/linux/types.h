@@ -142,10 +142,30 @@ typedef __u32 __bitwise __wsum;
 typedef unsigned __bitwise__	gfp_t;
 
 struct ustat {
-	__kernel_daddr_t	f_tfree;
-	__kernel_ino_t		f_tinode;
-	char			f_fname[6];
-	char			f_fpack[6];
+  __kernel_daddr_t	f_tfree;
+  __kernel_ino_t		f_tinode;
+  char			f_fname[6];
+  char			f_fpack[6];
 };
+
+
+/* added FB upper 32 bits and lower 32 bits*/
+
+/**
+ * upper_32_bits - return bits 32-63 of a number
+ * @n: the number we're accessing
+ *
+ * A basic shift-right of a 64- or 32-bit quantity.  Use this to suppress
+ * the "right shift count >= width of type" warning when that quantity is
+ * 32-bits.
+ */
+#define upper_32_bits(n) ((u32)(((n) >> 16) >> 16))
+
+/**
+ * lower_32_bits - return bits 0-31 of a number
+ * @n: the number we're accessing
+ */
+#define lower_32_bits(n) ((u32)(n))
+
 
 #endif /* _LINUX_TYPES_H */

@@ -12,76 +12,76 @@
 
 static inline void sync(void)
 {
-	/* Not yet implemented */
+  /* Not yet implemented */
 }
 
 static inline u8 __raw_readb(const volatile void __iomem *addr)
 {
-	u8 b;
+  u8 b;
 
-	__asm__ __volatile__("ldb%U1	%0, %1\n"
-			     : "=r" (b)
-			     : "m" (*(volatile u8 __force *)addr)
-			     : "memory");
-	return b;
+  __asm__ __volatile__("ldb%U1	%0, %1\n"
+		       : "=r" (b)
+		       : "m" (*(volatile u8 __force *)addr)
+		       : "memory");
+  return b;
 }
 
 static inline u16 __raw_readw(const volatile void __iomem *addr)
 {
-	u16 s;
+  u16 s;
 
-	__asm__ __volatile__("ldw%U1	%0, %1\n"
-			     : "=r" (s)
-			     : "m" (*(volatile u16 __force *)addr)
-			     : "memory");
-	return s;
+  __asm__ __volatile__("ldw%U1	%0, %1\n"
+		       : "=r" (s)
+		       : "m" (*(volatile u16 __force *)addr)
+		       : "memory");
+  return s;
 }
 
 static inline u32 __raw_readl(const volatile void __iomem *addr)
 {
-	u32 w;
+  u32 w;
 
-	__asm__ __volatile__("ld%U1	%0, %1\n"
-			     : "=r" (w)
-			     : "m" (*(volatile u32 __force *)addr)
-			     : "memory");
-	return w;
+  __asm__ __volatile__("ld%U1	%0, %1\n"
+		       : "=r" (w)
+		       : "m" (*(volatile u32 __force *)addr)
+		       : "memory");
+  return w;
 }
 
 #define readb __raw_readb
 
 static inline u16 readw(const volatile void __iomem *addr)
 {
-	return __le16_to_cpu(__raw_readw(addr));
+  return __le16_to_cpu(__raw_readw(addr));
 }
 
 static inline u32 readl(const volatile void __iomem *addr)
 {
-	return __le32_to_cpu(__raw_readl(addr));
+  return __le32_to_cpu(__raw_readl(addr));
 }
 
 static inline void __raw_writeb(u8 b, volatile void __iomem *addr)
 {
-	__asm__ __volatile__("stb%U1	%0, %1\n"
-			     :
-			     : "r" (b), "m" (*(volatile u8 __force *)addr)
-			     : "memory");
+  __asm__ __volatile__("stb%U1	%0, %1\n"
+		       :
+		       : "r" (b), "m" (*(volatile u8 __force *)addr)
+		       : "memory");
 }
 
 static inline void __raw_writew(u16 s, volatile void __iomem *addr)
 {
-	__asm__ __volatile__("stw%U1	%0, %1\n"
-			     :
-			     : "r" (s), "m" (*(volatile u16 __force *)addr)
-			     : "memory");
+  __asm__ __volatile__("stw%U1	%0, %1\n"
+		       :
+		       : "r" (s), "m" (*(volatile u16 __force *)addr)
+		       : "memory");
 }
 
 static inline void __raw_writel(u32 w, volatile void __iomem *addr)
 {
-	__asm__ __volatile__("st%U1	%0, %1\n"
-			     :
-			     : "r" (w), "m" (*(volatile u32 __force *)addr)
-			     : "memory");
+  __asm__ __volatile__("st%U1	%0, %1\n"
+		       :
+		       : "r" (w), "m" (*(volatile u32 __force *)addr)
+		       : "memory");
 }
 
 #define writeb __raw_writeb
@@ -90,74 +90,74 @@ static inline void __raw_writel(u32 w, volatile void __iomem *addr)
 
 static inline int __raw_readsb(unsigned int addr, void *data, int bytelen)
 {
-	__asm__ __volatile__ ("1:ld.di	r8, [r0]\n"
-			      "sub.f	r2, r2, 1\n"
-			      "bnz.d	1b\n"
-			      "stb.ab	r8, [r1, 1]\n"
-			      :
-			      : "r" (addr), "r" (data), "r" (bytelen)
-			      : "r8");
-	return bytelen;
+  __asm__ __volatile__ ("1:ld.di	r8, [r0]\n"
+			"sub.f	r2, r2, 1\n"
+			"bnz.d	1b\n"
+			"stb.ab	r8, [r1, 1]\n"
+			:
+			: "r" (addr), "r" (data), "r" (bytelen)
+			: "r8");
+  return bytelen;
 }
 
 static inline int __raw_readsw(unsigned int addr, void *data, int wordlen)
 {
-	__asm__ __volatile__ ("1:ld.di	r8, [r0]\n"
-			      "sub.f	r2, r2, 1\n"
-			      "bnz.d	1b\n"
-			      "stw.ab	r8, [r1, 2]\n"
-			      :
-			      : "r" (addr), "r" (data), "r" (wordlen)
-			      : "r8");
-	return wordlen;
+  __asm__ __volatile__ ("1:ld.di	r8, [r0]\n"
+			"sub.f	r2, r2, 1\n"
+			"bnz.d	1b\n"
+			"stw.ab	r8, [r1, 2]\n"
+			:
+			: "r" (addr), "r" (data), "r" (wordlen)
+			: "r8");
+  return wordlen;
 }
 
 static inline int __raw_readsl(unsigned int addr, void *data, int longlen)
 {
-	__asm__ __volatile__ ("1:ld.di	r8, [r0]\n"
-			      "sub.f	r2, r2, 1\n"
-			      "bnz.d	1b\n"
-			      "st.ab	r8, [r1, 4]\n"
-			      :
-			      : "r" (addr), "r" (data), "r" (longlen)
-			      : "r8");
-	return longlen;
+  __asm__ __volatile__ ("1:ld.di	r8, [r0]\n"
+			"sub.f	r2, r2, 1\n"
+			"bnz.d	1b\n"
+			"st.ab	r8, [r1, 4]\n"
+			:
+			: "r" (addr), "r" (data), "r" (longlen)
+			: "r8");
+  return longlen;
 }
 
 static inline int __raw_writesb(unsigned int addr, void *data, int bytelen)
 {
-	__asm__ __volatile__ ("1:ldb.ab	r8, [r1, 1]\n"
-			      "sub.f	r2, r2, 1\n"
-			      "bnz.d	1b\n"
-			      "st.di	r8, [r0, 0]\n"
-			      :
-			      : "r" (addr), "r" (data), "r" (bytelen)
-			      : "r8");
-	return bytelen;
+  __asm__ __volatile__ ("1:ldb.ab	r8, [r1, 1]\n"
+			"sub.f	r2, r2, 1\n"
+			"bnz.d	1b\n"
+			"st.di	r8, [r0, 0]\n"
+			:
+			: "r" (addr), "r" (data), "r" (bytelen)
+			: "r8");
+  return bytelen;
 }
 
 static inline int __raw_writesw(unsigned int addr, void *data, int wordlen)
 {
-	__asm__ __volatile__ ("1:ldw.ab	r8, [r1, 2]\n"
-			      "sub.f	r2, r2, 1\n"
-			      "bnz.d	1b\n"
-			      "st.ab.di	r8, [r0, 0]\n"
-			      :
-			      : "r" (addr), "r" (data), "r" (wordlen)
-			      : "r8");
-	return wordlen;
+  __asm__ __volatile__ ("1:ldw.ab	r8, [r1, 2]\n"
+			"sub.f	r2, r2, 1\n"
+			"bnz.d	1b\n"
+			"st.ab.di	r8, [r0, 0]\n"
+			:
+			: "r" (addr), "r" (data), "r" (wordlen)
+			: "r8");
+  return wordlen;
 }
 
 static inline int __raw_writesl(unsigned int addr, void *data, int longlen)
 {
-	__asm__ __volatile__ ("1:ld.ab	r8, [r1, 4]\n"
-			      "sub.f	r2, r2, 1\n"
-			      "bnz.d	1b\n"
-			      "st.ab.di	r8, [r0, 0]\n"
-			      :
-			      : "r" (addr), "r" (data), "r" (longlen)
-			      : "r8");
-	return longlen;
+  __asm__ __volatile__ ("1:ld.ab	r8, [r1, 4]\n"
+			"sub.f	r2, r2, 1\n"
+			"bnz.d	1b\n"
+			"st.ab.di	r8, [r0, 0]\n"
+			:
+			: "r" (addr), "r" (data), "r" (longlen)
+			: "r8");
+  return longlen;
 }
 
 #define out_arch(type, endian, a, v)	__raw_write##type(cpu_to_##endian(v), a)
@@ -186,14 +186,14 @@ static inline int __raw_writesl(unsigned int addr, void *data, int longlen)
  * in the 'set' parameter.
  */
 
-#define clrbits(type, addr, clear) \
-	out_##type((addr), in_##type(addr) & ~(clear))
+#define clrbits(type, addr, clear)			\
+  out_##type((addr), in_##type(addr) & ~(clear))
 
-#define setbits(type, addr, set) \
-	out_##type((addr), in_##type(addr) | (set))
+#define setbits(type, addr, set)		\
+  out_##type((addr), in_##type(addr) | (set))
 
-#define clrsetbits(type, addr, clear, set) \
-	out_##type((addr), (in_##type(addr) & ~(clear)) | (set))
+#define clrsetbits(type, addr, clear, set)			\
+  out_##type((addr), (in_##type(addr) & ~(clear)) | (set))
 
 #define clrbits_be32(addr, clear) clrbits(be32, addr, clear)
 #define setbits_be32(addr, set) setbits(be32, addr, set)
