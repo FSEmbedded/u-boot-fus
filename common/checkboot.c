@@ -63,18 +63,18 @@ u32 CheckUBoot(ulong addr)
       current_addr++;
     }
 
-  //	ivt_addr = (u32*) (download_addr + ((CONFIG_UBOOTNB0_SIZE)-0x4 - 0xA1));
-  ivt_addr = (u32*) (download_addr + ((CONFIG_UBOOTNB0_SIZE)-0x4));
-  csf_addr = (u8*) (ivt_addr[0] + download_addr);
-
-  //ivt_addr = (u32*)(download_addr + CONFIG_UBOOTNB0_SIZE - 0x20A0);
-  //ivt_addr = (u32*)(download_addr + CONFIG_UBOOTNB0_SIZE - 0x1030);
-  //ivt_addr = (u32*)(download_addr + CONFIG_UBOOTNB0_SIZE - 0xF48);
-
-  //csf_addr = ivt_addr;
-
-  //printf("\n UBoot Check... %x: %x\n",csf_addr, *csf_addr);
-
+   if(IS_UBOOT(addr))
+    {
+  
+      ivt_addr = (u32*) (addr + ((CONFIG_UBOOTNB0_SIZE)-0x4));
+      csf_addr = (u8*) (ivt_addr[0] + addr);
+     
+    }else if(IS_UBOOT_IVT(addr))
+    {
+      ivt_addr = (u32*) (addr);
+      csf_addr = (u8*) (ivt_addr[6]);
+    }
+   
   /* check functions  */
   size_t size_image = (size_t) CONFIG_UBOOTNB0_SIZE;
   hab->entry();
@@ -125,17 +125,20 @@ int Init_HAB(ulong addr)
   ulong size_offset = NULL;
 
   /* old addresses (without encryption)  */
+  if(IS_UBOOT(addr))
+    {
+  
+      ivt_addr = (u32*) (addr + ((CONFIG_UBOOTNB0_SIZE)-0x4));
+      csf_addr = (u8*) (ivt_addr[0] + addr);
+      csf_val = *csf_addr;
 
-  ivt_addr = (u32*) (addr + ((CONFIG_UBOOTNB0_SIZE)-0x4));
-  csf_addr = (u8*) (ivt_addr[0] + addr);
-  csf_val = *csf_addr;
-
-  /* new addresses (with encryption, temporarily)  */
-  //ivt_addr = (u32*)(download_addr + CONFIG_UBOOTNB0_SIZE - 0x1030);
-  //ivt_addr = (u32*)(download_addr + CONFIG_UBOOTNB0_SIZE - 0xF48);
-  //ivt_addr = (u32*)(addr + CONFIG_UBOOTNB0_SIZE - 0x20A0);
-  //ivt_addr = (u32*)(addr + CONFIG_UBOOTNB0_SIZE - 0x1030);
-
+    }else if(IS_UBOOT_IVT(addr))
+    {
+      ivt_addr = (u32*) (addr);
+      csf_addr = (u8*) (ivt_addr[6]);
+      csf_val = *csf_addr;
+      printf("\ncsf_val = %x, csf_addr = %x\n\n", csf_val, csf_addr);
+    }
   if(csf_val == vgl)
     {
       printf("\n Boot-Image with CSF-File\n");
