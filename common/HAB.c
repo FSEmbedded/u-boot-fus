@@ -49,7 +49,7 @@ void GetHABStatus(void)
     }
 #endif
 #ifdef HAB_RVT_VYBRID
-  struct rvt *hab = (struct rvt*) 0x00000054;
+  hab = (struct rvt*) 0x00000054;
 #endif
 
   uint32_t index = 0; // Loop index

@@ -215,6 +215,7 @@ obj-$(CONFIG_XLCD_JPG) += xlcd_jpg.o
 # Security ojbects
 obj-$(CONFIG_SECURITY_HAB) += HAB.o
 obj-$(CONFIG_SECURITY_HAB) += checkboot.o
+obj-$(CONFIG_SECURITY_HAB) += ivt.o
 
 # others
 obj-$(CONFIG_BOOTSTAGE) += bootstage.o
@@ -284,5 +285,6 @@ obj-$(CONFIG_FIT_SIGNATURE) += image-sig.o
 obj-$(CONFIG_IO_TRACE) += iotrace.o
 obj-y += memsize.o
 obj-y += stdio.o
+
 
 CFLAGS_env_embedded.o := -Wa,--no-warn -DENV_CRC=$(shell tools/envcrc 2>/dev/null)

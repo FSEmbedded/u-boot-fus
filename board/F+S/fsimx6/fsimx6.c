@@ -801,7 +801,7 @@ int board_late_init(void)
 
 	/* init CAAM Module  */
 
-	hab_caam_clock_enable(1);
+	//hab_caam_clock_enable(1);
 
 	
 	return 0;

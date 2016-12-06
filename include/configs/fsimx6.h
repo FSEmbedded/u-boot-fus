@@ -103,10 +103,6 @@
 #endif
 #define CONFIG_UBOOTNB0_SIZE 0x80000	/* Size of uboot.nb0 */
 
-/* UBoot IVT defines (so tftp recognizes the uboot with ivt)  */
-#define IS_UBOOT(pAddr)      (*(u32*)(pAddr + 0x3c) == 0x12345678)
-#define IS_UBOOT_IVT(pAddr)  (*(u32*)(pAddr + 0x5c) == 0x12345678)
-
 #else
 /* For old NBoot < VN20, the U-Boot size is not fix. Use make uboot-fsimx6.nb0
    to build. There we prepend a fix header (fsheader.data) of size 0x720 to

@@ -32,6 +32,7 @@
 /* for HAB use  */
 #ifdef CONFIG_SECURITY_HAB
 #include <checkboot.h>
+#include <ivt.h>
 #include <asm/arch/clock.h>
 #endif
 
@@ -761,9 +762,11 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	  /* HAB  */
 #ifdef CONFIG_SECURITY_HAB
 
+#ifndef CONFIG_FSVYBRID	  
 	  hab_caam_clock_enable(1);
-	  UBoot_ok = CheckIfUBoot(argc - 3, argv + 3, &dev, &off, &size, &maxsize, addr);
 #endif
+	  UBoot_ok = CheckIfUBoot(argc - 3, argv + 3, &dev, &off, &size, &maxsize, addr);
+
 	  if(UBoot_ok == 1)
 	    {
 	      ret = nand_write_skip_bad(nand, off, &rwsize,
@@ -774,6 +777,7 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	    {
 	      ret = 1;
 	    }
+#endif 
 	}
 #ifdef CONFIG_CMD_NAND_TRIMFFS
     } else if (!strcmp(s, ".trimffs")) {
@@ -1025,16 +1029,19 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
   if (show)
     bootstage_mark(BOOTSTAGE_ID_NAND_HDR_READ);
 
-  switch (genimg_get_format ((void *)addr)) {
+#ifdef CONFIG_SECURITY_HAB
+  addr += BOOT_OFFS;
+#endif
+   switch (genimg_get_format ((void *)addr)) {
 #if defined(CONFIG_IMAGE_FORMAT_LEGACY)
   case IMAGE_FORMAT_LEGACY:
     hdr = (image_header_t *)addr;
-
+  
     if (show)
       bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
     image_print_contents (hdr);
-
-    cnt = image_get_image_size (hdr);
+    ivt_header_t *ivt = (ivt_header_t*)((addr - BOOT_OFFS));
+    cnt = (size_t) (ivt->boot_data->length);
     break;
 #endif
   case IMAGE_FORMAT_ZIMAGE:
@@ -1046,7 +1053,6 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
   case IMAGE_FORMAT_FIT:
     fit_hdr = (const void *)addr;
     puts ("Fit image detected...\n");
-
     cnt = fit_get_size (fit_hdr);
     break;
 #endif
@@ -1058,7 +1064,10 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
   }
   if (show)
     bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
-
+#ifdef CONFIG_SECURITY_HAB
+  addr -= BOOT_OFFS;
+#endif
+  
   r = nand_read_skip_bad(nand, offset, &cnt, NULL, nand->size,
 			 (u_char *)addr);
   if (r) {
@@ -1133,10 +1142,13 @@ static int do_nandboot(cmd_tbl_t *cmdtp, int flag, int argc,
 	bootstage_error(BOOTSTAGE_ID_NAND_SUFFIX);
 	return CMD_RET_USAGE;
       }
-      if (argc == 3)
+      if (argc == 3){
 	addr = parse_loadaddr(argv[1], NULL);
-      else
+	printf("\n ###debug over9000###\n");
+      }
+      else{
 	addr = get_loadaddr();
+      }
       return nand_load_image_boot(cmdtp, dev->id->num,
 				  part->offset, addr, argv[0]);
     }

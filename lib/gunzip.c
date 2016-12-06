@@ -62,7 +62,6 @@ int gunzip(void *dst, int dstlen, unsigned char *src, unsigned long *lenp)
 		puts ("Error: gunzip out of data in header\n");
 		return (-1);
 	}
-
 	return zunzip(dst, dstlen, src, lenp, 1, i);
 }
 

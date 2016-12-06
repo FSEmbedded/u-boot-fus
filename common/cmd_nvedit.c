@@ -350,7 +350,7 @@ void set_loadaddr(ulong addr)
 {
 	if (addr != load_addr) {
 		load_addr = addr;
-		setenv_hex("loadaddr", addr);
+			setenv_hex("loadaddr", addr);
 	}
 }
 
@@ -727,8 +727,10 @@ ulong get_loadaddr(void)
 /* If string starts with '.', return current load_addr, else parse address */
 ulong parse_loadaddr_base(const char *buffer, char ** endp, int base)
 {
-	if (*buffer != '.')
-		return simple_strtoul(buffer, endp, base);
+  if (*buffer != '.'){
+
+    return simple_strtoul(buffer, endp, base);
+  }
 	if (endp)
 		*endp = (char *)(buffer + 1);
 	return load_addr;

@@ -333,11 +333,9 @@ static void print_hdr_v2(struct imx_header *imx_hdr)
 	genimg_print_size(hdr_v2->boot_data.size);
 	printf("Load Address: %08x\n", (uint32_t)fhdr_v2->boot_data_ptr);
 	printf("Entry Point:  %08x\n", (uint32_t)fhdr_v2->entry);
-	/* HAB to print the HAB Blocks  */
-	//  if (fhdr_v2->csf && (imximage_ivt_offset != UNDEFINED) &&
-	  //  (imximage_csf_size != UNDEFINED)) {
-	 if(1){
-	printf("HAB Blocks:   %08x %08x %08x\n",
+	if (fhdr_v2->csf && (imximage_ivt_offset != UNDEFINED) &&
+	    (imximage_csf_size != UNDEFINED)) {
+		printf("HAB Blocks:   %08x %08x %08x\n",
 		       (uint32_t)fhdr_v2->self, 0,
 		       hdr_v2->boot_data.size - imximage_ivt_offset -
 		       imximage_csf_size);

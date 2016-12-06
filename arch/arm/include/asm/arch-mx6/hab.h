@@ -73,7 +73,7 @@ typedef void hapi_clock_init_t(void);
 #define HAB_RVT_EXIT_NEW                       (*(uint32_t *)0x000000A0)
 
 /* testwise CAAM enabeld  */
-#define HAB_ENG_CAAM    0x1d   /* CAAM */
+//#define HAB_ENG_CAAM    0x1d   /* CAAM */
 
 
 #define HAB_CID_ROM 0 /**< ROM Caller ID */

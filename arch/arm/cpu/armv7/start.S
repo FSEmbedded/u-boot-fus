@@ -68,7 +68,7 @@ reset:
 	bl	cpu_init_crit
 #endif
 
-  //#####HK Vybrid
+ #if 0 //#####HK Vybrid
 	/* #####HK: Send character to UART ###### */
 	//ldr	r0, =0x40028007		/* UART1 */
 	ldr	r0, =0x21e8040		/* UART1 */
@@ -80,7 +80,7 @@ reset:
 9:	subs	r0, r0,#1
 	bne	9b
 	/* ########### */
- //#####HK
+#endif  //#####HK
 
 	bl	_main
 
