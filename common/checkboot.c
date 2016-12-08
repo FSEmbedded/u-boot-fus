@@ -79,14 +79,29 @@ u32 CheckUBoot(ulong addr)
   /* check functions  */
   size_t size_image = (size_t) CONFIG_UBOOTNB0_SIZE;
   hab->entry();
-  t=hab->run_csf(csf_addr,cid);
-  if(t == HAB_SUCCESS)
+  if(IS_UBOOT(download_addr))
     {
-      t = hab->check_target(HAB_TGT_MEMORY, (void*) download_addr, size_image);
+      t=hab->run_csf(csf_addr,cid);
       if(t == HAB_SUCCESS)
 	{
-	  j = HAB_SUCCESS;
+	  t = hab->check_target(HAB_TGT_MEMORY, (void*) download_addr, size_image);
+	  if(t == HAB_SUCCESS)
+	    {
+	      j = HAB_SUCCESS;
+	    }
 	}
+    }else if(IS_UBOOT_IVT(download_addr))
+    {
+      ptrdiff_t ivt_offset = 0x0;
+      size_t bytes = (size_t)CONFIG_UBOOTNB0_SIZE;
+      ivt_header_t* ivt = (ivt_header_t*)ivt_addr;
+
+      t = hab->authenticate_image(0, ivt_offset, (void**)&ivt_addr, (size_t*)&bytes, NULL);
+
+      if(t == (u32)ivt->entry)
+	j = HAB_SUCCESS;
+      else
+	j = HAB_FAILURE;
     }
   hab->exit();
 #ifdef HAB_RVT_iMX6 
@@ -265,34 +280,41 @@ int checkTarget(u32 addr, size_t bytes, const char* image)
 #endif
 
   u8 *csf_addr;
+  u32 * ivt_addr;
   u8 csf_val;
   u8 check_val = 0xd4;
   u32 hab_state;
-  //ptrdiff_t ivt_offset = 0x0;
-  ivt_header_t* ivt = (ivt_header_t*)(addr);
-
-  //ivt_addr = ivt->self;
+  ptrdiff_t ivt_offset = 0x0;
+  ivt_header_t* ivt = (ivt_header_t*)((u32)KERNEL_CHECK_ADDR);
+  ivt_addr = ivt->self;
   csf_addr = (u8*)ivt->csf;
   csf_val = *csf_addr;
   if(csf_val == check_val)
     {
       printf("\n>>> %s Image with CSF-File <<<\n", image);
       hab->entry();
-      //      hab_state = hab->authenticate_image(0, ivt_offset, (void**)&ivt_addr, (size_t*)&bytes, NULL);
-      hab_state = hab->run_csf(csf_addr, 0);
+      hab_state = hab->authenticate_image(0, ivt_offset, (void**)&ivt_addr, (size_t*)&bytes, NULL);
+      //hab_state = hab->run_csf(csf_addr, 0);
       hab->exit();
-      if(hab_state != HAB_SUCCESS)
+      if(hab_state == HAB_SUCCESS || hab_state == (u32)ivt->entry)
 	{
 	  GetHABStatus();
-	  return -1;
-	}else if(hab_state == HAB_SUCCESS)
-	{
-	  printf("\n%s Image: successfully tested!\n\n", image);
+	  printf("%s Image: successfully tested!\n\n", image);
 	  return 0;
+	}
+      else if(hab_state != HAB_SUCCESS)
+	{
+	  GetHABStatus();
+	  printf("\n%s Image: test failed!\n\n", image);
+	  return -1;
 	}else
 	{
+	  printf("\n%s Image: test failed!\n\n", image);
 	  return -1;
 	}
+    }else
+    {
+      printf("\n%s Image: test failed!\n\n", image);
+      return -1;
     }
-  return -1;
 }

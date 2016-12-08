@@ -585,24 +585,38 @@ int do_bootm_states(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
   boot_os_fn *boot_fn;
   ulong iflag = 0;
   int ret = 0, need_boot_fn;
-
+  
   images->state |= states;
-
+#if 0
 #ifdef CONFIG_SECURITY_HAB
-
   if(IS_KERNEL(parse_loadaddr(argv[0], NULL)))
     {
       u32 * kernel_check_addr =(u32*) 0x10800000;
+      int offset = 0;
       ivt_header_t* ivt = (ivt_header_t*)(parse_loadaddr(argv[0], NULL));
-      boot_data_t *data = ivt->boot_data;
+      if((int)ivt->self - (int)(parse_loadaddr(argv[0], NULL)) < 0)
+	{
+	  offset = (int)(parse_loadaddr(argv[0], NULL) - (int)ivt->self);
+	}else if((int)ivt->self - (int)(parse_loadaddr(argv[0], NULL)) > 0)
+	  {
+	    offset = (int)ivt->self - (int)(parse_loadaddr(argv[0], NULL));
+	  }else 
+	     {
+	     }
+	  //int offset = (int)((int)parse_loadaddr(argv[0],NULL) - (int)ivt->self);
+      boot_data_t *data = (boot_data_t*)((u32)ivt->boot_data + offset);
       u32 length =  data->length;
       memExchange(parse_loadaddr(argv[0], NULL),(u32) kernel_check_addr, length);
       
-      ret = handleIVT(parse_loadaddr(argv[0], NULL), 0, 0, 0);
+      if(parse_loadaddr(argv[0], NULL) != (u32) kernel_check_addr)
+	ret = handleIVT((u32)kernel_check_addr, 0, 0, 0, length);
+      else
+	ret = handleIVT(parse_loadaddr(argv[0], NULL), 0, 0, 0, length);
+      
       removeHABHeader(parse_loadaddr(argv[0], NULL), length);
 
-  if(ret)
-    return -1;
+      if(ret)
+	return -1;
     }else
     {
       printf("\n ERROR: uImage without HAB Header!\n");
@@ -610,7 +624,7 @@ int do_bootm_states(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
       return -1;
     }
 #endif
-
+#endif
   
   /*
    * Work through the states and see how far we get. We stop on
@@ -829,9 +843,33 @@ static const void *boot_get_kernel(cmd_tbl_t *cmdtp, int flag, int argc,
   }
   bootstage_mark(BOOTSTAGE_ID_CHECK_MAGIC);
 
+  /* bitch hier geht's weiter. hier KERNEL ÜBERPRÜFUNG  */
+
+#ifdef CONFIG_SECURITY_HAB
+  if(IS_KERNEL(img_addr))
+    {
+      ivt_header_t *ivt = (ivt_header_t*)(img_addr);
+      unsigned long offset = (unsigned long)img_addr - (unsigned long)ivt->self;
+      boot_data_t *data = (boot_data_t*)((unsigned long)ivt->boot_data + offset);
+      u32 length = data->length;
+      int ret;
+      ret = handleIVT((u32)img_addr, 0, 0, 0, length);
+      if(ret)
+	return (void*)-1;
+    }else
+    {
+      printf("\n ERROR: uImage without HAB Header!\n");
+      printf("\n Aborting.....\n");
+      return (void*)-1;
+    }
+  
+#endif
+  
   /* copy from dataflash if needed */
   img_addr = genimg_get_image(img_addr);
   /* check image type, for FIT images get FIT kernel node */
+
+  
   *os_data = *os_len = 0;
   buf = map_sysmem(img_addr, 0);
   switch (genimg_get_format(buf)) {

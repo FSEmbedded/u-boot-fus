@@ -758,27 +758,46 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 				 (u_char *)addr);
       else
 	{
-	  int UBoot_ok = 0;
+	  int Check_ok = 0;
+
 	  /* HAB  */
 #ifdef CONFIG_SECURITY_HAB
 
 #ifndef CONFIG_FSVYBRID	  
 	  hab_caam_clock_enable(1);
 #endif
-	  UBoot_ok = CheckIfUBoot(argc - 3, argv + 3, &dev, &off, &size, &maxsize, addr);
+	  if(IS_UBOOT_IVT(addr))
+	    {
+	      Check_ok = CheckIfUBoot(argc - 3, argv + 3, &dev, &off, &size, &maxsize, addr);
+	    }else if(IS_KERNEL(addr))
+	    {
+	      int ret;
+	      ivt_header_t* ivt = (ivt_header_t*)((u32)addr);
+	      signed long offset = (signed long)((signed long)addr - (signed long)ivt->self);
+	      boot_data_t *data = (boot_data_t*)((u32)ivt->boot_data + offset);
+	      u32 kernel_length = data->length;
+	      ret = makeSaveCopy(addr, kernel_length);
+	      if(!ret == 0)
+		return ret;
 
-	  if(UBoot_ok == 1)
+	      Check_ok = handleIVT(addr, argc, &off, &size, kernel_length);
+
+	      ret = getSaveCopy(addr, kernel_length);
+	      if(!ret == 0)
+		return ret;
+	    }
+	  if(Check_ok == 1)
 	    {
 	      ret = nand_write_skip_bad(nand, off, &rwsize,
 					NULL, maxsize,
 					(u_char *)addr, 0);
-
+		 
 	    }else
 	    {
 	      ret = 1;
 	    }
 #endif 
-	}
+	     }
 #ifdef CONFIG_CMD_NAND_TRIMFFS
     } else if (!strcmp(s, ".trimffs")) {
       if (read) {
@@ -1041,7 +1060,26 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
       bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
     image_print_contents (hdr);
     ivt_header_t *ivt = (ivt_header_t*)((addr - BOOT_OFFS));
-    cnt = (size_t) (ivt->boot_data->length);
+#if 0
+    if(((int)ivt->self - (int)addr) < 0)
+      {
+	int offset = (int)((int)addr - (int)ivt->self - (int)BOOT_OFFS);
+	boot_data_t *data = (boot_data_t*)((u32)ivt->boot_data + offset);
+	cnt = (size_t) (data->length);
+      }else if(((int)ivt->self - (int)addr) > 0)
+      {
+	int offset = (int)((int)ivt->self - (int)addr - (int)BOOT_OFFS);
+	boot_data_t *data = (boot_data_t*)((u32)ivt->boot_data + offset);
+	cnt = (size_t) (data->length);
+      }else 
+      {
+	cnt = (size_t)(ivt->boot_data->length);
+      }
+#endif
+
+    unsigned long offset = (unsigned long)addr - (unsigned long)ivt->self - (unsigned long)BOOT_OFFS;
+    boot_data_t *data = (boot_data_t*)((unsigned long)ivt->boot_data + offset);
+    cnt = (size_t) (data->length);
     break;
 #endif
   case IMAGE_FORMAT_ZIMAGE:
@@ -1144,7 +1182,6 @@ static int do_nandboot(cmd_tbl_t *cmdtp, int flag, int argc,
       }
       if (argc == 3){
 	addr = parse_loadaddr(argv[1], NULL);
-	printf("\n ###debug over9000###\n");
       }
       else{
 	addr = get_loadaddr();

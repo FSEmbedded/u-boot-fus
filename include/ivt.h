@@ -13,7 +13,7 @@
 typedef struct boot_data {
   u32*            start;        /* start of image in RAM                            */
   u32             length;       /* length of complete image                         */
-  u32             plugin_falg;  /* plugin flag                                      */
+  u32             plugin_flag;  /* plugin flag                                      */
   u32*            reserved1;    /* reserved 1 pointer (free to use)                 */
   u32*            reserved2;    /* reserved 2 pointer (free to use)                 */
   u32*            reserved3;    /* reserved 3 pointer (free to use)                 */
@@ -34,8 +34,10 @@ typedef struct ivt_header {
 
 
 
-int handleIVT(u32 addr, int argc, loff_t *off, loff_t *size);
+int handleIVT(u32 addr, int argc, loff_t *off, loff_t *size, u32 length);
 void memExchange(u32 srcaddr, u32 dstaddr, u32 length);
 void removeHABHeader(u32 addr, u32 length);
+int makeSaveCopy(u32 srcaddr, u32 length);
+int getSaveCopy(u32 srcaddr, u32 length);
 
 #endif /*__IVT_H__*/
