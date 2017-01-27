@@ -12,7 +12,7 @@
  *
  * The following addresses are given as offsets of the device.
  *
- * NAND flash layout with separate Kernel MTD partition
+ * NAND flash layout with separate Kernel MTD partition 
  * -------------------------------------------------------------------------
  * 0x0000_0000 - 0x0001_FFFF: NBoot: NBoot image, primary copy (128KB)
  * 0x0002_0000 - 0x0003_FFFF: NBoot: NBoot image, secondary copy (128KB)
@@ -96,13 +96,8 @@
 #if 1
 /* For new NBoot >= VN20, use make to build */
 //#define CONFIG_SYS_TEXT_BASE 0x27800000	/* Where NBoot loads U-Boot */
-#if 0 //###def CONFIG_SECURITY_HAB
-#define CONFIG_SYS_TEXT_BASE 0x10100020	/* Where NBoot loads U-Boot */
-#else
 #define CONFIG_SYS_TEXT_BASE 0x10100000	/* Where NBoot loads U-Boot */
-#endif
 #define CONFIG_UBOOTNB0_SIZE 0x80000	/* Size of uboot.nb0 */
-
 #else
 /* For old NBoot < VN20, the U-Boot size is not fix. Use make uboot-fsimx6.nb0
    to build. There we prepend a fix header (fsheader.data) of size 0x720 to
@@ -386,7 +381,7 @@
 #undef CONFIG_CMD_CPLBINFO	/* No display of PPC CPLB tables */
 #undef CONFIG_CMD_CRAMFS	/* No support for CRAMFS filesystem */
 #undef CONFIG_CMD_DATE		/* No date command */
-#undef CONFIG_CMD_DFU		/* No support for device firmware update */
+#undef CONFIG_CMD_DFU		/* No support for device firmware update */ 
 #define CONFIG_CMD_DHCP		/* Support TFTP boot after DHCP request */
 #undef CONFIG_CMD_DIAG		/* No support for board selftest */
 #undef CONFIG_CMD_DNS		/* No lookup of IP via a DNS name server */
@@ -720,10 +715,8 @@
 #define HAB_RVT_iMX6
 #define CONFIG_FSL_CAAM
 #define CONFIG_SECURE_BOOT
-//#define CONFIG_SYS_FSL_SEC_COMPAT 5
 #define CONFIG_SYS_FSL_SEC_COMPAT
 #define CONFIG_CMD_DEKBLOB
 #define CONFIG_SYS_FSL_SEC_LE
-
 
 #endif /* !__FSIMX6_CONFIG_H */

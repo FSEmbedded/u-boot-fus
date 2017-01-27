@@ -108,5 +108,4 @@ struct result {
 
 void caam_jr_strstatus(u32 status);
 int run_descriptor_jr(uint32_t *desc);
-
 #endif

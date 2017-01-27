@@ -12,7 +12,7 @@
  *
  * The following addresses are given as offsets of the device.
  *
- * NAND flash layout with separate Kernel/FDT MTD partition 
+ * NAND flash layout with separate Kernel/FDT MTD partition
  * -------------------------------------------------------------------------
  * 0x0000_0000 - 0x0001_FFFF: NBoot: NBoot image, primary copy (128KB)
  * 0x0002_0000 - 0x0003_FFFF: NBoot: NBoot image, secondary copy (128KB)
@@ -381,7 +381,7 @@
 #undef CONFIG_CMD_CPLBINFO	/* No display of PPC CPLB tables */
 #undef CONFIG_CMD_CRAMFS	/* No support for CRAMFS filesystem */
 #undef CONFIG_CMD_DATE		/* No date command */
-#undef CONFIG_CMD_DFU		/* No support for device firmware update */ 
+#undef CONFIG_CMD_DFU		/* No support for device firmware update */
 #define CONFIG_CMD_DHCP		/* Support TFTP boot after DHCP request */
 #undef CONFIG_CMD_DIAG		/* No support for board selftest */
 #undef CONFIG_CMD_DNS		/* No lookup of IP via a DNS name server */
@@ -641,13 +641,13 @@
 	".kernel_nfs=setenv kernel nfs . ${serverip}:${rootpath}/${bootfile}\0" \
 	".kernel_mmc=setenv kernel mmc rescan\\\\; load mmc 0 . ${bootfile}\0" \
 	".kernel_usb=setenv kernel usb start\\\\; load usb 0 . ${bootfile}\0" \
-        "fdt=undef\0" \
-        ".fdt_none=setenv fdt bootm\0" \
-        ".fdt_nand=setenv fdt nand read 81000000 FDT" BOOT_WITH_FDT \
-        ".fdt_tftp=setenv fdt tftpboot 81000000 ${bootfdt}" BOOT_WITH_FDT \
-        ".fdt_nfs=setenv fdt nfs 81000000 ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT \
-        ".fdt_mmc=setenv fdt mmc rescan\\\\; load mmc 0 81000000 ${bootfdt}" BOOT_WITH_FDT \
-        ".fdt_usb=setenv fdt usb start\\\\; load usb 0 81000000 ${bootfdt}" BOOT_WITH_FDT \
+	"fdt=undef\0" \
+	".fdt_none=setenv fdt bootm\0" \
+	".fdt_nand=setenv fdt nand read 81000000 FDT" BOOT_WITH_FDT \
+	".fdt_tftp=setenv fdt tftpboot 81000000 ${bootfdt}" BOOT_WITH_FDT \
+	".fdt_nfs=setenv fdt nfs 81000000 ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT \
+	".fdt_mmc=setenv fdt mmc rescan\\\\; load mmc 0 81000000 ${bootfdt}" BOOT_WITH_FDT \
+	".fdt_usb=setenv fdt usb start\\\\; load usb 0 81000000 ${bootfdt}" BOOT_WITH_FDT \
 	EXTRA_UBI \
 	"mode=undef\0" \
 	".mode_rw=setenv mode rw\0" \
@@ -708,5 +708,16 @@
 #define CONFIG_USE_ARCH_MEMMOVE
 #define CONFIG_USE_ARCH_MEMSET
 #define CONFIG_USE_ARCH_MEMSET32
+
+/*************************************************************************
+ * Security include
+ ************************************************************************/
+#define CONFIG_SECURITY_HAB
+#define HAB_RVT_iMX6
+#define CONFIG_FSL_CAAM
+#define CONFIG_SECURE_BOOT
+#define CONFIG_SYS_FSL_SEC_COMPAT
+#define CONFIG_CMD_DEKBLOB
+#define CONFIG_SYS_FSL_SEC_LE
 
 #endif /* !__FSIMX6SX_CONFIG_H */

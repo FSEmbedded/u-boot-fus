@@ -4,12 +4,27 @@
 #include <common.h>
 #include <HAB.h>
 #include <image.h>
-#include <checkboot.h>  
+#include <checkboot.h>
 
-#define BOOT_DATA_OFFSET  0x20
-#define HAB_HEADER        0x40
-#define KERNEL_CHECK_ADDR 0x10800000
+#define BOOT_DATA_OFFSET   0x20
+#define HAB_HEADER         0x40
 
+#ifdef CONFIG_MX6
+#if !defined(CONFIG_DOWNLOAD_UL) || !defined(CONFIG_FSIMX6SX)
+#define UBOOT_CHECK_ADDR   0x10100000
+#define KERNEL_CHECK_ADDR  0x10800000
+#define DEVTREE_CHECK_ADDR 0x11000000
+#else
+#define UBOOT_CHECK_ADDR   0x80100000
+#define KERNEL_CHECK_ADDR  0x80800000
+#define DEVTREE_CHECK_ADDR 0x81000000
+#endif
+#endif
+#ifdef CONFIG_FSVYBRID
+#define UBOOT_CHECK_ADDR   0x80100000
+#define KERNEL_CHECK_ADDR  0x80800000
+#define DEVTREE_CHECK_ADDR 0x81000000
+#endif
 typedef struct boot_data {
   u32*            start;        /* start of image in RAM                            */
   u32             length;       /* length of complete image                         */
@@ -34,10 +49,9 @@ typedef struct ivt_header {
 
 
 
-int handleIVT(u32 addr, int argc, loff_t *off, loff_t *size, u32 length);
+int handleIVT(u32 addr, u8 is_write, loff_t *off, loff_t *size, u32 length);
 void memExchange(u32 srcaddr, u32 dstaddr, u32 length);
-void removeHABHeader(u32 addr, u32 length);
-int makeSaveCopy(u32 srcaddr, u32 length);
-int getSaveCopy(u32 srcaddr, u32 length);
+u32 makeSaveCopy(u32 srcaddr, u32 length);
+u32 getImageLength(u32 addr);
 
 #endif /*__IVT_H__*/

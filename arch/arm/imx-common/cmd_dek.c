@@ -28,24 +28,24 @@ DECLARE_GLOBAL_DATA_PTR;
  */
 static int blob_encap_dek(const u8 *src, u8 *dst, u32 len)
 {
-  int ret = 0;
-  u32 jr_size = 4;
+	int ret = 0;
+	u32 jr_size = 4;
 	
-  u32 out_jr_size = sec_in32(CONFIG_SYS_FSL_JR0_ADDR + 0x102c);
-  if (out_jr_size != jr_size) {
-    hab_caam_clock_enable(1);
-    sec_init();
-  }
+	u32 out_jr_size = sec_in32(CONFIG_SYS_FSL_JR0_ADDR + 0x102c);
+	if (out_jr_size != jr_size) {
+		hab_caam_clock_enable(1);
+		sec_init();
+	}
 
-  if (!((len == 128) | (len == 192) | (len == 256))) {
-    debug("Invalid DEK size. Valid sizes are 128, 192 and 256b\n");
-    return -1;
-  }
+	if (!((len == 128) | (len == 192) | (len == 256))) {
+		debug("Invalid DEK size. Valid sizes are 128, 192 and 256b\n");
+		return -1;
+	}
 
-  len /= 8;
-  ret = blob_dek(src, dst, len);
+	len /= 8;
+	ret = blob_dek(src, dst, len);
 
-  return ret;
+	return ret;
 }
 
 /**
@@ -60,29 +60,30 @@ static int blob_encap_dek(const u8 *src, u8 *dst, u32 len)
  */
 static int do_dek_blob(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 {
-  uint32_t src_addr, dst_addr, len;
-  uint8_t *src_ptr, *dst_ptr;
-  int ret = 0;
-  if (argc != 4)
-    return CMD_RET_USAGE;
+	uint32_t src_addr, dst_addr, len;
+	uint8_t *src_ptr, *dst_ptr;
+	int ret = 0;
+	if (argc != 4)
+		return CMD_RET_USAGE;
 
-  src_addr = simple_strtoul(argv[1], NULL, 16);
-  dst_addr = simple_strtoul(argv[2], NULL, 16);
-  len = simple_strtoul(argv[3], NULL, 10);
+		
+	src_addr = simple_strtoul(argv[1], NULL, 16);
+	dst_addr = simple_strtoul(argv[2], NULL, 16);
+	len = simple_strtoul(argv[3], NULL, 10);
 	
-  src_ptr = map_sysmem(src_addr, len/8);
-  dst_ptr = map_sysmem(dst_addr, BLOB_SIZE(len/8));
+	src_ptr = map_sysmem(src_addr, len/8);
+	dst_ptr = map_sysmem(dst_addr, BLOB_SIZE(len/8));
 
-  ret = blob_encap_dek(src_ptr, dst_ptr, len);
+	ret = blob_encap_dek(src_ptr, dst_ptr, len);
 
-  return ret;
+	return ret;
 }
 
 /***************************************************/
 static char dek_blob_help_text[] =
-  "src dst len            - Encapsulate and create blob of data\n"
-  "                         $len bits long at address $src and\n"
-  "                         store the result at address $dst.\n";
+	"src dst len            - Encapsulate and create blob of data\n"
+	"                         $len bits long at address $src and\n"
+	"                         store the result at address $dst.\n";
 
 U_BOOT_CMD(
 	   dek_blob, 4, 1, do_dek_blob,

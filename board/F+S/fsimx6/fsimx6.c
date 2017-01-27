@@ -799,11 +799,6 @@ int board_late_init(void)
 	setup_var("fdt", bi->fdt, 1);
 	setup_var("bootargs", "set_bootargs", 1);
 
-	/* init CAAM Module  */
-
-	//hab_caam_clock_enable(1);
-
-	
 	return 0;
 }
 #endif

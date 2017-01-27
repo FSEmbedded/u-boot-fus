@@ -68,21 +68,20 @@ reset:
 	bl	cpu_init_crit
 #endif
 
- #if 0 //#####HK Vybrid
+	bl	_main
+
+#if 0  //#####HK Vybrid
 	/* #####HK: Send character to UART ###### */
-	//ldr	r0, =0x40028007		/* UART1 */
-	ldr	r0, =0x21e8040		/* UART1 */
+	ldr	r0, =0x40028007		/* UART1 */
 	mov	r1, #0x46
-	str	r1, [r0]
+	strb	r1, [r0]
 	mov	r1, #0x46
-	str	r1, [r0]
+	strb	r1, [r0]
 	mov	r0, #0x01000000		/* Wait */
 9:	subs	r0, r0,#1
 	bne	9b
 	/* ########### */
-#endif  //#####HK
-
-	bl	_main
+#endif //#####HK
 
 #if 0  //#####HK Samsung
 	/* #####HK: Send character to UART ###### */

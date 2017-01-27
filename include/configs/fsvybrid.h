@@ -124,8 +124,6 @@
 #define CONFIG_UBOOTNB0_SIZE 0x60000	/* Size of uboot.nb0 */
 #define CONFIG_SYS_THUMB_BUILD		/* Build U-Boot in THUMB mode */
 
-#define IS_UBOOT(pAddr)      (*(u32*)(pAddr + 0x3c) == 0x12345678)
-#define IS_UBOOT_IVT(pAddr)  (*(u32*)(pAddr + 0x5c) == 0x12345678)
 
 /* For the default load address, use an offset of 8MB. The final kernel (after
    decompressing the zImage) must be at offset 0x8000. But if we load the

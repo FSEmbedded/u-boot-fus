@@ -697,4 +697,20 @@
 #define CONFIG_USE_ARCH_MEMSET
 #define CONFIG_USE_ARCH_MEMSET32
 
+/*************************************************************************
+ * Security include
+ ************************************************************************/
+
+#define CONFIG_DOWNLOAD_UL
+
+#define CONFIG_SECURITY_HAB
+#define HAB_RVT_iMX6
+#define CONFIG_FSL_CAAM
+#define CONFIG_SECURE_BOOT
+//#define CONFIG_SYS_FSL_SEC_COMPAT 5
+#define CONFIG_SYS_FSL_SEC_COMPAT
+#define CONFIG_CMD_DEKBLOB
+#define CONFIG_SYS_FSL_SEC_LE
+
+
 #endif /* !__FSIMX6UL_CONFIG_H */

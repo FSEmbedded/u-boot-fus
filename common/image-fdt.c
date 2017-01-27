@@ -35,7 +35,6 @@ static const image_header_t *image_get_fdt(ulong fdt_addr)
 	const image_header_t *fdt_hdr = map_sysmem(fdt_addr, 0);
 
 	image_print_contents(fdt_hdr);
-
 	puts("   Verifying Checksum ... ");
 	if (!image_check_hcrc(fdt_hdr)) {
 		fdt_error("fdt header checksum invalid");

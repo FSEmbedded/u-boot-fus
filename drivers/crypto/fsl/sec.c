@@ -15,6 +15,7 @@
  * update crypto node properties to a specified revision of the SEC
  * called with sec_rev == 0 if not on an E processor
  */
+
 #if CONFIG_SYS_FSL_SEC_COMPAT == 2 /* SEC 2.x/3.x */
 void fdt_fixup_crypto_node(void *blob, int sec_rev)
 {
