@@ -151,6 +151,7 @@ int handleIVT(u32 addr, u8 is_write, loff_t *off, loff_t *size, u32 length)
 									memExchange(addr, (u32) check_addr, length);
 								}else
 								{
+									save_addr = makeSaveCopy(addr, length);
 									memExchange(addr, (u32)check_addr, length);
 								}
 
@@ -162,7 +163,7 @@ int handleIVT(u32 addr, u8 is_write, loff_t *off, loff_t *size, u32 length)
 									memExchange(save_addr, addr, length);
 								}else
 								{
-									/*memExchange((u32)check_addr, addr, length);*/
+									memExchange(save_addr, addr, length);
 								}
 						}else
 						{
