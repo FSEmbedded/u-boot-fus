@@ -23,13 +23,13 @@
 #include <config.h>
 
 
-/* 
+/*
    Function:    checkTarget
-   
+
    Parameters:  ivtAddr (start address of the IVT)
-   
+
    Return:      hab_status_t (return of the HAB functions [HAB_SUCCESS, ...])
-   
+
    Content:     Checks the image, based on the address given to the function.
 
 */
@@ -60,7 +60,7 @@ int checkTarget(u32 addr, size_t bytes, const char* image)
 	hab = (struct rvt*)0x00000054;
 #endif
 
-  
+
 	u8 *csf_addr;
 	u32 * ivt_addr;
 	u8 csf_val;
@@ -70,39 +70,38 @@ int checkTarget(u32 addr, size_t bytes, const char* image)
 	ivt_header_t* ivt;// = (ivt_header_t*)((u32)KERNEL_CHECK_ADDR);
 
 	if(IS_KERNEL(addr))
-	  ivt = (ivt_header_t*)((u32)KERNEL_CHECK_ADDR);
+		ivt = (ivt_header_t*)((u32)KERNEL_CHECK_ADDR);
 	if(IS_DEVTREE(addr))
-	  ivt = (ivt_header_t*)((u32)DEVTREE_CHECK_ADDR);
+		ivt = (ivt_header_t*)((u32)DEVTREE_CHECK_ADDR);
 	if(IS_UBOOT_IVT(addr))
-	  {
-	    ivt = (ivt_header_t*)((u32)UBOOT_CHECK_ADDR);
-	  }
+		ivt = (ivt_header_t*)((u32)UBOOT_CHECK_ADDR);
 
-  
+
 	ivt_addr = ivt->self;
 	csf_addr = (u8*)ivt->csf;
 	csf_val = *csf_addr;
 	if(csf_val == check_val)
-	  {
-	    printf("\n>>> %s Image with CSF-File <<<\n", image);
-	    hab->entry();
-	    hab_state = hab->authenticate_image(0, ivt_offset, (void**)&ivt_addr, (size_t*)&bytes, NULL);
-	    //hab_state = hab->run_csf(csf_addr, 0);
-	    hab->exit();
-	    if(hab_state == HAB_SUCCESS || hab_state == (u32)ivt->entry)
-	      {
-		printf("%s Image: successfully tested!\n\n", image);
-		return 0;
-	      }else
-	      {
-		GetHABStatus();
-		printf("\n%s Image: test failed!\n\n", image);
-		return -1;
-	      }
-	  }else
-	  {
-	    printf("\n%s Image: test failed!\n", image);
-	    printf("\nCouldn'f find CSF file!!\n");
-	    return -1;
-	  }
+		{
+
+			printf("\n>>> %s Image with CSF-File <<<\n", image);
+			hab->entry();
+			hab_state = hab->authenticate_image(0, ivt_offset, (void**)&ivt_addr, (size_t*)&bytes, NULL);
+			//hab_state = hab->run_csf(csf_addr, 0);
+			hab->exit();
+			if(hab_state == HAB_SUCCESS || hab_state == (u32)ivt->entry)
+				{
+					printf("%s Image: successfully tested!\n\n", image);
+					return 0;
+				}else
+				{
+					GetHABStatus();
+					printf("\n%s Image: test failed!\n\n", image);
+					return -1;
+				}
+		}else
+		{
+			printf("\n%s Image: test failed!\n", image);
+			printf("\nCouldn'f find CSF file!!\n");
+			return -1;
+		}
 }
