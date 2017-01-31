@@ -223,6 +223,7 @@ u32 makeSaveCopy(u32 srcaddr, u32 length)
 			memExchange(srcaddr, (u32)saveaddr, length);
 		}else
 		{
+			memExchange(srcaddr, (u32)saveaddr, length);
 		}
 	return (u32)saveaddr;
 }
