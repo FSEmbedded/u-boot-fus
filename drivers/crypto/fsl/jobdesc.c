@@ -93,7 +93,6 @@ int caam_page_alloc(uint8_t page_num, uint8_t partition_num)
 
 	/* if the page is not owned => problem */
 	if ((temp_reg & SMCSJR_PO) != PAGE_OWNED) {
-		printf("###debugWASWARHIER###\n");
 		printf("Allocation of page %d in partition %d failed 0x%X\n",
 		       temp_reg, page_num, partition_num);
 
@@ -270,6 +269,7 @@ void inline_cnstr_jobdesc_rng_instantiation(uint32_t *desc)
 	append_operation(desc, OP_TYPE_CLASS1_ALG | OP_ALG_ALGSEL_RNG |
 			 OP_ALG_RNG4_SK);
 }
+
 /* Change key size to bytes form bits in calling function*/
 
 void inline_cnstr_jobdesc_pkha_rsaexp(uint32_t *desc,

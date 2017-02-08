@@ -46,7 +46,6 @@ int blob_encap(u8 *key_mod, u8 *src, u8 *dst, u32 len)
 	printf("\nEncapsulating data to form blob\n");
 	desc = malloc(sizeof(int) * MAX_CAAM_DESCSIZE);
 	if (!desc) {
-		printf("\n ###debug whuuuuut###\n");
 		debug("Not enough memory for descriptor allocation\n");
 		return -1;
 	}
@@ -70,13 +69,11 @@ int blob_dek(const u8 *src, u8 *dst, u8 len)
 	u32 *desc;
 
 	int out_sz =  WRP_HDR_SIZE + len + KEY_BLOB_SIZE + MAC_SIZE;
-	debug("TEST\n");
-	puts("\nEncapsulating provided DEK to form blob\n");
-	desc = memalign(ARCH_DMA_MINALIGN, sizeof(uint32_t) * DEK_BLOB_DESCSIZE);
-	puts("\nTEST desc:");
 
+	puts("\nEncapsulating provided DEK to form blob\n");
+	desc = memalign(ARCH_DMA_MINALIGN,
+			sizeof(uint32_t) * DEK_BLOB_DESCSIZE);
 	if (!desc) {
-		printf("\n###DEBUG WAAAAS###\n");
 		debug("Not enough memory for descriptor allocation\n");
 		return -ENOMEM;
 	}

@@ -2,7 +2,7 @@
 /*
  * Filename: checkboot.c
  *
- * Description: Program to copy UBoot to DDR-RAM location
+ * Description: Contains function to check an image.
  *
  *
  *
@@ -26,9 +26,12 @@
 /*
    Function:    checkTarget
 
-   Parameters:  ivtAddr (start address of the IVT)
+   Parameters:  addr -> start address of image to be checked
+                bytes -> image length
+                image -> image name
 
-   Return:      hab_status_t (return of the HAB functions [HAB_SUCCESS, ...])
+   Return:      0 -> test successful
+                otherwise -> test unsuccessful
 
    Content:     Checks the image, based on the address given to the function.
 
