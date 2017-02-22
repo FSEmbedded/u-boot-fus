@@ -718,7 +718,7 @@ err:
 static image_header_t *image_get_kernel(ulong img_addr, int verify)
 {
 	image_header_t *hdr = (image_header_t *)img_addr;
-	
+
 	if (!image_check_magic(hdr)) {
 		puts("Bad Magic Number\n");
 		bootstage_error(BOOTSTAGE_ID_CHECK_MAGIC);

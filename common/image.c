@@ -746,26 +746,33 @@ ulong genimg_get_image(ulong img_addr)
 #endif /* CONFIG_HAS_DATAFLASH */
 
 #ifdef CONFIG_SECURITY_HAB
-
-	if(!IS_KERNEL(img_addr) && !IS_DEVTREE(img_addr))
+	if(readl(0x021BC460) & 0x00000002)
 		{
-			printf("\nERROR: No valid Kernel or DeviceTree!!\n");
-			return 1;
-		}
-	if(IS_KERNEL(img_addr))
+			if(!IS_KERNEL(img_addr) && !IS_DEVTREE(img_addr))
+				{
+					printf("\nERROR: No valid Kernel or DeviceTree!!\n");
+					return 1;
+				}
+			if(IS_KERNEL(img_addr))
+				{
+					u32 length = getImageLength((u32)img_addr);
+					int ret;
+					ret = handleIVT((u32)img_addr, 0, 0, 0, length);
+					if(ret)
+						return -1;
+				}else if(IS_DEVTREE(img_addr))
+				{
+					u32 length = getImageLength((u32)img_addr);
+					int ret;
+					ret = handleIVT((u32)img_addr, 0, 0, 0, length);
+					if(ret)
+						return 1;
+				}
+		}else
 		{
-			u32 length = getImageLength((u32)img_addr);
-			int ret;
-			ret = handleIVT((u32)img_addr, 0, 0, 0, length);
-			if(ret)
-				return -1;
-		}else if(IS_DEVTREE(img_addr))
-		{
-			u32 length = getImageLength((u32)img_addr);
-			int ret;
-			ret = handleIVT((u32)img_addr, 0, 0, 0, length);
-			if(ret)
-				return 1;
+#ifdef CONFIG_FORMAT_LEGACY
+			return IMAGE_FORMAT_LEGACY;
+#endif
 		}
 #endif
 

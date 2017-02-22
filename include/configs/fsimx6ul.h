@@ -76,19 +76,19 @@
 
 #include <asm/arch/imx-regs.h>		/* IRAM_BASE_ADDR, IRAM_SIZE */
 
-//###???#undef CONFIG_ARCH_CPU_INIT
 //###FIXME### Can we activate CONFIG_SKIP_LOWLEVEL_INIT?
 #undef CONFIG_SKIP_LOWLEVEL_INIT
-#undef CONFIG_BOARD_EARLY_INIT_F	/* No early board specific stuff */
+#define CONFIG_BOARD_EARLY_INIT_F	/* Early board specific stuff */
 #define CONFIG_BOARD_LATE_INIT		/* Init board-specific environment */
 #define CONFIG_DISPLAY_CPUINFO		/* Show CPU type and speed */
 #define CONFIG_DISPLAY_BOARDINFO	/* Show board information */
 #define CONFIG_ZERO_BOOTDELAY_CHECK	/* Allow entering U-Boot even if boot
 					   delay is zero */
-#undef CONFIG_USE_IRQ			/* No blinking LEDs yet */
+#define CONFIG_USE_IRQ			/* For blinking LEDs */
 #define CONFIG_SYS_LONGHELP		/* Undef to save memory */
 #undef CONFIG_LOGBUFFER			/* No support for log files */
 #define CONFIG_OF_LIBFDT		/* Use device trees (fdt) */
+#define CONFIG_OF_BOARD_SETUP		/* Call board specific FDT fixup */
 
 /* The load address of U-Boot is now independent from the size. Just load it
    at some rather low address in RAM. It will relocate itself to the end of
@@ -194,7 +194,10 @@
 /************************************************************************
  * LEDs
  ************************************************************************/
-/* ###TODO### */
+#define CONFIG_BOARD_SPECIFIC_LED
+#define CONFIG_BLINK_IMX
+#define STATUS_LED_BIT 0
+#define STATUS_LED_BIT1 1
 
 
 /************************************************************************
@@ -356,7 +359,7 @@
 #define CONFIG_CMD_ASKENV	/* Ask user for variable */
 #define CONFIG_CMD_BDI		/* Board information (bdinfo) */
 #undef CONFIG_CMD_BEDBUG	/* No PPC bedbug debugging support */
-#undef CONFIG_CMD_BLINK		/* No support for blinking LEDs */
+#define CONFIG_CMD_BLINK	/* Support blinking LEDs */
 #undef CONFIG_CMD_BMP		/* No old BMP, use new display support */
 #define CONFIG_CMD_BOOTD	/* Boot default target */
 #undef CONFIG_CMD_BOOTLDR	/* No ldr support for blackfin */
@@ -404,7 +407,7 @@
 #define CONFIG_CMD_ITEST	/* Integer (and string) test */
 #undef CONFIG_CMD_JFFS2		/* No support for JFFS2 filesystem */
 #undef CONFIG_CMD_LDRINFO	/* No ldr support for blackfin */
-#undef CONFIG_CMD_LED		/* No LED support */
+#define CONFIG_CMD_LED		/* LED support on some boards */
 #undef CONFIG_CMD_LICENSE	/* No support to show GPL license */
 #undef CONFIG_CMD_LOADB		/* No serial load of binaries (loadb) */
 #undef CONFIG_CMD_LOADS		/* No serial load of s-records (loads) */
@@ -672,13 +675,7 @@
 /* Try to patch serial debug port in image within first 16KB of zImage */
 #define CONFIG_SYS_PATCH_TTY	0x4000
 
-/* ATAGs passed to Linux */
-#define CONFIG_SETUP_MEMORY_TAGS	/* Memory setup */
-#define CONFIG_CMDLINE_TAG		/* Command line */
-#undef CONFIG_INITRD_TAG		/* No initrd */
-#define CONFIG_REVISION_TAG		/* Board revision */
-#define CONFIG_FSHWCONFIG_TAG		/* Hardware config (NBoot-Args) */
-#define CONFIG_FSM4CONFIG_TAG		/* M4 image and config (M4-Args) */
+/* No ATAGs are passed to Linux when using device trees */
 
 
 /************************************************************************

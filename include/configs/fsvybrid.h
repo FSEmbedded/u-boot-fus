@@ -12,7 +12,7 @@
  *
  * The following addresses are given as offsets of the device.
  *
- * NAND flash layout with separate Kernel MTD partition
+ * NAND flash layout with separate Kernel MTD partition 
  * -------------------------------------------------------------------------
  * 0x0000_0000 - 0x0001_FFFF: NBoot: NBoot image, primary copy (128KB)
  * 0x0002_0000 - 0x0003_FFFF: NBoot: NBoot image, secondary copy (128KB)
@@ -123,7 +123,6 @@
 #define CONFIG_SYS_TEXT_BASE 0x80100000	/* Where NBoot loads U-Boot */
 #define CONFIG_UBOOTNB0_SIZE 0x60000	/* Size of uboot.nb0 */
 #define CONFIG_SYS_THUMB_BUILD		/* Build U-Boot in THUMB mode */
-
 
 /* For the default load address, use an offset of 8MB. The final kernel (after
    decompressing the zImage) must be at offset 0x8000. But if we load the
@@ -420,7 +419,7 @@
 #undef CONFIG_CMD_CPLBINFO	/* No display of PPC CPLB tables */
 #undef CONFIG_CMD_CRAMFS	/* No support for CRAMFS filesystem */
 #undef CONFIG_CMD_DATE		/* No date command */
-#undef CONFIG_CMD_DFU		/* No support for device firmware update */
+#undef CONFIG_CMD_DFU		/* No support for device firmware update */ 
 #define CONFIG_CMD_DHCP		/* Support TFTP boot after DHCP request */
 #undef CONFIG_CMD_DIAG		/* No support for board selftest */
 #undef CONFIG_CMD_DNS		/* No lookup of IP via a DNS name server */

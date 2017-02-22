@@ -12,7 +12,7 @@
  *
  * The following addresses are given as offsets of the device.
  *
- * NAND flash layout with separate Kernel/FDT MTD partition
+ * NAND flash layout with separate Kernel/FDT MTD partition 
  * -------------------------------------------------------------------------
  * 0x0000_0000 - 0x0001_FFFF: NBoot: NBoot image, primary copy (128KB)
  * 0x0002_0000 - 0x0003_FFFF: NBoot: NBoot image, secondary copy (128KB)
@@ -76,10 +76,9 @@
 
 #include <asm/arch/imx-regs.h>		/* IRAM_BASE_ADDR, IRAM_SIZE */
 
-//###???#undef CONFIG_ARCH_CPU_INIT
 //###FIXME### Can we activate CONFIG_SKIP_LOWLEVEL_INIT?
 #undef CONFIG_SKIP_LOWLEVEL_INIT
-#undef CONFIG_BOARD_EARLY_INIT_F	/* No early board specific stuff */
+#define CONFIG_BOARD_EARLY_INIT_F	/* Early board specific stuff */
 #define CONFIG_BOARD_LATE_INIT		/* Init board-specific environment */
 #define CONFIG_DISPLAY_CPUINFO		/* Show CPU type and speed */
 #define CONFIG_DISPLAY_BOARDINFO	/* Show board information */
@@ -89,6 +88,7 @@
 #define CONFIG_SYS_LONGHELP		/* Undef to save memory */
 #undef CONFIG_LOGBUFFER			/* No support for log files */
 #define CONFIG_OF_LIBFDT		/* Use device trees (fdt) */
+#define CONFIG_OF_BOARD_SETUP		/* Call board specific FDT fixup */
 
 /* The load address of U-Boot is now independent from the size. Just load it
    at some rather low address in RAM. It will relocate itself to the end of
@@ -381,7 +381,7 @@
 #undef CONFIG_CMD_CPLBINFO	/* No display of PPC CPLB tables */
 #undef CONFIG_CMD_CRAMFS	/* No support for CRAMFS filesystem */
 #undef CONFIG_CMD_DATE		/* No date command */
-#undef CONFIG_CMD_DFU		/* No support for device firmware update */
+#undef CONFIG_CMD_DFU		/* No support for device firmware update */ 
 #define CONFIG_CMD_DHCP		/* Support TFTP boot after DHCP request */
 #undef CONFIG_CMD_DIAG		/* No support for board selftest */
 #undef CONFIG_CMD_DNS		/* No lookup of IP via a DNS name server */
@@ -641,13 +641,13 @@
 	".kernel_nfs=setenv kernel nfs . ${serverip}:${rootpath}/${bootfile}\0" \
 	".kernel_mmc=setenv kernel mmc rescan\\\\; load mmc 0 . ${bootfile}\0" \
 	".kernel_usb=setenv kernel usb start\\\\; load usb 0 . ${bootfile}\0" \
-	"fdt=undef\0" \
-	".fdt_none=setenv fdt bootm\0" \
-	".fdt_nand=setenv fdt nand read 81000000 FDT" BOOT_WITH_FDT \
-	".fdt_tftp=setenv fdt tftpboot 81000000 ${bootfdt}" BOOT_WITH_FDT \
-	".fdt_nfs=setenv fdt nfs 81000000 ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT \
-	".fdt_mmc=setenv fdt mmc rescan\\\\; load mmc 0 81000000 ${bootfdt}" BOOT_WITH_FDT \
-	".fdt_usb=setenv fdt usb start\\\\; load usb 0 81000000 ${bootfdt}" BOOT_WITH_FDT \
+        "fdt=undef\0" \
+        ".fdt_none=setenv fdt bootm\0" \
+        ".fdt_nand=setenv fdt nand read 81000000 FDT" BOOT_WITH_FDT \
+        ".fdt_tftp=setenv fdt tftpboot 81000000 ${bootfdt}" BOOT_WITH_FDT \
+        ".fdt_nfs=setenv fdt nfs 81000000 ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT \
+        ".fdt_mmc=setenv fdt mmc rescan\\\\; load mmc 0 81000000 ${bootfdt}" BOOT_WITH_FDT \
+        ".fdt_usb=setenv fdt usb start\\\\; load usb 0 81000000 ${bootfdt}" BOOT_WITH_FDT \
 	EXTRA_UBI \
 	"mode=undef\0" \
 	".mode_rw=setenv mode rw\0" \
@@ -684,13 +684,7 @@
 /* Try to patch serial debug port in image within first 16KB of zImage */
 #define CONFIG_SYS_PATCH_TTY	0x4000
 
-/* ATAGs passed to Linux */
-#define CONFIG_SETUP_MEMORY_TAGS	/* Memory setup */
-#define CONFIG_CMDLINE_TAG		/* Command line */
-#undef CONFIG_INITRD_TAG		/* No initrd */
-#define CONFIG_REVISION_TAG		/* Board revision */
-#define CONFIG_FSHWCONFIG_TAG		/* Hardware config (NBoot-Args) */
-#define CONFIG_FSM4CONFIG_TAG		/* M4 image and config (M4-Args) */
+/* No ATAGs are passed to Linux when using device trees */
 
 
 /************************************************************************

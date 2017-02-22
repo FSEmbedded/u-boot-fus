@@ -43,6 +43,7 @@
 #include <mtd/mxs_nand_fus.h>		/* struct mxs_nand_fus_platform_data */
 #include <usb.h>			/* USB_INIT_HOST, USB_INIT_DEVICE */
 #include <malloc.h>			/* free() */
+#include <fdt_support.h>		/* do_fixup_by_path_u32(), ... */
 
 /* ------------------------------------------------------------------------- */
 
@@ -51,12 +52,9 @@
 
 #define BT_EFUSA7UL   0
 #define BT_CUBEA7UL   1
-
-/* Features set in tag_fshwconfig.chFeature1 (###TODO: proposed fetaures, not
-   actually available from NBoot) */
-#define FEAT1 L2CACHE (1<<0)		/* 0: no L2 Cache, 1: has L2 Cache */
-#define FEAT1_M4      (1<<1)		/* 0: no Cortex-M4, 1: has Cortex-M4 */
-#define FEAT1_LCD     (1<<2)		/* 0: no LCD device, 1: has LCD */
+#define BT_PICOCOM1_2 2
+#define BT_CUBE2_0    3
+#define BT_GAR1       4
 
 /* Features set in tag_fshwconfig.chFeature2 (available since NBoot VN27) */
 #define FEAT2_ETH_A   (1<<0)		/* 0: no LAN0, 1; has LAN0 */
@@ -75,6 +73,10 @@
 #define XMK_STR(x)	#x
 #define MK_STR(x)	XMK_STR(x)
 
+/* Device tree paths */
+#define FDT_NAND	"/soc/gpmi-nand@01806000"
+#define FDT_ETH_A	"/soc/aips-bus@02100000/ethernet@02188000"
+#define FDT_ETH_B	"/soc/aips-bus@02000000/ethernet@020b4000"
 
 #define UART_PAD_CTRL  (PAD_CTL_PUS_100K_UP |			\
 	PAD_CTL_SPEED_MED | PAD_CTL_DSE_40ohm |			\
@@ -182,17 +184,53 @@ const struct board_info fs_board_info[8] = {
 		.kernel = ".kernel_ubifs",
 		.fdt = ".fdt_ubifs",
 	},
-	{	/* 2 (unknown) */
-		.name = "unknown",
-		.mach_type = 0,
+	{	/* 2 (BT_PICOCOM1_2) */
+		.name = "PicoCOM1.2",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.earlyusbinit = NULL,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = ".init_init",
+		.rootfs = ".rootfs_ubifs",
+		.kernel = ".kernel_nand",
+		.fdt = ".fdt_nand",
 	},
-	{	/* 3 (unknown) */
-		.name = "unknown",
-		.mach_type = 0,
+	{	/* 3 (BT_CUBE2_0) */
+		.name = "Cube2.0",
+		.bootdelay = "3",
+		.updatecheck = "TargetFS.ubi(ubi0:data)",
+		.installcheck = INSTALL_RAM,
+		.recovercheck = "TargetFS.ubi(ubi0:recovery)",
+		.earlyusbinit = NULL,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_ubionly",
+		.network = ".network_off",
+		.init = ".init_init",
+		.rootfs = ".rootfs_ubifs",
+		.kernel = ".kernel_ubifs",
+		.fdt = ".fdt_ubifs",
 	},
-	{	/* 4 (unknown) */
-		.name = "unknown",
-		.mach_type = 0,
+	{	/* 4 (BT_GAR1) */
+		.name = "GAR1",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.earlyusbinit = NULL,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = ".init_init",
+		.rootfs = ".rootfs_ubifs",
+		.kernel = ".kernel_nand",
+		.fdt = ".fdt_nand",
 	},
 	{	/* 5 (unknown) */
 		.name = "unknown",
@@ -251,12 +289,96 @@ struct serial_device *default_serial_console(void)
 	return get_serial_device(get_debug_port(pargs->dwDbgSerPortPA));
 }
 
+/* Pads for 18-bit LCD interface */
+static iomux_v3_cfg_t const lcd18_pads[] = {
+	IOMUX_PADS(PAD_LCD_CLK__GPIO3_IO00    | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_ENABLE__GPIO3_IO01 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_HSYNC__GPIO3_IO02  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_VSYNC__GPIO3_IO03  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA00__GPIO3_IO05 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA01__GPIO3_IO06 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA02__GPIO3_IO07 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA03__GPIO3_IO08 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA04__GPIO3_IO09 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA05__GPIO3_IO10 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA06__GPIO3_IO11 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA07__GPIO3_IO12 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA08__GPIO3_IO13 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA09__GPIO3_IO14 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA10__GPIO3_IO15 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA11__GPIO3_IO16 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA12__GPIO3_IO17 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA13__GPIO3_IO18 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA14__GPIO3_IO19 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA15__GPIO3_IO20 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA16__GPIO3_IO21 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA17__GPIO3_IO22 | MUX_PAD_CTRL(0x3010)),
+};
+
+/* GAR1 power off leds */
+static iomux_v3_cfg_t const gar1_led_pads[] = {
+	IOMUX_PADS(PAD_LCD_DATA00__GPIO3_IO05 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA01__GPIO3_IO06 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA02__GPIO3_IO07 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_LCD_DATA03__GPIO3_IO08 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_GPIO1_IO04__GPIO1_IO04 | MUX_PAD_CTRL(0x0)),
+	IOMUX_PADS(PAD_GPIO1_IO05__GPIO1_IO05 | MUX_PAD_CTRL(0x0)),
+	IOMUX_PADS(PAD_GPIO1_IO08__GPIO1_IO08 | MUX_PAD_CTRL(0x0)),
+	IOMUX_PADS(PAD_GPIO1_IO09__GPIO1_IO09 | MUX_PAD_CTRL(0x0)),
+};
+
+int board_early_init_f(void)
+{
+	struct tag_fshwconfig *pargs = (struct tag_fshwconfig *)NBOOT_ARGS_BASE;
+	unsigned int board_type = pargs->chBoardType - 16;
+	/*
+	 * Set pull-down resistors on display signals; some displays do not
+	 * like high level on data signals when VLCD is not applied yet.
+	 *
+	 * FIXME: This should actually only happen if display is really in
+	 * use, i.e. if device tree activates lcd. However we do not know this
+	 * at this point of time.
+	 */
+	switch (board_type)
+	{
+	case BT_PICOCOM1_2:		/* Boards without LCD interface */
+	case BT_CUBEA7UL:
+	case BT_CUBE2_0:
+		break;
+
+	case BT_GAR1:
+		SETUP_IOMUX_PADS(gar1_led_pads);
+		gpio_direction_input(IMX_GPIO_NR(3, 5));
+		gpio_direction_input(IMX_GPIO_NR(3, 6));
+		gpio_direction_input(IMX_GPIO_NR(3, 7));
+		gpio_direction_input(IMX_GPIO_NR(3, 8));
+		gpio_direction_input(IMX_GPIO_NR(1, 4));
+		gpio_direction_input(IMX_GPIO_NR(1, 5));
+		gpio_direction_input(IMX_GPIO_NR(1, 8));
+		gpio_direction_input(IMX_GPIO_NR(1, 9));
+		break;
+
+	default:			/* Boards with 18-bit LCD interface */
+		SETUP_IOMUX_PADS(lcd18_pads);
+		break;
+	}
+
+	return 0;
+}
+
 /* Check board type */
 int checkboard(void)
 {
 	struct tag_fshwconfig *pargs = (struct tag_fshwconfig *)NBOOT_ARGS_BASE;
 	unsigned int boardtype = pargs->chBoardType - 16;
-	unsigned int features2 = pargs->chFeatures2;
+	unsigned int features2;
+
+	/* NBoot versions before VN27 did not report feature values */
+	if ((be32_to_cpu(pargs->dwNBOOT_VER) & 0xFFFF) < 0x3237) { /* "27" */
+		pargs->chFeatures1 = FEAT1_DEFAULT;
+		pargs->chFeatures2 = FEAT2_DEFAULT;
+	}
+	features2 = pargs->chFeatures2;
 
 	printf("Board: %s Rev %u.%02u (", fs_board_info[boardtype].name,
 	       pargs->chBoardRev / 100, pargs->chBoardRev % 100);
@@ -318,27 +440,22 @@ int board_init(void)
 	memcpy(&fs_m4_args, pargs+1, sizeof(struct tag_fsm4config));
 	fs_m4_args.dwSize = sizeof(struct tag_fsm4config);
 
-	/* NBoot versions before VN27 did not report feature values */
-	if ((be32_to_cpu(pargs->dwNBOOT_VER) & 0xFFFF) < 0x3237) { /* "27" */
-		fs_nboot_args.chFeatures1 = FEAT1_DEFAULT;
-		fs_nboot_args.chFeatures2 = FEAT2_DEFAULT;
-	}
-
-	gd->bd->bi_arch_number = fs_board_info[board_type].mach_type;
+	gd->bd->bi_arch_number = 0xFFFFFFFF;
 	gd->bd->bi_boot_params = BOOT_PARAMS_BASE;
 
 	/* Prepare the command prompt */
 	sprintf(fs_sys_prompt, "%s # ", fs_board_info[board_type].name);
 
-	/* Reset board and SKIT hardware like ETH PHY, PCIe, USB-Hub, WLAN (if
-	   available). This is on pad BOOT_MODE1 (GPIO5_IO10). Because there
-	   may be some completely different hardware connected to this general
-	   RESETOUTn pin, use a rather long low pulse of 100ms. */
-	SETUP_IOMUX_PADS(reset_pads);
-	gpio_direction_output(IMX_GPIO_NR(5, 11), 0);
-	mdelay(100);
-	gpio_set_value(IMX_GPIO_NR(5, 11), 1);
-
+	if (fs_nboot_args.chBoardType ==  BT_EFUSA7UL) {
+		/* Reset board and SKIT hardware like ETH PHY, PCIe, USB-Hub, WLAN (if
+		available). This is on pad BOOT_MODE1 (GPIO5_IO10). Because there
+		may be some completely different hardware connected to this general
+		RESETOUTn pin, use a rather long low pulse of 100ms. */
+		SETUP_IOMUX_PADS(reset_pads);
+		gpio_direction_output(IMX_GPIO_NR(5, 11), 0);
+		mdelay(100);
+		gpio_set_value(IMX_GPIO_NR(5, 11), 1);
+	}
 	return 0;
 }
 
@@ -560,6 +677,16 @@ int board_mmc_init(bd_t *bis)
 		SETUP_IOMUX_PADS(usdhc2_pads);
 		ret = setup_mmc(bis, cfg++, cd_gpio, 2, 4);
 		break;
+	case BT_PICOCOM1_2:
+			/*
+			 * On efusA7UL, USDHC1 is either used for on-board WLAN or
+			 * provides ext. SD_B on the connector (Micro SD slot on efus
+			 * SKIT). We can only use CD/WP if not already used by SD_B
+			 * above (cd_gpio is still 0xFFFFFFFF).
+			 */
+		   SETUP_IOMUX_PADS(usdhc2_pads);
+		   		ret=setup_mmc(bis,cfg++,cd_gpio, 2, 4);   		   		
+			break;
 
 	default:
 		return 0;		/* Unknown device */
@@ -621,6 +748,16 @@ static iomux_v3_cfg_t const usb_pwr_pads[] = {
 //###	IOMUX_PADS(PAD_GPIO1_IO13__ANATOP_OTG2_ID | MUX_PAD_CTRL(NO_PAD_CTRL)),
 };
 
+/* USB Host power (PicoCOM1_2) */
+static iomux_v3_cfg_t const usb_pwr_pads_picocom1_2[] = {
+	IOMUX_PADS(PAD_ENET2_TX_DATA1__GPIO2_IO12 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
+/* USB Host power (GAR1) */
+static iomux_v3_cfg_t const usb_pwr_pad_gar1[] = {
+	IOMUX_PADS(PAD_SD1_DATA1__GPIO2_IO19 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
 #define USB_OTHERREGS_OFFSET	0x800
 #define UCTRL_PWR_POL		(1 << 9)
 
@@ -641,6 +778,20 @@ int board_ehci_hcd_init(int port)
 #endif
 		break;
 
+	case BT_PICOCOM1_2:
+		SETUP_IOMUX_PADS(usb_pwr_pads_picocom1_2);
+
+		/* Enable USB Host power */
+		gpio_direction_output(IMX_GPIO_NR(2, 12), 1);
+
+		break;
+
+	case BT_GAR1:
+		SETUP_IOMUX_PADS(usb_pwr_pad_gar1);
+
+		/* Enable USB Host power */
+		gpio_direction_output(IMX_GPIO_NR(2, 19), 1);
+		break;
 	default:
 		break;
 	}
@@ -659,15 +810,31 @@ int board_ehci_hcd_init(int port)
 #if 0 //###
 int board_ehci_power(int port, int on)
 {
-	if (port != 1)
+	if (port > 1)
 		return 0;
 
 	switch (fs_nboot_args.chBoardType) {
-	case BT_EFUSA9X:
+	case BT_EFUSA7UL:
 		SETUP_IOMUX_PADS(usb_pwr_pads);
 
 		/* Enable USB Host power */
 		gpio_direction_output(IMX_GPIO_NR(1, 12), on);
+
+		break;
+
+	case BT_PICOCOM1_2:
+		SETUP_IOMUX_PADS(usb_pwr_pads_picocom1_2);
+
+		/* Enable USB Host power */
+		gpio_direction_output(IMX_GPIO_NR(2, 12), on);
+
+		break;
+
+	case BT_GAR1:
+		SETUP_IOMUX_PADS(usb_pwr_pad_gar1);
+
+		/* Enable USB Host power */
+		gpio_direction_output(IMX_GPIO_NR(1, 19), on);
 
 		break;
 
@@ -681,7 +848,7 @@ int board_ehci_power(int port, int on)
 
 int board_usb_phy_mode(int port)
 {
-	if (port == 0)
+	if (port == 0 && fs_nboot_args.chBoardType != BT_GAR1)
 		return USB_INIT_DEVICE;
 	return USB_INIT_HOST;
 }
@@ -820,6 +987,13 @@ static iomux_v3_cfg_t const enet_pads_extra[] = {
 	   global RESETOUTn signal that we trigger in board_init() */
 };
 
+/* Additional pins required for ethernet */
+static iomux_v3_cfg_t const enet_pads_reset[] = {
+	/* Phy Reset */
+	IOMUX_PADS(PAD_CSI_MCLK__GPIO4_IO17 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+	IOMUX_PADS(PAD_CSI_PIXCLK__GPIO4_IO18 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
 /* Read a MAC address from OTP memory */
 int get_otp_mac(void *otp_addr, uchar *enetaddr)
 {
@@ -912,116 +1086,157 @@ void set_fs_ethaddr(int index)
 
 int board_eth_init(bd_t *bis)
 {
-	u32 reg, gpr1;
+	u32 gpr1;
 	int ret;
-	int phy_addr;
+	int phy_addr_a, phy_addr_b;
+	int reset_gpio, reset_gpio_2;
 	enum xceiver_type xcv_type;
-	enum enet_freq freq;
-	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
+	phy_interface_t interface = PHY_INTERFACE_MODE_RMII;
 	struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
 	struct mii_dev *bus = NULL;
 	struct phy_device *phydev;
-	phy_interface_t interface = PHY_INTERFACE_MODE_RMII;
-	uint32_t enet_addr;
-	int id = -1;
-
-	/* Both PHYs were already reset via RESETOUTn in board_init() */
+	unsigned int features2 = fs_nboot_args.chFeatures2;
+	int id = 0;
 
 	/* Ungate ENET clock, this is a common clock for both ports */
-	if (fs_nboot_args.chFeatures2 & (FEAT2_ETH_A | FEAT2_ETH_B)) {
-		reg = readl(&mxc_ccm->CCGR3);
-		reg |= 0x30;
-		writel(reg, &mxc_ccm->CCGR3);
-	}
+	if (features2 & (FEAT2_ETH_A | FEAT2_ETH_B))
+		writel(readl(&mxc_ccm->CCGR3) | 0x30, &mxc_ccm->CCGR3);
 
-	if (fs_nboot_args.chFeatures2 & FEAT2_ETH_A) {
-		/* Set the IOMUX for ENET1, use 100 MBit/s LAN on RMII pins */
-		SETUP_IOMUX_PADS(enet1_pads_rmii);
-		SETUP_IOMUX_PADS(enet1_pads_mdio);
+	/*
+	 * Set IOMUX for ports, enable clocks. Both PHYs were already reset
+	 * via RESETOUTn in board_init().
+	 */
+	switch (fs_nboot_args.chBoardType) {
+	default:
+		if (features2 & FEAT2_ETH_A) {
+			/* IOMUX for ENET1, use 100 MBit/s LAN on RMII pins */
+			SETUP_IOMUX_PADS(enet1_pads_rmii);
+			SETUP_IOMUX_PADS(enet1_pads_mdio);
 
-		/* Get parameters for the first ethernet port */
-		switch (fs_nboot_args.chBoardType) {
-		default:
-			set_fs_ethaddr(0);
-
-			/* ENET1 CLK is generated in i.MX6 and is an output */
+			/* ENET1 CLK is generated in i.MX6UL and is output */
 			gpr1 = readl(&iomux_regs->gpr[1]);
 			gpr1 |= IOMUXC_GPR1_ENET1_CLK_SEL_MASK;
 			writel(gpr1, &iomux_regs->gpr[1]);
 
-			freq = ENET_50MHZ;
-			phy_addr = 0;
-			xcv_type = RMII;
-			break;
+			/* Activate ENET1 PLL */
+			ret = enable_fec_anatop_clock(0, ENET_50MHZ);
+			if (ret < 0)
+				return ret;
 		}
 
-		/* Activate ENET1 PLL */
-		ret = enable_fec_anatop_clock(0, freq);
-		if (ret < 0)
-			return ret;
+		if (features2 & FEAT2_ETH_B) {
+			/* Set the IOMUX for ENET2, use 100 MBit/s LAN on RMII
+			   pins. If both ports are in use, MDIO was already
+			   set above. Otherwise we will use MDIO via ENET2 to
+			   avoid having to activate the clock for ENET1. */
+			SETUP_IOMUX_PADS(enet2_pads_rmii);
+			if (!(features2 & FEAT2_ETH_A))
+				SETUP_IOMUX_PADS(enet2_pads_mdio);
+
+			/* ENET2 CLK is generated in i.MX6UL and is output */
+			gpr1 = readl(&iomux_regs->gpr[1]);
+			gpr1 |= IOMUXC_GPR1_ENET2_CLK_SEL_MASK;
+			writel(gpr1, &iomux_regs->gpr[1]);
+
+			/* Activate ENET2 PLL */
+			ret = enable_fec_anatop_clock(1, ENET_50MHZ);
+			if (ret < 0)
+				return 0;
+		}
+
+		if (fs_nboot_args.chBoardType == BT_PICOCOM1_2 ||
+				fs_nboot_args.chBoardType == BT_GAR1) {
+			phy_addr_a = 1;
+		}
+		else
+			phy_addr_a = 0;
+
+		if (fs_nboot_args.chBoardType == BT_GAR1)
+			phy_addr_b = 17;
+		else
+			phy_addr_b = 3;
+
+		xcv_type = RMII;
+		break;
+	}
+
+	/* Reset the PHY */
+	switch (fs_nboot_args.chBoardType) {
+	case BT_PICOCOM1_2:
+		/*
+		 * DP83484 PHY: This PHY needs at least 1 us reset
+		 * pulse width (GPIO_2_10). After power on it needs
+		 * min 167 ms (after reset is deasserted) before the
+		 * first MDIO access can be done. In a warm start, it
+		 * only takes around 3 for this. As we do not know
+		 * whether this is a cold or warm start, we must
+		 * assume the worst case.
+		 */
+		reset_gpio = IMX_GPIO_NR(5, 11);
+		gpio_direction_output(reset_gpio, 0);
+		udelay(10);
+		gpio_set_value(reset_gpio, 1);
+		mdelay(170);
+		break;
+	case BT_GAR1:
+		/*
+		 * DP83484 PHY: This PHY needs at least 1 us reset
+		 * pulse width (GPIO_4_17, GPIO_4_18). After power on it needs
+		 * min 167 ms (after reset is deasserted) before the
+		 * first MDIO access can be done. In a warm start, it
+		 * only takes around 3 for this. As we do not know
+		 * whether this is a cold or warm start, we must
+		 * assume the worst case.
+		 */
+		SETUP_IOMUX_PADS(enet_pads_reset);
+		reset_gpio = IMX_GPIO_NR(4, 17);
+		reset_gpio_2 = IMX_GPIO_NR(4, 18);
+		gpio_direction_output(reset_gpio, 0);
+		gpio_direction_output(reset_gpio_2, 0);
+		udelay(10);
+		gpio_set_value(reset_gpio, 1);
+		gpio_set_value(reset_gpio_2, 1);
+		mdelay(170);
+		break;
+	default:
+		break;
+	}
+
+	/* Probe first PHY and activate first ethernet port */
+	if (features2 & FEAT2_ETH_A) {
+		set_fs_ethaddr(id);
 
 		/*
 		 * We can not use fecmxc_initialize_multi_type() because this
-		 * would allocate one MII bus for each ethernet device. But we
-		 * only need one MII bus in total for both ports. So the
-		 * following code works rather similar to
-		 * fecmxc_initialize_multi_type(), but uses just one bus.
+		 * would allocate one MII bus for each ethernet device. But on
+		 * efusA7UL we only need one MII bus in total for both ports.
+		 * So the following code works rather similar to the code in
+		 * fecmxc_initialize_multi_type(), but uses just one bus on
+		 * efusA7UL.
 		 */
 		bus = fec_get_miibus(ENET_BASE_ADDR, -1);
 		if (!bus)
 			return -ENOMEM;
 
-		/* Probe the first PHY */
-		phydev = phy_find_by_mask(bus, 1 << phy_addr, interface);
+		phydev = phy_find_by_mask(bus, 1 << phy_addr_a, interface);
 		if (!phydev) {
 			free(bus);
 			return -ENOMEM;
 		}
 
-		/* Probe the first ethernet port; call it FEC if it is the
-		   only port, and FEC0 if both ports are in use. */
-		if (fs_nboot_args.chFeatures2 & FEAT2_ETH_B)
-			id = 0;
-		enet_addr = ENET_BASE_ADDR;
-		ret = fec_probe(bis, id, enet_addr, bus, phydev, xcv_type);
+		ret = fec_probe(bis, id, ENET_BASE_ADDR, bus, phydev, xcv_type);
 		if (ret) {
 			free(phydev);
 			free(bus);
 			return ret;
 		}
-		id = 1;
+		id++;
 	}
 
-	if (fs_nboot_args.chFeatures2 & FEAT2_ETH_B) {
-		/* Set the IOMUX for ENET2, use 100 MBit/s LAN on RMII pins.
-		   If both ports are in use, MDIO was already set above.
-		   Otherwise we will use MDIO via ENET2 to avoid having to
-		   activate the clock for ENET1. */
-		SETUP_IOMUX_PADS(enet2_pads_rmii);
-		if (!(fs_nboot_args.chFeatures2 & FEAT2_ETH_A))
-			SETUP_IOMUX_PADS(enet2_pads_mdio);
-
-		/* Get parameters for the second ethernet port */
-		switch (fs_nboot_args.chBoardType) {
-		default:
-			set_fs_ethaddr(1);
-
-			/* ENET2 CLK is generated in i.MX6 and is an output */
-			gpr1 = readl(&iomux_regs->gpr[1]);
-			gpr1 |= IOMUXC_GPR1_ENET2_CLK_SEL_MASK;
-			writel(gpr1, &iomux_regs->gpr[1]);
-
-			freq = ENET_50MHZ;
-			phy_addr = 3;
-			xcv_type = RMII;
-			break;
-		}
-
-		/* Activate ENET2 PLL */
-		ret = enable_fec_anatop_clock(1, freq);
-		if (ret < 0)
-			return 0;
-
+	/* Probe second PHY and activate second ethernet port. */
+	if (features2 & FEAT2_ETH_B) {
+		set_fs_ethaddr(id);
 		/* If ENET1 is not in use, we must get our MDIO bus now */
 		if (!bus) {
 			bus = fec_get_miibus(ENET2_BASE_ADDR, -1);
@@ -1029,32 +1244,29 @@ int board_eth_init(bd_t *bis)
 				return -ENOMEM;
 		}
 
-		/* Probe the second PHY */
-		phydev = phy_find_by_mask(bus, 1 << phy_addr, interface);
+		phydev = phy_find_by_mask(bus, 1 << phy_addr_b, interface);
 		if (!phydev) {
-			/* If this is the only port, return error */
-			if (!(fs_nboot_args.chFeatures2 & FEAT2_ETH_A)) {
+			if (!(features2 & FEAT2_ETH_A))
 				free(bus);
-				return -ENOMEM;
-			}
-
-			/* If we still have ENET1 running, return successful */
-			return 0;
+			return -ENOMEM;
 		}
 
 		/* Probe the second ethernet port */
-		enet_addr = ENET2_BASE_ADDR;
-		ret = fec_probe(bis, id, enet_addr, bus, phydev, xcv_type);
+		ret = fec_probe(bis, id, ENET2_BASE_ADDR, bus, phydev,
+				xcv_type);
 		if (ret) {
 			free(phydev);
 			/* If this is the only port, return with error */
-			if (!(fs_nboot_args.chFeatures2 & FEAT2_ETH_A)) {
+			if (!(features2 & FEAT2_ETH_A))
 				free(bus);
-				return ret;
-			}
-			/* If we still have ENET1 running, return successful */
+			return ret;
 		}
+		id++;
 	}
+
+	/* If WLAN is available, just set ethaddr variable */
+	if (features2 & FEAT2_WLAN)
+		set_fs_ethaddr(id++);
 
 	return 0;
 }
@@ -1075,32 +1287,235 @@ char *get_sys_prompt(void)
 	return fs_sys_prompt;
 }
 
-/* ### FIXME: arch/arm/cpu/armv7/mx6/soc.c passes the CPU type in this value
-   by default. imx-lib in buildroot builds a kernel module and defines its own
-   macros for cpu_is_mx6q() and cpu_is_mx6dl() that rely on this value here.
-   Actually this is wrong and imx-lib should use the macros from kernel source
-   arch/arm/plat-mxc/include/mach/mxc.h instead. But as long as imx-lib does
-   it this wrong way, we must not override the original function from
-   arch/arm/cpu/armv7/mx6/soc.c here. */
-#if 0 //###
-/* Return the board revision; this is called when Linux is started and the
-   value is passed to Linux */
-unsigned int get_board_rev(void)
-{
-	return fs_nboot_args.chBoardRev;
-}
-#endif
+#ifdef CONFIG_CMD_LED
+/*
+ * Boards       STA1           STA2         Active
+ * ------------------------------------------------------------------------
+ * efusA7UL     -              -            -
+ * PicoCOM1.2   GPIO5_IO00     GPIO5_IO01   high
+ * CubeA7UL     GPIO2_IO05     GPIO2_IO06   low
+ * Cube2.0      GPIO2_IO05     GPIO2_IO06   low
+ */
+static unsigned int led_value;
 
-/* Return a pointer to the hardware configuration; this is called when Linux
-   is started and the structure is passed to Linux */
-struct tag_fshwconfig *get_board_fshwconfig(void)
+static unsigned int get_led_gpio(struct tag_fshwconfig *pargs, led_id_t id,
+				 int val)
 {
-	return &fs_nboot_args;
+	unsigned int gpio;
+
+	if (val)
+		led_value |= (1 << id);
+	else
+		led_value &= ~(1 << id);
+
+	switch (pargs->chBoardType) {
+	case BT_PICOCOM1_2:
+		gpio = (id ? IMX_GPIO_NR(5, 1) : IMX_GPIO_NR(5, 0));
+		break;
+
+	default:			/* CubeA7UL, Cube2.0 */
+		gpio = (id ? IMX_GPIO_NR(2, 5) : IMX_GPIO_NR(2, 6));
+		break;
+	}
+
+	return gpio;
 }
 
-/* Return a pointer to the M4 image and configuration; this is called when
-   Linux is started and the structure is passed to Linux */
-struct tag_fsm4config *get_board_fsm4config(void)
+void coloured_LED_init(void)
 {
-	return &fs_m4_args;
+	/* This is called after code relocation in arch/arm/lib/crt0.S but
+	   before board_init_r() and therefore before the NBoot args struct is
+	   copied to fs_nboot_args in board_init(). So variables in RAM are OK
+	   (like led_value above), but no fs_nboot_args yet. */
+	struct tag_fshwconfig *pargs = (struct tag_fshwconfig *)NBOOT_ARGS_BASE;
+	unsigned int board_type = pargs->chBoardType - 16;
+	int val = (board_type != BT_PICOCOM1_2);
+
+	gpio_direction_output(get_led_gpio(pargs, 0, val), val);
+	gpio_direction_output(get_led_gpio(pargs, 1, val), val);
 }
+
+void __led_set(led_id_t id, int val)
+{
+	struct tag_fshwconfig *pargs = &fs_nboot_args;
+
+	if (id > 1)
+		return;
+
+	if (pargs->chBoardType != BT_PICOCOM1_2)
+		val = !val;
+
+	gpio_set_value(get_led_gpio(pargs, id, val), val);
+}
+
+void __led_toggle(led_id_t id)
+{
+	struct tag_fshwconfig *pargs = &fs_nboot_args;
+	int val;
+
+	if (id > 1)
+		return;
+
+	val = !((led_value >> id) & 1);
+	gpio_set_value(get_led_gpio(pargs, id, val), val);
+}
+#endif /* CONFIG_CMD_LED */
+
+#ifdef CONFIG_OF_BOARD_SETUP
+/* Set a generic value, if it was not already set in the device tree */
+static void fus_fdt_set_val(void *fdt, int offs, const char *name,
+			    const void *val, int len)
+{
+	int err;
+
+	/* Warn if property already exists in device tree */
+	if (fdt_get_property(fdt, offs, name, NULL) != NULL) {
+		printf("## Keeping property %s/%s from device tree!\n",
+		       fdt_get_name(fdt, offs, NULL), name);
+	}
+
+	err = fdt_setprop(fdt, offs, name, val, len);
+	if (err) {
+		printf("## Unable to update property %s/%s: err=%s\n",
+		       fdt_get_name(fdt, offs, NULL), name, fdt_strerror(err));
+	}
+}
+
+/* Set a string value */
+static void fus_fdt_set_string(void *fdt, int offs, const char *name,
+			       const char *str)
+{
+	fus_fdt_set_val(fdt, offs, name, str, strlen(str) + 1);
+}
+
+/* Set a u32 value as a string (usually for bdinfo) */
+static void fus_fdt_set_u32str(void *fdt, int offs, const char *name, u32 val)
+{
+	char str[12];
+
+	sprintf(str, "%u", val);
+	fus_fdt_set_string(fdt, offs, name, str);
+}
+
+/* Set a u32 value */
+static void fus_fdt_set_u32(void *fdt, int offs, const char *name, u32 val)
+{
+	fdt32_t tmp = cpu_to_fdt32(val);
+
+	fus_fdt_set_val(fdt, offs, name, &tmp, sizeof(tmp));
+}
+
+/* Set ethernet MAC address aa:bb:cc:dd:ee:ff for given index */
+static void fus_fdt_set_macaddr(void *fdt, int offs, int id)
+{
+	uchar enetaddr[6];
+	char name[10];
+	char str[20];
+
+	if (eth_getenv_enetaddr_by_index("eth", id, enetaddr)) {
+		sprintf(name, "MAC%d", id);
+		sprintf(str, "%pM", enetaddr);
+		fus_fdt_set_string(fdt, offs, name, str);
+	}
+}
+
+/* If environment variable exists, set a string property with the same name */
+static void fus_fdt_set_getenv(void *fdt, int offs, const char *name)
+{
+	const char *str;
+
+	str = getenv(name);
+	if (str)
+		fus_fdt_set_string(fdt, offs, name, str);
+}
+
+/* Open a node, warn if the node does not exist */
+static int fus_fdt_path_offset(void *fdt, const char *path)
+{
+	int offs;
+
+	offs = fdt_path_offset(fdt, path);
+	if (offs < 0) {
+		printf("## Can not access node %s: err=%s\n",
+		       path, fdt_strerror(offs));
+	}
+
+	return offs;
+}
+
+/* Enable or disable node given by path, overwrite any existing status value */
+static void fus_fdt_enable(void *fdt, const char *path, int enable)
+{
+	int offs, err, len;
+	const void *val;
+	char *str = enable ? "okay" : "disabled";
+
+	offs = fdt_path_offset(fdt, path);
+	if (offs < 0)
+		return;
+
+	/* Do not change if status already exists and has this value */
+	val = fdt_getprop(fdt, offs, "status", &len);
+	if (val && len && !strcmp(val, str))
+		return;
+
+	/* No, set new value */
+	err = fdt_setprop_string(fdt, offs, "status", str);
+	if (err) {
+		printf("## Can not set status of node %s: err=%s\n",
+		       path, fdt_strerror(err));
+	}
+}
+
+/* Do any additional board-specific device tree modifications */
+void ft_board_setup(void *fdt, bd_t *bd)
+{
+	int offs;
+
+	printf("   Setting run-time properties\n");
+
+	/* Set ECC strength for NAND driver */
+	offs = fus_fdt_path_offset(fdt, FDT_NAND);
+	if (offs >= 0) {
+		fus_fdt_set_u32(fdt, offs, "fus,ecc_strength",
+				fs_nboot_args.chECCtype);
+	}
+
+	/* Set bdinfo entries */
+	offs = fus_fdt_path_offset(fdt, "/bdinfo");
+	if (offs >= 0) {
+		int id = 0;
+		char rev[6];
+
+		/* NAND info, names and features */
+		fus_fdt_set_u32str(fdt, offs, "ecc_strength",
+				   fs_nboot_args.chECCtype);
+		fus_fdt_set_u32str(fdt, offs, "nand_state",
+				   fs_nboot_args.chECCstate);
+		fus_fdt_set_string(fdt, offs, "board_name", get_board_name());
+		sprintf(rev, "%d.%02d", fs_nboot_args.chBoardRev / 100,
+			fs_nboot_args.chBoardRev % 100);
+		fus_fdt_set_string(fdt, offs, "board_revision", rev);
+		fus_fdt_set_getenv(fdt, offs, "platform");
+		fus_fdt_set_getenv(fdt, offs, "arch");
+		fus_fdt_set_u32str(fdt, offs, "features1",
+				   fs_nboot_args.chFeatures1);
+		fus_fdt_set_u32str(fdt, offs, "features2",
+				   fs_nboot_args.chFeatures2);
+
+		/* MAC addresses */
+		if (fs_nboot_args.chFeatures2 & FEAT2_ETH_A)
+			fus_fdt_set_macaddr(fdt, offs, id++);
+		if (fs_nboot_args.chFeatures2 & FEAT2_ETH_B)
+			fus_fdt_set_macaddr(fdt, offs, id++);
+		if (fs_nboot_args.chFeatures2 & FEAT2_WLAN)
+			fus_fdt_set_macaddr(fdt, offs, id++);
+	}
+
+	/* Disable ethernet node(s) if feature is not available */
+	if (!(fs_nboot_args.chFeatures2 & FEAT2_ETH_A))
+		fus_fdt_enable(fdt, FDT_ETH_A, 0);
+	if (!(fs_nboot_args.chFeatures2 & FEAT2_ETH_B))
+		fus_fdt_enable(fdt, FDT_ETH_B, 0);
+}
+#endif /* CONFIG_OF_BOARD_SETUP */

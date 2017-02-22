@@ -43,6 +43,7 @@
 #include <linux/mtd/nand.h>		/* struct mtd_info, struct nand_chip */
 #include <mtd/mxs_nand_fus.h>		/* struct mxs_nand_fus_platform_data */
 #include <usb.h>			/* USB_INIT_HOST, USB_INIT_DEVICE */
+#include <fdt_support.h>		/* do_fixup_by_path_u32(), ... */
 
 /* ------------------------------------------------------------------------- */
 
@@ -54,19 +55,29 @@
 #define BT_PICOMODA9  2
 #define BT_QBLISSA9   3
 #define BT_ARMSTONEA9R2 4
+#define BT_QBLISSA9R2 6
+#define BT_NETDCUA9   7
 
-/* Features set in tag_fshwconfig.chFeature1 */
-#define FEAT1_2NDCAN  (1<<1)		/* 0: 1x CAN, 1: 2x CAN */
-#define FEAT1_2NDLAN  (1<<4)		/* 0: 1x LAN, 1: 2x LAN */
+/* Features set in tag_fshwconfig.chFeature2 (available since NBoot VN27) */
+#define FEAT2_ETH_A   (1<<0)		/* 0: no LAN0, 1; has LAN0 */
+#define FEAT2_ETH_B   (1<<1)		/* 0: no LAN1, 1; has LAN1 */
+#define FEAT2_EMMC    (1<<2)		/* 0: no eMMC, 1: has eMMC */
+#define FEAT2_WLAN    (1<<3)		/* 0: no WLAN, 1: has WLAN */
+#define FEAT2_HDMICAM (1<<4)		/* 0: LCD-RGB, 1: HDMI+CAM (PicoMOD) */
+#define FEAT2_ETH_MASK (FEAT2_ETH_A | FEAT2_ETH_B)
 
-/* Features set in tag_fshwconfig.chFeature2 */
-#define FEAT2_M4      (1<<0)		/* CPU has Cortex-M4 core */
+/* NBoot before VN27 did not report feature values; use reasonable defaults */
+#define FEAT1_DEFAULT 0
+#define FEAT2_DEFAULT FEAT2_ETH_A
 
 #define ACTION_RECOVER 0x00000040	/* Start recovery instead of update */
 
 #define XMK_STR(x)	#x
 #define MK_STR(x)	XMK_STR(x)
 
+/* Device tree paths */
+#define FDT_NAND	"/soc/gpmi-nand@00112000"
+#define FDT_ETH_A	"/soc/aips-bus@02100000/ethernet@02188000"
 
 #define UART_PAD_CTRL  (PAD_CTL_PUS_100K_UP |			\
 	PAD_CTL_SPEED_MED | PAD_CTL_DSE_40ohm |			\
@@ -84,6 +95,10 @@
 #define USDHC_PAD_CTRL (PAD_CTL_PKE | PAD_CTL_PUE |		\
 	PAD_CTL_PUS_47K_UP  | PAD_CTL_SPEED_LOW |		\
 	PAD_CTL_DSE_80ohm   | PAD_CTL_SRE_FAST  | PAD_CTL_HYS)
+
+#define EIM_NO_PULL (PAD_CTL_SPEED_MED | PAD_CTL_DSE_40ohm)
+#define EIM_PULL_DOWN (EIM_NO_PULL | PAD_CTL_PKE | PAD_CTL_PUE)
+#define EIM_PULL_UP (EIM_PULL_DOWN | PAD_CTL_PUS_100K_UP)
 
 
 struct board_info {
@@ -218,9 +233,21 @@ const struct board_info fs_board_info[8] = {
 		.name = "unknown",
 		.mach_type = 0,
 	},
-	{	/* 7 (unknown) */
-		.name = "unknown",
-		.mach_type = 0,
+	{	/* 7 (BT_NETDCUA9) */
+		.name = "NetDCUA9",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.earlyusbinit = NULL,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = ".init_init",
+		.rootfs = ".rootfs_ubifs",
+		.kernel = ".kernel_nand",
+		.fdt = ".fdt_nand",
 	},
 };
 
@@ -267,15 +294,98 @@ struct serial_device *default_serial_console(void)
 	return get_serial_device(get_debug_port(pargs->dwDbgSerPortPA));
 }
 
+/* Pads for 18-bit LCD interface */
+static iomux_v3_cfg_t const lcd18_pads[] = {
+	IOMUX_PADS(PAD_DI0_DISP_CLK__GPIO4_IO16 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DI0_PIN2__GPIO4_IO18     | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DI0_PIN3__GPIO4_IO19     | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DI0_PIN15__GPIO4_IO17    | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT0__GPIO4_IO21   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT1__GPIO4_IO22   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT2__GPIO4_IO23   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT3__GPIO4_IO24   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT4__GPIO4_IO25   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT5__GPIO4_IO26   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT6__GPIO4_IO27   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT7__GPIO4_IO28   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT8__GPIO4_IO29   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT9__GPIO4_IO30   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT10__GPIO4_IO31  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT11__GPIO5_IO05  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT12__GPIO5_IO06  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT13__GPIO5_IO07  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT14__GPIO5_IO08  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT15__GPIO5_IO09  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT16__GPIO5_IO10  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT17__GPIO5_IO11  | MUX_PAD_CTRL(0x3010)),
+};
+
+/* Additional pads for 24-bit LCD interface */
+static iomux_v3_cfg_t const lcd24_pads[] = {
+	IOMUX_PADS(PAD_DISP0_DAT18__GPIO5_IO12  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT19__GPIO5_IO13  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT20__GPIO5_IO14  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT21__GPIO5_IO15  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT22__GPIO5_IO16  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_DISP0_DAT23__GPIO5_IO17  | MUX_PAD_CTRL(0x3010)),
+};
+
+/* Do some very early board specific setup */
+int board_early_init_f(void)
+{
+	struct tag_fshwconfig *pargs = (struct tag_fshwconfig *)NBOOT_ARGS_BASE;
+
+	/*
+	 * Set pull-down resistors on display signals; some displays do not
+	 * like high level on data signals when VLCD is not applied yet.
+	 *
+	 * FIXME: This should actually only happen if display is really in
+	 * use, i.e. if device tree activates lcd. However we do not know this
+	 * at this point of time.
+	 */
+	switch (pargs->chBoardType)
+	{
+	case BT_ARMSTONEA9R2:		/* Boards without LCD interface */
+	case BT_QBLISSA9:
+	case BT_QBLISSA9R2:
+		break;
+
+	case BT_NETDCUA9:		/* Boards with 24-bit LCD interface */
+		SETUP_IOMUX_PADS(lcd24_pads);
+		/* No break, fall through to default case */
+	default:			/* Boards with 18-bit LCD interface */
+		SETUP_IOMUX_PADS(lcd18_pads);
+		break;
+	}
+
+	return 0;
+}
+
 /* Check board type */
 int checkboard(void)
 {
 	struct tag_fshwconfig *pargs = (struct tag_fshwconfig *)NBOOT_ARGS_BASE;
+	unsigned int boardtype = pargs->chBoardType;
+	unsigned int features2;
 
-	printf("Board: %s Rev %u.%02u (%dx DRAM)\n",
-	       fs_board_info[pargs->chBoardType].name,
-	       pargs->chBoardRev / 100, pargs->chBoardRev % 100,
-	       pargs->dwNumDram);
+	/* NBoot versions before VN27 did not report feature values */
+	if ((be32_to_cpu(pargs->dwNBOOT_VER) & 0xFFFF) < 0x3237) { /* "27" */
+		pargs->chFeatures1 = FEAT1_DEFAULT;
+		pargs->chFeatures2 = FEAT2_DEFAULT;
+	}
+	features2 = pargs->chFeatures2;
+
+	printf("Board: %s Rev %u.%02u (", fs_board_info[boardtype].name,
+	       pargs->chBoardRev / 100, pargs->chBoardRev % 100);
+	if ((features2 & FEAT2_ETH_MASK) == FEAT2_ETH_MASK)
+		puts("2x ");
+	if (features2 & FEAT2_ETH_MASK)
+		puts("LAN, ");
+	if (features2 & FEAT2_WLAN)
+		puts("WLAN, ");
+	if (features2 & FEAT2_EMMC)
+		puts("eMMC, ");
+	printf("%dx DRAM)\n", pargs->dwNumDram);
 
 #if 0 //###
 	printf("dwNumDram = 0x%08x\n", pargs->dwNumDram);
@@ -318,7 +428,7 @@ int board_init(void)
 	memcpy(&fs_m4_args, pargs+1, sizeof(struct tag_fsm4config));
 	fs_m4_args.dwSize = sizeof(struct tag_fsm4config);
 
-	gd->bd->bi_arch_number = fs_board_info[board_type].mach_type;
+	gd->bd->bi_arch_number = 0xFFFFFFFF;
 	gd->bd->bi_boot_params = BOOT_PARAMS_BASE;
 
 	/* Prepare the command prompt */
@@ -515,6 +625,9 @@ int board_mmc_getcd(struct mmc *mmc)
 			/* On-board SD card slot has no Card Detect (CD) */
 			return 1;	/* Assume card is present */
 
+	case BT_NETDCUA9:
+		return !gpio_get_value(IMX_GPIO_NR(1, 1));
+
 	default:
 		return 1;		/* Assume card is present */
 	}
@@ -555,7 +668,7 @@ int board_mmc_init(bd_t *bis)
 
 	case BT_ARMSTONEA9R2:
 		/* USDHC2: on-board micro SD slot, Card Detect (CD) on
-		   GPIO4 pin (GPIO1_IO04) */
+		   GPIO_4 pin (GPIO1_IO04) */
 		SETUP_IOMUX_PADS(usdhc2_pads);
 		gpio_cd = IMX_GPIO_NR(1, 4);
 		ccgr6 |= (3 << 4);
@@ -573,6 +686,15 @@ int board_mmc_init(bd_t *bis)
 		gpio_cd = IMX_GPIO_NR(1, 4);
 		ccgr6 |= (3 << 4);
 		index = 1;
+		break;
+
+	case BT_NETDCUA9:
+		/* USDHC1: on-board SD slot (connector), Write Protect (WP) on
+		   GPIO_2 (ignored), Card Detect (CD) on GPIO_1 (GPIO1_IO1) */
+		SETUP_IOMUX_PADS(usdhc1_pads);
+		gpio_cd = IMX_GPIO_NR(1, 1);
+		ccgr6 |= (3 << 2);
+		index = 0;
 		break;
 
 	default:
@@ -640,8 +762,13 @@ static iomux_v3_cfg_t const usb_hub_pads[] = {
 };
 
 /* USB Host power (efusA9) */
-static iomux_v3_cfg_t const usb_pwr_pads[] = {
+static iomux_v3_cfg_t const usb_pwr_pads_efusa9[] = {
 	IOMUX_PADS(PAD_EIM_D31__GPIO3_IO31 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
+/* USB Host power (NetDCUA9) */
+static iomux_v3_cfg_t const usb_pwr_pads_netdcua9[] = {
+	IOMUX_PADS(PAD_GPIO_0__GPIO1_IO00 | MUX_PAD_CTRL(NO_PAD_CTRL)),
 };
 
 int board_ehci_hcd_init(int port)
@@ -671,11 +798,18 @@ int board_ehci_hcd_init(int port)
 
 	case BT_EFUSA9:
 #if 0
-		SETUP_IOMUX_PADS(usb_pwr_pads);
+		SETUP_IOMUX_PADS(usb_pwr_pads_efusa9);
 
 		/* Enable USB Host power */
 		gpio_direction_output(IMX_GPIO_NR(3, 31), 1);
 #endif
+		break;
+
+	case BT_NETDCUA9:
+		SETUP_IOMUX_PADS(usb_pwr_pads_netdcua9);
+
+		/* Enable USB Host power */
+		gpio_direction_output(IMX_GPIO_NR(1, 0), 1);
 		break;
 
 	default:
@@ -692,10 +826,17 @@ int board_ehci_power(int port, int on)
 
 	switch (fs_nboot_args.chBoardType) {
 	case BT_EFUSA9:
-		SETUP_IOMUX_PADS(usb_pwr_pads);
+		SETUP_IOMUX_PADS(usb_pwr_pads_efusa9);
 
 		/* Enable USB Host power */
 		gpio_direction_output(IMX_GPIO_NR(3, 31), on);
+		break;
+
+	case BT_NETDCUA9:
+		SETUP_IOMUX_PADS(usb_pwr_pads_netdcua9);
+
+		/* Enable USB Host power */
+		gpio_direction_output(IMX_GPIO_NR(1, 0), on);
 		break;
 
 	default:
@@ -804,6 +945,78 @@ int board_late_init(void)
 #endif
 
 #ifdef CONFIG_CMD_NET
+static iomux_v3_cfg_t const eim_pads_eth_b[] = {
+	/* AX88796B Ethernet 2 */
+	IOMUX_PADS(PAD_EIM_OE__EIM_OE_B | MUX_PAD_CTRL(EIM_NO_PULL)),
+	IOMUX_PADS(PAD_EIM_CS1__EIM_CS1_B | MUX_PAD_CTRL(EIM_NO_PULL)),
+	IOMUX_PADS(PAD_EIM_RW__EIM_RW | MUX_PAD_CTRL(EIM_NO_PULL)),
+	/* AX88796B Ethernet 2 IRQ */
+	IOMUX_PADS(PAD_EIM_DA14__GPIO3_IO14 | MUX_PAD_CTRL(EIM_PULL_DOWN)),
+	IOMUX_PADS(PAD_EIM_DA15__GPIO3_IO15 | MUX_PAD_CTRL(EIM_PULL_DOWN)),
+	/* AX88796B Ethernet 2 RESET */
+	IOMUX_PADS(PAD_GPIO_3__GPIO1_IO03 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	/* AX88796B Ethernet 2 - EIM_A */
+	IOMUX_PADS(PAD_EIM_DA0__EIM_AD00 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_DA1__EIM_AD01 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_DA2__EIM_AD02 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_DA3__EIM_AD03 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_DA4__EIM_AD04 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_DA12__EIM_AD12 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	/* AX88796B Ethernet 2 - EIM_D & PIFDATA */
+	IOMUX_PADS(PAD_EIM_D16__EIM_DATA16 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D17__EIM_DATA17 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D18__EIM_DATA18 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D19__EIM_DATA19 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D20__EIM_DATA20 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D21__EIM_DATA21 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D22__EIM_DATA22 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D23__EIM_DATA23 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D24__EIM_DATA24 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D25__EIM_DATA25 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D26__EIM_DATA26 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D27__EIM_DATA27 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D28__EIM_DATA28 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D29__EIM_DATA29 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D30__EIM_DATA30 | MUX_PAD_CTRL(EIM_PULL_UP)),
+	IOMUX_PADS(PAD_EIM_D31__EIM_DATA31 | MUX_PAD_CTRL(EIM_PULL_UP)),
+};
+
+/* The second ethernet controller is attached via EIM */
+void setup_weim(bd_t *bis)
+{
+	struct weim *weim = (struct weim *)WEIM_BASE_ADDR;
+	struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+	u32 ccgr6, gpr1;
+
+	SETUP_IOMUX_PADS(eim_pads_eth_b);
+
+	/* Enable EIM clock */
+	ccgr6 = readl(CCM_CCGR6);
+	writel(ccgr6 | MXC_CCM_CCGR6_EMI_SLOW_MASK, CCM_CCGR6);
+
+	/*
+	 * Set EIM chip select configuration:
+	 *
+	 *   CS0: 0x08000000 - 0x08FFFFFF (64MB)
+	 *   CS1: 0x0C000000 - 0x0FFFFFFF (64MB)
+	 *   CS2, CS3: unused
+	 *
+	 * As these are three bits per chip select, use octal numbers!
+	 */
+	gpr1 = readl(&iomux_regs->gpr[1]);
+	gpr1 &= ~07777;
+	gpr1 |= 00033;
+	writel(gpr1, &iomux_regs->gpr[1]);
+
+	/* AX88796B is connected to CS1 of EIM */
+	writel(0x00020001, &weim->cs1gcr1);
+	writel(0x00000000, &weim->cs1gcr2);
+	writel(0x16000202, &weim->cs1rcr1);
+	writel(0x00000002, &weim->cs1rcr2);
+	writel(0x16002082, &weim->cs1wcr1);
+	writel(0x00000000, &weim->cs1wcr2);
+}
+
 /* enet pads definition */
 static iomux_v3_cfg_t const enet_pads_rgmii[] = {
 	IOMUX_PADS(PAD_ENET_MDIO__ENET_MDIO | MUX_PAD_CTRL(ENET_PAD_CTRL)),
@@ -827,7 +1040,7 @@ static iomux_v3_cfg_t const enet_pads_rgmii[] = {
 	IOMUX_PADS(PAD_ENET_CRS_DV__GPIO1_IO25 | MUX_PAD_CTRL(NO_PAD_CTRL)),
 };
 
-static iomux_v3_cfg_t const enet_pads_rmii[] = {
+static iomux_v3_cfg_t const enet_pads_rmii_picomoda9[] = {
 	IOMUX_PADS(PAD_ENET_MDIO__ENET_MDIO | MUX_PAD_CTRL(ENET_PAD_CTRL)),
 	IOMUX_PADS(PAD_ENET_MDC__ENET_MDC | MUX_PAD_CTRL(ENET_PAD_CTRL)),
 	IOMUX_PADS(PAD_ENET_CRS_DV__ENET_RX_EN | MUX_PAD_CTRL(ENET_PAD_CTRL)),
@@ -841,6 +1054,23 @@ static iomux_v3_cfg_t const enet_pads_rmii[] = {
 
 	/* Phy Reset */
 	IOMUX_PADS(PAD_SD4_DAT2__GPIO2_IO10 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
+static iomux_v3_cfg_t const enet_pads_rmii_netdcua9[] = {
+	IOMUX_PADS(PAD_ENET_MDIO__ENET_MDIO | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_ENET_MDC__ENET_MDC | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_ENET_CRS_DV__ENET_RX_EN | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_ENET_RX_ER__ENET_RX_ER | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_ENET_TX_EN__ENET_TX_EN | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_ENET_RXD0__ENET_RX_DATA0 | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_ENET_RXD1__ENET_RX_DATA1 | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_ENET_TXD0__ENET_TX_DATA0 | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_ENET_TXD1__ENET_TX_DATA1 | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_RGMII_TX_CTL__ENET_REF_CLK | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+	IOMUX_PADS(PAD_GPIO_16__ENET_REF_CLK | MUX_PAD_CTRL(ENET_PAD_CTRL)),
+
+	/* Phy Reset */
+	IOMUX_PADS(PAD_GPIO_2__GPIO1_IO02 | MUX_PAD_CTRL(NO_PAD_CTRL)),
 };
 
 /* Read a MAC address from OTP memory */
@@ -938,79 +1168,123 @@ int board_eth_init(bd_t *bis)
 	u32 ccgr1, gpr1;
 	int ret;
 	int phy_addr;
+	int reset_gpio;
 	enum xceiver_type xcv_type;
 	enum enet_freq freq;
 	struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+	int id = 0;
 
-	/* Set the IOMUX for ENET */
-	switch (fs_nboot_args.chBoardType) {
-	case BT_PICOMODA9:
-		set_fs_ethaddr(0);
+	/* Activate on-chip ethernet port (FEC) */
+	if (fs_nboot_args.chFeatures2 & FEAT2_ETH_A) {
+		set_fs_ethaddr(id);
 
-		/* Use 100 MBit/s LAN on RMII pins */
-		SETUP_IOMUX_PADS(enet_pads_rmii);
+		switch (fs_nboot_args.chBoardType) {
+		case BT_PICOMODA9:
+		case BT_NETDCUA9:
+			/* Use 100 MBit/s LAN on RMII pins */
+			if (fs_nboot_args.chBoardType == BT_PICOMODA9)
+				SETUP_IOMUX_PADS(enet_pads_rmii_picomoda9);
+			else
+				SETUP_IOMUX_PADS(enet_pads_rmii_netdcua9);
 
-		/* ENET CLK is generated in i.MX6 and is an output */
-		gpr1 = readl(&iomux_regs->gpr[1]);
-		gpr1 |= IOMUXC_GPR1_ENET_CLK_SEL_MASK;
-		writel(gpr1, &iomux_regs->gpr[1]);
+			/* ENET CLK is generated in i.MX6 and is an output */
+			gpr1 = readl(&iomux_regs->gpr[1]);
+			gpr1 |= IOMUXC_GPR1_ENET_CLK_SEL_MASK;
+			writel(gpr1, &iomux_regs->gpr[1]);
 
-		freq = ENET_50MHZ;
-		break;
+			freq = ENET_50MHZ;
+			break;
 
-	default:
-		set_fs_ethaddr(0);
+		default:
+			/* Use 1 GBit/s LAN on RGMII pins */
+			SETUP_IOMUX_PADS(enet_pads_rgmii);
 
-		/* Use 1 GBit/s LAN on RGMII pins */
-		SETUP_IOMUX_PADS(enet_pads_rgmii);
+			/* ENET CLK is generated in PHY and is an input */
+			gpr1 = readl(&iomux_regs->gpr[1]);
+			gpr1 &= ~IOMUXC_GPR1_ENET_CLK_SEL_MASK;
+			writel(gpr1, &iomux_regs->gpr[1]);
 
-		/* ENET CLK is generated in PHY and is an input */
-		gpr1 = readl(&iomux_regs->gpr[1]);
-		gpr1 |= IOMUXC_GPR1_ENET_CLK_SEL_MASK;
-		writel(gpr1, &iomux_regs->gpr[1]);
+			freq = ENET_25MHZ;
+			break;
+		}
 
-		freq = ENET_25MHZ;
-		break;
+		/* Activate ENET PLL */
+		ret = enable_fec_anatop_clock(0, freq);
+		if (ret < 0)
+			return ret;
+
+		/* Enable ENET clock in clock gating register 1 */
+		ccgr1 = readl(CCM_CCGR1);
+		writel(ccgr1 | MXC_CCM_CCGR1_ENET_CLK_ENABLE_MASK, CCM_CCGR1);
+
+		/* Reset the PHY */
+		switch (fs_nboot_args.chBoardType) {
+		case BT_PICOMODA9:
+		case BT_NETDCUA9:
+			/*
+			 * DP83484 PHY: This PHY needs at least 1 us reset
+			 * pulse width (GPIO_2_10). After power on it needs
+			 * min 167 ms (after reset is deasserted) before the
+			 * first MDIO access can be done. In a warm start, it
+			 * only takes around 3 for this. As we do not know
+			 * whether this is a cold or warm start, we must
+			 * assume the worst case.
+			 */
+			if (fs_nboot_args.chBoardType == BT_PICOMODA9)
+				reset_gpio = IMX_GPIO_NR(2, 10);
+			else
+				reset_gpio = IMX_GPIO_NR(1, 2);
+			gpio_direction_output(reset_gpio, 0);
+			udelay(10);
+			gpio_set_value(reset_gpio, 1);
+			mdelay(170);
+			phy_addr = 1;
+			xcv_type = RMII;
+			break;
+
+		default:
+			/*
+			 * Atheros AR8035: Assert reset (GPIO_1_25) for at
+			 * least 0.5 ms
+			 */
+			gpio_direction_output(IMX_GPIO_NR(1, 25), 0);
+			udelay(500);
+			gpio_set_value(IMX_GPIO_NR(1, 25), 1);
+			phy_addr = 4;
+			xcv_type = RGMII;
+			break;
+		}
+
+		ret = fecmxc_initialize_multi_type(bis, -1, phy_addr,
+						   ENET_BASE_ADDR, xcv_type);
+		if (ret < 0)
+			return ret;
+
+		id++;
 	}
 
-	/* Activate ENET PLL */
-	ret = enable_fec_anatop_clock(0, freq);
-	if (ret < 0)
-		return ret;
+	/* If available, activate external ethernet port (AX88796B) */
+	if (fs_nboot_args.chFeatures2 & FEAT2_ETH_B) {
+		/* AX88796B is connected via EIM */
+		setup_weim(bis);
 
-	/* Enable ENET clock in clock gating register 1 */
-	ccgr1 = readl(CCM_CCGR1);
-	writel(ccgr1 | MXC_CCM_CCGR1_ENET_CLK_ENABLE_MASK, CCM_CCGR1);
+		/* Reset AX88796B, on NetDCUA9 this is on GPIO1_IO03 */
+		gpio_direction_output(IMX_GPIO_NR(1, 3), 0);
+		udelay(200);
+		gpio_set_value(IMX_GPIO_NR(1, 3), 1);
 
-	/* Reset the PHY */
-	switch (fs_nboot_args.chBoardType) {
-	case BT_PICOMODA9:
-		/* DP83484 PHY: This PHY needs at least 1 us reset pulse width
-		   (GPIO_2_10). After power on it needs min 167 ms (after
-		   reset is deasserted) before the first MDIO access can be
-		   done. In a warm start, it only takes around 3 for this. As
-		   we do not know whether this is a cold or warm start, we
-		   must assume the worst case. */
-		gpio_direction_output(IMX_GPIO_NR(2, 10), 0);
-		udelay(10);
-		gpio_set_value(IMX_GPIO_NR(2, 10), 1);
-		mdelay(170);
-		phy_addr = 1;
-		xcv_type = RMII;
-		break;
+		/* Initialize AX88796B */
+		ret = ax88796_initialize(-1, CONFIG_DRIVER_AX88796_BASE,
+					 AX88796_MODE_BUS16_DP16);
 
-	default:
-		/* Atheros AR8035: reset phy (GPIO_1_25) for at least 0.5 ms */
-		gpio_direction_output(IMX_GPIO_NR(1, 25), 0);
-		udelay(500);
-		gpio_set_value(IMX_GPIO_NR(1, 25), 1);
-		phy_addr = 4;
-		xcv_type = RGMII;
-		break;
+		set_fs_ethaddr(id++);
 	}
 
-	return fecmxc_initialize_multi_type(bis, -1, phy_addr, ENET_BASE_ADDR,
-					    xcv_type);
+	/* If WLAN is available, just set ethaddr variable */
+	if (fs_nboot_args.chFeatures2 & FEAT2_WLAN)
+		set_fs_ethaddr(id++);
+
+	return 0;
 }
 #endif /* CONFIG_CMD_NET */
 
@@ -1027,36 +1301,6 @@ char *get_board_name(void)
 char *get_sys_prompt(void)
 {
 	return fs_sys_prompt;
-}
-
-/* ### FIXME: arch/arm/cpu/armv7/mx6/soc.c passes the CPU type in this value
-   by default. imx-lib in buildroot builds a kernel module and defines its own
-   macros for cpu_is_mx6q() and cpu_is_mx6dl() that rely on this value here.
-   Actually this is wrong and imx-lib should use the macros from kernel source
-   arch/arm/plat-mxc/include/mach/mxc.h instead. But as long as imx-lib does
-   it this wrong way, we must not override the original function from
-   arch/arm/cpu/armv7/mx6/soc.c here. */
-#if 0 //###
-/* Return the board revision; this is called when Linux is started and the
-   value is passed to Linux */
-unsigned int get_board_rev(void)
-{
-	return fs_nboot_args.chBoardRev;
-}
-#endif
-
-/* Return a pointer to the hardware configuration; this is called when Linux
-   is started and the structure is passed to Linux */
-struct tag_fshwconfig *get_board_fshwconfig(void)
-{
-	return &fs_nboot_args;
-}
-
-/* Return a pointer to the M4 image and configuration; this is called when
-   Linux is started and the structure is passed to Linux */
-struct tag_fsm4config *get_board_fsm4config(void)
-{
-	return &fs_m4_args;
 }
 
 #ifdef CONFIG_CMD_LED
@@ -1096,7 +1340,7 @@ static unsigned int get_led_gpio(struct tag_fshwconfig *pargs, led_id_t id,
 		gpio = (id ? IMX_GPIO_NR(4, 7) : IMX_GPIO_NR(4, 6));
 		break;
 
-	default:			/* efusA9, armStoneA9r2 */
+	default:			/* efusA9, armStoneA9r2, NetDCUA9 */
 		gpio = (id ? IMX_GPIO_NR(7, 13) : IMX_GPIO_NR(7, 12));
 		break;
 	}
@@ -1151,3 +1395,164 @@ void __led_toggle(led_id_t id)
 	gpio_set_value(get_led_gpio(pargs, id, val, 0), val);
 }
 #endif /* CONFIG_CMD_LED */
+
+#ifdef CONFIG_OF_BOARD_SETUP
+/* Set a generic value, if it was not already set in the device tree */
+static void fus_fdt_set_val(void *fdt, int offs, const char *name,
+			    const void *val, int len)
+{
+	int err;
+
+	/* Warn if property already exists in device tree */
+	if (fdt_get_property(fdt, offs, name, NULL) != NULL) {
+		printf("## Keeping property %s/%s from device tree!\n",
+		       fdt_get_name(fdt, offs, NULL), name);
+	}
+
+	err = fdt_setprop(fdt, offs, name, val, len);
+	if (err) {
+		printf("## Unable to update property %s/%s: err=%s\n",
+		       fdt_get_name(fdt, offs, NULL), name, fdt_strerror(err));
+	}
+}
+
+/* Set a string value */
+static void fus_fdt_set_string(void *fdt, int offs, const char *name,
+			       const char *str)
+{
+	fus_fdt_set_val(fdt, offs, name, str, strlen(str) + 1);
+}
+
+/* Set a u32 value as a string (usually for bdinfo) */
+static void fus_fdt_set_u32str(void *fdt, int offs, const char *name, u32 val)
+{
+	char str[12];
+
+	sprintf(str, "%u", val);
+	fus_fdt_set_string(fdt, offs, name, str);
+}
+
+/* Set a u32 value */
+static void fus_fdt_set_u32(void *fdt, int offs, const char *name, u32 val)
+{
+	fdt32_t tmp = cpu_to_fdt32(val);
+
+	fus_fdt_set_val(fdt, offs, name, &tmp, sizeof(tmp));
+}
+
+/* Set ethernet MAC address aa:bb:cc:dd:ee:ff for given index */
+static void fus_fdt_set_macaddr(void *fdt, int offs, int id)
+{
+	uchar enetaddr[6];
+	char name[10];
+	char str[20];
+
+	if (eth_getenv_enetaddr_by_index("eth", id, enetaddr)) {
+		sprintf(name, "MAC%d", id);
+		sprintf(str, "%pM", enetaddr);
+		fus_fdt_set_string(fdt, offs, name, str);
+	}
+}
+
+/* If environment variable exists, set a string property with the same name */
+static void fus_fdt_set_getenv(void *fdt, int offs, const char *name)
+{
+	const char *str;
+
+	str = getenv(name);
+	if (str)
+		fus_fdt_set_string(fdt, offs, name, str);
+}
+
+/* Open a node, warn if the node does not exist */
+static int fus_fdt_path_offset(void *fdt, const char *path)
+{
+	int offs;
+
+	offs = fdt_path_offset(fdt, path);
+	if (offs < 0) {
+		printf("## Can not access node %s: err=%s\n",
+		       path, fdt_strerror(offs));
+	}
+
+	return offs;
+}
+
+/* Enable or disable node given by path, overwrite any existing status value */
+static void fus_fdt_enable(void *fdt, const char *path, int enable)
+{
+	int offs, err, len;
+	const void *val;
+	char *str = enable ? "okay" : "disabled";
+
+	offs = fdt_path_offset(fdt, path);
+	if (offs < 0)
+		return;
+
+	/* Do not change if status already exists and has this value */
+	val = fdt_getprop(fdt, offs, "status", &len);
+	if (val && len && !strcmp(val, str))
+		return;
+
+	/* No, set new value */
+	err = fdt_setprop_string(fdt, offs, "status", str);
+	if (err) {
+		printf("## Can not set status of node %s: err=%s\n",
+		       path, fdt_strerror(err));
+	}
+}
+
+/* Do any additional board-specific device tree modifications */
+void ft_board_setup(void *fdt, bd_t *bd)
+{
+	int offs;
+
+	printf("   Setting run-time properties\n");
+
+	/* Set ECC strength for NAND driver */
+	offs = fus_fdt_path_offset(fdt, FDT_NAND);
+	if (offs >= 0) {
+		fus_fdt_set_u32(fdt, offs, "fus,ecc_strength",
+				fs_nboot_args.chECCtype);
+	}
+
+	/* Set bdinfo entries */
+	offs = fus_fdt_path_offset(fdt, "/bdinfo");
+	if (offs >= 0) {
+		int id = 0;
+		char rev[6];
+
+		/* NAND info, names and features */
+		fus_fdt_set_u32str(fdt, offs, "ecc_strength",
+				   fs_nboot_args.chECCtype);
+		fus_fdt_set_u32str(fdt, offs, "nand_state",
+				   fs_nboot_args.chECCstate);
+		fus_fdt_set_string(fdt, offs, "board_name", get_board_name());
+		sprintf(rev, "%d.%02d", fs_nboot_args.chBoardRev / 100,
+			fs_nboot_args.chBoardRev % 100);
+		fus_fdt_set_string(fdt, offs, "board_revision", rev);
+		fus_fdt_set_getenv(fdt, offs, "platform");
+		fus_fdt_set_getenv(fdt, offs, "arch");
+		fus_fdt_set_u32str(fdt, offs, "features1",
+				   fs_nboot_args.chFeatures1);
+		fus_fdt_set_u32str(fdt, offs, "features2",
+				   fs_nboot_args.chFeatures2);
+
+		/* MAC addresses */
+		if (fs_nboot_args.chFeatures2 & FEAT2_ETH_A)
+			fus_fdt_set_macaddr(fdt, offs, id++);
+		if (fs_nboot_args.chFeatures2 & FEAT2_ETH_B)
+			fus_fdt_set_macaddr(fdt, offs, id++);
+		if (fs_nboot_args.chFeatures2 & FEAT2_WLAN)
+			fus_fdt_set_macaddr(fdt, offs, id++);
+	}
+
+	/* Disable ethernet node(s) if feature is not available */
+	if (!(fs_nboot_args.chFeatures2 & FEAT2_ETH_A))
+		fus_fdt_enable(fdt, FDT_ETH_A, 0);
+#if 0
+	if (!(fs_nboot_args.chFeatures2 & FEAT2_ETH_B))
+		fus_fdt_enable(fdt, FDT_ETH_B, 0);
+#endif
+}
+#endif /* CONFIG_OF_BOARD_SETUP */

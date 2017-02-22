@@ -34,6 +34,7 @@
 #include <checkboot.h>
 #include <ivt.h>
 #include <asm/arch/clock.h>
+#include <asm/io.h>
 #endif
 
 
@@ -659,7 +660,7 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #ifdef CONFIG_CMD_NAND_CONVERT
 	if (strncmp(cmd, "convert", 6) == 0) {
 		size_t rwsize;
-		
+
 
 		if (argc == 3) {
 			s = argv[2];
@@ -761,8 +762,14 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 					/* HAB  */
 #ifdef CONFIG_SECURITY_HAB
 					int Check_ok = 0;
-					u32 length = getImageLength((u32)addr);
-					Check_ok = handleIVT(addr, 1, &off, &size, length);
+					if(readl(0x021BC460) & 0x00000002)
+						{
+							u32 length = getImageLength((u32)addr);
+							Check_ok = handleIVT(addr, 1, &off, &size, length);
+						}else
+						{
+							Check_ok = 1;
+						}
 					if(Check_ok == 1)
 						{
 							ret = nand_write_skip_bad(nand, off, &rwsize, NULL, maxsize, (u_char *)addr, 0);
@@ -770,7 +777,11 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 						{
 							ret = 1;
 						}
-#endif 
+#else
+				  ret = nand_write_skip_bad(nand, off, &rwsize,
+							  NULL, maxsize,
+							  (u_char *)addr, 0);
+#endif
 				}
 #ifdef CONFIG_CMD_NAND_TRIMFFS
 		} else if (!strcmp(s, ".trimffs")) {
@@ -951,7 +962,7 @@ static char nand_help_text[] =
 #ifdef CONFIG_CMD_NAND_CONVERT
 	"nand convert addr off|partition size\n"
 	"    Convert NAND content from old version to new version by reading\n"
-        "    data in old style and writing back in new style. addr and size\n"
+	"    data in old style and writing back in new style. addr and size\n"
 	"    must be block aligned.\n"
 	"nand convert on|1|off|0\n"
 	"    Switch old-style reading capability on or off\n"
@@ -1024,7 +1035,8 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
 		bootstage_mark(BOOTSTAGE_ID_NAND_HDR_READ);
 
 #ifdef CONFIG_SECURITY_HAB
-	addr += HAB_HEADER;
+	if(readl(0x021BC460) & 0x00000002)
+		addr += HAB_HEADER;
 #endif
 	switch (genimg_get_format ((void *)addr)) {
 #if defined(CONFIG_IMAGE_FORMAT_LEGACY)
@@ -1035,10 +1047,13 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
 			bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
 		image_print_contents (hdr);
 #ifdef CONFIG_SECURITY_HAB
-		cnt = (size_t)getImageLength((u32)(addr - HAB_HEADER));
+		if(readl(0x021BC460) & 0x00000002)
+			cnt = (size_t)getImageLength((u32)(addr - HAB_HEADER));
+		else
+			cnt = (size_t)getImageLength((u32)(addr));
 #else
 		cnt = image_get_image_size (hdr);
-#endif 
+#endif
 		break;
 #endif
 	case IMAGE_FORMAT_ZIMAGE:
@@ -1063,9 +1078,10 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
 	if (show)
 		bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
 #ifdef CONFIG_SECURITY_HAB
-	addr -= HAB_HEADER;
+	if(readl(0x021BC460) & 0x00000002)
+		addr -= HAB_HEADER;
 #endif
-  
+
 	r = nand_read_skip_bad(nand, offset, &cnt, NULL, nand->size,
 			(u_char *)addr);
 	if (r) {
