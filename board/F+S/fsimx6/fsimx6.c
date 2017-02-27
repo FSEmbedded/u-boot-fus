@@ -103,7 +103,6 @@
 
 struct board_info {
 	char *name;			/* Device name */
-	unsigned int mach_type;		/* Device machine ID */
 	char *bootdelay;		/* Default value for bootdelay */
 	char *updatecheck;		/* Default value for updatecheck */
 	char *installcheck;		/* Default value for installcheck */
@@ -142,7 +141,6 @@ struct board_info {
 const struct board_info fs_board_info[8] = {
 	{	/* 0 (BT_EFUSA9) */
 		.name = "efusA9",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -159,7 +157,6 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 1 (BT_ARMSTONEA9)*/
 		.name = "armStoneA9",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -176,7 +173,6 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 2 (BT_PICOMODA9) */
 		.name = "PicoMODA9",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -193,7 +189,6 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 3 (BT_QBLISSA9) */
 		.name = "QBlissA9",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -210,7 +205,6 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 4 (BT_ARMSTONEA9R2) */
 		.name = "armStoneA9r2",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -227,11 +221,9 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 5 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 	{	/* 6 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 	{	/* 7 (BT_NETDCUA9) */
 		.name = "NetDCUA9",

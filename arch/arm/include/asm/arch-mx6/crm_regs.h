@@ -658,8 +658,7 @@ struct mxc_ccm_reg {
 #define MXC_CCM_CLPCR_WB_PER_AT_LPM			(1 << 16)
 #endif
 
-/* new */
-
+/* new included from nxp uboot u-boot-2016.01_bsp9.0*/
 #define MXC_CCM_CCGR3_ENET_OFFSET				4
 #define MXC_CCM_CCGR1_ENET_OFFSET			10
 #define MXC_CCM_CCGR6_PRG_CLK0_MASK		(3 << 24)
@@ -667,11 +666,10 @@ struct mxc_ccm_reg {
 #define MXC_CCM_CSCDR1_UART_CLK_SEL			(1 << 6)
 #define MXC_CCM_CSCDR2_ECSPI_CLK_SEL_MASK		(0x1 << 18)
 #define MXC_CCM_CSCMR1_PER_CLK_SEL_MASK (1 << 6)
-//#define MXC_CCM_CCGR3_ENET_CLK_ENABLE_MASK (3 << MXC_CCM_CCGR3_ENET_OFFSET)
 #define MXC_CCM_CCGR1_ENET_MASK		   (3 << MXC_CCM_CCGR1_ENET_OFFSET)
 #define MXC_CCM_CCGR3_ENET_MASK		   (3 << MXC_CCM_CCGR3_ENET_OFFSET)
-
 /* end new */
+
 #define MXC_CCM_CLPCR_COSC_PWRDOWN			(1 << 11)
 #define MXC_CCM_CLPCR_STBY_COUNT_MASK			(0x3 << 9)
 #define MXC_CCM_CLPCR_STBY_COUNT_OFFSET			9

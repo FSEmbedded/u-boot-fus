@@ -60,14 +60,16 @@ void enable_uart_clk(unsigned char enable);
 int enable_cspi_clock(unsigned char enable, unsigned spi_num);
 int enable_usdhc_clk(unsigned char enable, unsigned bus_num);
 int enable_sata_clock(void);
-void disable_sata_clock(void);
+/*###FB###*/
+/*void disable_sata_clock(void);*/
 int enable_pcie_clock(void);
 int enable_i2c_clk(unsigned char enable, unsigned i2c_num);
 int enable_spi_clk(unsigned char enable, unsigned spi_num);
 void enable_ipu_clock(void);
 int enable_fec_anatop_clock(int fec_id, enum enet_freq freq);
 void enable_enet_clk(unsigned char enable);
-int enable_lcdif_clock(u32 base_addr);
+/*###FB###*/
+/*int enable_lcdif_clock(u32 base_addr);*/
 void enable_qspi_clk(int qspi_num);
 void enable_thermal_clk(void);
 void mxs_set_lcdclk(u32 base_addr, u32 freq);

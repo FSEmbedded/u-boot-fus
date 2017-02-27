@@ -108,7 +108,6 @@
 
 struct board_info {
 	char *name;			/* Device name */
-	unsigned int mach_type;		/* Device machine ID */
 	char *bootdelay;		/* Default value for bootdelay */
 	char *updatecheck;		/* Default value for updatecheck */
 	char *installcheck;		/* Default value for installcheck */
@@ -152,7 +151,6 @@ struct fus_sdhc_cfg {
 const struct board_info fs_board_info[8] = {
 	{	/* 0 (BT_EFUSA7UL) */
 		.name = "efusA7UL",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -169,7 +167,6 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 1 (BT_CUBEA7UL) */
 		.name = "CubeA7UL",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = "TargetFS.ubi(ubi0:data)",
 		.installcheck = INSTALL_RAM,
@@ -234,15 +231,12 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 5 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 	{	/* 6 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 	{	/* 7 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 };
 
@@ -807,7 +801,6 @@ int board_ehci_hcd_init(int port)
         return 0;
 }
 
-#if 0 //###
 int board_ehci_power(int port, int on)
 {
 	if (port > 1)
@@ -844,7 +837,6 @@ int board_ehci_power(int port, int on)
 
 	return 0;
 }
-#endif
 
 int board_usb_phy_mode(int port)
 {

@@ -714,7 +714,7 @@ int enable_sata_clock(void)
 	ungate_sata_clock();
 	return enable_enet_pll(BM_ANADIG_PLL_ENET_ENABLE_SATA);
 }
-
+#if 0 /*###FB###*/
 void disable_sata_clock(void)
 {
 	struct mxc_ccm_reg *const imx_ccm =
@@ -722,6 +722,7 @@ void disable_sata_clock(void)
 
 	clrbits_le32(&imx_ccm->CCGR5, MXC_CCM_CCGR5_SATA_MASK);
 }
+#endif
 #endif
 
 int enable_pcie_clock(void)

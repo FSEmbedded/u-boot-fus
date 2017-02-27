@@ -55,12 +55,6 @@
 #define BT_KEN116     2			/* Not supported in Linux */
 #define BT_BEMA9X     3
 
-/* Features set in tag_fshwconfig.chFeature1 (###TODO: proposed fetaures, not
-   actually available from NBoot) */
-#define FEAT1 L2CACHE (1<<0)		/* 0: no L2 Cache, 1: has L2 Cache */
-#define FEAT1_M4      (1<<1)		/* 0: no Cortex-M4, 1: has Cortex-M4 */
-#define FEAT1_LCD     (1<<2)		/* 0: no LCD device, 1: has LCD */
-
 /* Features set in tag_fshwconfig.chFeature2 (available since NBoot VN27) */
 #define FEAT2_ETH_A   (1<<0)		/* 0: no LAN0, 1; has LAN0 */
 #define FEAT2_ETH_B   (1<<1)		/* 0: no LAN1, 1; has LAN1 */
@@ -106,7 +100,6 @@
 
 struct board_info {
 	char *name;			/* Device name */
-	unsigned int mach_type;		/* Device machine ID */
 	char *bootdelay;		/* Default value for bootdelay */
 	char *updatecheck;		/* Default value for updatecheck */
 	char *installcheck;		/* Default value for installcheck */
@@ -145,7 +138,6 @@ struct board_info {
 const struct board_info fs_board_info[8] = {
 	{	/* 0 (BT_EFUSA9X) */
 		.name = "efusA9X",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -162,7 +154,6 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 1 (BT_PicoCOMA9X) */
 		.name = "PicoCOMA9X",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -179,7 +170,6 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 2 (BT_KEN116) */
 		.name = "KEN116",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -196,7 +186,6 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 3 (BT_BEMA9X) */
 		.name = "BemA9X",
-		.mach_type = 0xFFFFFFFF,
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -213,19 +202,15 @@ const struct board_info fs_board_info[8] = {
 	},
 	{	/* 4 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 	{	/* 5 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 	{	/* 6 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 	{	/* 7 (unknown) */
 		.name = "unknown",
-		.mach_type = 0,
 	},
 };
 
@@ -886,12 +871,6 @@ static iomux_v3_cfg_t const enet_pads_rgmii2[] = {
 	IOMUX_PADS(PAD_RGMII2_RD2__ENET2_RX_DATA_2 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL)),
 	IOMUX_PADS(PAD_RGMII2_RD3__ENET2_RX_DATA_3 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL)),
 	IOMUX_PADS(PAD_RGMII2_RX_CTL__ENET2_RX_EN | MUX_PAD_CTRL(ENET_RX_PAD_CTRL)),
-
-	/* PHY interrupt; on efuA9X this is shared on both PHYs */
-	IOMUX_PADS(PAD_ENET2_TX_CLK__GPIO2_IO_9 | MUX_PAD_CTRL(NO_PAD_CTRL)),
-
-	/* Reset signal for both PHYs */
-	IOMUX_PADS(PAD_ENET1_MDC__GPIO2_IO_2 | MUX_PAD_CTRL(NO_PAD_CTRL)),
 };
 
 static iomux_v3_cfg_t const enet_pads_rmii1[] = {

@@ -41,7 +41,6 @@
 /* security include  */
 #include <ivt.h>
 
-
 #ifdef CONFIG_CMD_BDI
 extern int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]);
 #endif

@@ -37,7 +37,6 @@
 #include <asm/io.h>
 #endif
 
-
 #if defined(CONFIG_CMD_MTDPARTS)
 
 /* partition handling routines */
@@ -660,7 +659,7 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #ifdef CONFIG_CMD_NAND_CONVERT
 	if (strncmp(cmd, "convert", 6) == 0) {
 		size_t rwsize;
-
+		
 
 		if (argc == 3) {
 			s = argv[2];
@@ -962,7 +961,7 @@ static char nand_help_text[] =
 #ifdef CONFIG_CMD_NAND_CONVERT
 	"nand convert addr off|partition size\n"
 	"    Convert NAND content from old version to new version by reading\n"
-	"    data in old style and writing back in new style. addr and size\n"
+        "    data in old style and writing back in new style. addr and size\n"
 	"    must be block aligned.\n"
 	"nand convert on|1|off|0\n"
 	"    Switch old-style reading capability on or off\n"
