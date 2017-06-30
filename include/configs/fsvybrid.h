@@ -258,7 +258,6 @@
  * Ethernet
  ************************************************************************/
 #define CONFIG_FEC_MXC
-#define CONFIG_FS_VYBRID_PLL_ETH // ### undefine if external quartz is used for ETH clock
 
 /* PHY */
 #define CONFIG_PHYLIB

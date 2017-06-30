@@ -944,25 +944,30 @@ int board_eth_init(bd_t *bis)
 	int phy_addr;
 	uint32_t enet_addr;
 	u8 chBoardType = fs_nboot_args.chBoardType;
+	u8 chFeat1 = fs_nboot_args.chFeatures1;
+	u8 chFeat2 = fs_nboot_args.chFeatures2;
+	u8 chBoardRev = fs_nboot_args.chBoardRev;
 
 	/* CUBEA5 has not ethernet at all, do not even configure PHY clock */
 	if (chBoardType == BT_CUBEA5)
 		return 0;
 
 	/* Configure ethernet PHY clock depending on board type and revision */
-	if ((chBoardType == BT_AGATEWAY) && (fs_nboot_args.chBoardRev >= 110)) {
+	if (((chBoardType == BT_ARMSTONEA5) && (chFeat2 & FEAT2_RMIICLK_CKO1))
+	    || ((chBoardType == BT_AGATEWAY) && (chBoardRev >= 110))) {
 		/* Starting with board Rev 1.10, AGATEWAY has an external
-		   oscillator and needs RMIICLK (PTA6) as input */
+		   oscillator and needs RMIICLK (PTA6) as input. Newer
+		   armStoneA5 also have this oscillator, but only if bit
+		   FEAT2_RMIICLK_CKO1 is set in chFeatures2. */
 		__raw_writel(0x00203191, IOMUXC_PAD_000);
 	} else {
-#ifdef CONFIG_FS_VYBRID_PLL_ETH
 		struct clkctl *ccm = (struct clkctl *)CCM_BASE_ADDR;
 		u32 temp;
 
 		/* Configure PLL5 main clock for RMII clock. */
 		temp = 0x2001;		/* ANADIG_PLL5_CTRL: Enable, 50MHz */
 		__raw_writel(temp, 0x400500E0);
-		if (fs_nboot_args.chFeatures2 & FEAT2_RMIICLK_CKO1) {
+		if (chFeat2 & FEAT2_RMIICLK_CKO1) {
 			/* We have a board revision with a direct connection
 			   between PTB10 and PTA6, so we will use CKO1 (PTB10)
 			   to output the PLL5 clock signal and use RMIICLK
@@ -991,11 +996,6 @@ int board_eth_init(bd_t *bis)
 			__raw_writel(temp, &ccm->cscdr1);
 			__raw_writel(0x00103942, IOMUXC_PAD_000);
 		}
-#else
-		/* We have an external oscillator for RMII clock, configure
-		   RMIICLK (PTA6) as input */
-		__raw_writel(0x00203191, IOMUXC_PAD_000);
-#endif /* CONFIG_FS_VYBRID_PLL_ETH */
 	}
 
 	/* Get info on first ethernet port; AGATEWAY and HGATEWAY always only
@@ -1004,13 +1004,13 @@ int board_eth_init(bd_t *bis)
 	phy_addr = 0;
 	enet_addr = MACNET0_BASE_ADDR;
 	id = -1;
-	switch (fs_nboot_args.chBoardType) {
+	switch (chBoardType) {
 	case BT_PICOCOMA5:
 		phy_addr = 1;
 		/* Fall through to case BT_ARMSTONEA5 */
 	case BT_ARMSTONEA5:
 	case BT_NETDCUA5:
-		if (fs_nboot_args.chFeatures1 & FEAT1_2NDLAN)
+		if (chFeat1 & FEAT1_2NDLAN)
 			id = 0;
 		break;
 	case BT_AGATEWAY:
@@ -1025,12 +1025,12 @@ int board_eth_init(bd_t *bis)
 
 	/* Probe first PHY and ethernet port */
 	ret = fecmxc_initialize_multi_type(bis, id, phy_addr, enet_addr, RMII);
-	if (ret || !(fs_nboot_args.chFeatures1 & FEAT1_2NDLAN))
+	if (ret || !(chFeat1 & FEAT1_2NDLAN))
 		return ret;
 
 	/* Get info on second ethernet port */
 	set_fs_ethaddr(1);
-	switch (fs_nboot_args.chBoardType) {
+	switch (chBoardType) {
 	case BT_PICOCOMA5:
 		phy_addr = 1;
 		break;
