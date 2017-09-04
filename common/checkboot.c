@@ -54,7 +54,7 @@ int checkTarget(u32 addr, size_t bytes, const char* image)
 		{
 			hab = (struct rvt*) 0x00000094;
 		}
-	if(is_cpu_type(MXC_CPU_MX6UL))
+	if(is_cpu_type(MXC_CPU_MX6UL) || is_cpu_type(MXC_CPU_MX6SX))
 		{
 			hab = (struct rvt*) 0x00000100;
 		}

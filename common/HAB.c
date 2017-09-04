@@ -43,9 +43,12 @@ void GetHABStatus(void)
   if(is_cpu_type(MXC_CPU_MX6SOLO))
     {
       hab = (struct rvt*) 0x00000098;
-    }else if(is_cpu_type(MXC_CPU_MX6Q))
+    } else if(is_cpu_type(MXC_CPU_MX6Q))
     {
       hab = (struct rvt*) 0x00000094;
+    } else if(is_cpu_type(MXC_CPU_MX6UL) || is_cpu_type(MXC_CPU_MX6SX))
+    {
+	hab = (struct rvt*) 0x00000100;
     }
 #endif
 #ifdef HAB_RVT_VYBRID
@@ -60,7 +63,6 @@ void GetHABStatus(void)
   /* Check HAB Status  */
   if(hab->report_status(&config, &state) != HAB_SUCCESS)
     {
-      printf("\nHAB Configuration: 0x%02x HAB State: 0x%02x\n", config, state);
       /* Display HAB Error events  */
       while(hab->report_event(HAB_STS_ANY, index, event_data, &bytes) == HAB_SUCCESS)
         {
