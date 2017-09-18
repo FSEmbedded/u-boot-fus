@@ -315,7 +315,7 @@ bool Init_HAB(u32 addr, OPTIONS eOption, loff_t *off, loff_t *size)
 		}
 
 		if(!(readl(0x021BC460) & 0x00000002) && (status_hab == false)) {
-			printf("Security Config is not closed, can proceed with unsecure %s\n", img_name);
+			printf("Security Config is not closed, can proceed with unsecure %s\n\n", img_name);
 			status_hab = true;
 		}
 	}
