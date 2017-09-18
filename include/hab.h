@@ -1,17 +1,18 @@
 /*
- * Filename: HAB.h
+ * Filename: hab.h
  *
  * Description: Program to use HAB Libary
  *
- * */
+ */
 
 #ifndef __HAB_H__
 #define __HAB_H__
 
+
 #include <common.h>
 
-/* Data Structures  */
 
+/* Data Structures  */
 typedef enum hab_structure
 {
     HAB_TAG_IVT = 0xd1,
@@ -26,6 +27,7 @@ typedef enum hab_structure
     HAB_MAJOR_VERSION = 0x04
 }hab_hdr_t;
 
+
 /* Status definitions  */
 typedef enum hab_status
 {
@@ -35,6 +37,7 @@ typedef enum hab_status
     HAB_SUCCESS = 0xf0
 }hab_status_t;
 
+
 /* Target definitions  */
 typedef enum hab_target
 {
@@ -43,6 +46,7 @@ typedef enum hab_target
     HAB_TGT_ANY = 0x55          /* check memory and peripheral white list  */
 }hab_target_t;
 
+
 /* security configuration definitions  */
 typedef enum hab_config
 {
@@ -50,6 +54,7 @@ typedef enum hab_config
     HAB_CFG_OPEN = 0xf0,        /* Non-secure IC  */
     HAB_CFG_CLOSED = 0xcc       /* Secure IC  */
 }hab_config_t;
+
 
 /* State definitions  */
 typedef enum hab_state
@@ -65,15 +70,17 @@ typedef enum hab_state
     HAB_STATE_MAX
 }hab_state_t;
 
+
 /* assertion definition  */
 typedef enum hab_assertion_t
 {
     HAB_ASSERTION_BLOCK = 0x0
 }hab_assertion_t;
 
-typedef u32 *hab_image_entry_f;
 
+typedef u32 *hab_image_entry_f;
 typedef hab_status_t (*hab_loader_callback_f)(void **start, size_t *bytes, const void *boot_data);
+
 
 struct rvt
 {
@@ -112,7 +119,9 @@ struct rvt
     void(*failsafe)(void);
 };
 
-void DisplayEvent(uint8_t* , size_t);
+
+u32 GetHABAddress(void);
+void DisplayEvent(uint8_t *event_data, size_t bytes);
 void GetHABStatus(void);
 
 #endif

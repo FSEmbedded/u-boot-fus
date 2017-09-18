@@ -212,10 +212,9 @@ obj-$(CONFIG_XLCD_PNG) += xlcd_png.o
 obj-$(CONFIG_XLCD_BMP) += xlcd_bmp.o
 obj-$(CONFIG_XLCD_JPG) += xlcd_jpg.o
 
-# Security ojbects
-obj-$(CONFIG_SECURITY_HAB) += HAB.o
+# Security objects
+obj-$(CONFIG_SECURITY_HAB) += hab.o
 obj-$(CONFIG_SECURITY_HAB) += checkboot.o
-obj-$(CONFIG_SECURITY_HAB) += ivt.o
 
 # others
 obj-$(CONFIG_BOOTSTAGE) += bootstage.o

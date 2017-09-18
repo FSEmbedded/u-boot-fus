@@ -32,7 +32,6 @@
 /* for HAB use  */
 #ifdef CONFIG_SECURITY_HAB
 #include <checkboot.h>
-#include <ivt.h>
 #include <asm/arch/clock.h>
 #include <asm/io.h>
 #endif
@@ -756,32 +755,25 @@ static int do_nand(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 				ret = nand_read_skip_bad(nand, off, &rwsize,
 							 NULL, maxsize,
 							 (u_char *)addr);
-			else
-				{
-					/* HAB  */
+			else {
+				/* HAB  */
 #ifdef CONFIG_SECURITY_HAB
-					int Check_ok = 0;
-					if(readl(0x021BC460) & 0x00000002)
-						{
-							u32 length = getImageLength((u32)addr);
-							Check_ok = handleIVT(addr, 1, &off, &size, length);
-						}else
-						{
-							Check_ok = 1;
-						}
-					if(Check_ok == 1)
-						{
-							ret = nand_write_skip_bad(nand, off, &rwsize, NULL, maxsize, (u_char *)addr, 0);
-						}else
-						{
-							ret = 1;
-						}
+				bool verification_ok = false;
+				verification_ok = Init_HAB((u32)addr,
+						BACKUP_IMAGE, &off, &size);
+				if(verification_ok == true) {
+					ret = nand_write_skip_bad(nand, off,
+						&rwsize, NULL, maxsize,
+							(u_char *)addr, 0);
+				} else {
+					ret = 1;
+				}
 #else
-				  ret = nand_write_skip_bad(nand, off, &rwsize,
+				ret = nand_write_skip_bad(nand, off, &rwsize,
 							  NULL, maxsize,
 							  (u_char *)addr, 0);
 #endif
-				}
+			}
 #ifdef CONFIG_CMD_NAND_TRIMFFS
 		} else if (!strcmp(s, ".trimffs")) {
 			if (read) {
@@ -1034,7 +1026,8 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
 		bootstage_mark(BOOTSTAGE_ID_NAND_HDR_READ);
 
 #ifdef CONFIG_SECURITY_HAB
-	if(readl(0x021BC460) & 0x00000002)
+	LOADER_TYPE boot_loader_type = GetLoaderType(addr);
+	if(boot_loader_type & (LOADER_KERNEL_IVT | LOADER_FDT_IVT | LOADER_UBOOT_IVT))
 		addr += HAB_HEADER;
 #endif
 	switch (genimg_get_format ((void *)addr)) {
@@ -1046,10 +1039,10 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
 			bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
 		image_print_contents (hdr);
 #ifdef CONFIG_SECURITY_HAB
-		if(readl(0x021BC460) & 0x00000002)
+		if(boot_loader_type & (LOADER_KERNEL_IVT | LOADER_FDT_IVT | LOADER_UBOOT_IVT))
 			cnt = (size_t)getImageLength((u32)(addr - HAB_HEADER));
 		else
-			cnt = (size_t)getImageLength((u32)(addr));
+			cnt = image_get_image_size(hdr);
 #else
 		cnt = image_get_image_size (hdr);
 #endif
@@ -1077,7 +1070,7 @@ int nand_load_image(int index, ulong offset, ulong addr, int show)
 	if (show)
 		bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
 #ifdef CONFIG_SECURITY_HAB
-	if(readl(0x021BC460) & 0x00000002)
+	if(boot_loader_type & (LOADER_KERNEL_IVT | LOADER_FDT_IVT | LOADER_UBOOT_IVT))
 		addr -= HAB_HEADER;
 #endif
 

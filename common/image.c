@@ -39,7 +39,8 @@
 #include <asm/io.h>
 
 /* security include  */
-#include <ivt.h>
+//#include <ivt.h>
+#include <checkboot.h>
 
 #ifdef CONFIG_CMD_BDI
 extern int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]);
@@ -745,34 +746,17 @@ ulong genimg_get_image(ulong img_addr)
 #endif /* CONFIG_HAS_DATAFLASH */
 
 #ifdef CONFIG_SECURITY_HAB
-	if(readl(0x021BC460) & 0x00000002)
-		{
-			if(!IS_KERNEL(img_addr) && !IS_DEVTREE(img_addr))
-				{
-					printf("\nERROR: No valid Kernel or DeviceTree!!\n");
-					return 1;
-				}
-			if(IS_KERNEL(img_addr))
-				{
-					u32 length = getImageLength((u32)img_addr);
-					int ret;
-					ret = handleIVT((u32)img_addr, 0, 0, 0, length);
-					if(ret)
-						return -1;
-				}else if(IS_DEVTREE(img_addr))
-				{
-					u32 length = getImageLength((u32)img_addr);
-					int ret;
-					ret = handleIVT((u32)img_addr, 0, 0, 0, length);
-					if(ret)
-						return 1;
-				}
-		}else
-		{
+	bool verification_ok = false;
+
+	verification_ok = Init_HAB((u32)img_addr, CUT_IVT, 0, 0);
+	if(verification_ok == false) {
+		return 0;
+	}
+	else {
 #ifdef CONFIG_FORMAT_LEGACY
-			return IMAGE_FORMAT_LEGACY;
+		return IMAGE_FORMAT_LEGACY;
 #endif
-		}
+	}
 #endif
 
 	return ram_addr;
