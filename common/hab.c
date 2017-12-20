@@ -10,10 +10,14 @@
 
 
 /* get address of hab function vector table */
-#define HAB_HDR_SDQ 0x412c00dd
-#define HAB_HDR_SX  0x412c00dd
-#define HAB_HDR_UL  0x423000dd
-#define HAB_HDR_VYB 0x412c00dd
+
+/* minor version differs between processor revisions, so set to 0 and mask out
+ * for comparison
+ */
+#define HAB_HDR_SDQ 0x402c00dd
+#define HAB_HDR_SX  0x402c00dd
+#define HAB_HDR_UL  0x403000dd
+#define HAB_HDR_VYB 0x402c00dd
 
 
 /*
@@ -53,7 +57,7 @@ u32 GetHABAddress(void)
 			return 0;
 			break;
 	}
-	if (*addr != HAB_HDR_SDQ)
+	if ((*addr & 0xf0ffffff) != HAB_HDR_SDQ)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -61,7 +65,7 @@ u32 GetHABAddress(void)
 	return (u32)addr;
 #elif defined CONFIG_FSIMX6SX
 	addr = (u32*)0x00000100;
-	if (*addr != HAB_HDR_SX)
+	if ((*addr & 0xf0ffffff) != HAB_HDR_SX)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -69,7 +73,7 @@ u32 GetHABAddress(void)
 	return (u32)addr;
 #elif defined CONFIG_FSIMX6UL
 	addr = (u32*)0x00000100;
-	if (*addr != HAB_HDR_UL)
+	if ((*addr & 0xf0ffffff) != HAB_HDR_UL)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -77,7 +81,7 @@ u32 GetHABAddress(void)
 	return (u32)addr;
 #elif defined CONFIG_FSVYBRID
 	addr = (u32*)0x00000054;
-	if (*addr != HAB_HDR_VYB)
+	if ((*addr & 0xf0ffffff) != HAB_HDR_VYB)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
