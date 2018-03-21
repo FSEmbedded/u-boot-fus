@@ -19,6 +19,7 @@
 #include <cmd_lcd.h>			/* PON_*, POFF_* */
 #endif
 #include <serial.h>			/* struct serial_device */
+#include <version.h>			/* version_string[] */
 
 #ifdef CONFIG_GENERIC_MMC
 #include <mmc.h>
@@ -64,6 +65,8 @@
 #define FEAT2_EMMC    (1<<2)		/* 0: no eMMC, 1: has eMMC */
 #define FEAT2_WLAN    (1<<3)		/* 0: no WLAN, 1: has WLAN */
 #define FEAT2_HDMICAM (1<<4)		/* 0: LCD-RGB, 1: HDMI+CAM (PicoMOD) */
+#define FEAT2_AUDIO   (1<<5)		/* 0: Codec onboard, 1: Codec extern */
+#define FEAT2_SPEED   (1<<6)		/* 0: Full speed, 1: Limited speed */
 #define FEAT2_ETH_MASK (FEAT2_ETH_A | FEAT2_ETH_B)
 
 /* NBoot before VN27 did not report feature values; use reasonable defaults */
@@ -92,14 +95,22 @@
 #define GPMI_PAD_CTRL1 (PAD_CTL_DSE_40ohm | PAD_CTL_SPEED_MED | PAD_CTL_SRE_FAST)
 #define GPMI_PAD_CTRL2 (GPMI_PAD_CTRL0 | GPMI_PAD_CTRL1)
 
-#define USDHC_PAD_CTRL (PAD_CTL_PKE | PAD_CTL_PUE |		\
-	PAD_CTL_PUS_47K_UP  | PAD_CTL_SPEED_LOW |		\
-	PAD_CTL_DSE_80ohm   | PAD_CTL_SRE_FAST  | PAD_CTL_HYS)
+#define USDHC_PAD_EXT (PAD_CTL_HYS | PAD_CTL_PUS_47K_UP |	\
+	PAD_CTL_SPEED_MED | PAD_CTL_DSE_40ohm | PAD_CTL_SRE_FAST)
+#define USDHC_CLK_EXT (PAD_CTL_HYS | PAD_CTL_SPEED_MED |	\
+	PAD_CTL_DSE_40ohm | PAD_CTL_SRE_FAST)
+#define USDHC_PAD_INT (PAD_CTL_HYS | PAD_CTL_PUS_47K_UP |	\
+	PAD_CTL_SPEED_MED | PAD_CTL_DSE_120ohm | PAD_CTL_SRE_FAST)
+#define USDHC_CLK_INT (PAD_CTL_HYS | PAD_CTL_SPEED_MED |	\
+	PAD_CTL_DSE_120ohm | PAD_CTL_SRE_FAST)
+#define USDHC_CD_CTRL (PAD_CTL_PUS_47K_UP | PAD_CTL_SPEED_LOW | PAD_CTL_HYS)
+#define USDHC_PWR_CTRL (USDHC_CD_CTRL | PAD_CTL_DSE_40ohm)
 
 #define EIM_NO_PULL (PAD_CTL_SPEED_MED | PAD_CTL_DSE_40ohm)
 #define EIM_PULL_DOWN (EIM_NO_PULL | PAD_CTL_PKE | PAD_CTL_PUE)
 #define EIM_PULL_UP (EIM_PULL_DOWN | PAD_CTL_PUS_100K_UP)
 
+#define USB_ID_PAD_CTRL (PAD_CTL_PUS_47K_UP | PAD_CTL_SPEED_LOW | PAD_CTL_HYS)
 
 struct board_info {
 	char *name;			/* Device name */
@@ -145,7 +156,7 @@ const struct board_info fs_board_info[8] = {
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
 		.recovercheck = UPDATE_DEF,
-		.earlyusbinit = EARLY_USB,
+		.earlyusbinit = NULL,
 		.console = ".console_serial",
 		.login = ".login_serial",
 		.mtdparts = ".mtdparts_std",
@@ -222,8 +233,21 @@ const struct board_info fs_board_info[8] = {
 	{	/* 5 (unknown) */
 		.name = "unknown",
 	},
-	{	/* 6 (unknown) */
-		.name = "unknown",
+	{	/* 6 (BT_QBLISSA9R2) */
+		.name = "QBlissA9r2",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.earlyusbinit = NULL,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = ".init_init",
+		.rootfs = ".rootfs_ubifs",
+		.kernel = ".kernel_nand",
+		.fdt = ".fdt_nand",
 	},
 	{	/* 7 (BT_NETDCUA9) */
 		.name = "NetDCUA9",
@@ -322,6 +346,14 @@ static iomux_v3_cfg_t const lcd24_pads[] = {
 	IOMUX_PADS(PAD_DISP0_DAT23__GPIO5_IO17  | MUX_PAD_CTRL(0x3010)),
 };
 
+/* Additional pads for VLCD_ON and VCFL_ON */
+static iomux_v3_cfg_t const lcd_extra_pads[] = {
+	/* Signals are active high -> pull-down to switch off */
+	IOMUX_PADS(PAD_SD4_DAT3__GPIO2_IO11 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_SD4_DAT0__GPIO2_IO08 | MUX_PAD_CTRL(0x3010)),
+};
+
+
 /* Do some very early board specific setup */
 int board_early_init_f(void)
 {
@@ -340,13 +372,18 @@ int board_early_init_f(void)
 	case BT_ARMSTONEA9R2:		/* Boards without LCD interface */
 	case BT_QBLISSA9:
 	case BT_QBLISSA9R2:
+		SETUP_IOMUX_PADS(lcd_extra_pads);
 		break;
 
 	case BT_NETDCUA9:		/* Boards with 24-bit LCD interface */
 		SETUP_IOMUX_PADS(lcd24_pads);
 		/* No break, fall through to default case */
+	case BT_EFUSA9:
+	case BT_ARMSTONEA9:
+	case BT_PICOMODA9:
 	default:			/* Boards with 18-bit LCD interface */
 		SETUP_IOMUX_PADS(lcd18_pads);
+		SETUP_IOMUX_PADS(lcd_extra_pads);
 		break;
 	}
 
@@ -408,6 +445,37 @@ int dram_init(void)
 }
 
 /* Now RAM is valid, U-Boot is relocated. From now on we can use variables */
+
+/* Issue reset signal on up to three pads (~0: pad unused) */
+void issue_reset(unsigned int active_us, unsigned int delay_us,
+		 unsigned int pad0, unsigned int pad1, unsigned int pad2)
+{
+	/* Assert reset */
+	gpio_direction_output(pad0, 0);
+	if (pad1 != ~0)
+		gpio_direction_output(pad1, 0);
+	if (pad2 != ~0)
+		gpio_direction_output(pad2, 0);
+
+	/* Delay for the active pulse time */
+	udelay(active_us);
+
+	/* De-assert reset */
+	gpio_set_value(pad0, 1);
+	if (pad1 != ~0)
+		gpio_set_value(pad1, 1);
+	if (pad2 != ~0)
+		gpio_set_value(pad2, 1);
+
+	/* Delay some more time if requested */
+	if (delay_us)
+		udelay(delay_us);
+}
+
+static iomux_v3_cfg_t const reset_pads[] = {
+	IOMUX_PADS(PAD_ENET_RXD1__GPIO1_IO26 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
 int board_init(void)
 {
 	DECLARE_GLOBAL_DATA_PTR;
@@ -426,6 +494,20 @@ int board_init(void)
 	/* Prepare the command prompt */
 	sprintf(fs_sys_prompt, "%s # ", fs_board_info[board_type].name);
 
+	/*
+	 * efusA9 has a generic RESET_OUT signal to reset some arbitrary
+	 * hardware. This signal is available on the efus connector pin 14 and
+	 * in turn on pin 8 of the SKIT feature connector. Because there might
+	 * be some rather slow hardware involved, use a rather long low pulse
+	 * of 1ms.
+	 *
+	 * FIXME: Should we do this somewhere else when we know the pulse time?
+	 */
+	if (board_type == BT_EFUSA9) {
+		SETUP_IOMUX_PADS(reset_pads);
+		issue_reset(1000, 0, IMX_GPIO_NR(1, 26), ~0, ~0);
+	}
+
 	return 0;
 }
 
@@ -433,7 +515,7 @@ int board_init(void)
 /* nand flash pads  */
 static iomux_v3_cfg_t const nfc_pads[] = {
 	IOMUX_PADS(PAD_NANDF_CLE__NAND_CLE | MUX_PAD_CTRL(GPMI_PAD_CTRL2)),
-	IOMUX_PADS(PAD_NANDF_ALE__NAND_ALE | MUX_PAD_CTRL(NO_PAD_CTRL)),
+	IOMUX_PADS(PAD_NANDF_ALE__NAND_ALE | MUX_PAD_CTRL(GPMI_PAD_CTRL2)),
 	IOMUX_PADS(PAD_NANDF_WP_B__NAND_WP_B | MUX_PAD_CTRL(GPMI_PAD_CTRL2)),
 	IOMUX_PADS(PAD_NANDF_RB0__NAND_READY_B | MUX_PAD_CTRL(GPMI_PAD_CTRL0)),
 	IOMUX_PADS(PAD_NANDF_CS0__NAND_CE0_B | MUX_PAD_CTRL(GPMI_PAD_CTRL2)),
@@ -532,319 +614,796 @@ size_t get_env_offset(void)
 #ifdef CONFIG_CMD_UPDATE
 enum update_action board_check_for_recover(void)
 {
-	/* If the board should do an automatic recovery is given in the
-	   dwAction value. Currently this is only defined for CUBEA5, AGATEWAY
-	   and HGATEWAY. If a special button is pressed for a defined time
-	   when power is supplied, the system should be reset to the default
-	   state, i.e. perform a complete recovery. The button is detected in
-	   NBoot, but recovery takes place in U-Boot. */
+	char *recover_gpio;
+
+	/* On some platforms, the check for recovery is already done in NBoot.
+	   Then the ACTION_RECOVER bit in the dwAction value is set. */
 	if (fs_nboot_args.dwAction & ACTION_RECOVER)
 		return UPDATE_ACTION_RECOVER;
+
+	/*
+	 * If a recover GPIO is defined, check if it is in active state. The
+	 * variable contains the number of a gpio, followed by an optional '-'
+	 * or '_', followed by an optional "high" or "low" for active high or
+	 * active low signal. Actually only the first character is checked,
+	 * 'h' and 'H' mean "high", everything else is taken for "low".
+	 * Default is active low.
+	 *
+	 * Examples:
+	 *    123_high  GPIO #123, active high
+	 *    65-low    GPIO #65, active low
+	 *    13        GPIO #13, active low
+	 *    0x1fh     GPIO #31, active high (this shows why a dash or
+	 *              underscore before "high" or "low" makes sense)
+	 *
+	 * Remark:
+	 * We do not have any clue here what the GPIO represents and therefore
+	 * we do not assume any pad settings. So for example if the GPIO
+	 * represents a button that is floating in the released state, an
+	 * external pull-up or pull-down must be used to avoid unintentionally
+	 * detecting the active state.
+	 */
+	recover_gpio = getenv("recovergpio");
+	if (recover_gpio) {
+		char *endp;
+		int active_state = 0;
+		unsigned int gpio = simple_strtoul(recover_gpio, &endp, 0);
+
+		if (endp != recover_gpio) {
+			char c = *endp;
+
+			if ((c == '-') || (c == '_'))
+				c = *(++endp);
+			if ((c == 'h') || (c == 'H'))
+				active_state = 1;
+			if (!gpio_direction_input(gpio)
+			    && (gpio_get_value(gpio) == active_state))
+				return UPDATE_ACTION_RECOVER;
+		}
+	}
+
 	return UPDATE_ACTION_UPDATE;
 }
 #endif
 
 #ifdef CONFIG_GENERIC_MMC
-static iomux_v3_cfg_t const usdhc1_pads[] = {
-	IOMUX_PADS(PAD_SD1_CLK__SD1_CLK | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD1_CMD__SD1_CMD | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD1_DAT0__SD1_DATA0 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD1_DAT1__SD1_DATA1 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD1_DAT2__SD1_DATA2 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD1_DAT3__SD1_DATA3 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
+/*
+ * SD/MMC support.
+ *
+ *   Board         USDHC   CD-Pin                 Slot
+ *   -----------------------------------------------------------------------
+ *   QBlissA9:     USDHC3  NANDF_CS2 (GPIO6_IO15) Connector
+ *        either:  USDHC1  -                      On-board (micro-SD)
+ *            or: [USDHC1  GPIO_1 (GPIO1_IO01)    WLAN]
+ *   -----------------------------------------------------------------------
+ *   QBlissA9r2:   USDHC2  GPIO_4 (GPIO1_IO04)    Connector
+ *                 USDHC3  -                      eMMC (8-Bit)
+ *                [USDHC1  GPIO_1 (GPIO1_IO01)    WLAN]
+ *   -----------------------------------------------------------------------
+ *   armStoneA9:   USDHC3  NANDF_CS2 (GPIO6_IO15) On-board (micro-SD)
+ *   -----------------------------------------------------------------------
+ *   armStoneA9r2: USDHC2  GPIO_4 (GPIO1_IO04)    On-board (micro-SD)
+ *                 USDHC3  -                      eMMC (8-Bit)
+ *                [USDHC1  GPIO_1 (GPIO1_IO01)    WLAN]
+ *   -----------------------------------------------------------------------
+ *   efusA9:       USDHC2  GPIO_4 (GPIO1_IO04)    SD_B: Connector (SD)
+ *                 USDHC1  GPIO_1 (GPIO1_IO01)    SD_A: Connector (Micro-SD)
+ *                 USDHC3  -                      eMMC (8-Bit)
+ *   -----------------------------------------------------------------------
+ *   PicoMODA9:    USDHC2  GPIO_4 (GPIO1_IO04)    Connector (SD)
+ *        either:  USDHC1  -                      On-board (micro-SD)
+ *            or:  USDHC1  -                      eMMC (4-Bit)
+ *   -----------------------------------------------------------------------
+ *   NetDCUA9:     USDHC1  GPIO_1 (GPIO1_IO01)    On-board (SD)
+ *                 USDHC3  -                      eMMC (8-Bit)
+ *   -----------------------------------------------------------------------
+ *
+ * Remark: The WP pin is ignored in U-Boot, also WLAN. QBlissA9r2 has an extra
+ * GPIO to switch power for USDHC2 port.
+ */
+
+/* Convert from struct fsl_esdhc_cfg to struct fus_sdhc_cfg */
+#define to_fus_sdhc_cfg(x) container_of((x), struct fus_sdhc_cfg, esdhc)
+
+/* SD/MMC card pads definition, distinguish external from internal ports */
+static iomux_v3_cfg_t const usdhc1_sd_pads_ext[] = {
+	IOMUX_PADS(PAD_SD1_CLK__SD1_CLK | MUX_PAD_CTRL(USDHC_CLK_EXT)),
+	IOMUX_PADS(PAD_SD1_CMD__SD1_CMD | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD1_DAT0__SD1_DATA0 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD1_DAT1__SD1_DATA1 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD1_DAT2__SD1_DATA2 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD1_DAT3__SD1_DATA3 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
 };
 
-static iomux_v3_cfg_t const usdhc2_pads[] = {
-	IOMUX_PADS(PAD_SD2_CLK__SD2_CLK | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD2_CMD__SD2_CMD | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD2_DAT0__SD2_DATA0 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD2_DAT1__SD2_DATA1 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD2_DAT2__SD2_DATA2 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD2_DAT3__SD2_DATA3 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_GPIO_2__GPIO1_IO02 | MUX_PAD_CTRL(NO_PAD_CTRL)),	/* WP */
-	IOMUX_PADS(PAD_GPIO_4__GPIO1_IO04 | MUX_PAD_CTRL(NO_PAD_CTRL)),	/* CD */
+static iomux_v3_cfg_t const usdhc1_sd_pads_int[] = {
+	IOMUX_PADS(PAD_SD1_CLK__SD1_CLK | MUX_PAD_CTRL(USDHC_CLK_INT)),
+	IOMUX_PADS(PAD_SD1_CMD__SD1_CMD | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD1_DAT0__SD1_DATA0 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD1_DAT1__SD1_DATA1 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD1_DAT2__SD1_DATA2 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD1_DAT3__SD1_DATA3 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NANDF_D0__SD1_DATA4 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NANDF_D1__SD1_DATA5 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NANDF_D2__SD1_DATA6 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NANDF_D3__SD1_DATA7 | MUX_PAD_CTRL(USDHC_PAD_INT)),
 };
 
-
-/* SD/MMC card pads definition */
-static iomux_v3_cfg_t const usdhc3_pads[] = {
-	IOMUX_PADS(PAD_SD3_CLK__SD3_CLK | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD3_CMD__SD3_CMD | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD3_DAT0__SD3_DATA0 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD3_DAT1__SD3_DATA1 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD3_DAT2__SD3_DATA2 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_SD3_DAT3__SD3_DATA3 | MUX_PAD_CTRL(USDHC_PAD_CTRL)),
-	IOMUX_PADS(PAD_NANDF_CS2__GPIO6_IO15 | MUX_PAD_CTRL(NO_PAD_CTRL)),/* CD */
+static iomux_v3_cfg_t const usdhc2_sd_pads_ext[] = {
+	IOMUX_PADS(PAD_SD2_CLK__SD2_CLK    | MUX_PAD_CTRL(USDHC_CLK_EXT)),
+	IOMUX_PADS(PAD_SD2_CMD__SD2_CMD    | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD2_DAT0__SD2_DATA0 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD2_DAT1__SD2_DATA1 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD2_DAT2__SD2_DATA2 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD2_DAT3__SD2_DATA3 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_NANDF_D4__SD2_DATA4 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_NANDF_D5__SD2_DATA5 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_NANDF_D6__SD2_DATA6 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_NANDF_D7__SD2_DATA7 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
 };
 
-struct fsl_esdhc_cfg esdhc_cfg[] = {
-	{
-		.esdhc_base = USDHC1_BASE_ADDR,
-		.sdhc_clk = MXC_ESDHC_CLK,
-		.max_bus_width = 4,
-	},
-	{
-		.esdhc_base = USDHC2_BASE_ADDR,
-		.sdhc_clk = MXC_ESDHC2_CLK,
-		.max_bus_width = 4,
-	},
-	{
-		.esdhc_base = USDHC3_BASE_ADDR,
-		.sdhc_clk = MXC_ESDHC3_CLK,
-		.max_bus_width = 4,
-	},
-	{
-		.esdhc_base = USDHC4_BASE_ADDR,
-		.sdhc_clk = MXC_ESDHC4_CLK,
-		.max_bus_width = 4,
-	},
+static iomux_v3_cfg_t const usdhc3_sd_pads_ext[] = {
+	IOMUX_PADS(PAD_SD3_CLK__SD3_CLK    | MUX_PAD_CTRL(USDHC_CLK_EXT)),
+	IOMUX_PADS(PAD_SD3_CMD__SD3_CMD    | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD3_DAT0__SD3_DATA0 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD3_DAT1__SD3_DATA1 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD3_DAT2__SD3_DATA2 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+	IOMUX_PADS(PAD_SD3_DAT3__SD3_DATA3 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
+};
+
+static iomux_v3_cfg_t const usdhc3_sd_pads_int[] = {
+	IOMUX_PADS(PAD_SD3_CLK__SD3_CLK    | MUX_PAD_CTRL(USDHC_CLK_INT)),
+	IOMUX_PADS(PAD_SD3_CMD__SD3_CMD    | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_RST__SD3_RESET  | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_DAT0__SD3_DATA0 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_DAT1__SD3_DATA1 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_DAT2__SD3_DATA2 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_DAT3__SD3_DATA3 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_DAT4__SD3_DATA4 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_DAT5__SD3_DATA5 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_DAT6__SD3_DATA6 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_SD3_DAT7__SD3_DATA7 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+};
+
+/* CD on pad NANDF_CS2 */
+static iomux_v3_cfg_t const cd_nandf_cs2[] = {
+	IOMUX_PADS(PAD_NANDF_CS2__GPIO6_IO15 | MUX_PAD_CTRL(USDHC_CD_CTRL)),
+};
+
+/* CD on pad GPIO_1 */
+static iomux_v3_cfg_t const cd_gpio_1[] = {
+	IOMUX_PADS(PAD_GPIO_1__GPIO1_IO01  | MUX_PAD_CTRL(USDHC_CD_CTRL)),
+};
+
+/* CD on pad GPIO_4 */
+static iomux_v3_cfg_t const cd_gpio_4[] = {
+	IOMUX_PADS(PAD_GPIO_4__GPIO1_IO04  | MUX_PAD_CTRL(USDHC_CD_CTRL)),
+};
+
+/* PWR on QBlissA9r2 */
+static iomux_v3_cfg_t const pwr_qblissa9r2[] = {
+	IOMUX_PADS(PAD_EIM_DA14__GPIO3_IO14 | MUX_PAD_CTRL(USDHC_PWR_CTRL)),
+};
+
+/* Extended SDHC configuration. Pad count is without data signals, the data
+   signal count will be added automatically according to bus_width. */
+struct fus_sdhc_cfg {
+	const iomux_v3_cfg_t *const pads;
+	const u8 count;
+	const u8 index;
+	u16 cd_gpio;
+	struct fsl_esdhc_cfg esdhc;
+};
+
+enum usdhc_pads {
+	usdhc1_ext, usdhc1_int, usdhc2_ext, usdhc3_ext, usdhc3_int
+};
+
+static struct fus_sdhc_cfg sdhc_cfg[] = {
+	[usdhc1_ext] = { usdhc1_sd_pads_ext, 2, 1 }, /* pads, count, USDHC# */
+	[usdhc1_int] = { usdhc1_sd_pads_int, 2, 1 },
+	[usdhc2_ext] = { usdhc2_sd_pads_ext, 2, 2 },
+	[usdhc3_ext] = { usdhc3_sd_pads_ext, 2, 3 },
+	[usdhc3_int] = { usdhc3_sd_pads_int, 3, 3 },
+};
+
+struct fus_sdhc_cd {
+	const iomux_v3_cfg_t *pad;
+	unsigned int gpio;
+};
+
+enum usdhc_cds {
+	gpio1_io01, gpio1_io04, gpio6_io15
+};
+
+struct fus_sdhc_cd sdhc_cd[] = {
+	[gpio1_io01] = { cd_gpio_1, IMX_GPIO_NR(1, 1) }, /* pad, gpio */
+	[gpio1_io04] = { cd_gpio_4, IMX_GPIO_NR(1, 4) },
+	[gpio6_io15] = { cd_nandf_cs2, IMX_GPIO_NR(6, 15) },
 };
 
 int board_mmc_getcd(struct mmc *mmc)
 {
-	switch (fs_nboot_args.chBoardType) {
-	case BT_ARMSTONEA9:
-		return !gpio_get_value(IMX_GPIO_NR(6, 15));
+	struct fsl_esdhc_cfg *fsl_cfg = mmc->priv;
+	struct fus_sdhc_cfg *fus_cfg = to_fus_sdhc_cfg(fsl_cfg);
+	u16 cd_gpio = fus_cfg->cd_gpio;
 
-	case BT_ARMSTONEA9R2:
-		return !gpio_get_value(IMX_GPIO_NR(1, 4));
+	if (cd_gpio == (u16)~0)
+		return 1;		/* No CD, assume card is present */
 
-	case BT_PICOMODA9:
-		if (mmc->block_dev.dev == 0)
-			/* External SD card slot has Card Detect (CD) */
-			return !gpio_get_value(IMX_GPIO_NR(1, 4));
-		else
-			/* On-board SD card slot has no Card Detect (CD) */
-			return 1;	/* Assume card is present */
-
-	case BT_NETDCUA9:
-		return !gpio_get_value(IMX_GPIO_NR(1, 1));
-
-	default:
-		return 1;		/* Assume card is present */
-	}
+	/* Return CD signal (active low) */
+	return !gpio_get_value(cd_gpio);
 }
 
-int board_mmc_init(bd_t *bis)
+static int setup_mmc(bd_t *bd, u8 bus_width, struct fus_sdhc_cfg *cfg,
+		     struct fus_sdhc_cd *cd)
 {
-	int index;
 	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
 	u32 ccgr6;
-	unsigned int gpio_cd = 0xFFFFFFFF;
-	int ret;
 
+	/* Set CD pin configuration, activate GPIO for CD (if appropriate) */
+	if (!cd)
+		cfg->cd_gpio = ~0;
+	else {
+		cfg->cd_gpio = cd->gpio;
+		imx_iomux_v3_setup_multiple_pads(cd->pad, 1);
+		gpio_direction_input(cd->gpio);
+	}
+
+	/* Set DAT, CLK, CMD and RST pin configurations */
+	cfg->esdhc.max_bus_width = bus_width;
+	imx_iomux_v3_setup_multiple_pads(cfg->pads, cfg->count + bus_width);
+
+	/* Get clock speed and ungate appropriate USDHC clock */
 	ccgr6 = readl(&mxc_ccm->CCGR6);
-
-	/* Configure first SD card slot */
-	switch (fs_nboot_args.chBoardType) {
-	case BT_QBLISSA9:
-		/* USDHC3: ext. SD slot (connector), Write Protect (WP) on
-		   SD2_DAT2 (ignored), Card Detect (CD) on NANDF_CS2 pin
-		   (GPIO6_IO15), Power on SD3_RST (GPIO7_IO08); this slot has
-		   8 data lines, but we only use four lines for SD card;
-		   however if this is used for EMMC, we need to add support */
-		SETUP_IOMUX_PADS(usdhc3_pads);
-		gpio_cd = IMX_GPIO_NR(6, 15);
-		ccgr6 |= (3 << 6);
-		index = 2;
+	switch (cfg->index) {
+	default:
+	case 1:
+		cfg->esdhc.esdhc_base = USDHC1_BASE_ADDR;
+		cfg->esdhc.sdhc_clk = mxc_get_clock(MXC_ESDHC_CLK);
+		ccgr6 |= (3 << 2);
 		break;
-
-	case BT_ARMSTONEA9:
-		/* USDHC3: on-board micro SD slot, Card Detect (CD) on
-		   NANDF_CS2 pin (GPIO6_IO15) */
-		SETUP_IOMUX_PADS(usdhc3_pads);
-		gpio_cd = IMX_GPIO_NR(6, 15);
+	case 2:
+		cfg->esdhc.esdhc_base = USDHC2_BASE_ADDR;
+		cfg->esdhc.sdhc_clk = mxc_get_clock(MXC_ESDHC2_CLK);
+		ccgr6 |= (3 << 4);
+		break;
+	case 3:
+		cfg->esdhc.esdhc_base = USDHC3_BASE_ADDR;
+		cfg->esdhc.sdhc_clk = mxc_get_clock(MXC_ESDHC3_CLK);
 		ccgr6 |= (3 << 6);
-		index = 2;
+		break;
+	}
+	writel(ccgr6, &mxc_ccm->CCGR6);
+
+	return fsl_esdhc_initialize(bd, &cfg->esdhc);
+}
+
+int board_mmc_init(bd_t *bd)
+{
+	int ret = 0;
+
+	switch (fs_nboot_args.chBoardType) {
+	case BT_ARMSTONEA9:
+		/* mmc0: USDHC3 (on-board micro SD slot), CD: GPIO6_IO15 */
+		ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc3_ext],
+				&sdhc_cd[gpio6_io15]);
 		break;
 
 	case BT_ARMSTONEA9R2:
-		/* USDHC2: on-board micro SD slot, Card Detect (CD) on
-		   GPIO_4 pin (GPIO1_IO04) */
-		SETUP_IOMUX_PADS(usdhc2_pads);
-		gpio_cd = IMX_GPIO_NR(1, 4);
-		ccgr6 |= (3 << 4);
-		index = 1;
-		break;
+		/* mmc0: USDHC2 (on-board micro SD slot), CD: GPIO1_IO04 */
+		ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc2_ext],
+				&sdhc_cd[gpio1_io04]);
 
-	case BT_PICOMODA9:
-		/* USDHC2: ext. SD slot (connector), Write Protect (WP) on
-		   GPIO_2 (ignored), Card Detect (CD) on GPIO_4 (GPIO1_IO4) */
-	case BT_EFUSA9:
-		/* USDHC2: ext. SD slot (connector, normal-size SD slot on
-		   efus SKIT), Write Protect (WP) on GPIO_2 (ignored), Card
-		   Detect (CD) on GPIO_4 (GPIO1_IO4) */
-		SETUP_IOMUX_PADS(usdhc2_pads);
-		gpio_cd = IMX_GPIO_NR(1, 4);
-		ccgr6 |= (3 << 4);
-		index = 1;
+		/* mmc1: USDHC3 (eMMC, if available), no CD */
+		if (!ret && (fs_nboot_args.chFeatures2 & FEAT2_EMMC))
+			ret = setup_mmc(bd, 8, &sdhc_cfg[usdhc3_int], NULL);
 		break;
 
 	case BT_NETDCUA9:
-		/* USDHC1: on-board SD slot (connector), Write Protect (WP) on
-		   GPIO_2 (ignored), Card Detect (CD) on GPIO_1 (GPIO1_IO1) */
-		SETUP_IOMUX_PADS(usdhc1_pads);
-		gpio_cd = IMX_GPIO_NR(1, 1);
-		ccgr6 |= (3 << 2);
-		index = 0;
+		/* mmc0: USDHC1 (on-board SD slot), CD: GPIO1_IO01 */
+		ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc1_ext],
+				&sdhc_cd[gpio1_io01]);
+
+		/* mmc1: USDHC3 (eMMC, if available), no CD */
+		if (!ret && (fs_nboot_args.chFeatures2 & FEAT2_EMMC))
+			ret = setup_mmc(bd, 8, &sdhc_cfg[usdhc3_int], NULL);
 		break;
 
-	default:
-		return 0;		/* Unknown device */
-	}
-
-	if (gpio_cd != 0xFFFFFFFF)
-		gpio_direction_input(gpio_cd);
-	writel(ccgr6, &mxc_ccm->CCGR6);
-
-	esdhc_cfg[index].sdhc_clk = mxc_get_clock(esdhc_cfg[index].sdhc_clk);
-	ret = fsl_esdhc_initialize(bis, &esdhc_cfg[index]);
-	if (ret)
-		return ret;
-
-	/* Configure second SD card slot (if available) */
-	switch (fs_nboot_args.chBoardType) {
 	case BT_QBLISSA9:
+		/* mmc0: USDHC3 (ext. SD slot via connector), CD: GPIO6_IO15 */
+		ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc3_ext],
+				&sdhc_cd[gpio6_io15]);
+
+		/* mmc1: USDHC1: on-board micro SD slot (if available), no CD */
+		if (!ret && !(fs_nboot_args.chFeatures2 & FEAT2_WLAN))
+			ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc1_ext], NULL);
+		break;
+
+	case BT_QBLISSA9R2:
+		/* Enable port power for mmc0 (USDHC2) */
+		SETUP_IOMUX_PADS(pwr_qblissa9r2);
+		gpio_direction_output(IMX_GPIO_NR(3, 14), 0);
+
+		/* mmc0: USDHC2: connector, CD: GPIO1_IO04 */
+		ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc2_ext],
+				&sdhc_cd[gpio1_io04]);
+		if (ret)
+			break;
+
+		/* mmc1: USDHC3: eMMC (if available), no CD */
+		if (!ret && (fs_nboot_args.chFeatures2 & FEAT2_EMMC))
+			ret = setup_mmc(bd, 8, &sdhc_cfg[usdhc3_int], NULL);
+		break;
+
 	case BT_PICOMODA9:
-		/* USDHC1: This on-board micro SD slot is only available if
-		   WLAN is not mounted. It has no Card Detect (CD) signal. */
-		//### TODO: Define and set feature bit for SD slot in NBoot
-		if (0) /*(fs_nboot_args.chFeatures1 & FEAT1_SDSLOT)*/ {
-			gpio_cd = 0xFFFFFFFF;
-			goto usdhc1;
-		}
-		return 0; 		/* No more SD card slots */
+		/* mmc0: USDHC2 (ext. SD slot via connector), CD: GPIO1_IO04 */
+		ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc2_ext],
+				&sdhc_cd[gpio1_io04]);
+
+		/* mmc1: USDHC1 (on-board micro SD or on-board eMMC), no CD
+		   Remark: eMMC also only uses 4 bits if NAND is present. */
+		if (!ret && !(fs_nboot_args.chFeatures2 & FEAT2_EMMC))
+			ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc1_ext], NULL);
+		if (!ret && (fs_nboot_args.chFeatures2 & FEAT2_EMMC))
+			ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc1_int], NULL);
+		break;
 
 	case BT_EFUSA9:
-		/* USDHC1: ext. SD slot (connector, micro SD slot on efus
-		   SKIT), Write Protect (WP) on DIO_PIN4 (ignored), Card
-		   Detect (CD) on GPIO_1 (GPIO1_IO1) */
-		gpio_cd = IMX_GPIO_NR(1, 1);
-	usdhc1:
-		SETUP_IOMUX_PADS(usdhc1_pads);
-		ccgr6 |= (3 << 2);
-		index = 0;
+		/* mmc0: USDHC2 (ext. SD slot, normal-size SD on efus SKIT) */
+		ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc2_ext],
+				&sdhc_cd[gpio1_io04]);
+
+		/* mmc1: USDHC1 (ext. SD slot, micro SD on efus SKIT) */
+		if (!ret)
+			ret = setup_mmc(bd, 4, &sdhc_cfg[usdhc1_ext],
+					&sdhc_cd[gpio1_io01]);
+
+		/* mmc2: USDHC3 (eMMC, if available), no CD */
+		if (!ret && (fs_nboot_args.chFeatures2 & FEAT2_EMMC))
+			ret = setup_mmc(bd, 8, &sdhc_cfg[usdhc3_int], NULL);
 		break;
 
 	default:
-		return 0; 		/* No more SD card slots */
+		return 0;		/* Neither SD card, nor eMMC */
 	}
 
-	if (gpio_cd != 0xFFFFFFFF)
-		gpio_direction_input(gpio_cd);
-	writel(ccgr6, &mxc_ccm->CCGR6);
-
-	esdhc_cfg[index].sdhc_clk = mxc_get_clock(esdhc_cfg[index].sdhc_clk);
-	ret = fsl_esdhc_initialize(bis, &esdhc_cfg[index]);
-	if (ret)
-		return ret;
-
-	/* ### TODO: efusA9 has a third SDIO slot on USDHC3 with 8 data lines,
-	   for on-board EMMC. This may also optionally be used for WLAN or
-	   other RF modems in the future. */
-
-	return 0;
+	return ret;
 }
 #endif
 
 #ifdef CONFIG_USB_EHCI_MX6
-/* USB Hub Reset-Pin (armStoneA9, QBlissA9) */
-static iomux_v3_cfg_t const usb_hub_pads[] = {
+/*
+ * USB Host support.
+ *
+ * USB0 is OTG. By default this is used as device port. However on some F&S
+ * boards this port may optionally be configured as a second host port. So if
+ * environment variable usb0mode is set to "host" on these boards, or if it is
+ * set to "otg" and the ID pin is low when usb is started, use host mode.
+ *
+ *    Board               USB_OTG_PWR              USB_OTG_ID
+ *    --------------------------------------------------------------------
+ *    efusA9              EIM_D22 (GPIO3_IO22)(*)  ENET_RX_ER (GPIO1_IO24)
+ *    armStoneA9          (always on)              ENET_RX_ER (GPIO1_IO24)
+ *    armStoneA9r2        EIM_D22 (GPIO3_IO22)     ENET_RX_ER (GPIO1_IO24)
+ *    QBlissA9  Rev<1.30  (always on)              ENET_RX_ER (GPIO1_IO24)
+ *              other     EIM_D22 (GPIO3_IO22)(*)  ENET_RX_ER (GPIO1_IO24)
+ *    QBlissA9r2          EIM_D22 (GPIO3_IO22)(*)  ENET_RX_ER (GPIO1_IO24)
+ *    PicoMODA9           GPIO_8 (GPIO1_IO08)      GPIO_1 (GPIO1_IO01)(fix)
+ *    NetDCUA9            GPIO_9 (GPIO1_IO09)      (not available)
+ *
+ * (*) Signal on SKIT is active low, usually USB_OTG_PWR is active high
+ *
+ * USB1 is a host-only port (USB_H1). It is used on all boards. Some boards
+ * may have an additional USB hub with a reset signal connected to this port.
+ *
+ *    Board               USB_H1_PWR               Hub Reset
+ *    -------------------------------------------------------------------------
+ *    efusA9              EIM_D31 (GPIO3_IO31)     (Hub on SKIT, no reset line)
+ *    armStoneA9          (always on)              GPIO_17 (GPIO7_IO12)
+ *    armStoneA9r2        (always on)              EIM_EB1 (GPIO2_IO29)
+ *    QBlissA9            (always on)              GPIO_17 (GPIO7_IO12)
+ *    QBlissA9r2          (always on)              EIM_DA15 (GPIO3_IO15)
+ *    PicoMODA9 Rev<1.10  GPIO_17 (GPIO7_IO12)     (Hub on SKIT, no reset line)
+ *              other     GPIO_5 (GPIO1_IO05)      (Hub on SKIT, no reset line)
+ *    NetDCUA9            GPIO_0 (GPIO1_IO00)      (no Hub)
+ *
+ * The polarity for the VBUS power can be set with environment variable
+ * usbxpwr, where x is the port index (0 or 1). If this variable is set to
+ * "low", the power pin is active low, if it is set to "high", the power pin
+ * is active high. Default is board-dependent, so that when F&S SKITs are
+ * used, only usbxmode must be set.
+ *
+ * Example: setenv usb1pwr low
+ *
+ * Usually the VBUS power for a host port is connected to a dedicated pin, i.e.
+ * USB_H1_PWR or USB_OTG_PWR. Then the USB controller can switch power
+ * automatically and we only have to tell the controller whether this signal is
+ * active high or active low. In all other cases, VBUS power is simply handled
+ * by a regular GPIO.
+ *
+ * We have two versions of the code here: If you set USE_USBNC_PWR, then the
+ * power pads will be configured as dedicated function. board_ehci_power() is
+ * only required for PicoMODA9 then, where USB power must always be handled by
+ * a GPIO. If you do not define USE_USBNC_PWR, then all power pads will be
+ * configured as GPIO and function board_ehci_power() will switch VBUS power
+ * manually for all boards.
+ */
+#define USE_USBNC_PWR
+
+#define USB_OTHERREGS_OFFSET	0x800
+#define UCTRL_PWR_POL		(1 << 9)
+#define UCTRL_OVER_CUR_DIS	(1 << 7)
+
+/* Some boards have access to the USB_OTG_ID pin to check host/device mode */
+static iomux_v3_cfg_t const usb_otg_id_pad_picomoda9[] = {
+	IOMUX_PADS(PAD_GPIO_1__GPIO1_IO01 | MUX_PAD_CTRL(USB_ID_PAD_CTRL)),
+};
+
+static iomux_v3_cfg_t const usb_otg_id_pad_other[] = {
+	IOMUX_PADS(PAD_ENET_RX_ER__GPIO1_IO24 | MUX_PAD_CTRL(USB_ID_PAD_CTRL)),
+};
+
+/* Some boards can switch the USB OTG power when configured as host */
+static iomux_v3_cfg_t const usb_otg_pwr_pad_picomoda9[] = {
+	IOMUX_PADS(PAD_GPIO_8__GPIO1_IO08 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
+static iomux_v3_cfg_t const usb_otg_pwr_pad_netdcua9[] = {
+	IOMUX_PADS(PAD_GPIO_9__GPIO1_IO09 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
+static iomux_v3_cfg_t const usb_otg_pwr_pad_other[] = {
+#ifdef USE_USBNC_PWR
+	IOMUX_PADS(PAD_EIM_D22__USB_OTG_PWR | MUX_PAD_CTRL(NO_PAD_CTRL)),
+#else
+	IOMUX_PADS(PAD_EIM_D22__GPIO3_IO22 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+#endif
+};
+
+/* Some boards can switch the USB Host power */
+static iomux_v3_cfg_t const usb_h1_pwr_pad_efusa9[] = {
+#ifdef USE_USBNC_PWR
+	IOMUX_PADS(PAD_EIM_D31__USB_H1_PWR | MUX_PAD_CTRL(NO_PAD_CTRL)),
+#else
+	IOMUX_PADS(PAD_EIM_D31__GPIO3_IO31 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+#endif
+};
+
+static iomux_v3_cfg_t const usb_h1_pwr_pad_picomoda9_REV100[] = {
 	IOMUX_PADS(PAD_GPIO_17__GPIO7_IO12 | MUX_PAD_CTRL(NO_PAD_CTRL)),
 };
 
-/* USB Host power (efusA9) */
-static iomux_v3_cfg_t const usb_pwr_pads_efusa9[] = {
-	IOMUX_PADS(PAD_EIM_D31__GPIO3_IO31 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+static iomux_v3_cfg_t const usb_h1_pwr_pad_picomoda9[] = {
+	IOMUX_PADS(PAD_GPIO_5__GPIO1_IO05 | MUX_PAD_CTRL(NO_PAD_CTRL)),
 };
 
-/* USB Host power (NetDCUA9) */
-static iomux_v3_cfg_t const usb_pwr_pads_netdcua9[] = {
+static iomux_v3_cfg_t const usb_h1_pwr_pad_netdcua9[] = {
+#ifdef USE_USBNC_PWR
+	IOMUX_PADS(PAD_GPIO_0__USB_H1_PWR | MUX_PAD_CTRL(NO_PAD_CTRL)),
+#else
 	IOMUX_PADS(PAD_GPIO_0__GPIO1_IO00 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+#endif
 };
 
-int board_ehci_hcd_init(int port)
+/* Some boards have an on-board USB hub with a reset signal */
+static iomux_v3_cfg_t const usb_hub_reset_pad_armstonea9_qblissa9[] = {
+	IOMUX_PADS(PAD_GPIO_17__GPIO7_IO12 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
+static iomux_v3_cfg_t const usb_hub_reset_pad_armstonea9r2[] = {
+	IOMUX_PADS(PAD_EIM_EB1__GPIO2_IO29 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
+static iomux_v3_cfg_t const usb_hub_reset_pad_qblissa9r2[] = {
+	IOMUX_PADS(PAD_EIM_DA15__GPIO3_IO15 | MUX_PAD_CTRL(NO_PAD_CTRL)),
+};
+
+struct fs_usb_port_cfg {
+	int mode;			/* USB_INIT_DEVICE or USB_INIT_HOST */
+	int pwr_pol;			/* 0 = active high, 1 = active low */
+	int pwr_gpio;			/* GPIO number to switch power */
+	const char *pwr_name;		/* "usb?pwr" */
+	const char *mode_name;		/* "usb?mode" */
+};
+
+static struct fs_usb_port_cfg usb_port_cfg[2] = {
+	{
+		.mode = USB_INIT_DEVICE, /* USB OTG port */
+		.pwr_pol = 0,
+		.pwr_gpio = ~0,
+		.pwr_name = "usb0pwr",
+		.mode_name = "usb0mode",
+	},
+	{
+		.mode = USB_INIT_HOST,	/* USB H1 port */
+		.pwr_pol = 0,
+		.pwr_gpio = ~0,
+		.pwr_name = "usb1pwr",
+		.mode_name = "usb1mode",
+	},
+};
+
+/* Setup pad for reset signal and issue 2ms reset for USB hub */
+static void fs_usb_reset_hub(iomux_v3_cfg_t const *reset_pad,
+			     unsigned int reset_gpio)
 {
-	if (port != 1)
-		return 0;
-
-	switch (fs_nboot_args.chBoardType) {
-	case BT_ARMSTONEA9:
-	case BT_QBLISSA9:
-		SETUP_IOMUX_PADS(usb_hub_pads);
-
-		/* Reset USB hub */
-		gpio_direction_output(IMX_GPIO_NR(7, 12), 0);
-		mdelay(2);
-		gpio_set_value(IMX_GPIO_NR(7, 12), 1);
-		break;
-
-	case BT_ARMSTONEA9R2:
-		SETUP_IOMUX_PADS(usb_hub_pads);
-
-		/* Reset USB hub */
-		gpio_direction_output(IMX_GPIO_NR(2, 29), 0);
-		mdelay(2);
-		gpio_set_value(IMX_GPIO_NR(2, 29), 1);
-		break;
-
-	case BT_EFUSA9:
-#if 0
-		SETUP_IOMUX_PADS(usb_pwr_pads_efusa9);
-
-		/* Enable USB Host power */
-		gpio_direction_output(IMX_GPIO_NR(3, 31), 1);
-#endif
-		break;
-
-	case BT_NETDCUA9:
-		SETUP_IOMUX_PADS(usb_pwr_pads_netdcua9);
-
-		/* Enable USB Host power */
-		gpio_direction_output(IMX_GPIO_NR(1, 0), 1);
-		break;
-
-	default:
-		break;
-	}
-
-        return 0;
+	if (reset_pad)
+		imx_iomux_v3_setup_multiple_pads(reset_pad, 1);
+	if (reset_gpio != ~0)
+		issue_reset(2000, 0, reset_gpio, ~0, ~0);
 }
 
+/* Check if OTG port should be started as host or device */
+static int fs_usb_get_otg_mode(iomux_v3_cfg_t const *id_pad, unsigned id_gpio,
+			       const char *mode_name, int default_mode)
+{
+	const char *envvar = getenv(mode_name);
+
+	if (!envvar)
+		return default_mode;
+	if (!strcmp(envvar, "peripheral") || !strcmp(envvar, "device"))
+		return USB_INIT_DEVICE;	/* Requested by user as device */
+	if (!strcmp(envvar, "host"))
+		return USB_INIT_HOST;	/* Requested by user as host */
+	if (strcmp(envvar, "otg"))
+		return default_mode;	/* Unknown mode setting */
+
+	/* "OTG" mode, check ID pin to decide */
+	if (!id_pad || (id_gpio == ~0))
+		return default_mode;	/* No ID pad available */
+
+	/* ID pad must be set up as GPIO with an internal pull-up */
+	imx_iomux_v3_setup_multiple_pads(id_pad, 1);
+	gpio_direction_input(id_gpio);
+	udelay(100);			/* Let voltage settle */
+	if (gpio_get_value(id_gpio))
+		return USB_INIT_DEVICE;	/* ID pulled up: device mode */
+
+	return USB_INIT_HOST;		/* ID connected with GND: host mode */
+}
+
+/* Determine USB host power polarity */
+static int fs_usb_get_pwr_pol(const char *pwr_name, int default_pol)
+{
+	const char *envvar = getenv(pwr_name);
+
+	if (!envvar)
+		return default_pol;
+
+	/* Skip optional prefix "active", "active-" or "active_" */
+	if (!strncmp(envvar, "active", 6)) {
+		envvar += 6;
+		if ((*envvar == '-') || (*envvar == '_'))
+			envvar++;
+	}
+
+	if (!strcmp(envvar, "high"))
+		return 0;
+	if (!strcmp(envvar, "low"))
+		return 1;
+
+	return default_pol;
+}
+
+/* Set up power pad and polarity; if GPIO, switch off for now */
+static void fs_usb_config_pwr(iomux_v3_cfg_t const *pwr_pad, unsigned pwr_gpio,
+			      int port, int pol)
+{
+	/* Configure pad */
+	if (pwr_pad)
+		imx_iomux_v3_setup_multiple_pads(pwr_pad, 1);
+
+	/* Use as GPIO or set power polarity in USB controller */
+	if (pwr_gpio != ~0)
+		gpio_direction_output(pwr_gpio, pol);
+#ifdef USE_USBNC_PWR
+	else {
+		u32 *usbnc_usb_ctrl;
+		u32 val;
+
+		usbnc_usb_ctrl = (u32 *)(USB_BASE_ADDR + USB_OTHERREGS_OFFSET +
+					 port * 4);
+		val = readl(usbnc_usb_ctrl);
+		if (pol)
+			val &= ~UCTRL_PWR_POL;
+		else
+			val |= UCTRL_PWR_POL;
+
+		/* Disable over-current detection */
+		val |= UCTRL_OVER_CUR_DIS;
+		writel(val, usbnc_usb_ctrl);
+	}
+#endif
+}
+
+/* Check if port is Host or Device */
+int board_usb_phy_mode(int port)
+{
+	if (port > 1)
+		return USB_INIT_HOST;	/* Unknown port */
+
+	return usb_port_cfg[port].mode;
+}
+
+/* Switch VBUS power via GPIO */
 int board_ehci_power(int port, int on)
 {
-	if (port != 1)
-		return 0;
+	struct fs_usb_port_cfg *port_cfg;
 
-	switch (fs_nboot_args.chBoardType) {
-	case BT_EFUSA9:
-		SETUP_IOMUX_PADS(usb_pwr_pads_efusa9);
+	if (port > 1)
+		return 0;		/* Unknown port */
 
-		/* Enable USB Host power */
-		gpio_direction_output(IMX_GPIO_NR(3, 31), on);
-		break;
+	port_cfg = &usb_port_cfg[port];
+	if (port_cfg->mode != USB_INIT_HOST)
+		return 0;		/* Port not in host mode */
 
-	case BT_NETDCUA9:
-		SETUP_IOMUX_PADS(usb_pwr_pads_netdcua9);
+	if (port_cfg->pwr_gpio == ~0)
+		return 0;		/* PWR not handled by GPIO */
 
-		/* Enable USB Host power */
-		gpio_direction_output(IMX_GPIO_NR(1, 0), on);
-		break;
+	if (port_cfg->pwr_pol)
+		on = !on;		/* Invert polarity */
 
-	default:
-		break;
-	}
+	gpio_set_value(port_cfg->pwr_gpio, on);
 
 	return 0;
 }
 
-int board_usb_phy_mode(int port)
+/* Init one USB port */
+int board_ehci_hcd_init(int port)
 {
-	if (port == 0)
-		return USB_INIT_DEVICE;
-	return USB_INIT_HOST;
-}
+	iomux_v3_cfg_t const *pwr_pad, *reset_pad, *id_pad;
+	unsigned int pwr_gpio, reset_gpio, id_gpio;
+	int pwr_pol;
+	struct fs_usb_port_cfg *port_cfg;
+
+	if (port > 1)
+		return 0;		/* Unknown port */
+
+	port_cfg = &usb_port_cfg[port];
+
+	/* Default settings, board specific code below will override */
+	reset_pad = NULL;
+	reset_gpio = ~0;
+	pwr_pad = NULL;
+	pwr_gpio = ~0;
+	pwr_pol = 0;
+
+	/* Determine host power pad and USB hub reset pad (if applicable) */
+	if (port == 0) {
+		/* Handle USB OTG port (USB0); Step 1: check OTG mode */
+		id_pad = NULL;
+		id_gpio = ~0;
+
+		switch (fs_nboot_args.chBoardType) {
+		case BT_PICOMODA9:
+			id_pad = usb_otg_id_pad_picomoda9;
+			id_gpio = IMX_GPIO_NR(1, 1);
+			break;
+
+		case BT_EFUSA9:
+		case BT_ARMSTONEA9:
+		case BT_ARMSTONEA9R2:
+		case BT_QBLISSA9:
+		case BT_QBLISSA9R2:
+			id_pad = usb_otg_id_pad_other;
+			id_gpio = IMX_GPIO_NR(1, 24);
+			break;
+
+		case BT_NETDCUA9:
+			/* No ID pad available */
+			break;
+
+		default:
+			/* No host mode available */
+			port_cfg->mode = USB_INIT_DEVICE;
+			return 0;
+		}
+		port_cfg->mode = fs_usb_get_otg_mode(id_pad, id_gpio,
+						     port_cfg->mode_name,
+						     USB_INIT_DEVICE);
+		if (port_cfg->mode != USB_INIT_HOST)
+			return 0;	/* OTG port not in host mode */
+
+		/* Step 2: determine host power pad */
+		switch (fs_nboot_args.chBoardType) {
+		case BT_QBLISSA9:
+			/* No USB_OTG_PWR before board revision 1.30 */
+			if (fs_nboot_args.chBoardRev < 130)
+				break;
+			/* Fall through to case BT_QBLISSA9R2 */
+		case BT_QBLISSA9R2:
+		case BT_EFUSA9:
+		case BT_ARMSTONEA9R2:
+			/* OTG host power on EIM_D22, active low */
+			pwr_pol = 1;
+			pwr_pad = usb_otg_pwr_pad_other;
+#ifndef USE_USBNC_PWR
+			pwr_gpio = IMX_GPIO_NR(3, 22);
 #endif
+			break;
+
+		case BT_PICOMODA9:
+			/* OTG host power on GPIO_8 (only GPIO) */
+			pwr_pad = usb_otg_pwr_pad_picomoda9;
+			pwr_gpio = IMX_GPIO_NR(1, 8);
+			break;
+
+		case BT_NETDCUA9:
+			/* OTG host power on GPIO_9 (only GPIO, active high) */
+			pwr_pad = usb_otg_pwr_pad_netdcua9;
+			pwr_gpio = IMX_GPIO_NR(1, 9);
+			break;
+
+		case BT_ARMSTONEA9:
+		default:
+			/* No USB_OTG_PWR */
+			break;
+		}
+	} else {
+		/* Handle USB H1 port (USB1) */
+		switch (fs_nboot_args.chBoardType) {
+		case BT_EFUSA9:
+			/* No reset for USB hub, USB power on EIM_D31 */
+			pwr_pad = usb_h1_pwr_pad_efusa9;
+#ifndef USE_USBNC_PWR
+			pwr_gpio = IMX_GPIO_NR(3, 31);
+#endif
+			break;
+
+		case BT_ARMSTONEA9:
+		case BT_QBLISSA9:
+			/* Hub reset on GPIO_17, USB host power is always on */
+			reset_pad = usb_hub_reset_pad_armstonea9_qblissa9;
+			reset_gpio = IMX_GPIO_NR(7, 12);
+			break;
+
+		case BT_ARMSTONEA9R2:
+			/* Hub reset on EIM_EB1, USB host power is always on */
+			reset_pad = usb_hub_reset_pad_armstonea9r2;
+			reset_gpio = IMX_GPIO_NR(2, 29);
+			break;
+
+		case BT_QBLISSA9R2:
+			/* Hub reset on EIM_DA15, USB host power always on */
+			reset_pad = usb_hub_reset_pad_armstonea9r2;
+			reset_gpio = IMX_GPIO_NR(3, 15);
+			break;
+
+		case BT_PICOMODA9:
+			/* No USB hub, USB host power on GPIO_17 or GPIO_5 */
+			if (fs_nboot_args.chBoardRev < 110) {
+				pwr_pad = usb_h1_pwr_pad_picomoda9_REV100;
+				pwr_gpio = IMX_GPIO_NR(7, 12);
+			} else {
+				pwr_pad = usb_h1_pwr_pad_picomoda9;
+				pwr_gpio = IMX_GPIO_NR(1, 5);
+			}
+			break;
+
+		case BT_NETDCUA9:
+			/* No USB hub, USB host power on GPIO_0 */
+			pwr_pad = usb_h1_pwr_pad_netdcua9;
+#ifndef USE_USBNC_PWR
+			pwr_gpio = IMX_GPIO_NR(1, 0);
+#endif
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	/* Reset a hub, if present */
+	fs_usb_reset_hub(reset_pad, reset_gpio);
+
+	/* Set up the host power pad incl. polarity */
+	port_cfg->pwr_gpio = pwr_gpio;
+	port_cfg->pwr_pol = fs_usb_get_pwr_pol(port_cfg->pwr_name, pwr_pol);
+	fs_usb_config_pwr(pwr_pad, pwr_gpio, port, port_cfg->pwr_pol);
+
+	return 0;
+}
+#endif /* CONFIG_USB_EHCI_MX6 */
 
 #ifdef CONFIG_BOARD_LATE_INIT
 void setup_var(const char *varname, const char *content, int runvar)
@@ -878,9 +1437,11 @@ int board_late_init(void)
 {
 	unsigned int boardtype = fs_nboot_args.chBoardType;
 	const struct board_info *bi = &fs_board_info[boardtype];
+	const char *envvar;
 
 	/* Set sercon variable if not already set */
-	if (strcmp(getenv("sercon"), "undef") == 0) {
+	envvar = getenv("sercon");
+	if (!envvar || !strcmp(envvar, "undef")) {
 		char sercon[DEV_NAME_SIZE];
 
 		sprintf(sercon, "%s%c", CONFIG_SYS_SERCON_NAME,
@@ -889,7 +1450,8 @@ int board_late_init(void)
 	}
 
 	/* Set platform variable if not already set */
-	if (strcmp(getenv("platform"), "undef") == 0) {
+	envvar = getenv("platform");
+	if (!envvar || !strcmp(envvar, "undef")) {
 		char lcasename[20];
 		char *p = bi->name;
 		char *l = lcasename;
@@ -1157,7 +1719,7 @@ void set_fs_ethaddr(int index)
 
 int board_eth_init(bd_t *bis)
 {
-	u32 ccgr1, gpr1;
+	u32 gpr1;
 	int ret;
 	int phy_addr;
 	int reset_gpio;
@@ -1205,43 +1767,33 @@ int board_eth_init(bd_t *bis)
 		if (ret < 0)
 			return ret;
 
-		/* Enable ENET clock in clock gating register 1 */
-		ccgr1 = readl(CCM_CCGR1);
-		writel(ccgr1 | MXC_CCM_CCGR1_ENET_CLK_ENABLE_MASK, CCM_CCGR1);
+		/* Enable ENET clock */
+		enable_enet_clk(1);
 
 		/* Reset the PHY */
 		switch (fs_nboot_args.chBoardType) {
 		case BT_PICOMODA9:
 		case BT_NETDCUA9:
 			/*
-			 * DP83484 PHY: This PHY needs at least 1 us reset
-			 * pulse width (GPIO_2_10). After power on it needs
-			 * min 167 ms (after reset is deasserted) before the
-			 * first MDIO access can be done. In a warm start, it
-			 * only takes around 3 for this. As we do not know
-			 * whether this is a cold or warm start, we must
-			 * assume the worst case.
+			 * DP83484: This PHY needs at least 1us reset pulse
+			 * width. After power on it needs min 167ms (after
+			 * reset is deasserted) before the first MDIO access
+			 * can be done. In a warm start, it only takes around
+			 * 3us for this. As we do not know whether this is a
+			 * cold or warm start, we must assume the worst case.
 			 */
 			if (fs_nboot_args.chBoardType == BT_PICOMODA9)
 				reset_gpio = IMX_GPIO_NR(2, 10);
 			else
 				reset_gpio = IMX_GPIO_NR(1, 2);
-			gpio_direction_output(reset_gpio, 0);
-			udelay(10);
-			gpio_set_value(reset_gpio, 1);
-			mdelay(170);
+			issue_reset(10, 170000, reset_gpio, ~0, ~0);
 			phy_addr = 1;
 			xcv_type = RMII;
 			break;
 
 		default:
-			/*
-			 * Atheros AR8035: Assert reset (GPIO_1_25) for at
-			 * least 0.5 ms
-			 */
-			gpio_direction_output(IMX_GPIO_NR(1, 25), 0);
-			udelay(500);
-			gpio_set_value(IMX_GPIO_NR(1, 25), 1);
+			/* Atheros AR8035: Assert reset for at least 1ms */
+			issue_reset(1000, 0, IMX_GPIO_NR(1, 25), ~0,~0);
 			phy_addr = 4;
 			xcv_type = RGMII;
 			break;
@@ -1260,10 +1812,8 @@ int board_eth_init(bd_t *bis)
 		/* AX88796B is connected via EIM */
 		setup_weim(bis);
 
-		/* Reset AX88796B, on NetDCUA9 this is on GPIO1_IO03 */
-		gpio_direction_output(IMX_GPIO_NR(1, 3), 0);
-		udelay(200);
-		gpio_set_value(IMX_GPIO_NR(1, 3), 1);
+		/* Reset AX88796B, on NetDCUA9 */
+		issue_reset(200, 0, IMX_GPIO_NR(1, 3), ~0, ~0);
 
 		/* Initialize AX88796B */
 		ret = ax88796_initialize(-1, CONFIG_DRIVER_AX88796_BASE,
@@ -1332,6 +1882,10 @@ static unsigned int get_led_gpio(struct tag_fshwconfig *pargs, led_id_t id,
 		gpio = (id ? IMX_GPIO_NR(4, 7) : IMX_GPIO_NR(4, 6));
 		break;
 
+	case BT_EFUSA9:
+	case BT_NETDCUA9:
+	case BT_ARMSTONEA9R2:
+	case BT_QBLISSA9R2:
 	default:			/* efusA9, armStoneA9r2, NetDCUA9 */
 		gpio = (id ? IMX_GPIO_NR(7, 13) : IMX_GPIO_NR(7, 12));
 		break;
@@ -1391,14 +1945,17 @@ void __led_toggle(led_id_t id)
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Set a generic value, if it was not already set in the device tree */
 static void fus_fdt_set_val(void *fdt, int offs, const char *name,
-			    const void *val, int len)
+			    const void *val, int len, int force)
 {
 	int err;
 
 	/* Warn if property already exists in device tree */
 	if (fdt_get_property(fdt, offs, name, NULL) != NULL) {
-		printf("## Keeping property %s/%s from device tree!\n",
+		printf("## %s property %s/%s from device tree!\n",
+		       force ? "Overwriting": "Keeping",
 		       fdt_get_name(fdt, offs, NULL), name);
+		if (!force)
+			return;
 	}
 
 	err = fdt_setprop(fdt, offs, name, val, len);
@@ -1410,26 +1967,28 @@ static void fus_fdt_set_val(void *fdt, int offs, const char *name,
 
 /* Set a string value */
 static void fus_fdt_set_string(void *fdt, int offs, const char *name,
-			       const char *str)
+			       const char *str, int force)
 {
-	fus_fdt_set_val(fdt, offs, name, str, strlen(str) + 1);
+	fus_fdt_set_val(fdt, offs, name, str, strlen(str) + 1, force);
 }
 
 /* Set a u32 value as a string (usually for bdinfo) */
-static void fus_fdt_set_u32str(void *fdt, int offs, const char *name, u32 val)
+static void fus_fdt_set_u32str(void *fdt, int offs, const char *name,
+			       u32 val, int force)
 {
 	char str[12];
 
 	sprintf(str, "%u", val);
-	fus_fdt_set_string(fdt, offs, name, str);
+	fus_fdt_set_string(fdt, offs, name, str, force);
 }
 
 /* Set a u32 value */
-static void fus_fdt_set_u32(void *fdt, int offs, const char *name, u32 val)
+static void fus_fdt_set_u32(void *fdt, int offs, const char *name,
+			    u32 val, int force)
 {
 	fdt32_t tmp = cpu_to_fdt32(val);
 
-	fus_fdt_set_val(fdt, offs, name, &tmp, sizeof(tmp));
+	fus_fdt_set_val(fdt, offs, name, &tmp, sizeof(tmp), force);
 }
 
 /* Set ethernet MAC address aa:bb:cc:dd:ee:ff for given index */
@@ -1442,18 +2001,18 @@ static void fus_fdt_set_macaddr(void *fdt, int offs, int id)
 	if (eth_getenv_enetaddr_by_index("eth", id, enetaddr)) {
 		sprintf(name, "MAC%d", id);
 		sprintf(str, "%pM", enetaddr);
-		fus_fdt_set_string(fdt, offs, name, str);
+		fus_fdt_set_string(fdt, offs, name, str, 1);
 	}
 }
 
 /* If environment variable exists, set a string property with the same name */
-static void fus_fdt_set_getenv(void *fdt, int offs, const char *name)
+static void fus_fdt_set_getenv(void *fdt, int offs, const char *name, int force)
 {
 	const char *str;
 
 	str = getenv(name);
 	if (str)
-		fus_fdt_set_string(fdt, offs, name, str);
+		fus_fdt_set_string(fdt, offs, name, str, force);
 }
 
 /* Open a node, warn if the node does not exist */
@@ -1505,7 +2064,7 @@ void ft_board_setup(void *fdt, bd_t *bd)
 	offs = fus_fdt_path_offset(fdt, FDT_NAND);
 	if (offs >= 0) {
 		fus_fdt_set_u32(fdt, offs, "fus,ecc_strength",
-				fs_nboot_args.chECCtype);
+				fs_nboot_args.chECCtype, 1);
 	}
 
 	/* Set bdinfo entries */
@@ -1516,19 +2075,27 @@ void ft_board_setup(void *fdt, bd_t *bd)
 
 		/* NAND info, names and features */
 		fus_fdt_set_u32str(fdt, offs, "ecc_strength",
-				   fs_nboot_args.chECCtype);
+				   fs_nboot_args.chECCtype, 1);
 		fus_fdt_set_u32str(fdt, offs, "nand_state",
-				   fs_nboot_args.chECCstate);
-		fus_fdt_set_string(fdt, offs, "board_name", get_board_name());
+				   fs_nboot_args.chECCstate, 1);
+		fus_fdt_set_string(fdt, offs, "board_name",
+				   get_board_name(), 0);
 		sprintf(rev, "%d.%02d", fs_nboot_args.chBoardRev / 100,
 			fs_nboot_args.chBoardRev % 100);
-		fus_fdt_set_string(fdt, offs, "board_revision", rev);
-		fus_fdt_set_getenv(fdt, offs, "platform");
-		fus_fdt_set_getenv(fdt, offs, "arch");
+		fus_fdt_set_string(fdt, offs, "board_revision", rev, 1);
+		fus_fdt_set_getenv(fdt, offs, "platform", 0);
+		fus_fdt_set_getenv(fdt, offs, "arch", 1);
 		fus_fdt_set_u32str(fdt, offs, "features1",
-				   fs_nboot_args.chFeatures1);
+				   fs_nboot_args.chFeatures1, 1);
 		fus_fdt_set_u32str(fdt, offs, "features2",
-				   fs_nboot_args.chFeatures2);
+				   fs_nboot_args.chFeatures2, 1);
+		fus_fdt_set_string(fdt, offs, "reset_cause",
+				   get_reset_cause(), 1);
+		memcpy(rev, &fs_nboot_args.dwNBOOT_VER, 4);
+		rev[4] = 0;
+		fus_fdt_set_string(fdt, offs, "nboot_version", rev, 1);
+		fus_fdt_set_string(fdt, offs, "u-boot_version",
+				   version_string, 1);
 
 		/* MAC addresses */
 		if (fs_nboot_args.chFeatures2 & FEAT2_ETH_A)
@@ -1548,3 +2115,10 @@ void ft_board_setup(void *fdt, bd_t *bd)
 #endif
 }
 #endif /* CONFIG_OF_BOARD_SETUP */
+
+/* Board specific cleanup before Linux is started */
+void board_preboot_os(void)
+{
+	/* Shut down all ethernet PHYs (suspend mode) */
+	mdio_shutdown_all();
+}

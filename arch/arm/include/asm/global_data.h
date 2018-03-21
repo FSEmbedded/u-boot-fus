@@ -32,14 +32,13 @@ struct arch_global_data {
 #endif
 	/* "static data" needed by most of timer.c on ARM platforms */
 	unsigned long timer_rate_hz;
-	unsigned long tbu;
-	unsigned long tbl;
 	unsigned long lastinc;
 	unsigned long long timer_reset_value;
 #if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
 	unsigned long tlb_addr;
 	unsigned long tlb_size;
 #endif
+	unsigned int reset_cause;
 
 #ifdef CONFIG_OMAP
 	struct omap_boot_parameters omap_boot_params;
