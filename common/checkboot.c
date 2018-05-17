@@ -12,6 +12,7 @@
 /* HAB includes  */
 #include <checkboot.h>
 #include <hab.h>
+#include <asm/arch/clock.h>
 
 
 /*
@@ -203,9 +204,17 @@ int checkTarget(u32 addr, size_t bytes, const char* image)
 	ivt = (ivt_header_t*)addr;
 	ivt_addr = ivt->self;
 
-	hab->entry();
-	hab_state = hab->authenticate_image(0, ivt_offset, (void**)&ivt_addr, (size_t*)&bytes, NULL);
-	hab->exit();
+	hab_caam_clock_enable(1);
+
+	if (hab->entry() == HAB_SUCCESS) {
+		hab_state = hab->authenticate_image(0, ivt_offset, (void**)&ivt_addr, (size_t*)&bytes, NULL);
+		if (hab->exit() != HAB_SUCCESS)
+			printf("hab entry function fail\n");
+	} else {
+		printf("hab fuse not enabled\n");
+	}
+
+	hab_caam_clock_enable(0);
 
 	if(hab_state == HAB_SUCCESS || hab_state == (u32)ivt->entry) {
 		printf("sucessfully authenticated\n\n");
