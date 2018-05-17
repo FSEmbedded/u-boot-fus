@@ -188,12 +188,17 @@ int check_flash_partition(char *img_name, loff_t *off, u32 length)
  */
 int checkTarget(u32 addr, size_t bytes, const char* image)
 {
-	struct rvt* hab = (struct rvt*)GetHABAddress();
+	struct rvt* hab = NULL;
 	ivt_header_t* ivt = {0};
 	ptrdiff_t ivt_offset = 0x0;
 	u32 * ivt_addr = 0x0;
 	u32 hab_state = 0x0;
 	int ret = -1;
+
+	if (GetHABAddress())
+		hab = (struct rvt*)GetHABAddress();
+	else
+		return -1;
 
 	ivt = (ivt_header_t*)addr;
 	ivt_addr = ivt->self;
@@ -201,6 +206,7 @@ int checkTarget(u32 addr, size_t bytes, const char* image)
 	hab->entry();
 	hab_state = hab->authenticate_image(0, ivt_offset, (void**)&ivt_addr, (size_t*)&bytes, NULL);
 	hab->exit();
+
 	if(hab_state == HAB_SUCCESS || hab_state == (u32)ivt->entry) {
 		printf("sucessfully authenticated\n\n");
 		ret = 0;

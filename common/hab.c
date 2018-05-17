@@ -57,7 +57,7 @@ u32 GetHABAddress(void)
 			return 0;
 			break;
 	}
-	if ((*addr & 0xf0ffffff) != HAB_HDR_SDQ)
+	if ((*addr & 0xf0f0ffff) != HAB_HDR_SDQ)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -65,7 +65,7 @@ u32 GetHABAddress(void)
 	return (u32)addr;
 #elif defined CONFIG_FSIMX6SX
 	addr = (u32*)0x00000100;
-	if ((*addr & 0xf0ffffff) != HAB_HDR_SX)
+	if ((*addr & 0xf0f0ffff) != HAB_HDR_SX)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -73,7 +73,7 @@ u32 GetHABAddress(void)
 	return (u32)addr;
 #elif defined CONFIG_FSIMX6UL
 	addr = (u32*)0x00000100;
-	if ((*addr & 0xf0ffffff) != HAB_HDR_UL)
+	if ((*addr & 0xf0f0ffff) != HAB_HDR_UL)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -81,7 +81,7 @@ u32 GetHABAddress(void)
 	return (u32)addr;
 #elif defined CONFIG_FSVYBRID
 	addr = (u32*)0x00000054;
-	if ((*addr & 0xf0ffffff) != HAB_HDR_VYB)
+	if ((*addr & 0xf0f0ffff) != HAB_HDR_VYB)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -138,12 +138,17 @@ void DisplayEvent(uint8_t *event_data, size_t bytes)
  */
 void GetHABStatus(void)
 {
-	struct rvt* hab = (struct rvt*)GetHABAddress();
+	struct rvt* hab = NULL;
 	uint32_t index = 0; // Loop index
 	uint8_t event_data[128]; // Event Data Buffer
 	size_t bytes = sizeof(event_data); //event size in bytes
 	hab_config_t config = 0;
 	hab_status_t state = 0;
+
+	if (GetHABAddress())
+		hab = (struct rvt*)GetHABAddress();
+	else
+		return;
 	/* Check HAB Status */
 	if(hab->report_status(&config, &state) != HAB_SUCCESS) {
 		/* Display HAB Error events */
