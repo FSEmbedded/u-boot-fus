@@ -57,7 +57,7 @@ u32 GetHABAddress(void)
 			return 0;
 			break;
 	}
-	if ((*addr & 0xf0f0ffff) != HAB_HDR_SDQ)
+	if ((*addr & 0xf0ffffff) != HAB_HDR_SDQ)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -65,7 +65,7 @@ u32 GetHABAddress(void)
 	return (u32)addr;
 #elif defined CONFIG_FSIMX6SX
 	addr = (u32*)0x00000100;
-	if ((*addr & 0xf0f0ffff) != HAB_HDR_SX)
+	if ((*addr & 0xf0ffffff) != HAB_HDR_SX)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
@@ -81,7 +81,7 @@ u32 GetHABAddress(void)
 	return (u32)addr;
 #elif defined CONFIG_FSVYBRID
 	addr = (u32*)0x00000054;
-	if ((*addr & 0xf0f0ffff) != HAB_HDR_VYB)
+	if ((*addr & 0xf0ffffff) != HAB_HDR_VYB)
 	{
 		printf("HAB_HDR not found\n");
 		return 0;
