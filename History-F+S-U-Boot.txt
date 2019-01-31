@@ -1,6 +1,21 @@
 History of Changes for U-Boot on F&S Boards and Modules
 -------------------------------------------------------
 
+u-boot-fssecure-2019.02 (31.01.2019)
+----------------------------------
+Supported CPUs: i.MX6 S/DL/D/Q, i.MX6 SX, i.MX6 UL, i.MX6ULL
+
+- Improve HAB header test
+- Improve authentication procedure
+- Improve HAB address verification
+- Merge branch 'master' into secureboot
+- Improve RVT Header comparision
+- Improve authenticate image print message
+- Improve authenticate functionality
+- Improve i.MX6SX and i.MX6UL verification
+- Support i.MX6UL HAB RVT
+
+
 u-boot-2014.07-fsimx6ul-V2.1 (22.02.2018)
 -----------------------------------------
 Supported boards: armStoneA9, armStoneA9r2, efusA9, PicoMODA9, NetDCUA9,
@@ -109,6 +124,27 @@ Supported boards: armStoneA9, armStoneA9r2, efusA9, PicoMODA9, QBlissA9,
 Not tested:       armStoneA8, PicoMOD7A, NetDCU14
 
 - Reduce drive strength for ethernet clock signal on fsvybrid
+
+
+
+u-boot-secure-V1.0 (XX.XX.XXXX)
+-------------------------------
+Supported CPUs: i.MX6 S/DL/D/Q, i.MX6 SX, i.MX6 UL
+
+- Do last clean up
+- update UBoot to current state
+- remove last debug printfs
+- remove define warning for check addrs
+- Correct 'makeSaveCopy' function
+- Change minor settings in checkboot.c
+- Improve copy function
+- Final commit
+- Change location of kernel check routine
+- Implement kernel check function
+- Remove HAB warning
+- Implement the HAB functions
+- Add basic files for HAB
+- Add checkboot.c and HAB.c for secure boot
 
 
 
