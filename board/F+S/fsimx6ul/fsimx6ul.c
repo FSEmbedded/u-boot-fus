@@ -358,6 +358,8 @@ int checkboard(void)
 		pargs->chFeatures2 = FEAT2_DEFAULT;
 	}
 	features2 = pargs->chFeatures2;
+	if (board_type == BT_GAR2)
+		features2 |= (FEAT2_ETH_A | FEAT2_ETH_B);
 
 	printf("Board: %s Rev %u.%02u (", board_info[board_type].name,
 	       board_rev / 100, board_rev % 100);
@@ -1487,6 +1489,10 @@ int board_eth_init(bd_t *bis)
 	unsigned int features2 = fs_board_get_nboot_args()->chFeatures2;
 	int id = 0;
 
+	/* Always 2 ETH ports on GAR2, no matter how FEAT2_ETH_A/B are set */
+	if (board_type == BT_GAR2)
+		features2 |= (FEAT2_ETH_A | FEAT2_ETH_B);
+
 	/* Ungate ENET clock, this is a common clock for both ports */
 	if (features2 & (FEAT2_ETH_A | FEAT2_ETH_B))
 		enable_enet_clk(1);
@@ -1831,6 +1837,10 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 	unsigned int board_type = fs_board_get_type();
 	unsigned int board_rev = fs_board_get_rev();
+	unsigned int features2 = pargs->chFeatures2;
+
+	if (board_type == BT_GAR2)
+		features2 |= (FEAT2_ETH_A | FEAT2_ETH_B);
 
 	printf("   Setting run-time properties\n");
 
@@ -1842,7 +1852,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	}
 
 	/* Remove operation points > 528 MHz if speed should be limited */
-	if (pargs->chFeatures2 & FEAT2_SPEED) {
+	if (features2 & FEAT2_SPEED) {
 		offs = fs_fdt_path_offset(fdt, FDT_CPU0);
 		if (offs >= 0) {
 			fs_fdt_limit_speed(fdt, offs, "operating-points");
@@ -1860,11 +1870,11 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		fs_fdt_set_bdinfo(fdt, offs);
 
 		/* MAC addresses */
-		if (pargs->chFeatures2 & FEAT2_ETH_A)
+		if (features2 & FEAT2_ETH_A)
 			fs_fdt_set_macaddr(fdt, offs, id++);
-		if (pargs->chFeatures2 & FEAT2_ETH_B)
+		if (features2 & FEAT2_ETH_B)
 			fs_fdt_set_macaddr(fdt, offs, id++);
-		if (pargs->chFeatures2 & FEAT2_WLAN) {
+		if (features2 & FEAT2_WLAN) {
 			if ((board_type == BT_EFUSA7UL) && (board_rev >= 120))
 				fs_fdt_set_wlan_macaddr(fdt, offs, id++, 1);
 			else if (board_type == BT_CUBE2_0)
@@ -1873,9 +1883,9 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	}
 
 	/* Disable ethernet node(s) if feature is not available */
-	if (!(pargs->chFeatures2 & FEAT2_ETH_A))
+	if (!(features2 & FEAT2_ETH_A))
 		fs_fdt_enable(fdt, FDT_ETH_A, 0);
-	if (!(pargs->chFeatures2 & FEAT2_ETH_B))
+	if (!(features2 & FEAT2_ETH_B))
 		fs_fdt_enable(fdt, FDT_ETH_B, 0);
 
 	return 0;
