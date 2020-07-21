@@ -1236,9 +1236,7 @@ int board_ehci_hcd_init(int index)
 			break;
 		case BT_PICOCOMA7:
 			cfg.pwr_pad = usb_otg2_pwr_pad_picocoma7;
-#ifndef CONFIG_FS_USB_PWR_USBNC
 			cfg.pwr_gpio = IMX_GPIO_NR(1, 28);
-#endif
 			break;
 		case BT_CUBEA7UL:
 		case BT_CUBE2_0:
