@@ -914,6 +914,7 @@ void board_display_set_power(int port, int on)
 {
 	static unsigned int vlcd_users;
 	unsigned int gpio;
+	unsigned int value = on;
 
 	switch (fs_board_get_type()) {
 	case BT_EFUSA7UL:		/* VLCD_ON is active high */
@@ -921,8 +922,9 @@ void board_display_set_power(int port, int on)
 		gpio = IMX_GPIO_NR(5, 4);
 		break;
 
-	case BT_PICOCOMA7:		/* VLCD_ON is active high */
+	case BT_PICOCOMA7:		/* VLCD_ON is active low*/
 		gpio = IMX_GPIO_NR(3, 25);
+	    value = !on;
 		break;
 
 	case BT_PCOREMX6UL:		/* VLCD_ON is active high */
@@ -937,7 +939,7 @@ void board_display_set_power(int port, int on)
 			setup_lcd_pads(0);
 	}
 	if (!vlcd_users) {
-		gpio_direction_output(gpio, on);
+		gpio_direction_output(gpio, value);
 		if (on)
 			mdelay(1);
 	}
