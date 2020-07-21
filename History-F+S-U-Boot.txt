@@ -1,6 +1,19 @@
 History of Changes for U-Boot on F&S Boards and Modules
 -------------------------------------------------------
 
+u-boot-2018.03-picocoma7-B2019.11 (21.07.2020)
+---------------------------------------------
+Supported boards: PicoCOMA7
+Not tested:       armStoneA9, armStoneA9r2, efusA9, PicoMODA9, NetDCUA9,
+                  QBlissA9, QBlissA9r2, efusA9X, PicoCOMA9X, PicoCoreMX6SX,
+                  CONT1, CUBEA5, armStoneA5, NetDCUA5, PicoCOMA5, AGATEWAY,
+                  HGATEWAY, efusA7UL, PicoCOM1.2, PicoCoreMX6UL, GAR1, GAR2,
+                  CubeA7UL, Cube2.0
+
+- Fix PicoCOM7 VLCD_ON
+- Fix PicoCOMA7 USB_PWR
+
+
 u-boot-2018.03-fsimx6ul-B2019.11 (15.11.2019)
 ---------------------------------------------
 Supported boards: efusA7UL, PicoCOM1.2, PicoCoreMX6UL, GAR1, GAR2,
