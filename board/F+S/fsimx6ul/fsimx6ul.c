@@ -612,7 +612,7 @@ static iomux_v3_cfg_t const usdhc2_sd_pads_ext[] = {
 	IOMUX_PADS(PAD_LCD_DATA23__USDHC2_DATA3 | MUX_PAD_CTRL(USDHC_PAD_EXT)),
 };
 
-static iomux_v3_cfg_t const usdhc2_sd_pads_int[] = {
+static iomux_v3_cfg_t const usdhc2_sd_pads_int_efusa7ul[] = {
 	IOMUX_PADS(PAD_LCD_DATA18__USDHC2_CMD | MUX_PAD_CTRL(USDHC_PAD_INT)),
 	IOMUX_PADS(PAD_LCD_DATA19__USDHC2_CLK | MUX_PAD_CTRL(USDHC_CLK_INT)),
 	IOMUX_PADS(PAD_GPIO1_IO09__USDHC2_RESET_B|MUX_PAD_CTRL(USDHC_CLK_INT)),
@@ -626,21 +626,36 @@ static iomux_v3_cfg_t const usdhc2_sd_pads_int[] = {
 	IOMUX_PADS(PAD_NAND_DATA07__USDHC2_DATA7| MUX_PAD_CTRL(USDHC_PAD_INT)),
 };
 
+static iomux_v3_cfg_t const usdhc2_sd_pads_int_pcoremx6ul[] = {
+	IOMUX_PADS(PAD_NAND_RE_B__USDHC2_CLK | MUX_PAD_CTRL(USDHC_CLK_INT)),
+	IOMUX_PADS(PAD_NAND_WE_B__USDHC2_CMD | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_ALE__USDHC2_RESET_B | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_DATA00__USDHC2_DATA0 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_DATA01__USDHC2_DATA1 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_DATA02__USDHC2_DATA2 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_DATA03__USDHC2_DATA3 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_DATA04__USDHC2_DATA4 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_DATA05__USDHC2_DATA5 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_DATA06__USDHC2_DATA6 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+	IOMUX_PADS(PAD_NAND_DATA07__USDHC2_DATA7 | MUX_PAD_CTRL(USDHC_PAD_INT)),
+};
+
 /* CD on pad UART1_RTS */
 static iomux_v3_cfg_t const cd_uart1_rts[] = {
 	IOMUX_PADS(PAD_UART1_RTS_B__GPIO1_IO19 | MUX_PAD_CTRL(USDHC_CD_CTRL)),
 };
 
 enum usdhc_pads {
-	usdhc1_ext_rst, usdhc1_ext, usdhc2_ext, usdhc2_int
+	usdhc1_ext_rst, usdhc1_ext, usdhc2_ext, usdhc2_int_efusa7ul, usdhc2_int_pcoremx6ul
 };
 
 static struct fs_mmc_cfg sdhc_cfg[] = {
 		          /* pads,                       count, USDHC# */
-	[usdhc1_ext_rst] = { usdhc1_sd_pads_ext_rst,     3,     1 },
-	[usdhc1_ext]     = { &usdhc1_sd_pads_ext_rst[1], 2,     1 },
-	[usdhc2_ext]     = { usdhc2_sd_pads_ext,         2,     2 },
-	[usdhc2_int]     = { usdhc2_sd_pads_int,         3,     2 },
+	[usdhc1_ext_rst]   = { usdhc1_sd_pads_ext_rst,     3,     1 },
+	[usdhc1_ext]       = { &usdhc1_sd_pads_ext_rst[1], 2,     1 },
+	[usdhc2_ext]       = { usdhc2_sd_pads_ext,         2,     2 },
+	[usdhc2_int_efusa7ul]   = { usdhc2_sd_pads_int_efusa7ul,     3,     2 },
+	[usdhc2_int_pcoremx6ul] = { usdhc2_sd_pads_int_pcoremx6ul,   3,     2 },
 };
 
 enum usdhc_cds {
@@ -691,12 +706,12 @@ int board_mmc_init(bd_t *bd)
 #ifdef CONFIG_CMD_NAND
 		/* If NAND is equipped, eMMC can only use buswidth 4 */
 		if (!ret && (features2 & FEAT2_EMMC))
-			ret = fs_mmc_setup(bd, 4, &sdhc_cfg[usdhc2_int], NULL);
+			ret = fs_mmc_setup(bd, 4, &sdhc_cfg[usdhc2_int_efusa7ul], NULL);
 #else
 		/* If no NAND is equipped, four additional data lines
 		   are available and eMMC can use buswidth 8 */
 		if (!ret && (features2 & FEAT2_EMMC))
-			ret = fs_mmc_setup(bd, 8, &sdhc_cfg[usdhc2_int], NULL);
+			ret = fs_mmc_setup(bd, 8, &sdhc_cfg[usdhc2_int_efusa7ul], NULL);
 #endif
 		break;
 
@@ -716,6 +731,9 @@ int board_mmc_init(bd_t *bd)
 		/* mmc0: USDHC1 (ext. micro SD slot via connector) */
 		ret = fs_mmc_setup(bd, 4, &sdhc_cfg[usdhc1_ext_rst], 
 				   &sdhc_cd[gpio1_io19]);
+		/* mmc1: USDHC2 (eMMC, if available), no CD */
+		if (!ret && (features2 & FEAT2_EMMC))
+			ret = fs_mmc_setup(bd, 8, &sdhc_cfg[usdhc2_int_pcoremx6ul], NULL);
 		break;
 
 	default:
@@ -1857,6 +1875,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 	unsigned int board_type = fs_board_get_type();
 	unsigned int board_rev = fs_board_get_rev();
+	int usdhc_boot_device = get_usdhc_boot_device();
 
 	printf("   Setting run-time properties\n");
 
@@ -1896,6 +1915,17 @@ int ft_board_setup(void *fdt, bd_t *bd)
 			else if (board_type == BT_CUBE2_0)
 				fs_fdt_set_wlan_macaddr(fdt, offs, id++, 0);
 		}
+	}
+
+	if(pargs->chFeatures2 & FEAT2_EMMC)
+	{
+		char usdhc_string [6];
+		sprintf(usdhc_string,"mmc%d",usdhc_boot_device);
+		/* enable emmc node  */
+		fs_fdt_enable_by_alias(fdt, usdhc_string, 1);
+
+		/* disable nand node  */
+		fs_fdt_enable_by_alias(fdt, "nand", 0);
 	}
 
 	/* Disable ethernet node(s) if feature is not available */
