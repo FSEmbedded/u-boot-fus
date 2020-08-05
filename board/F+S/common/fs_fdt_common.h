@@ -42,6 +42,8 @@ int fs_fdt_path_offset(void *fdt, const char *path);
 /* Enable or disable node given by path, overwrite any existing status value */
 void fs_fdt_enable(void *fdt, const char *path, int enable);
 
+void fs_fdt_enable_by_alias(void *fdt, const char *alias, int enable);
+
 /* Store common board specific values in node bdinfo */
 void fs_fdt_set_bdinfo(void *fdt, int offs);
 

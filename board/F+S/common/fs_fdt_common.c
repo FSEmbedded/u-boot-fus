@@ -147,6 +147,20 @@ void fs_fdt_enable(void *fdt, const char *path, int enable)
 	}
 }
 
+void fs_fdt_enable_by_alias(void *fdt, const char *alias, int enable)
+{
+	int err;
+	if(enable)
+		err = fdt_set_status_by_alias(fdt, alias, FDT_STATUS_OKAY, 0);
+	else
+		err = fdt_set_status_by_alias(fdt, alias, FDT_STATUS_DISABLED, 0);
+
+	if (err) {
+		printf("## Can not set status of node with alias %s: err=%s\n",
+		       alias, fdt_strerror(err));
+	}
+}
+
 /* Store common board specific values in node bdinfo */
 void fs_fdt_set_bdinfo(void *fdt, int offs)
 {
