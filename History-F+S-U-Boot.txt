@@ -1,6 +1,24 @@
 History of Changes for U-Boot on F&S Boards and Modules
 -------------------------------------------------------
 
+u-boot-2018.03-picocoremx6ul-B2019.11 (14.08.2020)
+---------------------------------------------
+Supported boards: PicoCoreMX6UL
+Not tested:       armStoneA9, armStoneA9r2, efusA9, PicoMODA9, NetDCUA9,
+                  QBlissA9, QBlissA9r2, efusA9X, PicoCOMA9X, PicoCoreMX6SX
+                  CONT1, CUBEA5, armStoneA5, NetDCUA5, PicoCOMA5, AGATEWAY,
+                  HGATEWAY, efusA7UL, PicoCOM1.2, GAR1, GAR2,
+                  CubeA7UL, Cube2.0, PicoCOMA7
+
+- Enable MMC as bootdevice
+- Add fix for MMC as bootdevice
+- Improve linux device tree editing
+- Add eMMC bootmedium support for PicoCoreMX6UL
+- Add UMS support to fsimx6ul_mmc_config
+- Add support for fat_write for fsimx6ul_mmc
+
+
+
 u-boot-2018.03-picocoma7-B2019.11 (21.07.2020)
 ---------------------------------------------
 Supported boards: PicoCOMA7
