@@ -1927,7 +1927,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		}
 	}
 
-	if(pargs->chFeatures2 & FEAT2_EMMC)
+	if(features2 & FEAT2_EMMC)
 	{
 		char usdhc_string [6];
 		sprintf(usdhc_string,"mmc%d",usdhc_boot_device);
