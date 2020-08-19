@@ -2293,6 +2293,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 	unsigned int board_type = fs_board_get_type();
 	unsigned int board_rev = fs_board_get_rev();
+	int usdhc_boot_device = get_usdhc_boot_device();
 
 	printf("   Setting run-time properties\n");
 
@@ -2323,6 +2324,17 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		if ((pargs->chFeatures2 & FEAT2_WLAN)
 		    && (board_type == BT_EFUSA9X) && (board_rev >= 120))
 			fs_fdt_set_wlan_macaddr(fdt, offs, id++, 1);
+	}
+
+	if(pargs->chFeatures2 & FEAT2_EMMC)
+	{
+		char usdhc_string [6];
+		sprintf(usdhc_string,"mmc%d",usdhc_boot_device);
+		/* enable emmc node  */
+		fs_fdt_enable_by_alias(fdt, usdhc_string, 1);
+
+		/* disable nand node  */
+		fs_fdt_enable_by_alias(fdt, "nand", 0);
 	}
 
 	/* Disable ethernet node(s) if feature is not available */
