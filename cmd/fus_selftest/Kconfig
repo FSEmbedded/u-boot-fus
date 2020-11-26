@@ -1,0 +1,37 @@
+menuconfig FUS_COMMON_CMD_OPTIONS
+	bool "F+S specific command line interface"
+	default y
+	help
+		Enable F+S specific commands for U-Boot
+
+if FUS_COMMON_CMD_OPTIONS
+
+config CMD_LCD
+	bool
+	default n
+
+config CMD_DRAW
+	bool
+	default n
+
+config XLCD_DRAW
+	int
+	default 0x020F
+
+config XLCD_TEST
+	int
+	default 0x0001
+config CMD_SELFTEST
+	bool "selftest"
+	default y
+	select DM_RTC
+	select DM_PMIC_BD71837
+	#select DM_SERIAL
+	select DM_SPI
+	select CMD_LCD
+	select CMD_DRAW
+	help
+		Standard selftest for F&S boards. The argument of the command
+		is the display, that is used for the selftest.
+
+endif   # if FUS_COMMON_CMD_OPTIONS

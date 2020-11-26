@@ -65,7 +65,12 @@ void draw_ll_rect(const wininfo_t *pwi, XYPOS x1, XYPOS y1,
 
 	xpos = x2 << bpp_shift;
 	maskright = 0xFFFFFFFF >> (xpos & 31);
-	maskright = ~(maskright >> bpp);
+	if (bpp >= sizeof(maskright)*8)
+		maskright = 0;
+	else
+		maskright = maskright >> bpp;
+
+	maskright = ~maskright;
 	x2 = xpos >> 5;
 
 	xpos = x1 << bpp_shift;

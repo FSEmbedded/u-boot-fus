@@ -132,6 +132,7 @@
 #include <serial.h>			  /* serial_putc(), serial_puts() */
 #include <linux/ctype.h>		  /* isdigit() */
 #include <video_font.h>			  /* Get font data, width and height */
+#include <asm/string.h>
 
 #if defined(CONFIG_S3C64XX)
 #include <s3c64xx_xlcd.h>		  /* s3c64xx_xlcd_init() */
@@ -646,7 +647,7 @@ void console_update(wininfo_t *pwi, RGBA fg, RGBA bg)
 /* Clear the console window with given color */
 void console_cls(const wininfo_t *pwi, COLOR32 col)
 {
-	memset32((unsigned *)pwi->pfbuf[pwi->fbdraw], col2col32(pwi, col),
+	memset((unsigned *)pwi->pfbuf[pwi->fbdraw], col2col32(pwi, col),
 		 pwi->fbsize/4);
 }
 
@@ -705,7 +706,7 @@ static void console_putc(wininfo_t *pwi, coninfo_t *pci, char c)
 
 			/* Clear bottom line to end of screen with console
 			   background color */
-			memset32((unsigned *)(fbuf + y*linelen), bg,
+			memset((unsigned *)(fbuf + y*linelen), bg,
 				 (fbvres - y)*linelen/4);
 		}
 		/* Fall through to case '\r' */
@@ -731,7 +732,7 @@ void lcd_putc(const struct stdio_dev *pdev, const char c)
 	if (pvi->is_enabled && pwi->active)
 		console_putc(pwi, &pwi->ci, c);
 	else
-		serial_putc(NULL, c);
+		serial_putc(c);
 }
 #else
 void lcd_putc(const struct stdio_dev *pdev, const char c)
@@ -742,7 +743,7 @@ void lcd_putc(const struct stdio_dev *pdev, const char c)
 	if (pvi->is_enabled && pwi->active)
 		console_putc(pwi, &coninfo, c);
 	else
-		serial_putc(NULL, c);
+		serial_putc(c);
 }
 #endif /*CONFIG_XLCD_CONSOLE_MULTI*/
 
@@ -765,7 +766,7 @@ void lcd_puts(const struct stdio_dev *pdev, const char *s)
 			console_putc(pwi, pci, c);
 		}
 	} else
-		serial_puts(NULL, s);
+		serial_puts(s);
 }
 #else
 void lcd_puts(const struct stdio_dev *pdev, const char *s)
@@ -784,7 +785,7 @@ void lcd_puts(const struct stdio_dev *pdev, const char *s)
 			console_putc(pwi, pci, c);
 		}
 	} else
-		serial_puts(NULL, s);
+		serial_puts(s);
 }
 #endif /*CONFIG_XLCD_CONSOLE_MULTI*/
 

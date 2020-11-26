@@ -294,6 +294,10 @@ void *video_hw_init(void)
 		return NULL;
 	}
 
+	DECLARE_GLOBAL_DATA_PTR;
+	gd->fb_base = (unsigned long)fb;
+	gd->fb_size = (unsigned long)panel.memSize ;
+
 	/* Wipe framebuffer */
 	memset(fb, 0, panel.memSize);
 

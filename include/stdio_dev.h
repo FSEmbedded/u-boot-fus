@@ -25,7 +25,7 @@ typedef struct stdio_dev stdio_dev_t;
 
 struct stdio_dev {
 	int	flags;			/* Device flags: input/output/system */
-//###	int	ext;			/* Supported extensions */
+	int	ext;			/* Supported extensions */
 	char	name[DEV_NAME_SIZE];	/* Device name */
 
 /* GENERAL functions */

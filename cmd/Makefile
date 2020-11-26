@@ -162,6 +162,8 @@ obj-$(CONFIG_CMD_ADRAW) += draw.o
 obj-$(CONFIG_CMD_BLOB) += blob.o
 
 obj-$(CONFIG_X86) += x86/
+obj-$(CONFIG_FUS_COMMON_CMD_OPTIONS) += fus_selftest/
+
 endif # !CONFIG_SPL_BUILD
 
 # core command

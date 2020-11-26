@@ -35,6 +35,7 @@ typedef struct global_data {
 	unsigned long mem_clk;
 #if defined(CONFIG_LCD) || defined(CONFIG_VIDEO)
 	unsigned long fb_base;		/* Base address of framebuffer mem */
+	unsigned long fb_size;
 #endif
 #if defined(CONFIG_POST)
 	unsigned long post_log_word;	/* Record POST activities */
