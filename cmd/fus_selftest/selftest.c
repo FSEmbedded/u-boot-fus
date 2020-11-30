@@ -9,7 +9,11 @@
 #include <common.h>
 #include <command.h>
 #include "ethernet_test.h"
+#ifndef CONFIG_DM_SERIAL
 #include "serial_test.h"
+#else
+#include "serial_test_dm.h"
+#endif
 #include "audio_test.h"
 #include "dram_test.h"
 #include "gpio_test.h"

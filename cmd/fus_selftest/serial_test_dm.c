@@ -11,6 +11,16 @@
 #include <dm.h>
 #include <serial.h>
 #include "serial_test_dm.h"
+#include "selftest.h"
+
+#define TIMEOUT 1 // ms (1 sec)
+
+#define OUTPUT 0
+#define INPUT 1
+
+#define BUFFERSIZE 128
+
+static char tx_buffer[BUFFERSIZE];
 
 static void wait_tx_buf_empty(struct udevice *dev, struct dm_serial_ops *ops)
 {
@@ -26,6 +36,70 @@ static void wait_tx_buf_empty(struct udevice *dev, struct dm_serial_ops *ops)
 		ops->getc(dev);
 }
 
+static void clear_rx_buf(struct udevice *dev, struct dm_serial_ops *ops)
+{
+	/* Get the character 0x0 that is seen by RX because of the flank 0 -> 1.
+	 * The flank is created by value 0 in GPIO mode and the low-active UART signal.
+	 */
+    mdelay(1);
+
+
+
+	while (ops->pending(dev,INPUT))
+		ops->getc(dev);
+}
+
+void serialtest_puts(struct udevice *dev, struct dm_serial_ops *ops, char *s)
+{
+	while (*s)
+		ops->putc(dev,*s++);
+}
+
+
+int tx_to_rx_test(struct udevice *dev, struct dm_serial_ops *ops, int *msec)
+{
+    int mismatch = 0;
+    int tx_pos = 0;
+    int c = 0;
+
+    *msec = 0;
+
+    while(tx_pos < BUFFERSIZE)
+    {
+        serialtest_puts(dev,ops,tx_buffer+tx_pos);
+        mdelay(1);
+
+        for(int j=tx_pos; j<BUFFERSIZE-1;j++)
+        {
+            // check receive buffer for input
+            *msec = 0;
+            while ((!ops->pending(dev,INPUT)) && (*msec < TIMEOUT))
+            {
+                mdelay(1);
+                *msec += 1;
+            }
+            if (*msec >= TIMEOUT)
+            {
+                tx_pos = (tx_pos != j) ? j : BUFFERSIZE;
+                break;
+            }
+
+            // get character
+            c = ops->getc(dev);
+
+            if (c != tx_buffer[j])
+            {
+                mismatch = 1;
+            }
+        }
+        // got the whole buffer
+        if (*msec < TIMEOUT)
+            tx_pos = BUFFERSIZE;
+    }
+    return mismatch;
+}
+
+
 void mute_debug_port(int on)
 {
 	struct udevice *dev;
@@ -38,126 +112,100 @@ void mute_debug_port(int on)
 	mdelay(1); // Delay needed or else 1-2 characters glitch to wrong port
 	wait_tx_buf_empty(dev, ops);
 	set_loopback(port,on);
+	if (!on)
+		clear_rx_buf(dev, ops);
 }
 
 // main functions
 
-int test_serial()
+int test_serial(char *szStrBuffer)
 {
 	struct udevice *dev;
 	struct dm_serial_ops *ops;
-	int ret, port, msec;
+	int ret = 0, port = 0, msec = 0;
 	int mismatch = 0;
-	char c = 0;
 
 	ret = init_uart();
 
 	// Seed the current time to achieve a better pseudo randomizer
 	srand(timer_get_us());
 
-	for(int i=0; i<BUFFERSIZE; i++)
+    for(int i=0; i<BUFFERSIZE-1; i++)
 		tx_buffer[i] = (char) ((rand() % 223) + 33);
+
+    tx_buffer[BUFFERSIZE-1] = 0;
 
 	for(port=0; get_serial_ports(port)!=NULL; port++)
 	{
-		printf("SERIAL %d: (%s)", port, get_serial_ports(port));
+		ret = 0;
+		/* Clear reason-string */
+		szStrBuffer[0] = '\0';
+
+		printf("SERIAL %d: (%s)\n", port, get_serial_ports(port));
+        // Wait for debug output to finish
+        if(port == get_debug_port())
+            mdelay(1);
 		ret = uclass_get_device_by_seq(UCLASS_SERIAL,port,&dev);
 		if (ret)
 		{
 			printf(" FAILED (Failed to find SERIAL%d)", port);
 			continue;
 		}
+
 		ops = serial_get_ops(dev);
 		ops->setbrg(dev,115200);
 
 		mismatch = 0;
-		printf("\n");
 		printf("  internal loopback...");
-
+		mdelay(10);
 
 		// Set internal
 		wait_tx_buf_empty(dev, ops);
+
 		set_loopback(port,1);
 
-		for(int j=0; j<BUFFERSIZE;j++)
-		{
-
-			// send character
-			ret = ops->putc(dev,tx_buffer[j]);
-
-			// check receive buffer for input
-			msec = 0;
-			while ((!ops->pending(dev,INPUT)) && (msec < TIMEOUT))
-			{
-				mdelay(10);
-				msec += 10;
-			}
-			if (msec >= TIMEOUT)
-				break;
-
-			// get character
-			c = ops->getc(dev);
-
-			if (c != tx_buffer[j])
-			{
-				mismatch = 1;
-			}
-		}
+        	// Test TX to RX
+        	mismatch = tx_to_rx_test(dev, ops, &msec);
 
 		// Set external
 		wait_tx_buf_empty(dev, ops);
 		set_loopback(port,0);
-
-		// print result
-		if (msec >= TIMEOUT)
-			printf("FAILED\t(Failed with timeout)");
-		else if(mismatch)
-			printf("FAILED\t(Failed with TX/RX mismatch)");
-		else
-			printf("OK");
+    		clear_rx_buf(dev, ops);
 
 
-		mismatch = 0;
-		printf("\n");
+        	// Print result
+		if (msec >= TIMEOUT) {
+			sprintf(szStrBuffer, "Failed with timeout");
+			ret = -1;
+		}
+        else if(mismatch){
+			sprintf(szStrBuffer, "Failed with TX/RX mismatch");
+			ret = -1;
+        }
+		test_OkOrFail(ret, 1, szStrBuffer);
+
 		printf("  external loopback...");
 
 		if (port != get_debug_port())
 		{
-			for(int j=0; j<BUFFERSIZE;j++) {
+           	 // Test TX to RX
+            	mismatch = tx_to_rx_test(dev, ops, &msec);
 
-				// send character
-				ret = ops->putc(dev,tx_buffer[j]);
-
-				// check receive buffer for input
-				msec = 0;
-				while ((!ops->pending(dev,INPUT)) && (msec < TIMEOUT)) {
-					mdelay(10);
-					msec += 10;
-				}
+            	// Print result
 				if (msec >= TIMEOUT) {
-					break;
+    			sprintf(szStrBuffer, "Failed with timeout");
+    			ret = -1;
 				}
-
-				// get character
-				c = ops->getc(dev);
-
-				if (c != tx_buffer[j])
-				{
-					mismatch = 1;
-					// Don't break out of for(), handle timeout first.
+            else if(mismatch){
+    			sprintf(szStrBuffer, "Failed with TX/RX mismatch");
+    			ret = -1;
 				}
 			}
-			// print result
-			if (msec >= TIMEOUT)
-				printf("FAILED\t(Failed with timeout)");
-			else if(mismatch)
-				printf("FAILED\t(Failed with TX/RX mismatch)");
-			else
-				printf("OK");
+		else{
+			sprintf(szStrBuffer, "Debug port");
+			ret = 1;
 		}
-		else
-			printf("skipped\t(Debug port)");
-		printf("\n");
+		test_OkOrFail(ret, 1, szStrBuffer);
 	}
 	return 0;
 }
