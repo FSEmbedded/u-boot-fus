@@ -152,14 +152,15 @@ int test_audio(char *szStrBuffer)
 	/* Set SAI clocks and registers */
 	config_sai();
 
-	/* Init codec */
-	printf("I2S I2C interface.....");
+
 	ret = uclass_get_device_by_name(UCLASS_I2C_GENERIC,"sgtl5000@0a",&dev);
 
 	if (ret){
 		/* Test skipped */
 		return 1;
 	}
+	/* Init codec */
+	printf("I2S I2C interface.....");
 
 	struct dm_i2c_chip *chip = dev_get_parent_platdata(dev);
 	struct udevice *bus = dev_get_parent(dev);
