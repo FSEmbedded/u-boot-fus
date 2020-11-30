@@ -93,12 +93,19 @@ config TARGET_IMX8DX_MEK
 	select SUPPORT_SPL
 	select IMX8QXP
 
+config TARGET_FSIMX8X
+	bool "Support fsimx8x boards from F&S"
+	select BOARD_LATE_INIT
+	select SUPPORT_SPL
+	select IMX8QXP
+
 endchoice
 
 source "board/freescale/imx8qm_arm2/Kconfig"
 source "board/freescale/imx8qm_mek/Kconfig"
 source "board/freescale/imx8qxp_arm2/Kconfig"
 source "board/freescale/imx8qxp_mek/Kconfig"
+source "board/F+S/fsimx8x/Kconfig"
 
 config SNVS_SEC_SC
 	bool "Support SNVS configuration"

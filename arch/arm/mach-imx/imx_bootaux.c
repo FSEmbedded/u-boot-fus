@@ -64,7 +64,7 @@ enum aux_state {
 	aux_paused,
 	aux_undefined,
 };
-
+#ifndef CONFIG_IMX8
 int arch_auxiliary_core_set_reset_address(ulong boot_private_data)
 {
 	u32 stack, pc;
@@ -161,7 +161,7 @@ enum aux_state arch_auxiliary_core_get(u32 core_id)
 	return aux_undefined;
 #endif
 }
-
+#endif
 /*
  * To i.MX6SX and i.MX7D, the image supported by bootaux needs
  * the reset vector at the head for the image, with SP and PC
@@ -175,6 +175,7 @@ enum aux_state arch_auxiliary_core_get(u32 core_id)
  * The TCMUL is mapped to (M4_BOOTROM_BASE_ADDR) at A core side for
  * accessing the M4 TCMUL.
  */
+#ifndef CONFIG_IMX8
 static int do_bootaux(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	const char *state_name[] = {"off", "stopped", "running", "paused"};
@@ -240,3 +241,41 @@ U_BOOT_CMD(
 	"bootaux addr - Start software image at addr on auxiliary core\n"
 	"bootaux - Show auxiliary core state\n"
 );
+#else /* TODO: implement states for CONFIG_IMX8 */
+static int do_bootaux(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	ulong addr;
+	int ret, up;
+	u32 core = 0;
+
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
+	if (argc > 2)
+		core = simple_strtoul(argv[2], NULL, 10);
+
+	up = arch_auxiliary_core_check_up(core);
+	if (up) {
+		printf("## Auxiliary core is already up\n");
+		return CMD_RET_SUCCESS;
+	}
+
+	addr = simple_strtoul(argv[1], NULL, 16);
+
+	printf("## Starting auxiliary core at 0x%08lX ...\n", addr);
+
+	ret = arch_auxiliary_core_up(core, addr);
+	if (ret)
+		return CMD_RET_FAILURE;
+
+	return CMD_RET_SUCCESS;
+}
+
+U_BOOT_CMD(
+	bootaux, CONFIG_SYS_MAXARGS, 1,	do_bootaux,
+	"Start auxiliary core",
+	"<address> [<core>]\n"
+	"   - start auxiliary core [<core>] (default 0),\n"
+	"     at address <address>\n"
+);
+#endif
