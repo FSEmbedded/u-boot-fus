@@ -10,6 +10,7 @@
 #include <asm/arch/clock.h>
 #include <asm/mach-imx/iomux-v3.h>
 #include <asm/io.h>			/* __raw_readl(), __raw_writel() */
+#include <dm/pinctrl.h>
 #include <serial.h>
 #include "../../../board/F+S/common/fs_board_common.h"	/* fs_board_*() */
 #include "../serial_test.h" // struct stdio_dev
@@ -40,28 +41,6 @@
 #define CLR_BIT4(A, V) *((volatile uint32_t*)(A)) &= ~(U32(V))
 
 
-static iomux_v3_cfg_t const uart_pads[] = {
-	IMX8MM_PAD_UART1_RXD_UART1_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	IMX8MM_PAD_UART1_TXD_UART1_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	IMX8MM_PAD_UART2_RXD_UART2_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	IMX8MM_PAD_UART2_TXD_UART2_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	IMX8MM_PAD_UART3_RXD_UART3_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	IMX8MM_PAD_UART3_TXD_UART3_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	IMX8MM_PAD_UART4_RXD_UART4_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	IMX8MM_PAD_UART4_TXD_UART4_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-};
-
-static iomux_v3_cfg_t const uart_gio_pads[] = {
-	IMX8MM_PAD_UART1_RXD_GPIO5_IO22 | MUX_PAD_CTRL(GPIO_PAD_CTRL),
-	IMX8MM_PAD_UART1_TXD_GPIO5_IO23 | MUX_PAD_CTRL(GPIO_PAD_CTRL),
-	IMX8MM_PAD_UART2_RXD_GPIO5_IO24 | MUX_PAD_CTRL(GPIO_PAD_CTRL),
-	IMX8MM_PAD_UART2_TXD_GPIO5_IO25 | MUX_PAD_CTRL(GPIO_PAD_CTRL),
-	IMX8MM_PAD_UART3_RXD_GPIO5_IO26 | MUX_PAD_CTRL(GPIO_PAD_CTRL),
-	IMX8MM_PAD_UART3_TXD_GPIO5_IO27 | MUX_PAD_CTRL(GPIO_PAD_CTRL),
-	IMX8MM_PAD_UART4_RXD_GPIO5_IO28 | MUX_PAD_CTRL(GPIO_PAD_CTRL),
-	IMX8MM_PAD_UART4_TXD_GPIO5_IO29 | MUX_PAD_CTRL(GPIO_PAD_CTRL),
-};
-
 // Must be in right order !!!
 static char * serial_ports[] = {
 		"uart1",
@@ -73,8 +52,6 @@ static char * serial_ports[] = {
 
 int init_uart()
 {
-	imx_iomux_v3_setup_multiple_pads(uart_pads, ARRAY_SIZE(uart_pads));
-
 	/* Set RDC for UART4 to r/w acces for both cpus */
 	DATA4(RDC_BASE_ADDR + 0x518, 0xff);
 
@@ -155,17 +132,13 @@ int pending(void *dev, int input)
 
 void set_loopback(int port, int on)
 {
-	uint64_t uart_base = 0;
+	struct udevice *dev;
+	struct mxc_serial_platdata *plat;
+	struct mxc_uart * base;
 
-	if (port == 0)
-		uart_base = UART1_BASE_ADDR;
-	else if (port == 1)
-		uart_base = UART2_BASE_ADDR;
-	else if  (port == 2)
-		uart_base = UART3_BASE_ADDR;
-	else if  (port == 3)
-		uart_base = UART4_BASE_ADDR;
-
+	uclass_get_device_by_seq(UCLASS_SERIAL,port,&dev);
+	plat = dev->platdata;
+	base = plat->reg;
 	/* Disable transmitter */
 	//CLR_BIT4(UART_UCR2(uart_base),UART_TXEN);
 
@@ -174,17 +147,14 @@ void set_loopback(int port, int on)
 
 	/* Set internal loopback mode */
 	if( on )
-	{
-		SET_BIT4(UART_UTS(uart_base),UART_LOOP);
-		if  (port*2 < ARRAY_SIZE(uart_gio_pads))
-			imx_iomux_v3_setup_multiple_pads(uart_gio_pads + (port*2), 2);
+	{	writel(base->ts | UART_LOOP, &base->ts);
+		pinctrl_select_state(dev,"mute");
 
 	}
 	else
 	{
-		CLR_BIT4(UART_UTS(uart_base),UART_LOOP);
-		if  (port*2 < ARRAY_SIZE(uart_pads))
-			imx_iomux_v3_setup_multiple_pads(uart_pads + (port*2), 2);
+		writel(base->ts & ~UART_LOOP, &base->ts);
+		pinctrl_select_state(dev,"default");
 
 	}
 	/* Enable transmitter */
