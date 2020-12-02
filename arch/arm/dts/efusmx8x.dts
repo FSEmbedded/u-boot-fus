@@ -161,6 +161,15 @@
 			>;
 		};
 
+		pinctrl_lpuart0_gpio: lpuart0gpiogrp {
+			fsl,pins = <
+				SC_P_UART0_RX_LSIO_GPIO1_IO21	0x06000020
+				SC_P_UART0_TX_LSIO_GPIO1_IO22	0x06000020
+				SC_P_FLEXCAN0_TX_LSIO_GPIO1_IO16	0x06000020
+				SC_P_FLEXCAN0_RX_LSIO_GPIO1_IO15	0x06000020
+			>;
+		};
+
 		pinctrl_lpuart1: lpuart1grp {
 			fsl,pins = <
 				SC_P_UART1_TX_ADMA_UART1_TX		0x06000020
@@ -170,17 +179,38 @@
 			>;
 		};
 
+		pinctrl_lpuart1_gpio: lpuart1gpiogrp {
+			fsl,pins = <
+				SC_P_UART1_TX_LSIO_GPIO0_IO21		0x06000020
+				SC_P_UART1_RX_LSIO_GPIO0_IO22		0x06000020
+			>;
+		};
+
 		pinctrl_lpuart2: lpuart2grp {
 			fsl,pins = <
-				SC_P_UART2_RX_ADMA_UART2_RX	0x06000020
 				SC_P_UART2_TX_ADMA_UART2_TX	0x06000020
+				SC_P_UART2_RX_ADMA_UART2_RX	0x06000020
+			>;
+		};
+
+		pinctrl_lpuart2_gpio: lpuart2gpiogrp {
+			fsl,pins = <
+				SC_P_UART2_TX_LSIO_GPIO1_IO23	0x06000020
+				SC_P_UART2_RX_LSIO_GPIO1_IO24	0x06000020
 			>;
 		};
 
 		pinctrl_lpuart3: lpuart3grp {
 			fsl,pins = <
-				SC_P_SCU_GPIO0_00_ADMA_UART3_RX	0x06000020
 				SC_P_SCU_GPIO0_01_ADMA_UART3_TX	0x06000020
+				SC_P_SCU_GPIO0_00_ADMA_UART3_RX	0x06000020
+			>;
+		};
+
+		pinctrl_lpuart3_gpio: lpuart3gpiogrp {
+			fsl,pins = <
+				SC_P_SCU_GPIO0_01_SCU_GPIO0_IO01	0x06000020
+				SC_P_SCU_GPIO0_00_SCU_GPIO0_IO00	0x06000020
 			>;
 		};
 
@@ -463,28 +493,37 @@
 };
 
 &lpuart0 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "mute";
 	pinctrl-0 = <&pinctrl_lpuart0>;
+	pinctrl-1 = <&pinctrl_lpuart0_gpio>;
 	status = "okay";
+	port-name = "uart0";
 };
 
 &lpuart1 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "mute";
 	pinctrl-0 = <&pinctrl_lpuart1>;
+	pinctrl-1 = <&pinctrl_lpuart1_gpio>;
 	linux,rs485-enabled;
 	status = "okay";
+	port-name = "uart1";
 };
 
 &lpuart2 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "mute";
 	pinctrl-0 = <&pinctrl_lpuart2>;
+	pinctrl-1 = <&pinctrl_lpuart2_gpio>;
 	status = "okay";
+	debug-port;
+	port-name = "uart2";
 };
 
 &lpuart3 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "mute";
 	pinctrl-0 = <&pinctrl_lpuart3>;
+	pinctrl-1 = <&pinctrl_lpuart3_gpio>;
 	status = "okay";
+	port-name = "uart3";
 };
 
 &lpspi0 {

@@ -9,8 +9,13 @@
 #include <common.h>
 #include <command.h>
 #include <dm.h>
+#include <dm/device-internal.h>
 #include <serial.h>
+#ifndef CONFIG_DM_SERIAL
+#include "serial_test.h"
+#else
 #include "serial_test_dm.h"
+#endif
 #include "selftest.h"
 
 #define TIMEOUT 1 // ms (1 sec)
@@ -43,16 +48,16 @@ static void clear_rx_buf(struct udevice *dev, struct dm_serial_ops *ops)
 	 */
     mdelay(1);
 
-
-
 	while (ops->pending(dev,INPUT))
 		ops->getc(dev);
 }
 
 void serialtest_puts(struct udevice *dev, struct dm_serial_ops *ops, char *s)
 {
-	while (*s)
+	while (*s) {
+		mdelay(1);
 		ops->putc(dev,*s++);
+	}
 }
 
 
@@ -91,6 +96,7 @@ int tx_to_rx_test(struct udevice *dev, struct dm_serial_ops *ops, int *msec)
             {
                 mismatch = 1;
             }
+
         }
         // got the whole buffer
         if (*msec < TIMEOUT)
@@ -102,16 +108,14 @@ int tx_to_rx_test(struct udevice *dev, struct dm_serial_ops *ops, int *msec)
 
 void mute_debug_port(int on)
 {
-	struct udevice *dev;
 	struct dm_serial_ops *ops;
-	int port = get_debug_port();
+	struct udevice *dev = get_debug_dev();
 
-	uclass_get_device_by_seq(UCLASS_SERIAL,port,&dev);
 	ops = serial_get_ops(dev);
 
 	mdelay(1); // Delay needed or else 1-2 characters glitch to wrong port
 	wait_tx_buf_empty(dev, ops);
-	set_loopback(port,on);
+	set_loopback(dev,on);
 	if (!on)
 		clear_rx_buf(dev, ops);
 }
@@ -120,9 +124,12 @@ void mute_debug_port(int on)
 
 int test_serial(char *szStrBuffer)
 {
+	struct uclass *uc;
 	struct udevice *dev;
 	struct dm_serial_ops *ops;
-	int ret = 0, port = 0, msec = 0;
+	const void *fdt = gd->fdt_blob;
+	int node;
+	int ret = 0, msec = 0;
 	int mismatch = 0;
 
 	ret = init_uart();
@@ -135,22 +142,27 @@ int test_serial(char *szStrBuffer)
 
     tx_buffer[BUFFERSIZE-1] = 0;
 
-	for(port=0; get_serial_ports(port)!=NULL; port++)
-	{
+	if (uclass_get(UCLASS_SERIAL, &uc))
+		return 1;
+
+	uclass_foreach_dev(dev, uc) {
+
 		ret = 0;
 		/* Clear reason-string */
 		szStrBuffer[0] = '\0';
 
-		printf("SERIAL %d: (%s)\n", port, get_serial_ports(port));
+		//dev->seq = uclass_resolve_seq(dev);
+
+		dev->driver->ofdata_to_platdata(dev);
+
+		device_probe(dev);
+
+		node = dev_of_offset(dev);
+
+		printf("SERIAL %d: (%s)\n", dev->seq, fdt_get_property(fdt, node, "port-name", NULL)->data);
         // Wait for debug output to finish
-        if(port == get_debug_port())
+        if(fdt_get_property(fdt, node, "debug-port", NULL))
             mdelay(1);
-		ret = uclass_get_device_by_seq(UCLASS_SERIAL,port,&dev);
-		if (ret)
-		{
-			printf(" FAILED (Failed to find SERIAL%d)", port);
-			continue;
-		}
 
 		ops = serial_get_ops(dev);
 		ops->setbrg(dev,115200);
@@ -162,15 +174,17 @@ int test_serial(char *szStrBuffer)
 		// Set internal
 		wait_tx_buf_empty(dev, ops);
 
-		set_loopback(port,1);
+		set_loopback(dev,1);
 
         	// Test TX to RX
         	mismatch = tx_to_rx_test(dev, ops, &msec);
 
 		// Set external
 		wait_tx_buf_empty(dev, ops);
-		set_loopback(port,0);
+
+		set_loopback(dev,0);
     		clear_rx_buf(dev, ops);
+
 
 
         	// Print result
@@ -186,8 +200,7 @@ int test_serial(char *szStrBuffer)
 
 		printf("  external loopback...");
 
-		if (port != get_debug_port())
-		{
+		if (!fdt_get_property(fdt, node, "debug-port", NULL)) {
            	 // Test TX to RX
             	mismatch = tx_to_rx_test(dev, ops, &msec);
 
@@ -201,7 +214,7 @@ int test_serial(char *szStrBuffer)
     			ret = -1;
 				}
 			}
-		else{
+		else {
 			sprintf(szStrBuffer, "Debug port");
 			ret = 1;
 		}

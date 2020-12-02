@@ -6,39 +6,87 @@
  * published by the Free Software Foundation.
  */
 
-#include "../serial_test.h"
-#include "serial_imx8x.h"
+#include <asm/mach-imx/sci/sci.h> // SCU Functions
+#include <asm/arch/lpcg.h> // Clocks
+#include <asm/arch/iomux.h> // IOMUX
+#include <asm/arch/imx8-pins.h> // Pins
+#include <asm/arch/imx-regs.h> // LPUART_BASE_ADDR
+#include <asm/io.h>			/* __raw_readl(), __raw_writel() */
+#include <common.h> // DECLARE_GLOBAL_DATA_PTR
+#include <dm/pinctrl.h>
+#ifndef CONFIG_DM_SERIAL
+#include "../serial_test.h" // struct stdio_dev
+#else
+#include "../serial_test_dm.h" // dm serial
+#endif
+#include <dm.h>
+
+//---LPUART Register---//
+
+struct lpuart {
+	u32 verid;
+	u32 param;
+	u32 global;
+	u32 pincfg;
+	u32 baud;
+	u32 stat;
+	u32 ctrl;
+	u32 data;
+	u32 match;
+	u32 modir;
+	u32 fifo;
+	u32 water;
+};
+
+//---LPUART Control-Register---//
+
+#define LPUART_CTRL_LOOPS	(1 <<  7)
+
+enum lpuart_devtype {
+	DEV_VF610 = 1,
+	DEV_LS1021A,
+	DEV_MX7ULP,
+	DEV_IMX8
+};
+
+struct lpuart_serial_platdata {
+	void *reg;
+	enum lpuart_devtype devtype;
+	ulong flags;
+};
 
 // helper functions
 
 int init_uart()
 {
+	struct uclass *uc;
+	struct udevice *dev;
+
 	// Clocks aren't handled by the device tree, so we need to do it here.
 
 	sc_ipc_t ipcHndl = 0;
-	sc_err_t sciErr = 0;
 
 	ipcHndl = gd->arch.ipc_channel_handle;
 
 	sc_pm_clock_rate_t rate = 80000000;
 
 	/* Power up UART */
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_UART_0, SC_PM_PW_MODE_ON);
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_UART_1, SC_PM_PW_MODE_ON);
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_UART_2, SC_PM_PW_MODE_ON);
-	sciErr = sc_pm_set_resource_power_mode(ipcHndl, SC_R_UART_3, SC_PM_PW_MODE_ON);
+	sc_pm_set_resource_power_mode(ipcHndl, SC_R_UART_0, SC_PM_PW_MODE_ON);
+	sc_pm_set_resource_power_mode(ipcHndl, SC_R_UART_1, SC_PM_PW_MODE_ON);
+	sc_pm_set_resource_power_mode(ipcHndl, SC_R_UART_2, SC_PM_PW_MODE_ON);
+	sc_pm_set_resource_power_mode(ipcHndl, SC_R_UART_3, SC_PM_PW_MODE_ON);
 
 	/* Set UART clock rate */
-	sciErr = sc_pm_set_clock_rate(ipcHndl, SC_R_UART_0, 2, &rate);
-	sciErr = sc_pm_set_clock_rate(ipcHndl, SC_R_UART_1, 2, &rate);
-	sciErr = sc_pm_set_clock_rate(ipcHndl, SC_R_UART_2, 2, &rate);
-	sciErr = sc_pm_set_clock_rate(ipcHndl, SC_R_UART_3, 2, &rate);
+	sc_pm_set_clock_rate(ipcHndl, SC_R_UART_0, 2, &rate);
+	sc_pm_set_clock_rate(ipcHndl, SC_R_UART_1, 2, &rate);
+	sc_pm_set_clock_rate(ipcHndl, SC_R_UART_2, 2, &rate);
+	sc_pm_set_clock_rate(ipcHndl, SC_R_UART_3, 2, &rate);
 
 	/* Enable UART clock root */
-	sciErr = sc_pm_clock_enable(ipcHndl, SC_R_UART_0, 2, true, false);
-	sciErr = sc_pm_clock_enable(ipcHndl, SC_R_UART_1, 2, true, false);
-	sciErr = sc_pm_clock_enable(ipcHndl, SC_R_UART_2, 2, true, false);
-	sciErr = sc_pm_clock_enable(ipcHndl, SC_R_UART_3, 2, true, false);
+	sc_pm_clock_enable(ipcHndl, SC_R_UART_0, 2, true, false);
+	sc_pm_clock_enable(ipcHndl, SC_R_UART_1, 2, true, false);
+	sc_pm_clock_enable(ipcHndl, SC_R_UART_2, 2, true, false);
+	sc_pm_clock_enable(ipcHndl, SC_R_UART_3, 2, true, false);
 
 	/* Open UART clock gates */
 	LPCG_AllClockOn(LPUART_0_LPCG);
@@ -46,53 +94,52 @@ int init_uart()
 	LPCG_AllClockOn(LPUART_2_LPCG);
 	LPCG_AllClockOn(LPUART_3_LPCG);
 
-	for (int port=0; serial_ports[port]!=NULL; port++)
-	{
-		sc_pad_set_mux(ipcHndl, uart_rx_pads[port].pad, uart_rx_pads[port].mux, SC_PAD_CONFIG_OUT_IN, SC_PAD_ISO_OFF);
-		sc_pad_set_mux(ipcHndl, uart_tx_pads[port].pad, uart_tx_pads[port].mux, SC_PAD_CONFIG_OUT_IN, SC_PAD_ISO_OFF);
-	}
+	if (uclass_get(UCLASS_SERIAL, &uc))
+		return -1;
+
+	uclass_foreach_dev(dev, uc)
+		pinctrl_select_state(dev,"default");
 
 	return 0;
 }
-char * get_serial_ports(int port)
+
+struct udevice * get_debug_dev()
 {
-	return  serial_ports[port];
+	struct uclass *uc;
+	struct udevice *dev;
+	const void *fdt = gd->fdt_blob;
+	int node;
 
-}
-int get_debug_port()
-{
+	if (uclass_get(UCLASS_SERIAL, &uc))
+		return NULL;
 
-	return DEBUG_PORT;
-}
-
-int pending(void *dev, int input)
-{
-	struct stdio_dev *pdev = (struct stdio_dev *) dev;
-	u32 stat;
-
-	if (input) {
-		return pdev->tstc(pdev);
-	} else {
-		stat = READ4(pdev->priv + LPUART_STAT_OFFSET);
-		return stat & LPUART_STAT_TDRE ? 0 : 1;
+	uclass_foreach_dev(dev, uc) {
+		node = dev_of_offset(dev);
+		if (fdt_get_property(fdt, node, "debug-port", NULL))
+			return dev;
 	}
+
+	return NULL;
 }
 
-void set_loopback(int port, int on)
+void set_loopback(void *dev, int on)
 {
-	sc_ipc_t ipcHndl = 0;
+	struct udevice *pdev = (struct udevice *) dev;
+	struct lpuart_serial_platdata *plat;
+	struct lpuart * base;
 
-	ipcHndl = gd->arch.ipc_channel_handle;
+	plat = pdev->platdata;
+	base = (struct lpuart *) plat->reg;
 
-	/* Set internal loopback mode */
 	if( on )
 	{
-		SET_BIT4(LPUART_CTRL(port),LPUART_CTRL_LOOPS);
-		sc_pad_set_mux(ipcHndl, uart_tx_gpio_pads[port].pad, uart_tx_gpio_pads[port].mux, SC_PAD_CONFIG_OUT_IN, SC_PAD_ISO_OFF);
+		writel(base->ctrl | LPUART_CTRL_LOOPS, &base->ctrl);
+		pinctrl_select_state(pdev,"mute");
+
 	}
 	else
 	{
-		CLR_BIT4(LPUART_CTRL(port),LPUART_CTRL_LOOPS);
-		sc_pad_set_mux(ipcHndl, uart_tx_pads[port].pad, uart_tx_pads[port].mux, SC_PAD_CONFIG_OUT_IN, SC_PAD_ISO_OFF);
+		writel(base->ctrl & ~LPUART_CTRL_LOOPS, &base->ctrl);
+		pinctrl_select_state(pdev,"default");
 	}
 }

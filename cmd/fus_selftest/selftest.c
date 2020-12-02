@@ -18,8 +18,11 @@
 #include "dram_test.h"
 #include "gpio_test.h"
 #include "usb_test.h"
-#include "mmc_test.h"
+#ifdef CONFIG_ENV_IS_IN_NAND
 #include "nand_test.h"
+#else
+#include "mmc_test.h"
+#endif
 #include "rtc_test.h"
 #include "display_test.h"
 #include "pmic_test.h"
@@ -85,10 +88,12 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 //	ret = test_display(szStrBuffer);
 
+#ifdef CONFIG_ENV_IS_IN_NAND
 	ret = test_nand(szStrBuffer);
-	printf("##2\n");
+#else
+	//ret = test_mmc(szStrBuffer);
+#endif
 
-//	ret = test_mmc(szStrBuffer);
 
 
 

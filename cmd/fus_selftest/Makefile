@@ -13,14 +13,16 @@ obj-$(CONFIG_CMD_SELFTEST) += serial_test.o
 else
 obj-$(CONFIG_CMD_SELFTEST) += serial_test_dm.o
 endif
-
+ifdef CONFIG_ENV_IS_IN_NAND
 obj-$(CONFIG_CMD_SELFTEST) += nand_test.o
+else
+obj-$(CONFIG_CMD_SELFTEST) += mmc_test.o
+endif
 obj-$(CONFIG_CMD_SELFTEST) += pmic_test.o
 obj-$(CONFIG_CMD_SELFTEST) += audio_test.o
 obj-$(CONFIG_CMD_SELFTEST) += dram_test.o
 obj-$(CONFIG_CMD_SELFTEST) += usb_test.o
 obj-$(CONFIG_CMD_SELFTEST) += gpio_test.o
-obj-$(CONFIG_CMD_SELFTEST) += mmc_test.o
 obj-$(CONFIG_CMD_SELFTEST) += display_test.o
 obj-$(CONFIG_CMD_SELFTEST) += rtc_test.o
 obj-$(CONFIG_CMD_SELFTEST) += processor_info.o
