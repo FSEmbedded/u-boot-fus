@@ -54,6 +54,8 @@ static void fus_reset_phy(void){
 int test_ethernet(char *szStrBuffer)
 {
 	struct udevice *dev;
+	const void *fdt = gd->fdt_blob;
+	int node;
 	int port;
 
 	/* Clear reason-string */
@@ -62,65 +64,114 @@ int test_ethernet(char *szStrBuffer)
 	port = 0;
 
 	while (uclass_get_device(UCLASS_ETH,port,&dev) == 0) {
-		struct phy_device *phy = mdio_phydev_for_ethname(dev->name);
 		char * ethaddr = "";
 		int ret = 0, target_speed = 0;
 
-		if (port == 0)
-			ethaddr = env_get("ethaddr");
-		else
-			ethaddr = env_get("eth1addr");
+		node = dev_of_offset(dev);
 
-		printf("ETHERNET%d: ", port);
+		node = fdt_subnode_offset(fdt, node, "fixed-link");
 
-		printf("MAC: %s\n", ethaddr);
+		if (!strcmp("fixed-link",fdt_get_name(fdt, node, NULL))) {
 
-		port++;
+			if (port == 0)
+				ethaddr = env_get("ethaddr");
+			else
+				ethaddr = env_get("eth1addr");
 
-		printf("  internal loopback...");
+			printf("ETHERNET%d: ", port);
 
-		phy = mdio_phydev_for_ethname(dev->name);
+			printf("MAC: %s\n", ethaddr);
 
-		fus_reset_phy();
+			port++;
 
-		mute_debug_port(1);
+			printf("  internal loopback...");
 
-		ret = phy_config(phy);
-		ret |= phy_startup(phy);
+			sprintf(szStrBuffer, "Fixed link");
+			test_OkOrFail(1, 1, szStrBuffer);
 
-		mute_debug_port(0);
+			mute_debug_port(1);
 
-		if (ret)
-		{
-	        sprintf(szStrBuffer, "Link up timeout!");
-	        test_OkOrFail(-1, 1, szStrBuffer);
-			continue;
+			env_set("autoload", "no");
+			env_set("bootpretryperiod", "3000");
+			net_loop(DHCP);
+
+			mute_debug_port(0);
+
+			printf("  external loopback...");
+
+			if(net_ip.s_addr) {
+				char tmp[22];
+
+				ip_to_string(net_ip, tmp);
+				sprintf(szStrBuffer, "IP: %s", tmp);
+				test_OkOrFail(0, 1, szStrBuffer);
+			}
+			else {
+				sprintf(szStrBuffer, "Failed with timeout");
+				test_OkOrFail(-1, 1, szStrBuffer);
+			}
+
 		}
+		else {
+			struct phy_device *phy = mdio_phydev_for_ethname(dev->name);
 
-		test_OkOrFail(0, 1, szStrBuffer);
 
-		printf("  external loopback...");
+			if (port == 0)
+				ethaddr = env_get("ethaddr");
+			else
+				ethaddr = env_get("eth1addr");
 
-		if (phy->drv->features & PHY_1000BT_FEATURES)
-			target_speed = 1000;
-		else if (phy->drv->features & PHY_100BT_FEATURES)
-			target_speed = 100;
-		else if (phy->drv->features & PHY_10BT_FEATURES)
-			target_speed = 10;
-		else
-		{
-	        sprintf(szStrBuffer, "Unable to get Driver Speed");
-	        test_OkOrFail(-1, 1, szStrBuffer);
-			continue;
+			printf("ETHERNET%d: ", port);
+
+			printf("MAC: %s\n", ethaddr);
+
+			port++;
+
+			printf("  internal loopback...");
+
+			phy = mdio_phydev_for_ethname(dev->name);
+
+			fus_reset_phy();
+
+			mute_debug_port(1);
+
+			ret = phy_config(phy);
+			ret |= phy_startup(phy);
+
+			mute_debug_port(0);
+
+			if (ret)
+			{
+			    sprintf(szStrBuffer, "Link up timeout!");
+			    test_OkOrFail(-1, 1, szStrBuffer);
+				continue;
+			}
+
+			test_OkOrFail(0, 1, szStrBuffer);
+
+			printf("  external loopback...");
+
+			if (phy->drv->features & PHY_1000BT_FEATURES)
+				target_speed = 1000;
+			else if (phy->drv->features & PHY_100BT_FEATURES)
+				target_speed = 100;
+			else if (phy->drv->features & PHY_10BT_FEATURES)
+				target_speed = 10;
+			else
+			{
+			    sprintf(szStrBuffer, "Unable to get Driver Speed");
+			    test_OkOrFail(-1, 1, szStrBuffer);
+				continue;
+			}
+
+			sprintf(szStrBuffer, "Connected with %dMbps", phy->speed);
+			if (phy->speed != target_speed)
+			{
+			    test_OkOrFail(-1, 1, szStrBuffer);
+				continue;
+			}
+			test_OkOrFail(0, 1, szStrBuffer);
 		}
-
-		sprintf(szStrBuffer, "Connected with %dMbps", phy->speed);
-		if (phy->speed != target_speed)
-		{
-	        test_OkOrFail(-1, 1, szStrBuffer);
-			continue;
-		}
-		test_OkOrFail(0, 1, szStrBuffer);
 	}
 
 	return 0;
