@@ -67,17 +67,19 @@ int test_rtc_end(char *szStrBuffer){
 	/* Clear reason-string */
 	szStrBuffer[0] = '\0';
 
-	printf("RTC...................");
-
 	if (ret == INIT_FAILED) /* No RTC in device tree */
         return 1;
-	else if (ret == DEVICE_NOT_FOUND)
-		  sprintf(szStrBuffer, "Device not found");
-	else if (ret == ERROR_WRITE)
-		sprintf(szStrBuffer, "Error write");
-	if (ret){
-		test_OkOrFail(ret, 1, szStrBuffer);
-		return ret;
+	else {
+		printf("RTC..................."); /* Only print if RTC is in device tree */
+
+		if (ret == -DEVICE_NOT_FOUND)
+			  sprintf(szStrBuffer, "Device not found");
+		else if (ret == -ERROR_WRITE)
+			sprintf(szStrBuffer, "Error write");
+		if (ret){
+			test_OkOrFail(ret, 1, szStrBuffer);
+			return ret;
+		}
 	}
 
 	struct rtc_ops *ops = rtc_get_ops(dev);

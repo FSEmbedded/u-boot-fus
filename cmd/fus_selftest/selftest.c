@@ -20,9 +20,8 @@
 #include "usb_test.h"
 #ifdef CONFIG_ENV_IS_IN_NAND
 #include "nand_test.h"
-#else
-#include "mmc_test.h"
 #endif
+#include "mmc_test.h"
 #include "rtc_test.h"
 #include "display_test.h"
 #include "pmic_test.h"
@@ -83,22 +82,21 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	int ret;
 
 	get_processorInfo();
-	printf("##1\n");
-//	ret = test_rtc_start();
+
+	ret = test_rtc_start();
 
 //	ret = test_display(szStrBuffer);
 
 #ifdef CONFIG_ENV_IS_IN_NAND
 	ret = test_nand(szStrBuffer);
-#else
-	//ret = test_mmc(szStrBuffer);
 #endif
 
 
 
+	ret = test_mmc(szStrBuffer);
 
 	ret = test_USBHost(szStrBuffer);
-	printf("##3\n");
+
 	ret = test_ethernet(szStrBuffer);
 
 	ret = test_serial(szStrBuffer);
@@ -109,7 +107,7 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	ret = test_pmic(szStrBuffer);
 
-//	ret = test_rtc_end(szStrBuffer);
+	ret = test_rtc_end(szStrBuffer);
 
 	ret = test_ram(szStrBuffer);
 

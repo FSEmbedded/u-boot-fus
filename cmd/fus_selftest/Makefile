@@ -15,9 +15,8 @@ obj-$(CONFIG_CMD_SELFTEST) += serial_test_dm.o
 endif
 ifdef CONFIG_ENV_IS_IN_NAND
 obj-$(CONFIG_CMD_SELFTEST) += nand_test.o
-else
-obj-$(CONFIG_CMD_SELFTEST) += mmc_test.o
 endif
+obj-$(CONFIG_CMD_SELFTEST) += mmc_test.o
 obj-$(CONFIG_CMD_SELFTEST) += pmic_test.o
 obj-$(CONFIG_CMD_SELFTEST) += audio_test.o
 obj-$(CONFIG_CMD_SELFTEST) += dram_test.o
@@ -27,6 +26,7 @@ obj-$(CONFIG_CMD_SELFTEST) += display_test.o
 obj-$(CONFIG_CMD_SELFTEST) += rtc_test.o
 obj-$(CONFIG_CMD_SELFTEST) += processor_info.o
 obj-$(CONFIG_CMD_SELFTEST) += common/pcf85063tp.o
+obj-$(CONFIG_CMD_SELFTEST) += common/pcf85263atl.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fus_sai.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fsl_sgtl5000.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fsl_spi_dummy.o

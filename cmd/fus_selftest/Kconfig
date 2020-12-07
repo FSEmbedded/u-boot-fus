@@ -15,11 +15,11 @@ config CMD_DRAW
 	default n
 
 config XLCD_DRAW
-	int
+	hex
 	default 0x020F
 
 config XLCD_TEST
-	int
+	hex
 	default 0x0001
 config CMD_SELFTEST
 	bool "selftest"

@@ -318,7 +318,6 @@
 				regulator-always-on;
 			};
 
-
 			ldo6_reg: regulator@13 {
 				reg = <13>;
 				regulator-compatible = "ldo6";
@@ -328,6 +327,12 @@
 				regulator-always-on;
 			};
 		};
+	};
+
+	rtc85063@51 {
+		compatible = "nxp,pcf85263";
+		reg = <0x51>;
+		status = "okay";
 	};
 };
 #endif
@@ -424,6 +429,7 @@
 	/* reset pin will used as vmmc supply */
 	vmmc-supply = <&reg_usdhc1_vmmc>;
 	status = "okay";
+	is-sdcard;
 };
 #endif
 
@@ -472,7 +478,7 @@
 
 #ifdef CONFIG_PICOCOREMX8MX_USB_OTG1
 &usbotg1 {
-	dr_mode = "otg";
+	dr_mode = "peripheral";
 	#ifdef CONFIG_USB_OTG_PWR
 	vbus-supply = <&reg_usb_otg_pwr>;
 	#else
