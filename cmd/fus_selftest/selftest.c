@@ -90,9 +90,6 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 #ifdef CONFIG_ENV_IS_IN_NAND
 	ret = test_nand(szStrBuffer);
 #endif
-
-
-
 	ret = test_mmc(szStrBuffer);
 
 	ret = test_USBHost(szStrBuffer);
@@ -104,6 +101,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	ret = test_audio(szStrBuffer);
 
 	ret = test_gpio(UCLASS_SPI, szStrBuffer);
+
+	ret = test_gpio(UCLASS_I2C, szStrBuffer);
 
 	ret = test_pmic(szStrBuffer);
 

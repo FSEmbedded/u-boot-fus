@@ -41,6 +41,11 @@
 #define CONFIG_PICOCOREMX8MX_I2C_C
 #define CONFIG_PICOCOREMX8MX_I2C_D
 
+/* SPI */
+#define CONFIG_PICOCOREMX8MX_SPI_A
+#define CONFIG_PICOCOREMX8MX_SPI_B
+//#define CONFIG_PICOCOREMX8MX_SPI_C
+
 /* UART_A - UART1 */
 #define CONFIG_PICOCOREMX8MX_UART_A
 #define CONFIG_PICOCOREMX8MX_UART_A_RTSCTS
@@ -180,6 +185,40 @@
 		interrupt-parent = <&gpc>;
 		clocks = <&clk IMX8MM_CLK_UART4_ROOT>,
 			 <&clk IMX8MM_CLK_UART4_ROOT>;
+		clock-names = "ipg", "per";
+		status = "disabled";
+	};
+#endif
+
+#ifdef CONFIG_PICOCOREMX8MX_SPI_A
+	ecspi1: spi@30820000 {
+		compatible = "fsl,imx8mm-ecspi", "fsl,imx51-ecspi";
+		reg = <0x0 0x30820000 0x0 0x10000>;
+		interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_ECSPI1_ROOT>,
+			 <&clk IMX8MM_CLK_ECSPI1_ROOT>;
+		clock-names = "ipg", "per";
+		status = "disabled";
+	};
+#endif
+#ifdef CONFIG_PICOCOREMX8MX_SPI_C
+	ecspi2: spi@30830000 {
+		compatible = "fsl,imx8mm-ecspi", "fsl,imx51-ecspi";
+		reg = <0x0 0x30830000 0x0 0x10000>;
+		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_ECSPI2_ROOT>,
+			 <&clk IMX8MM_CLK_ECSPI2_ROOT>;
+		clock-names = "ipg", "per";
+		status = "disabled";
+	};
+#endif
+#ifdef CONFIG_PICOCOREMX8MX_SPI_B
+	ecspi3: spi@30840000 {
+		compatible = "fsl,imx8mm-ecspi", "fsl,imx51-ecspi";
+		reg = <0x0 0x30840000 0x0 0x10000>;
+		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clk IMX8MM_CLK_ECSPI3_ROOT>,
+			 <&clk IMX8MM_CLK_ECSPI3_ROOT>;
 		clock-names = "ipg", "per";
 		status = "disabled";
 	};
@@ -402,8 +441,26 @@
 #ifdef CONFIG_PICOCOREMX8MX_I2C_A
 &i2c4 {
 	clock-frequency = <100000>;
-	pinctrl-names = "default";
+	pinctrl-names = "default", "gpiotest";
 	pinctrl-0 = <&pinctrl_i2c4>;
+	pinctrl-1 = <&pinctrl_i2c4_gpio>;
+	out-pins = "I2C_A_DAT";
+	out-gpios = <&gpio5 21 0>;
+	in-pins = "I2C_A_CLK";
+	in-gpios = <&gpio5 20 0>;
+	status = "okay";
+};
+#endif
+
+#ifdef CONFIG_PICOCOREMX8MX_SPI_B
+&ecspi3 {
+	pinctrl-names = "default", "gpiotest";
+	pinctrl-0 = <&pinctrl_ecspi3>;
+	pinctrl-1 = <&pinctrl_ecspi3_gpio>;
+	out-pins = "SPI_A_MOSI", "SPI_A_CS1";
+	out-gpios = <&gpio5 23 0>, <&gpio5 25 0>;
+	in-pins = "SPI_A_MISO", "SPI_A_SCK";
+	in-gpios = <&gpio5 24 0>, <&gpio5 22 0>;
 	status = "okay";
 };
 #endif
@@ -628,6 +685,33 @@
 			fsl,pins = <
 				MX8MM_IOMUXC_I2C4_SCL_I2C4_SCL				0x400001c3
 				MX8MM_IOMUXC_I2C4_SDA_I2C4_SDA				0x400001c3
+			>;
+		};
+
+		pinctrl_i2c4_gpio: i2c4gpiogrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_I2C4_SCL_GPIO5_IO20				0x400001c3
+				MX8MM_IOMUXC_I2C4_SDA_GPIO5_IO21				0x400001c3
+			>;
+		};
+#endif
+
+#ifdef CONFIG_PICOCOREMX8MX_SPI_B
+		pinctrl_ecspi3: ecspi3grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_UART1_RXD_ECSPI3_SCLK				0x400001c3
+				MX8MM_IOMUXC_UART1_TXD_ECSPI3_MOSI				0x400001c3
+				MX8MM_IOMUXC_UART2_RXD_ECSPI3_MISO				0x400001c3
+				MX8MM_IOMUXC_UART2_TXD_ECSPI3_SS0				0x400001c3
+			>;
+		};
+
+		pinctrl_ecspi3_gpio: ecspi3gpiogrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_UART1_RXD_GPIO5_IO22				0x400001c3
+				MX8MM_IOMUXC_UART1_TXD_GPIO5_IO23				0x400001c3
+				MX8MM_IOMUXC_UART2_RXD_GPIO5_IO24				0x400001c3
+				MX8MM_IOMUXC_UART2_TXD_GPIO5_IO25				0x400001c3
 			>;
 		};
 #endif
