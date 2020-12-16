@@ -326,12 +326,56 @@
 				regulator-boot-on;
 				regulator-always-on;
 			};
+
+			ldo7_reg: regulator@14 {
+				reg = <14>;
+				regulator-compatible = "ldo7";
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <3300000>;
+
+				/* SGTL5000 analog voltage */
+				reg_sgtl5000_vdda: sgtl5000_vdda {
+					compatible = "regulator-fixed";
+					regulator-name = "VDDA-supply";
+					regulator-min-microvolt = <3000000>;
+					regulator-max-microvolt = <3000000>;
+					regulator-always-on;
+				};
+
+				/* SGTL5000 I/O voltage */
+				reg_sgtl5000_vddio: sgtl5000_vddio {
+					compatible = "regulator-fixed";
+					regulator-name = "VDDIO-supply";
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-always-on;
+				};
+
+				/* SGTL5000 internal digital voltage */
+				reg_sgtl5000_vddd: sgtl5000_vddd {
+					compatible = "regulator-fixed";
+					regulator-name = "VDDD-supply";
+					regulator-min-microvolt = <1500000>;
+					regulator-max-microvolt = <1500000>;
+					regulator-always-on;
+				};
+			};
 		};
 	};
 
 	rtc85063@51 {
 		compatible = "nxp,pcf85263";
 		reg = <0x51>;
+		status = "okay";
+	};
+
+	sgtl5000: sgtl5000@0a {
+		compatible = "fsl,sgtl5000";
+		/* MCLK is needed for i2c sgtl driver */
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_sgtl5000>;
+		sai = <&sai5>;
+		reg = <0x0a>;
 		status = "okay";
 	};
 };
@@ -790,6 +834,16 @@
 		pinctrl_wdog: wdoggrp {
 			fsl,pins = <
 				MX8MM_IOMUXC_GPIO1_IO02_WDOG1_WDOG_B		0x000c6
+			>;
+		};
+
+		pinctrl_sgtl5000: sgtl5000grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_SAI5_MCLK_SAI5_MCLK			0x000d6
+				MX8MM_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC			0x000d6
+				MX8MM_IOMUXC_SAI5_RXD2_SAI5_TX_BCLK			0x000d6
+				MX8MM_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0		0x000d6
+				MX8MM_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0		0x000d6
 			>;
 		};
 

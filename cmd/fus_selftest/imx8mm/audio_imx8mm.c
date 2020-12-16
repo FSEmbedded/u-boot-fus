@@ -1,4 +1,6 @@
 #include <common.h>
+#include <dm/device.h>
+#include <dm.h>
 #include <asm/arch/clock.h>
 #include <asm/io.h>
 #include <asm/arch/imx-regs-imx8mm.h> // LPUART_BASE_ADDR
@@ -105,31 +107,82 @@ static int fracpll_configure_audioPll1(void)
 
 	return 0;
 }
+
+u64 sai_baseaddr(struct udevice *dev) {
+	const void *fdt = gd->fdt_blob;
+	u32 regvals[4];
+	int offset;
+	ofnode node;
+
+	/* TODO: Add error handling */
+
+	/* Get offset of the stgl5000 node */
+	offset = dev_of_offset(dev);
+
+	/* Get phandle sai = <&saiX>; */
+	offset = fdtdec_lookup_phandle(fdt, offset, "sai");
+
+	node = offset_to_ofnode(offset);
+	ofnode_read_u32_array(node, "reg", regvals, 4);
+
+	return (u64)regvals[1];
+}
+
 sai_transceiver_t config;
-int config_sai(void){
+
+int config_sai(struct udevice *dev) {
+	I2S_Type * base_addr = (I2S_Type *) sai_baseaddr(dev);
+	u32 clk_root, ccgr;
+
+	switch ((u64)base_addr)
+	{
+		case SAI1_BASE_ADDR:
+			clk_root = SAI1_CLK_ROOT;
+			ccgr = CCGR_SAI1;
+			break;
+		case SAI2_BASE_ADDR:
+			clk_root = SAI2_CLK_ROOT;
+			ccgr = CCGR_SAI2;
+			break;
+		case SAI3_BASE_ADDR:
+			clk_root = SAI3_CLK_ROOT;
+			ccgr = CCGR_SAI3;
+			break;
+		case SAI5_BASE_ADDR:
+			clk_root = SAI5_CLK_ROOT;
+			ccgr = CCGR_SAI5;
+			break;
+		case SAI6_BASE_ADDR:
+			clk_root = SAI6_CLK_ROOT;
+			ccgr = CCGR_SAI6;
+			break;
+		default:
+			clk_root = 0;
+			ccgr = 0;
+	}
 
 	/* Turn on AUDIO_PLL1 and set to 393215996HZ */
 	fracpll_configure_audioPll1();
 
 	/* Set root clock to 393215996HZ / 16 = 24.575999M */
-	clock_enable(CCGR_SAI1,0);
-	clock_set_target_val(SAI1_CLK_ROOT,CLK_ROOT_ON | CLK_ROOT_SOURCE_SEL(1) | CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV1) | CLK_ROOT_POST_DIV(CLK_ROOT_POST_DIV16));
-	clock_enable(CCGR_SAI1,1);
+	clock_enable(ccgr,0);
+	clock_set_target_val(clk_root,CLK_ROOT_ON | CLK_ROOT_SOURCE_SEL(1) | CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV1) | CLK_ROOT_POST_DIV(CLK_ROOT_POST_DIV16));
+	clock_enable(ccgr,1);
 
-    SAI_Init(TEST_SAI);
+    SAI_Init(base_addr);
 
     SAI_GetClassicI2SConfig(&config, TEST_AUDIO_BIT_WIDTH, kSAI_Stereo, kSAI_Channel0Mask);
 
     config.syncMode = TEST_SAI_TX_SYNC_MODE;
-    SAI_TxSetConfig(TEST_SAI, &config);
+    SAI_TxSetConfig(base_addr, &config);
     config.syncMode = TEST_SAI_RX_SYNC_MODE;
-    SAI_RxSetConfig(TEST_SAI, &config);
+    SAI_RxSetConfig(base_addr, &config);
 
     /* set bit clock divider */
-    SAI_TxSetBitClockRate(TEST_SAI, TEST_AUDIO_MASTER_CLOCK, TEST_AUDIO_SAMPLE_RATE, TEST_AUDIO_BIT_WIDTH,
+    SAI_TxSetBitClockRate(base_addr, TEST_AUDIO_MASTER_CLOCK, TEST_AUDIO_SAMPLE_RATE, TEST_AUDIO_BIT_WIDTH,
                           TEST_AUDIO_DATA_CHANNEL);
 #if 1
-    SAI_RxSetBitClockRate(TEST_SAI, TEST_AUDIO_MASTER_CLOCK, TEST_AUDIO_SAMPLE_RATE, TEST_AUDIO_BIT_WIDTH,
+    SAI_RxSetBitClockRate(base_addr, TEST_AUDIO_MASTER_CLOCK, TEST_AUDIO_SAMPLE_RATE, TEST_AUDIO_BIT_WIDTH,
     					  TEST_AUDIO_DATA_CHANNEL);
 #endif
 
@@ -139,7 +192,7 @@ int config_sai(void){
         .mclkSourceClkHz = TEST_SAI_CLK_FREQ,
     };
 
-    SAI_SetMasterClockConfig(TEST_SAI, &mclkConfig);
+    SAI_SetMasterClockConfig(base_addr, &mclkConfig);
 
     return 0;
 
@@ -176,18 +229,19 @@ int config_sgtl(struct udevice *dev){
 	return ret;
 }
 
-int run_audioTest(uint8_t* data_send,uint8_t* data_recv, uint32_t len){
+int run_audioTest(struct udevice *dev,uint8_t* data_send,uint8_t* data_recv, uint32_t len){
+	I2S_Type * base_addr = (I2S_Type *) sai_baseaddr(dev);
 
 	/* TODO: Check clocks, so mdelays are not needed anymore */
-	SAI_TxEnable(TEST_SAI,true);
+	SAI_TxEnable(base_addr,true);
 	mdelay(50);
-	SAI_RxEnable(TEST_SAI,true);
+	SAI_RxEnable(base_addr,true);
 	mdelay(1);
 
-	SAI_WriteReadBlocking(TEST_SAI, config.startChannel,config.channelMask, TEST_AUDIO_BIT_WIDTH, data_send,data_recv, len);
+	SAI_WriteReadBlocking(base_addr, config.startChannel,config.channelMask, TEST_AUDIO_BIT_WIDTH, data_send,data_recv, len);
 
-	SAI_RxEnable(TEST_SAI,false);
-	SAI_TxEnable(TEST_SAI,false);
+	SAI_RxEnable(base_addr,false);
+	SAI_TxEnable(base_addr,false);
 
 	return 0;
 }

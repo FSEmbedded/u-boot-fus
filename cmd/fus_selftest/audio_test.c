@@ -14,6 +14,8 @@
 #include <i2c.h>
 #include "selftest.h"
 
+//#define DEBUG
+
 const int16_t TestData[] =
 {
 	0x7ff8, 0x7fff, // 32767
@@ -149,16 +151,16 @@ int test_audio(char *szStrBuffer)
 	/* Clear reason-string */
 	szStrBuffer[0] = '\0';
 
-	/* Set SAI clocks and registers */
-	config_sai();
-
-
 	ret = uclass_get_device_by_name(UCLASS_I2C_GENERIC,"sgtl5000@0a",&dev);
 
 	if (ret){
 		/* Test skipped */
 		return 1;
 	}
+
+	/* Set SAI clocks and registers */
+	config_sai(dev);
+
 	/* Init codec */
 	printf("I2S I2C interface.....");
 
@@ -186,7 +188,7 @@ int test_audio(char *szStrBuffer)
 	/* Test Audio */
 	printf("Audio.................");
 
-	run_audioTest((uint8_t*) TestData,(uint8_t*) ReadData,TEST_SIZE_BYTE);
+	run_audioTest(dev,(uint8_t*) TestData,(uint8_t*) ReadData,TEST_SIZE_BYTE);
 
 	pReadData = ReadData;
 
@@ -221,7 +223,14 @@ int test_audio(char *szStrBuffer)
 			uiErrorCounterR++;
 		}
 	}
-
+#ifdef DEBUG
+printf("\nLeft:\n");
+	for (int i=0; i<96; i+=2)
+		printf("[%d] ----- TestData = %d ----- ReadData = %d\n",i,TestData[i],pReadData[i+nStartLeft]);
+printf("\nRight:\n");
+	for (int i=0; i<96; i+=2)
+		printf("[%d] ----- TestData = %d ----- ReadData = %d\n",i,TestData[i+1],pReadData[i+nStartRight+1]);
+#endif
 	if(uiErrorCounterL > NUM_ALLOWED_ERRORS)
 	{
 		sprintf(szStrBuffer, "Left signal differs too much");
