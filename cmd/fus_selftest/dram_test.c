@@ -43,9 +43,11 @@ static void getRamInfo(struct ramInfo *rI){
 	struct fs_nboot_args *pargs;
 	pargs = fs_board_get_nboot_args();
 #ifdef CONFIG_IMX8MM
-	rI->ramSize = pargs->dwMemSize;
-	if(rom_pointer[1])
-		rI->ramSize +=(rom_pointer[1] >> 20);
+	// HOTFIX: Assume rom_pointer[1] == 0x1
+	rI->ramSize = (pargs->dwMemSize + 1) << 20;
+	// TODO: rom_pointer[1] changes to 0x0, so we would need to save the value from SPL and load it in UBoot
+	//if(rom_pointer[1])
+	//	rI->ramSize += rom_pointer[1];
 	rI->numChips = pargs->dwNumDram;
 	rI->pRamBase = (u64*)CONFIG_SYS_SDRAM_BASE;
 	rI->pUbootBase = (u64*)gd->start_addr_sp;
@@ -305,9 +307,9 @@ int test_ram(char * szStrBuffer)
 	pchRam = (volatile u8 *)rI.pRamBase; //DRAM_BASE_PA_START;
 
 	/* Do not test the mem area of the uboot */
-	skip_area = (u64)((rI.ramSize + rI.pRamBase) - rI.pUbootBase);
+	skip_area = (((u64)rI.ramSize + (u64)rI.pRamBase) - (u64)rI.pUbootBase);
 	/*round up */
-	skip_area = (u32)(skip_area+pMemInfo->dwRowOffset+1)/(u32)pMemInfo->dwRowOffset;
+	skip_area = (skip_area+(u32)pMemInfo->dwRowOffset+1)/(u32)pMemInfo->dwRowOffset;
 	pMemInfo->nRowBankRepeat -= skip_area;
 
 	/* Print RAM size */
