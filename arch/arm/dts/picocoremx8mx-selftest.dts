@@ -49,7 +49,7 @@
 /* UART_A - UART1 */
 #define CONFIG_PICOCOREMX8MX_UART_A
 #define CONFIG_PICOCOREMX8MX_UART_A_RTSCTS
-
+#define CONFIG_PICOCOREMX8MX_UART_B
 #define CONFIG_PICOCOREMX8MX_UART_C
 #define CONFIG_PICOCOREMX8MX_UART_D
 
@@ -494,6 +494,16 @@
 };
 #endif
 
+#ifdef CONFIG_PICOCOREMX8MX_UART_B
+&uart2 { /* console */
+	pinctrl-names = "default", "mute";
+	pinctrl-0 = <&pinctrl_uart2>;
+	pinctrl-1 = <&pinctrl_uart2_gpio>;
+	status = "okay";
+	port-name="uart2";
+};
+#endif
+
 #ifdef CONFIG_PICOCOREMX8MX_UART_C
 &uart4 { /* console */
 	pinctrl-names = "default", "mute";
@@ -728,6 +738,22 @@
 			fsl,pins = <
 				MX8MM_IOMUXC_SAI2_RXFS_GPIO4_IO21			0x00049
 				MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22			0x00049
+			>;
+		};
+#endif
+
+#ifdef CONFIG_PICOCOREMX8MX_UART_B
+		pinctrl_uart2: uart2grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_SAI3_TXC_UART2_DCE_TX			0x00049
+				MX8MM_IOMUXC_SAI3_TXFS_UART2_DCE_RX			0x00049
+			>;
+		};
+
+		pinctrl_uart2_gpio: uart2gpiogrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0				0x00049
+				MX8MM_IOMUXC_SAI3_TXFS_GPIO4_IO31			0x00049
 			>;
 		};
 #endif
