@@ -22,6 +22,7 @@
 #include "nand_test.h"
 #endif
 #include "mmc_test.h"
+#include "can_spi_test.h"
 #include "rtc_test.h"
 #include "display_test.h"
 #include "pmic_test.h"
@@ -91,6 +92,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	ret = test_nand(szStrBuffer);
 #endif
 	ret = test_mmc(szStrBuffer);
+
+	ret = test_can(szStrBuffer);
 
 	ret = test_USBHost(szStrBuffer);
 

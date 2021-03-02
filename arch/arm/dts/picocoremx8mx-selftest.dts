@@ -44,7 +44,7 @@
 /* SPI */
 #define CONFIG_PICOCOREMX8MX_SPI_A
 #define CONFIG_PICOCOREMX8MX_SPI_B
-//#define CONFIG_PICOCOREMX8MX_SPI_C
+#define CONFIG_PICOCOREMX8MX_SPI_C
 
 /* UART_A - UART1 */
 #define CONFIG_PICOCOREMX8MX_UART_A
@@ -104,6 +104,7 @@
 	aliases {
 #ifdef CONFIG_PICOCOREMX8MX_UART_C
 		serial3 = &uart4;
+		spi2 = &ecspi2;
 #endif
 	};
 
@@ -224,6 +225,20 @@
 	};
 #endif
 };
+
+&ecspi2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi2>;
+	fsl,spi-num-chipselects = <1>;
+
+	cs-gpios = <&gpio5 13 GPIO_ACTIVE_HIGH>;
+	spi-max-frequency = <1000000>;
+	status = "okay";
+
+	can-spi-mcp251x;
+	cs = <0x0>;
+};
+
 
 #ifdef CONFIG_PICOCOREMX8MX_I2C_D
 &i2c1 {
@@ -725,6 +740,16 @@
 			>;
 		};
 #endif
+
+		pinctrl_ecspi2: ecspi2grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_ECSPI2_SCLK_ECSPI2_SCLK		0x00082
+				MX8MM_IOMUXC_ECSPI2_MOSI_ECSPI2_MOSI		0x00082
+				MX8MM_IOMUXC_ECSPI2_MISO_ECSPI2_MISO		0x00082
+				MX8MM_IOMUXC_ECSPI2_SS0_GPIO5_IO13			0x00144
+			>;
+
+		};
 
 #ifdef CONFIG_PICOCOREMX8MX_UART_A
 		pinctrl_uart1: uart1grp {

@@ -30,6 +30,7 @@ config CMD_SELFTEST
 	select DM_SPI
 	select CMD_LCD
 	select CMD_DRAW
+	select MXC_SPI
 	help
 		Standard selftest for F&S boards. The argument of the command
 		is the display, that is used for the selftest.

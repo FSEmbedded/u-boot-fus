@@ -10,7 +10,6 @@
 
 static const struct udevice_id spi_ids[] = {
 	{ .compatible = "fsl,imx7ulp-spi" },
-	{ .compatible = "fsl,imx51-ecspi" },
 	{ }
 };
 
