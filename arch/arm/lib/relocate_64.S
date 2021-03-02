@@ -43,8 +43,10 @@ ENTRY(relocate_code)
 	ldr	x1, _TEXT_BASE		/* x1 <- Linked &__image_copy_start */
 	subs	x9, x0, x1		/* x9 <- Link to copy offset */
 
-	adr	x1, __image_copy_start	/* x1 <- Run &__image_copy_start */
-	adr	x2, __image_copy_end	/* x2 <- Run &__image_copy_end */
+	adrp    x1, __image_copy_start     /* x2 <- Runtime &__rel_dyn_start */
+	add     x1, x1, #:lo12:__image_copy_start
+	adrp    x2, __image_copy_end     /* x2 <- Runtime &__rel_dyn_start */
+	add     x2, x2, #:lo12:__image_copy_end
 copy_loop:
 	ldp	x10, x11, [x1], #16	/* copy from source address [x1] */
 	stp	x10, x11, [x0], #16	/* copy to   target address [x0] */
@@ -55,8 +57,10 @@ copy_loop:
 	/*
 	 * Fix .rela.dyn relocations
 	 */
-	adr	x2, __rel_dyn_start	/* x2 <- Run &__rel_dyn_start */
-	adr	x3, __rel_dyn_end	/* x3 <- Run &__rel_dyn_end */
+	adrp    x2, __rel_dyn_start     /* x2 <- Runtime &__rel_dyn_start */
+	add     x2, x2, #:lo12:__rel_dyn_start
+	adrp    x3, __rel_dyn_end       /* x3 <- Runtime &__rel_dyn_end */
+	add     x3, x3, #:lo12:__rel_dyn_end
 fixloop:
 	ldp	x0, x1, [x2], #16	/* (x0,x1) <- (SRC location, fixup) */
 	ldr	x4, [x2], #8		/* x4 <- addend */
