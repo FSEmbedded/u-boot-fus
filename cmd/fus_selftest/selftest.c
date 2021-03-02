@@ -86,7 +86,7 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	ret = test_rtc_start();
 
-//	ret = test_display(szStrBuffer);
+	ret = test_display(szStrBuffer);
 
 #ifdef CONFIG_ENV_IS_IN_NAND
 	ret = test_nand(szStrBuffer);

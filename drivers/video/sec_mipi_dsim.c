@@ -602,27 +602,19 @@ static void sec_mipi_dsim_set_main_mode(struct sec_mipi_dsim *dsim)
 
 	bpp = mipi_dsi_pixel_format_to_bpp(dsim->format);
 
-	/* calculate hfp & hbp word counts */
-	if (dsim->dsi_panel_drv) {
-		/* Panel driver is registered, will work with panel */
-		hfp_wc = vmode->right_margin * (bpp >> 3);
-		hbp_wc = vmode->left_margin * (bpp >> 3);
-	} else {
-		hfp_wc = vmode->right_margin * (bpp >> 3) / dsim->lanes - 6;
-		hbp_wc = vmode->left_margin * (bpp >> 3) / dsim->lanes - 6;
-	}
+
+	hfp_wc = vmode->right_margin * (bpp >> 3) / dsim->lanes - 6;
+	hbp_wc = vmode->left_margin * (bpp >> 3) / dsim->lanes - 6;
+
 
 	mhporch |= MHPORCH_SET_MAINHFP(hfp_wc) |
 		   MHPORCH_SET_MAINHBP(hbp_wc);
 
 	dsim_write(dsim, mhporch, DSIM_MHPORCH);
 
-	/* calculate hsa word counts */
-	if (dsim->dsi_panel_drv) {
-		hsa_wc = vmode->hsync_len * (bpp >> 3);
-	} else {
-		hsa_wc = vmode->hsync_len * (bpp >> 3) / dsim->lanes - 6;
-	}
+
+	hsa_wc = vmode->hsync_len * (bpp >> 3) / dsim->lanes - 6;
+
 
 	msync |= MSYNC_SET_MAINVSA(vmode->vsync_len) |
 		 MSYNC_SET_MAINHSA(hsa_wc);

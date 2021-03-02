@@ -63,6 +63,27 @@ static void set_sn65dsi84_EDT0350(wininfo_t *pwi, pixinfo_t * ppi, u_long *fb ){
 
 }
 
+static void set_tc358775_j070wvtc0211(wininfo_t *pwi, pixinfo_t * ppi, u_long *fb ){
+
+	ppi->depth = 24;
+	ppi->bpp_shift = 5;
+	ppi->rgba2col= rgba2col;
+	pwi->fbhres = 800;
+	pwi->fbvres = 480;
+
+	pwi->pfbuf = fb;
+
+	pwi->fbdraw = 0;
+	pwi->linelen = ((u_long)pwi->fbhres << ppi->bpp_shift) >> 3;
+
+	pwi->clip_left =  0;
+	pwi->clip_top =  0;
+	pwi->clip_right =  pwi->fbhres;
+	pwi->clip_bottom =  pwi->fbvres;
+	pwi->ppi = ppi;
+
+}
+
 void draw_test_screen(const wininfo_t *pwi,
 			  XYPOS x1, XYPOS y1, XYPOS x2, XYPOS y2)
 {
@@ -220,8 +241,8 @@ int test_display(char * szStrBuffer){
 	/* Get frame buffer poitner */
 	fb = gd->fb_base;
 
-	set_sn65dsi84_EDT0350(&pwi,&ppi, &fb);
-
+	//set_sn65dsi84_EDT0350(&pwi,&ppi, &fb);
+	set_tc358775_j070wvtc0211(&pwi,&ppi, &fb);
 	video_clear();
 
 	draw_test_screen(&pwi,0,0,pwi.fbhres-1 ,pwi.fbvres-1);

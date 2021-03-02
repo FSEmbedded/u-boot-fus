@@ -5,6 +5,8 @@
 #
 
 obj-y += fsimx8mm.o
+obj-$(CONFIG_VIDEO_MXS) += fsimx8mm_video.o
+
 
 ifdef CONFIG_SPL_BUILD
 obj-y += spl.o
