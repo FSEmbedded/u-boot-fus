@@ -54,6 +54,8 @@ DECLARE_GLOBAL_DATA_PTR;
 #define FEAT2_EMMC		(1<<1)		/* 0: no eMMC, 1: has eMMC */
 #define FEAT2_WLAN		(1<<2)		/* 0: no WLAN, 1: has WLAN */
 
+#define WDOG_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
+
 #define INSTALL_RAM "ram@43800000"
 #if defined(CONFIG_MMC) && defined(CONFIG_USB_STORAGE) && defined(CONFIG_FS_FAT)
 #define UPDATE_DEF "mmc,usb"
@@ -72,6 +74,9 @@ DECLARE_GLOBAL_DATA_PTR;
 #define ROOTFS ".rootfs_mmc"
 #define KERNEL ".kernel_mmc"
 #define FDT ".fdt_mmc"
+
+#define RDC_PDAP70     0x303d0518
+#define FDT_UART_C	"/serial@30a60000"
 
 const struct fs_board_info board_info[1] = {
 	{	/* 0 (BT_TBS2) */
@@ -93,8 +98,18 @@ const struct fs_board_info board_info[1] = {
 
 /* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
 
+static iomux_v3_cfg_t const wdog_pads[] = {
+	IMX8MM_PAD_GPIO1_IO02_WDOG1_WDOG_B  | MUX_PAD_CTRL(WDOG_PAD_CTRL),
+};
+
 int board_early_init_f(void)
 {
+	struct wdog_regs *wdog = (struct wdog_regs*) WDOG1_BASE_ADDR;
+
+	imx_iomux_v3_setup_multiple_pads(wdog_pads, ARRAY_SIZE(wdog_pads));
+
+	set_wdog_reset(wdog);
+
 	return 0;
 }
 
@@ -198,7 +213,6 @@ int mmc_map_to_kernel_blk(int devno)
  * the host power will be switched by using the pad as GPIO.
  */
 
-
 int board_usb_init(int index, enum usb_init_type init)
 {
 	debug("board_usb_init %d, type %d\n", index, init);
@@ -222,6 +236,7 @@ int board_usb_cleanup(int index, enum usb_init_type init)
  * environment, i.e. environment variables that can't be defined as a constant
  * value at compile time.
  */
+
 int board_late_init(void)
 {
 	/* Remove 'fdtcontroladdr' env. because we are using
@@ -238,7 +253,7 @@ int board_late_init(void)
 }
 #endif /* CONFIG_BOARD_LATE_INIT */
 
-#ifdef CONFIG_CMD_NET
+#ifdef CONFIG_FEC_MXC
 #define FEC_RST_PAD IMX_GPIO_NR(1, 5)
 static iomux_v3_cfg_t const fec1_rst_pads[] = {
 	IMX8MM_PAD_GPIO1_IO05_GPIO1_IO5 | MUX_PAD_CTRL(NO_PAD_CTRL),
@@ -308,7 +323,7 @@ int board_phy_config(struct phy_device *phydev)
 
 	return 0;
 }
-#endif /* CONFIG_CMD_NET */
+#endif /* CONFIG_FEC_MXC */
 
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Do any additional board-specific device tree modifications */
@@ -316,6 +331,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 {
 	int offs;
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
+	const char *envvar;
 
 	/* Set bdinfo entries */
 	offs = fs_fdt_path_offset(fdt, "/bdinfo");
@@ -331,6 +347,17 @@ int ft_board_setup(void *fdt, bd_t *bd)
 
 		if (pargs->chFeatures2 & FEAT2_WLAN)
 			fs_fdt_set_macaddr(fdt, offs, id++);
+
+		/*TODO: Its workaround to use UART4 */
+		envvar = env_get("m4_uart4");
+
+		if (!envvar || !strcmp(envvar, "disable")) {
+			/* Disable UART4 for M4. Enabled by ATF. */
+			writel(0xff, RDC_PDAP70);
+		} else {
+			/* Disable UART_C in DT */
+			fs_fdt_enable(fdt, FDT_UART_C, 0);
+		}
 	}
 
 	return 0;
