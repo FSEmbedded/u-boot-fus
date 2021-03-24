@@ -55,11 +55,13 @@ struct i2c_pads_info i2c_pad_tbs2 = {
 
 static void fs_board_init_nboot_args(void)
 {
+	int dram_size = 0;
+
 	nbootargs.dwID = FSHWCONFIG_ARGS_ID;
 	nbootargs.dwSize = 16*4;
 	nbootargs.dwNBOOT_VER = 1;
 	/* 1 GB RAM */
-	long MemSize = 0x40000000;
+	dram_size = 0x40000000;
 	/* Number of DRAM chips */
 	long NumDram = 0x2;
 	/* eMMC size */
@@ -72,15 +74,14 @@ static void fs_board_init_nboot_args(void)
 	nbootargs.chBoardRev = 100;
 	nbootargs.chFeatures2 = 1<<0 | 1<<1 | 1<<2;
 
-	/* Setup RAM settings */
-	if(rom_pointer[1])
-		nbootargs.dwMemSize = (MemSize - rom_pointer[1]) >> 20;
-	else
-		nbootargs.dwMemSize = MemSize >> 20;
-
 	nbootargs.dwNumDram = NumDram;
 	nbootargs.dwFlashSize = FlashSize;
 	nbootargs.dwDbgSerPortPA = dwDbgSerPortPA;
+
+	if(rom_pointer[1])
+		nbootargs.dwMemSize = (dram_size - rom_pointer[1]) >> 20;
+	else
+		nbootargs.dwMemSize = dram_size >> 20;
 }
 
 #ifdef CONFIG_POWER

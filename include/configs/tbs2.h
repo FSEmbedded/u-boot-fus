@@ -41,8 +41,6 @@
  ************************************************************************/
 /* Physical addresses of DDR and CPU-internal SRAM */
 #define CONFIG_SYS_SDRAM_BASE		0x40000000
-#define PHYS_SDRAM					0x40000000
-#define PHYS_SDRAM_SIZE				0x40000000 /* 1GB DDR */
 #define CONFIG_NR_DRAM_BANKS		1
 
 /* i.MX 8M Mini has 256KB of internal SRAM,
@@ -61,12 +59,6 @@
 
 /* The final stack sizes are set up in board.c using the settings below */
 #define CONFIG_SYS_STACK_SIZE	(128*1024)
-
-/* Memory test checks all RAM before U-Boot (i.e. leaves last MB with U-Boot
-   untested) ### If not set, test from beginning of RAM to before stack. */
-#define CONFIG_SYS_MEMTEST_START    PHYS_SDRAM
-#define CONFIG_SYS_MEMTEST_END      (CONFIG_SYS_MEMTEST_START + (PHYS_SDRAM_SIZE >> 1))
-
 
 /************************************************************************
  * Clock Settings and Timers
