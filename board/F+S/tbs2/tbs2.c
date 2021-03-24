@@ -38,6 +38,7 @@
 #include <serial.h>			/* get_serial_device() */
 #include "../common/fs_fdt_common.h"	/* fs_fdt_set_val(), ... */
 #include "../common/fs_board_common.h"	/* fs_board_*() */
+#include "../common/fs_eth_common.h"	/* fs_eth_*() */
 #include <nand.h>
 #include "sec_mipi_dphy_ln14lpp.h"
 #include "sec_mipi_pll_1432x.h"
@@ -124,6 +125,7 @@ int checkboard(void)
 
 /* ---- Stage 'r': RAM valid, U-Boot relocated, variables can be used ------ */
 static int setup_fec(void);
+void fs_ethaddr_init(void);
 int board_init(void)
 {
 	unsigned int board_type = fs_board_get_type();
@@ -230,6 +232,8 @@ int board_late_init(void)
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttymxc");
 
+	/* Set mac addresses for corresponding boards */
+	fs_ethaddr_init();
 	return 0;
 }
 #endif /* CONFIG_BOARD_LATE_INIT */
@@ -255,6 +259,13 @@ static void setup_iomux_fec(void)
 		udelay (100);
 		break;
 	}
+}
+
+void fs_ethaddr_init(void)
+{
+	int eth_id = 0;
+
+	fs_eth_set_ethaddr(eth_id++);
 }
 
 static int setup_fec(void)

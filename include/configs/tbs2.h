@@ -350,6 +350,7 @@
 /*#define CONFIG_SYS_ENV_OFFSET_REDUND   0xFFFFFFFF */
 
 #define CONFIG_ETHPRIME                 "FEC"
+#define FDT_SEQ_MACADDR_FROM_ENV
 #define CONFIG_NETMASK		255.255.255.0
 #define CONFIG_IPADDR		10.0.0.252
 #define CONFIG_SERVERIP		10.0.0.122
@@ -394,7 +395,6 @@
 	".console_none=setenv console\0"				\
 	".console_serial=setenv console console=${sercon},${baudrate}\0" \
 	".console_display=setenv console console=tty1\0"		\
-	"ethaddr=00:05:51:07:55:83\0"	\
 	"login=undef\0"							\
 	".login_none=setenv login login_tty=null\0"			\
 	".login_serial=setenv login login_tty=${sercon},${baudrate}\0"	\
