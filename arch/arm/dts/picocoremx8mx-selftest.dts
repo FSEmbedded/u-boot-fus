@@ -492,6 +492,12 @@
 		status = "okay";
 	};
 
+	/* EEPROM */
+	eeprom: eeprom@50 {
+		reg = <0x50>;
+		status = "okay";
+	};
+
 	/* Security Chip */
 	sec050: sec050@48 {
 		reg = <0x48>;
