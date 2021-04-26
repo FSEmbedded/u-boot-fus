@@ -96,7 +96,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 #endif
 	ret = test_mmc(szStrBuffer);
 
-	ret = test_can(szStrBuffer);
+	if (can_present())
+		ret = test_can(szStrBuffer);
 
 	ret = test_USBHost(szStrBuffer);
 

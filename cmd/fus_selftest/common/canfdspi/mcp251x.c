@@ -51,7 +51,7 @@ int TEST_CANFDSPI_TestPresence(void){
 
 int TEST_CANFDSPI_Init(CAN_BITTIME_SETUP selectedBitTime)
 {
-	uint32_t attempts = 1000000;
+	uint32_t attempts = 10000;
 	uint8_t mode;
 
     // Reset device
@@ -166,7 +166,7 @@ int TEST_TransmitMessage_8byte(uint8_t *txd, uint32_t can_id)
 }
 int TEST_ReceiveMessage(uint8_t *rxd, int size)
 {
-	uint32_t attempts = 1000000;
+	uint32_t attempts = 10000;
 
 	 do {
     	// Check if FIFO is not empty
