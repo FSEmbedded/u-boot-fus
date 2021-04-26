@@ -7,6 +7,7 @@
 
 ifndef CONFIG_SPL_BUILD
 obj-$(CONFIG_CMD_SELFTEST) += selftest.o
+obj-$(CONFIG_CMD_SELFTEST) += check_config.o
 obj-$(CONFIG_CMD_SELFTEST) += ethernet_test.o
 ifndef CONFIG_DM_SERIAL
 obj-$(CONFIG_CMD_SELFTEST) += serial_test.o
