@@ -491,6 +491,12 @@
 		reg = <0x0a>;
 		status = "okay";
 	};
+
+	/* Security Chip */
+	sec050: sec050@48 {
+		reg = <0x48>;
+		status = "okay";
+	};
 };
 #endif
 

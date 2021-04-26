@@ -24,6 +24,7 @@
 #endif
 #include "mmc_test.h"
 #include "can_spi_test.h"
+#include "sec_test.h"
 #include "rtc_test.h"
 #include "display_test.h"
 #include "pmic_test.h"
@@ -98,6 +99,9 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	if (can_present())
 		ret = test_can(szStrBuffer);
+
+	if (sec_present())
+		ret = test_sec(szStrBuffer);
 
 	ret = test_USBHost(szStrBuffer);
 

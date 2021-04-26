@@ -229,6 +229,7 @@ int checkboard(void)
 /* ---- Stage 'r': RAM valid, U-Boot relocated, variables can be used ------ */
 static int setup_fec(void);
 static int board_setup_ksz9893r(void);
+static int board_setup_sec050(void);
 
 int board_init(void)
 {
@@ -247,6 +248,11 @@ int board_init(void)
 
 	if (board_type == BT_PICOCOREMX8MX) {
 		board_setup_ksz9893r();
+	}
+
+	if (board_type == BT_PICOCOREMX8MX) {
+		if (features2 & FEAT2_8MX_SEC_CHIP)
+			board_setup_sec050();
 	}
 
 	return 0;
@@ -579,6 +585,29 @@ int board_phy_config(struct phy_device *phydev)
 	return 0;
 }
 #endif /* CONFIG_FEC_MXC */
+
+
+#define SEC050_ENA_PAD IMX_GPIO_NR(1, 9)
+static iomux_v3_cfg_t const sec050_8mx_pads_gpio[] = {
+	IMX8MM_PAD_GPIO1_IO09_GPIO1_IO9 | MUX_PAD_CTRL(NO_PAD_CTRL),
+};
+
+static int board_setup_sec050(void)
+{
+	switch (fs_board_get_type())
+	{
+	case BT_PICOCOREMX8MM:
+		break;
+	case BT_PICOCOREMX8MX:
+		imx_iomux_v3_setup_multiple_pads (sec050_8mx_pads_gpio,
+						  ARRAY_SIZE (sec050_8mx_pads_gpio));
+		gpio_request (SEC050_ENA_PAD, "sec050_ena");
+		gpio_direction_output (SEC050_ENA_PAD, 1);
+		break;
+	}
+
+	return 0;
+}
 
 #ifdef CONFIG_OF_BOARD_SETUP
 
