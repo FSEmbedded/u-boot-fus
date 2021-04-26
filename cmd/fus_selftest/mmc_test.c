@@ -3,6 +3,7 @@
 #include <mmc.h>
 #include "mmc_test.h"
 #include "selftest.h"
+#include "check_config.h"
 #include "common/fus_sdio.h"
 #include "serial_test.h" // mute_debug_port()
 
@@ -58,9 +59,12 @@ int test_mmc(char * szStrBuffer){
 		else if (fdt_get_property(fdt, node, "is-emmc", NULL))
 			printf("EMMC .................");
 		else if (fdt_get_property(fdt, node, "is-wlan", NULL))
-			printf("WLAN .................");
+			if (wlan_present())
+				printf("WLAN .................");
+			else
+				continue;
 		else{
-			return 1;
+			continue;
 		}
 
 		/* Card detect is checked within mmc_init().

@@ -13,6 +13,7 @@
 #include <asm/gpio.h>
 #include "gpio_test.h"
 #include "selftest.h"
+#include "check_config.h"
 
 #include "serial_test.h" // mute_debug_port()
 
@@ -103,6 +104,9 @@ void set_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 	for (int i=0; i<size; i++) {
 		val = active_high ? (i == bit) : (i != bit);
 		dm_gpio_set_value((gpios+i),val);
+
+		/* Delay needed for longer loopbacks */
+		mdelay(1);
 	}
 }
 
@@ -159,9 +163,13 @@ int test_gpio(int uclass, char *szStrBuffer)
 	first_pins = 1;
 
 	if (uclass == UCLASS_SPI)
-		device_name = "SPI";
+		device_name = "SPI.";
 	else if (uclass == UCLASS_I2C)
-		device_name = "I2C";
+		device_name = "I2C.";
+	else if (uclass == UCLASS_MMC)
+		device_name = "SD..";
+	else if (uclass == UCLASS_GPIO)
+		device_name = "GPIO";
 	else
 		device_name = "UNKNOWN";
 
@@ -170,6 +178,24 @@ int test_gpio(int uclass, char *szStrBuffer)
 	while (uclass_get_device(uclass,port,&dev) == 0) {
 
 		u32 failmask = 0;
+		ofnode sgtl_node;
+
+		/* CAN / mcp251x */
+		if (dev_read_bool(dev, "can-spi-mcp251x")) {
+			if (can_present()) {
+				port++;
+				continue;
+			}
+		}
+
+		/* AUDIO / sgtl5000 */
+		sgtl_node = dev_read_subnode(dev, "sgtl5000");
+		if (sgtl_node.of_offset >= 0) {
+			if (audio_present()) {
+				port++;
+				continue;
+			}
+		}
 
 		/* Get both GPIO-Lists (in-pins,in-gpios & out-pins,out-gpios) */
 		if (get_gpio_lists(dev, &in_gpios, &out_gpios)) {
@@ -230,7 +256,7 @@ int test_gpio(int uclass, char *szStrBuffer)
 	mute_debug_port(0);
 
 	if (gpio_exists) {
-		printf("%s...................", device_name);
+		printf("%s..................", device_name);
 		if (failed)
 			test_OkOrFail(-1, 1, szStrBuffer);
 		else

@@ -8,6 +8,7 @@
 
 #include <common.h>
 #include <command.h>
+#include "check_config.h"
 #include "ethernet_test.h"
 #ifndef CONFIG_DM_SERIAL
 #include "serial_test.h"
@@ -103,11 +104,16 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	ret = test_serial(szStrBuffer);
 
-	ret = test_audio(szStrBuffer);
+	if (audio_present())
+		ret = test_audio(szStrBuffer);
 
 	ret = test_gpio(UCLASS_SPI, szStrBuffer);
 
 	ret = test_gpio(UCLASS_I2C, szStrBuffer);
+
+	ret = test_gpio(UCLASS_MMC, szStrBuffer);
+
+	ret = test_gpio(UCLASS_GPIO, szStrBuffer);
 
 	ret = test_pmic(szStrBuffer);
 

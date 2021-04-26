@@ -666,6 +666,14 @@ static int gpio_request_tail(int ret, ofnode node,
 	ret = dm_gpio_requestf(desc, add_index ? "%s.%s%d" : "%s.%s",
 			       ofnode_get_name(node),
 			       list_name, index);
+#if defined(CONFIG_FUS_COMMON_CMD_OPTIONS) && defined(CONFIG_CMD_SELFTEST)
+	if (ret) {
+		dm_gpio_free(NULL, desc);
+		ret = dm_gpio_requestf(desc, add_index ? "%s.%s%d" : "%s.%s",
+					   ofnode_get_name(node),
+					   list_name, index);
+	}
+#endif
 	if (ret) {
 		debug("%s: dm_gpio_requestf failed\n", __func__);
 		goto err;
