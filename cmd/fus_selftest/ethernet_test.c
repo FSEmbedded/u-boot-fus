@@ -16,8 +16,13 @@
 #include <asm/gpio.h>
 #include "serial_test.h" // mute_debug_port()
 #include "selftest.h"
-// main functions
+#include "common/ksz9893r.h" // ksz9893r_switch_port()
+#include "../../board/F+S/common/fs_board_common.h"/* fs_board_*() */
 
+#define BT_PICOCOREMX8MM 	0
+#define BT_PICOCOREMX8MX	1
+
+// main functions
 
 static void fus_reset_phy(void){
 	struct udevice *dev;
@@ -51,10 +56,18 @@ static void fus_reset_phy(void){
 
 }
 
-int test_ethernet(char *szStrBuffer)
+/*
+commands:
+	- DHCP
+	- TFTP
+	- PING
+*/
+
+int test_ethernet(char *szStrBuffer/*, char cmd*/)
 {
 	struct udevice *dev;
 	const void *fdt = gd->fdt_blob;
+	unsigned int board_type = fs_board_get_type();
 	int node;
 	int port;
 
@@ -72,6 +85,11 @@ int test_ethernet(char *szStrBuffer)
 		node = fdt_subnode_offset(fdt, node, "fixed-link");
 
 		if (!strcmp("fixed-link",fdt_get_name(fdt, node, NULL))) {
+			int i2c_bus = 4;
+			char ip[22];
+			char ip2[22];
+			bool port_failed = 0;
+			bool port2_failed = 0;
 
 			if (port == 0)
 				ethaddr = env_get("ethaddr");
@@ -92,25 +110,72 @@ int test_ethernet(char *szStrBuffer)
 			mute_debug_port(1);
 
 			env_set("autoload", "no");
-			env_set("bootpretryperiod", "3000");
-			net_loop(DHCP);
+			env_set("bootpretryperiod", "10000");
+
+			if (board_type == BT_PICOCOREMX8MX) {
+
+				ksz9893r_power_port(i2c_bus,0x1);
+				net_loop(DHCP);
+				if(net_ip.s_addr)
+					ip_to_string(net_ip, ip);
+				else
+					port_failed = 1;
+
+				ksz9893r_power_port(i2c_bus,0x2);
+				net_loop(DHCP);
+				if(net_ip.s_addr)
+					ip_to_string(net_ip, ip2);
+				else
+					port2_failed = 1;
+			}
+			else {
+				net_loop(DHCP);
+				if(net_ip.s_addr)
+					ip_to_string(net_ip, ip);
+				else
+					port_failed = 1;
+			}
+
+//			net_loop(PING/TFTP);
 
 			mute_debug_port(0);
 
-			printf("  external loopback...");
+			if (board_type == BT_PICOCOREMX8MX) {
 
-			if(net_ip.s_addr) {
-				char tmp[22];
+				/* ETH_A */
+				printf("  external loopback...");
+				if (!port_failed) {
+					sprintf(szStrBuffer, "ETH_A IP: %s", ip);
+					test_OkOrFail(0, 1, szStrBuffer);
+				}
+				else {
+					sprintf(szStrBuffer, "ETH_A failed with timeout");
+					test_OkOrFail(-1, 1, szStrBuffer);
+				}
 
-				ip_to_string(net_ip, tmp);
-				sprintf(szStrBuffer, "IP: %s", tmp);
-				test_OkOrFail(0, 1, szStrBuffer);
+				/* ETH_B */
+				printf("  external loopback...");
+				if (!port2_failed) {
+					sprintf(szStrBuffer, "ETH_B IP: %s", ip2);
+					test_OkOrFail(0, 1, szStrBuffer);
+				}
+				else {
+					sprintf(szStrBuffer, "ETH_B failed with timeout");
+					test_OkOrFail(-1, 1, szStrBuffer);
+				}
 			}
 			else {
-				sprintf(szStrBuffer, "Failed with timeout");
-				test_OkOrFail(-1, 1, szStrBuffer);
-			}
 
+				printf("  external loopback...");
+				if (!port_failed) {
+					sprintf(szStrBuffer, "IP: %s", ip);
+					test_OkOrFail(0, 1, szStrBuffer);
+				}
+				else {
+					sprintf(szStrBuffer, "Failed with timeout");
+					test_OkOrFail(-1, 1, szStrBuffer);
+				}
+			}
 		}
 		else {
 			struct phy_device *phy = mdio_phydev_for_ethname(dev->name);

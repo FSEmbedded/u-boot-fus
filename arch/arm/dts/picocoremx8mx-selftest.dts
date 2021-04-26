@@ -106,6 +106,9 @@
 		serial3 = &uart4;
 		spi2 = &ecspi2;
 #endif
+#ifdef CONFIG_PICOCOREMX8MX_ETH
+		i2c4 = &i2c_gpio;
+#endif
 	};
 
 #ifdef CONFIG_PICOCOREMX8MX_SD_A
@@ -225,6 +228,24 @@
 		status = "disabled";
 	};
 #endif
+
+#ifdef CONFIG_PICOCOREMX8MX_ETH
+	/* Internal I2C (bitbanging) */
+	i2c_gpio: i2c_gpio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c_gpio>;
+		compatible = "i2c-gpio";
+		gpios = <&gpio1 17 0 /* sda */
+			 &gpio1 16 0 /* scl */
+			>;
+		i2c-gpio,delay-us = <2>;	/* ~100 kHz */
+		status = "okay";
+	};
+#endif
+};
 
 #ifdef CONFIG_PICOCOREMX8MX_SPI_A
 &ecspi1 {
@@ -686,8 +707,6 @@
 #ifdef CONFIG_PICOCOREMX8MX_ETH
 		pinctrl_fec1: fec1grp {
 			fsl,pins = <
-				MX8MM_IOMUXC_ENET_MDC_ENET1_MDC			0x00003
-				MX8MM_IOMUXC_ENET_MDIO_ENET1_MDIO		0x00023
 				MX8MM_IOMUXC_ENET_TD3_ENET1_RGMII_TD3		0x0001f
 				MX8MM_IOMUXC_ENET_TD2_ENET1_RGMII_TD2		0x0001f
 				MX8MM_IOMUXC_ENET_TD1_ENET1_RGMII_TD1		0x0001f
@@ -699,11 +718,11 @@
 				MX8MM_IOMUXC_ENET_TXC_ENET1_RGMII_TXC		0x0001f
 				MX8MM_IOMUXC_ENET_RXC_ENET1_RGMII_RXC		0x00091
 				MX8MM_IOMUXC_ENET_RX_CTL_ENET1_RGMII_RX_CTL	0x00091
-			        MX8MM_IOMUXC_ENET_TX_CTL_ENET1_RGMII_TX_CTL	0x0001f
-                                /* ETH_SW_RST  */
-                		MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5		0x00019
-                                /* ETH_SW_INTn  */
-			        MX8MM_IOMUXC_GPIO1_IO11_GPIO1_IO11		0x00064
+				MX8MM_IOMUXC_ENET_TX_CTL_ENET1_RGMII_TX_CTL	0x0001f
+				/* ETH_SW_RST  */
+				MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5		0x00019
+				/* ETH_SW_INTn  */
+				MX8MM_IOMUXC_GPIO1_IO11_GPIO1_IO11		0x00064
 
 			>;
 		};
@@ -722,6 +741,15 @@
 				MX8MM_IOMUXC_SAI5_RXC_GPIO3_IO20				0x400001c3
 			>;
 		};
+
+#ifdef CONFIG_PICOCOREMX8MX_ETH
+		pinctrl_i2c_gpio: i2c_gpio_grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_ENET_MDC_GPIO1_IO16			0x400001c2
+				MX8MM_IOMUXC_ENET_MDIO_GPIO1_IO17			0x400001c2
+			>;
+		};
+#endif
 
 #ifdef CONFIG_PICOCOREMX8MX_I2C_D
 		pinctrl_i2c1: i2c1grp {

@@ -36,6 +36,7 @@ obj-$(CONFIG_CMD_SELFTEST) += common/fus_sai.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fsl_sgtl5000.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fsl_spi_dummy.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fus_sdio.o
+obj-$(CONFIG_CMD_SELFTEST) += common/ksz9893r.o
 
 
 
