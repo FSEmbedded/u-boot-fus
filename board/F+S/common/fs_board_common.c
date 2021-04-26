@@ -324,10 +324,17 @@ void fs_board_late_init_common(const char *serial_name)
 	}
 
 	/* Set some variables with a direct value */
+#if defined(CONFIG_FUS_COMMON_CMD_OPTIONS) && defined(CONFIG_CMD_SELFTEST)
+	env_set("bootdelay", "0");
+	env_set("updatecheck", "");
+	env_set("installcheck", "");
+	env_set("recovercheck", "");
+#else
 	setup_var("bootdelay", current_bi->bootdelay, 0);
 	setup_var("updatecheck", current_bi->updatecheck, 0);
 	setup_var("installcheck", current_bi->installcheck, 0);
 	setup_var("recovercheck", current_bi->recovercheck, 0);
+#endif
 	setup_var("mtdids", MTDIDS_DEFAULT, 0);
 	setup_var("partition", MTDPART_DEFAULT, 0);
 #ifdef CONFIG_FS_BOARD_MODE_RO
