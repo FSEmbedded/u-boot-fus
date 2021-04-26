@@ -74,13 +74,15 @@ void test_OkOrFail(const int result, const int bNewline,
 
     /* Go to next line, if requested */
     if (bNewline)
-    	printf("\r\n");
+    	printf("\n");
 }
 
 static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 		char * const argv[])
 {
-	int ret;
+	int ret = CMD_RET_SUCCESS;
+
+	printf("Selftest running...\n");
 
 	get_processorInfo();
 
@@ -113,6 +115,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	ret = test_ram(szStrBuffer);
 
+	printf("Selftest done!\n");
+#if 0
 	printf("\n\n");
 
 	switch (argc) {
@@ -125,9 +129,9 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 		break;
 
 	default:
-		return CMD_RET_USAGE;
+		return CMD_RET_SUCCESS;
 	}
-
+#endif
 	return ret;
 
 }

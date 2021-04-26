@@ -40,11 +40,11 @@ int8_t DRV_SPI_Initialize(struct udevice *dev)
 		ret = spi_get_bus_and_cs(bus, cs, max_hz, mode, "spi_generic_drv",
 				 str, &dev, &slave);
 		if (ret)
-			printf("Faield to get bus\n");
+			printf("Failed to get bus\n");
 
 		ret = spi_claim_bus(slave);
 		if (ret){
-			printf("Faield to claim bus\n");
+			printf("Failed to claim bus\n");
 		}
 
 		return ret;

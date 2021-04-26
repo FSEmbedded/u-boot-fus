@@ -101,7 +101,7 @@ int config_sgtl(struct udevice *dev){
 	sgtlHandle.i2cHandle = dev;
 	ret = SGTL_Init(&sgtlHandle, &sgtlConfig);
 	if (ret){
-		printf("sgtl_initfaield: %i\n",ret);
+		printf("sgtl_initfailed: %i\n",ret);
 		return -1;
 	}
 	uint16_t val;

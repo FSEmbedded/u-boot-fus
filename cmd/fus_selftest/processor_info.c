@@ -61,9 +61,9 @@ int get_processorInfo (void){
 	ret = get_processorInfo_soc(&ci);
 
 	if (ret)
-		printf("No CPU-Info found \r\n");
+		printf("No CPU-Info found \n");
 	else
-		printf("CPU: %s %s %dMHz Rev %d.%d\r\n",
+		printf("CPU: i.MX %s %s %dMHz Rev %d.%d\n",
 				ci.type, ci.temp, ci.freq, ci.rev_h, ci.rev_l);
 	return ret;
 

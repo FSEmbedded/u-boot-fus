@@ -33,7 +33,7 @@ int test_can(char * szStrBuffer){
 
 		if (dev_read_bool(dev, "can-spi-mcp251x"))
 		{
-			printf("CAN_SPI................");
+			printf("CAN_SPI...............");
 
 			err = DRV_SPI_Initialize(dev);
 			if (err) {
