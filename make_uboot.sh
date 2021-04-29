@@ -11,6 +11,13 @@ if [ "$arch" == "8mm" ]; then
 		features=0xE9;
 		defconfig=fsimx8mm_defconfig
 	fi
+	if [ "$fert" == "tbs2" ]; then
+		boardtype=0
+		boardrev=110
+		export DTB=tbs2-selftest.dtb
+		features=0x07;
+		defconfig=tbs2_defconfig
+	fi
 elif [ "$arch" == "8mx" ]; then
 	boardtype=1
 	boardrev=120

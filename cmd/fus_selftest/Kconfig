@@ -28,8 +28,8 @@ config CMD_SELFTEST
 	select DM_PMIC_BD71837
 	#select DM_SERIAL
 	select DM_SPI
-	select CMD_LCD
-	select CMD_DRAW
+	select CMD_LCD if VIDEO
+	select CMD_DRAW if VIDEO
 	select MXC_SPI
 	help
 		Standard selftest for F&S boards. The argument of the command

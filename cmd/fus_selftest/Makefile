@@ -25,7 +25,9 @@ obj-$(CONFIG_CMD_SELFTEST) += audio_test.o
 obj-$(CONFIG_CMD_SELFTEST) += dram_test.o
 obj-$(CONFIG_CMD_SELFTEST) += usb_test.o
 obj-$(CONFIG_CMD_SELFTEST) += gpio_test.o
+ifdef CONFIG_VIDEO
 obj-$(CONFIG_CMD_SELFTEST) += display_test.o
+endif
 obj-$(CONFIG_CMD_SELFTEST) += rtc_test.o
 obj-$(CONFIG_CMD_SELFTEST) += processor_info.o
 obj-$(CONFIG_CMD_SELFTEST) += can_spi_test.o

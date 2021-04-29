@@ -27,7 +27,9 @@
 #include "eeprom_test.h"
 #include "sec_test.h"
 #include "rtc_test.h"
+#ifdef CONFIG_VIDEO
 #include "display_test.h"
+#endif
 #include "pmic_test.h"
 #include "processor_info.h"
 
@@ -90,9 +92,9 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	get_processorInfo();
 
 	ret = test_rtc_start();
-
+#ifdef CONFIG_VIDEO
 	ret = test_display(szStrBuffer);
-
+#endif
 #ifdef CONFIG_ENV_IS_IN_NAND
 	ret = test_nand(szStrBuffer);
 #endif

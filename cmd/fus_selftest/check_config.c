@@ -33,6 +33,13 @@
 #define FEAT2_8MX_EXT_RTC   	(1<<5)	/* 0: internal RTC, 1: external RTC */
 #define FEAT2_8MX_LVDS   	(1<<6)	/* 0: MIPI DSI, 1: LVDS */
 #define FEAT2_8MX_ETH   	(1<<7)	/* 0: no LAN, 1; has LAN */
+
+#define BT_TBS2				0
+
+/* Features set in fs_nboot_args.chFeature2 (available since NBoot VN27) */
+#define FEAT2_TBS2_ETH		(1<<0)		/* 0: no LAN, 1; has LAN */
+#define FEAT2_TBS2_EMMC		(1<<1)		/* 0: no eMMC, 1: has eMMC */
+#define FEAT2_TBS2_WLAN		(1<<2)		/* 0: no WLAN, 1: has WLAN */
 #endif
 
 int audio_present(){
@@ -98,12 +105,19 @@ int wlan_present(){
 	switch (fs_board_get_type())
 	{
 #ifdef CONFIG_IMX8MM
+#if defined(CONFIG_TARGET_TBS2)
+	case BT_TBS2:
+		if(pargs->chFeatures2 & FEAT2_TBS2_WLAN)
+			ret = 1;
+		break;
+#else
 	case BT_PICOCOREMX8MM:
 		if(pargs->chFeatures2 & FEAT2_8MM_WLAN)
 			ret = 1;
 		break;
 	case BT_PICOCOREMX8MX:
 		break;
+#endif
 #endif
 	}
 	return ret;
