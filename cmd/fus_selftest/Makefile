@@ -21,6 +21,7 @@ obj-$(CONFIG_CMD_SELFTEST) += mmc_test.o
 obj-$(CONFIG_CMD_SELFTEST) += pmic_test.o
 obj-$(CONFIG_CMD_SELFTEST) += eeprom_test.o
 obj-$(CONFIG_CMD_SELFTEST) += sec_test.o
+obj-$(CONFIG_CMD_SELFTEST) += analog_in_test.o
 obj-$(CONFIG_CMD_SELFTEST) += audio_test.o
 obj-$(CONFIG_CMD_SELFTEST) += dram_test.o
 obj-$(CONFIG_CMD_SELFTEST) += usb_test.o

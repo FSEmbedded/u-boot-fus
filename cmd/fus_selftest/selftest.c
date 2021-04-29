@@ -26,6 +26,7 @@
 #include "can_spi_test.h"
 #include "eeprom_test.h"
 #include "sec_test.h"
+#include "analog_in_test.h"
 #include "rtc_test.h"
 #ifdef CONFIG_VIDEO
 #include "display_test.h"
@@ -105,6 +106,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	if (sec_present())
 		ret = test_sec(szStrBuffer);
+
+	ret = test_analog_in(szStrBuffer);
 
 	ret = test_eeprom(szStrBuffer);
 
