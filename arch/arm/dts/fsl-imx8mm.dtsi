@@ -557,6 +557,8 @@
 			 <&clk IMX8MM_CLK_NAND_USDHC_BUS_DIV>,
 			 <&clk IMX8MM_CLK_USDHC2_ROOT>;
 		clock-names = "ipg", "ahb", "per";
+		assigned-clocks = <&clk IMX8MM_CLK_USDHC2_ROOT>;
+		assigned-clock-rates = <400000000>;
 		fsl,tuning-start-tap = <20>;
 		fsl,tuning-step= <2>;
 		bus-width = <4>;

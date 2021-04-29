@@ -64,6 +64,8 @@ static int sdio_get_cis(struct mmc *mmc, int *uiManufactureID){
 		dwCisPointer |= SD_RESPONSE_R5(cmd.response[0]) << (i*8);
 	}
 
+	pr_debug("dwCisPointer = 0x%x\n",dwCisPointer);
+
 	if (dwCisPointer == 0x00){
 		return -1;
 	}
@@ -73,6 +75,7 @@ static int sdio_get_cis(struct mmc *mmc, int *uiManufactureID){
 		/* Get code */
 		cmd.cmdarg = ((dwCisPointer++)<<9);
 		err = mmc_send_cmd(mmc, &cmd, NULL);
+
 		if (err)
 			return err;
 
@@ -89,26 +92,38 @@ static int sdio_get_cis(struct mmc *mmc, int *uiManufactureID){
 			return err;
 
 		dwSize = SD_RESPONSE_R5(cmd.response[0]);
+		pr_debug("dwTpCode = 0x%x dwSize = 0x%x\n",dwTpCode,dwSize);
 
-		/* Get data */
-		if (dwSize < DATA_SZIE){
-			for(int i=0; i<dwSize; i++ )
-			{
-				cmd.cmdarg = ((dwCisPointer++)<<9);
-				err = mmc_send_cmd(mmc, &cmd, NULL);
-				if (err)
-					return err;
-
-				dwData[i] = SD_RESPONSE_R5(cmd.response[0]);
-			}
-			if( dwTpCode == 0x20 )
-			{
-				*uiManufactureID = (((dwData[0] | (dwData[1] << 8)) & 0xFFFFFF) );
-			}
-		}else
+		/* Bug at Broadcom WIFI:
+		 * There is a NullTuple with size 0xFF, which triggers the error dwSize >= DATA_SZIE.
+		 * So even if we get CIS correctly we get an error. To prevent this, we don't handle
+		 * NullTuples (0x0).
+		 */
+		if (dwTpCode)
 		{
-			pr_debug("Data Size to big: got %i, max: %i",dwSize,DATA_SZIE);
-			return -1;
+			/* Get data */
+			if (dwSize < DATA_SZIE){
+				for(int i=0; i<dwSize; i++ )
+				{
+					cmd.cmdarg = ((dwCisPointer++)<<9);
+					err = mmc_send_cmd(mmc, &cmd, NULL);
+
+					if (err)
+						return err;
+
+					dwData[i] = SD_RESPONSE_R5(cmd.response[0]);
+					pr_debug("dwData[i] = 0x%x\n",dwData[i]);
+				}
+				if( dwTpCode == 0x20 )
+				{
+					*uiManufactureID = (((dwData[0] | (dwData[1] << 8)) & 0xFFFFFF) );
+					pr_debug("uiManufactureID = 0x%x\n",*uiManufactureID);
+				}
+			}else
+			{
+				pr_debug("Data Size to big: got %i, max: %i",dwSize,DATA_SZIE);
+				return -1;
+			}
 		}
 	}
 

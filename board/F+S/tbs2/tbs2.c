@@ -128,6 +128,8 @@ int checkboard(void)
 
 /* ---- Stage 'r': RAM valid, U-Boot relocated, variables can be used ------ */
 static int setup_fec(void);
+static int board_setup_lbee5hy1mw(void);
+
 int board_init(void)
 {
 	unsigned int board_type = fs_board_get_type();
@@ -138,6 +140,9 @@ int board_init(void)
 #ifdef CONFIG_FEC_MXC
 	setup_fec();
 #endif
+
+	/* The SDIO interface of the chip has to be enabled for the selftest */
+	board_setup_lbee5hy1mw();
 
 	return 0;
 }
@@ -302,6 +307,26 @@ int board_phy_config(struct phy_device *phydev)
 	return 0;
 }
 #endif /* CONFIG_CMD_NET */
+
+#define LBEE5HY1MW_ENA_PAD IMX_GPIO_NR(5, 5)
+static iomux_v3_cfg_t const lbee5hy1mw_pads_gpio[] = {
+	IMX8MM_PAD_SPDIF_EXT_CLK_GPIO5_IO5 | MUX_PAD_CTRL(NO_PAD_CTRL),
+};
+
+static int board_setup_lbee5hy1mw(void)
+{
+	switch (fs_board_get_type())
+	{
+	case BT_TBS2:
+		imx_iomux_v3_setup_multiple_pads (lbee5hy1mw_pads_gpio,
+						  ARRAY_SIZE (lbee5hy1mw_pads_gpio));
+		gpio_request (LBEE5HY1MW_ENA_PAD, "lbee5hy1mw_ena");
+		gpio_direction_output (LBEE5HY1MW_ENA_PAD, 1);
+		break;
+	}
+
+	return 0;
+}
 
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Do any additional board-specific device tree modifications */

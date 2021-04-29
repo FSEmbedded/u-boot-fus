@@ -100,6 +100,10 @@ int test_mmc(char * szStrBuffer){
 					sprintf(szStrBuffer,"%s SDIO Card", "Atheros");
 
 				}
+				else if( 0x2D0 == uiManfid )
+				{
+					sprintf(szStrBuffer,"%s SDIO Card", "Broadcom");
+				}
 				else if( 0x2DF == uiManfid )
 				{
 					sprintf(szStrBuffer,"%s SDIO Card", "Silex");
