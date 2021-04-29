@@ -18,6 +18,7 @@ ifdef CONFIG_ENV_IS_IN_NAND
 obj-$(CONFIG_CMD_SELFTEST) += nand_test.o
 endif
 obj-$(CONFIG_CMD_SELFTEST) += mmc_test.o
+obj-$(CONFIG_CMD_SELFTEST) += pwm_test.o
 obj-$(CONFIG_CMD_SELFTEST) += pmic_test.o
 obj-$(CONFIG_CMD_SELFTEST) += eeprom_test.o
 obj-$(CONFIG_CMD_SELFTEST) += sec_test.o
@@ -42,6 +43,9 @@ obj-$(CONFIG_CMD_SELFTEST) += common/fsl_sgtl5000.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fsl_spi_dummy.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fus_sdio.o
 obj-$(CONFIG_CMD_SELFTEST) += common/ksz9893r.o
+ifdef CONFIG_DM_PWM
+obj-$(CONFIG_CMD_SELFTEST) += common/fus_pwm.o
+endif
 
 
 

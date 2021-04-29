@@ -31,6 +31,7 @@
 #ifdef CONFIG_VIDEO
 #include "display_test.h"
 #endif
+#include "pwm_test.h"
 #include "pmic_test.h"
 #include "processor_info.h"
 
@@ -106,6 +107,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	if (sec_present())
 		ret = test_sec(szStrBuffer);
+
+	ret = test_pwm(szStrBuffer);
 
 	ret = test_analog_in(szStrBuffer);
 
