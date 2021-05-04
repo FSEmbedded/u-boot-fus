@@ -17,6 +17,7 @@
 #endif
 #include "audio_test.h"
 #include "dram_test.h"
+#include "relay_test.h"
 #include "gpio_test.h"
 #include "usb_test.h"
 #ifdef CONFIG_ENV_IS_IN_NAND
@@ -111,6 +112,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	ret = test_pwm(szStrBuffer);
 
 	ret = test_analog_in(szStrBuffer);
+
+	ret = test_relay(szStrBuffer);
 
 	ret = test_eeprom(szStrBuffer);
 

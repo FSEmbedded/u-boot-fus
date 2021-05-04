@@ -46,6 +46,11 @@
 		status = "disabled";
 	};
 
+	relay: relay {
+		compatible = "fus,test-relay";
+		status = "disabled";
+	};
+
 	uart4: serial@30a60000 {
 		compatible = "fsl,imx8mm-uart",
 			     "fsl,imx6q-uart", "fsl,imx21-uart";
@@ -298,6 +303,21 @@ pmic: bd71837@4b {
 	status = "okay";
 };
 
+&relay {
+	pinctrl-names = "relaygpio";
+	pinctrl-0 = <&pinctrl_relay_gpio>;
+	out-pins-relay = "RELAY_COM";
+	out-gpios-relay = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+	in-pins-relay-on = "RELAY_NO";
+	in-gpios-relay-on = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+	in-pins-relay-off = "RELAY_NC";
+	in-gpios-relay-off = <&gpio5 0 GPIO_ACTIVE_HIGH>;
+
+	switch-pin-relay = "RELAY";
+	switch-gpio-relay = <&gpio4 29 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
 /* micro SD */
 &usdhc1 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
@@ -462,6 +482,19 @@ pmic: bd71837@4b {
 		pinctrl_pwm4_gpio: pwm4gpiogrp {
 			fsl,pins = <
 				MX8MM_IOMUXC_I2C3_SCL_GPIO5_IO18		0x00149
+			>;
+		};
+
+		pinctrl_relay_gpio: relaygpiogrp {
+			fsl,pins = <
+				/* RELAY_COM (GPI1) */
+				MX8MM_IOMUXC_GPIO1_IO14_GPIO1_IO14		0x00149
+				/* RELAY_NO (GPI2) */
+				MX8MM_IOMUXC_GPIO1_IO15_GPIO1_IO15		0x00029
+				/* RELAY_NC (GPI3) */
+				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0			0x00029
+				/* RELAY (Switch) */
+				MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29		0x00149
 			>;
 		};
 

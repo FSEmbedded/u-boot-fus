@@ -20,7 +20,7 @@
 #define OUTPUT 0
 #define INPUT 1
 
-int size;
+static int size;
 
 enum{
 	TEST_SD,
@@ -39,15 +39,7 @@ struct test_driver {
 
 // helper functions
 
-char * get_gpio_label(struct gpio_desc * gpio)
-{
-	struct udevice *gpio_dev = gpio->dev;
-	struct gpio_dev_priv * gpio_priv = (struct gpio_dev_priv *) dev_get_uclass_priv(gpio_dev);
-
-	return gpio_priv->name[gpio->offset];
-}
-
-int get_gpio_lists(struct udevice *dev, struct gpio_desc **in_gpios, struct gpio_desc **out_gpios)
+static int get_gpio_lists(struct udevice *dev, struct gpio_desc **in_gpios, struct gpio_desc **out_gpios)
 {
 	int ret, in_size, out_size;
 
@@ -73,7 +65,7 @@ int get_gpio_lists(struct udevice *dev, struct gpio_desc **in_gpios, struct gpio
 	return 0;
 }
 
-int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
+static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
 {
 	const char * label;
 
@@ -92,13 +84,13 @@ int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
 	return 0;
 }
 
-void free_gpios(struct udevice *dev, struct gpio_desc *gpios)
+static void free_gpios(struct udevice *dev, struct gpio_desc *gpios)
 {
 	for (int i = 0; i < size; i++)
 		dm_gpio_free(dev, (gpios+i));
 }
 
-void set_test_bit(struct gpio_desc *gpios, int bit, int active_high)
+static void set_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 {
 	int val;
 	for (int i=0; i<size; i++) {
@@ -110,7 +102,7 @@ void set_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 	}
 }
 
-u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
+static u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 {
 	int cmp_val;
 	u32 failmask = 0;
@@ -121,25 +113,6 @@ u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 			failmask |= (1 << i);
 	}
 	return failmask;
-}
-
-void print_connections(struct udevice *dev, char *szStrBuffer)
-{
-	int i = 0;
-	int last_output = size-1;
-	const char *in_label, *out_label;
-
-	while (i<last_output) {
-		dev_read_string_index(dev, "in-pins", i, &in_label);
-		dev_read_string_index(dev, "out-pins", i, &out_label);
-		sprintf(szStrBuffer + strlen(szStrBuffer),"%s->%s, ", out_label, in_label);
-		i++;
-	}
-	if (i == last_output) {
-		dev_read_string_index(dev, "in-pins", i, &in_label);
-		dev_read_string_index(dev, "out-pins", i, &out_label);
-		sprintf(szStrBuffer + strlen(szStrBuffer),"%s->%s", out_label, in_label);
-	}
 }
 
 // main functions
