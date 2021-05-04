@@ -284,6 +284,7 @@ pmic: bd71837@4b {
 	pinctrl-names = "default", "mute";
 	pinctrl-0 = <&pinctrl_uart4>;
 	pinctrl-1 = <&pinctrl_uart4_gpio>;
+	rs485-cts-pin = <&gpio5 12 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 	port-name="uart4";
 };
@@ -444,7 +445,7 @@ pmic: bd71837@4b {
 			fsl,pins = <
 			MX8MM_IOMUXC_UART4_RXD_UART4_DCE_RX			0x00049
 			MX8MM_IOMUXC_UART4_TXD_UART4_DCE_TX			0x00049
-			MX8MM_IOMUXC_ECSPI2_MISO_UART4_DCE_CTS_B	0x00049
+			MX8MM_IOMUXC_ECSPI2_MISO_GPIO5_IO12			0x00049
 			MX8MM_IOMUXC_ECSPI2_SS0_UART4_DCE_RTS_B		0x00049
 			>;
 		};

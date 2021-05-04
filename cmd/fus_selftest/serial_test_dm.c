@@ -10,6 +10,7 @@
 #include <command.h>
 #include <dm.h>
 #include <dm/device-internal.h>
+#include <asm/gpio.h>
 #include <serial.h>
 #ifndef CONFIG_DM_SERIAL
 #include "serial_test.h"
@@ -23,9 +24,14 @@
 #define OUTPUT 0
 #define INPUT 1
 
-#define BUFFERSIZE 128
+#define BUFFERSIZE 32
+
+#define CTS_READ_EN 0
+#define CTS_WRITE_EN 1
 
 static char tx_buffer[BUFFERSIZE];
+
+static struct gpio_desc rs485_cts[1];
 
 static void wait_tx_buf_empty(struct udevice *dev, struct dm_serial_ops *ops)
 {
@@ -54,9 +60,31 @@ static void clear_rx_buf(struct udevice *dev, struct dm_serial_ops *ops)
 
 void serialtest_puts(struct udevice *dev, struct dm_serial_ops *ops, char *s)
 {
+	int i = 0;
+	if (rs485_cts->dev != NULL)
+		dm_gpio_set_value(rs485_cts,CTS_WRITE_EN);
 	while (*s) {
 		mdelay(1);
 		ops->putc(dev,*s++);
+	}
+	if (rs485_cts->dev != NULL) {
+		while (ops->pending(dev,OUTPUT) && (i++ < 100))
+			mdelay(1);
+		mdelay(1);
+		dm_gpio_set_value(rs485_cts,CTS_READ_EN);
+	}
+}
+
+void init_rs485_cts(struct udevice *dev)
+{
+	if (!gpio_request_by_name(dev, "rs485-cts-pin", 0, rs485_cts, 0))
+	{
+		char label[32];
+		sprintf(label,"SERIAL%d_RS485_CTS",dev->seq);
+		dm_gpio_free(dev, rs485_cts);
+		dm_gpio_request(rs485_cts, label);
+		dm_gpio_set_dir_flags(rs485_cts, GPIOD_IS_OUT);
+		dm_gpio_set_value(rs485_cts,CTS_READ_EN);
 	}
 }
 
@@ -65,43 +93,42 @@ int tx_to_rx_test(struct udevice *dev, struct dm_serial_ops *ops, int *msec)
 {
     int mismatch = 0;
     int tx_pos = 0;
-    int c = 0;
+    char c = 0;
 
     *msec = 0;
 
-    while(tx_pos < BUFFERSIZE)
-    {
-        serialtest_puts(dev,ops,tx_buffer+tx_pos);
-        mdelay(1);
+	while(tx_pos < BUFFERSIZE)
+	{
+	    serialtest_puts(dev,ops,tx_buffer+tx_pos);
+		mdelay(10);
 
-        for(int j=tx_pos; j<BUFFERSIZE-1;j++)
-        {
-            // check receive buffer for input
-            *msec = 0;
-            while ((!ops->pending(dev,INPUT)) && (*msec < TIMEOUT))
-            {
-                mdelay(1);
-                *msec += 1;
-            }
-            if (*msec >= TIMEOUT)
-            {
-                tx_pos = (tx_pos != j) ? j : BUFFERSIZE;
-                break;
-            }
+	    for(int j=tx_pos; j<BUFFERSIZE-1;j++)
+	    {
+	        // check receive buffer for input
+	        *msec = 0;
+	        while ((!ops->pending(dev,INPUT)) && (*msec < TIMEOUT))
+	        {
+	            mdelay(1);
+	            *msec += 1;
+	        }
+	        if (*msec >= TIMEOUT)
+	        {
+	            tx_pos = (tx_pos != j) ? j : BUFFERSIZE;
+	            break;
+	        }
 
-            // get character
-            c = ops->getc(dev);
+	        // get character
+	        c = ops->getc(dev);
 
-            if (c != tx_buffer[j])
-            {
-                mismatch = 1;
-            }
+	        if (c != tx_buffer[j])
+	            mismatch = 1;
 
-        }
-        // got the whole buffer
-        if (*msec < TIMEOUT)
-            tx_pos = BUFFERSIZE;
-    }
+	    }
+	    // got the whole buffer
+	    if (*msec < TIMEOUT)
+	        tx_pos = BUFFERSIZE;
+	}
+
     return mismatch;
 }
 
@@ -138,7 +165,10 @@ int test_serial(char *szStrBuffer)
 	srand(timer_get_us());
 
     for(int i=0; i<BUFFERSIZE-1; i++)
-		tx_buffer[i] = (char) ((rand() % 223) + 33);
+	{
+		//tx_buffer[i] = (char) ((rand() % 223) + 33);
+		tx_buffer[i] = (char) (i + 33);
+	}
 
     tx_buffer[BUFFERSIZE-1] = 0;
 
@@ -165,18 +195,25 @@ int test_serial(char *szStrBuffer)
             mdelay(1);
 
 		ops = serial_get_ops(dev);
-		ops->setbrg(dev,115200);
+		if(dev->seq == 3)
+			ops->setbrg(dev,115200);
+		else
+			ops->setbrg(dev,115200);
 
 		mismatch = 0;
 		printf("  internal loopback...");
 		mdelay(10);
+
+		// Reset potential RS485 CTS pin
+		rs485_cts->dev = NULL;
 
 		// Set internal
 		wait_tx_buf_empty(dev, ops);
 
 		set_loopback(dev,1);
 
-        	// Test TX to RX
+       	// Test TX to RX
+		if (dev->seq != 3)
         	mismatch = tx_to_rx_test(dev, ops, &msec);
 
 		// Set external
@@ -184,8 +221,6 @@ int test_serial(char *szStrBuffer)
 
 		set_loopback(dev,0);
     		clear_rx_buf(dev, ops);
-
-
 
         	// Print result
 		if (msec >= TIMEOUT) {
@@ -199,6 +234,9 @@ int test_serial(char *szStrBuffer)
 		test_OkOrFail(ret, 1, szStrBuffer);
 
 		printf("  external loopback...");
+
+		// If RS485 initialize CTS pin
+		init_rs485_cts(dev);
 
 		if (!fdt_get_property(fdt, node, "debug-port", NULL)) {
            	 // Test TX to RX
