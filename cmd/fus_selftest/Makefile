@@ -27,6 +27,7 @@ obj-$(CONFIG_CMD_SELFTEST) += audio_test.o
 obj-$(CONFIG_CMD_SELFTEST) += dram_test.o
 obj-$(CONFIG_CMD_SELFTEST) += usb_test.o
 obj-$(CONFIG_CMD_SELFTEST) += relay_test.o
+obj-$(CONFIG_CMD_SELFTEST) += led_test.o
 obj-$(CONFIG_CMD_SELFTEST) += gpio_test.o
 ifdef CONFIG_VIDEO
 obj-$(CONFIG_CMD_SELFTEST) += display_test.o
@@ -47,6 +48,7 @@ obj-$(CONFIG_CMD_SELFTEST) += common/ksz9893r.o
 ifdef CONFIG_DM_PWM
 obj-$(CONFIG_CMD_SELFTEST) += common/fus_pwm.o
 endif
+obj-$(CONFIG_CMD_SELFTEST) += common/fus_led.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fus_relay.o
 
 
