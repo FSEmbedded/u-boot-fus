@@ -19,6 +19,10 @@ static uint8_t devices = 0;
 static uint8_t hubs = 0;
 static uint8_t storages = 0;
 
+struct usb_uclass_priv {
+	int companion_device_count;
+};
+
 static void USBfind(struct usb_device *udev){
 
 	int uid;
@@ -102,9 +106,6 @@ static int usb_init_host(void)
 	struct udevice *bus;
 	int count = 0;
 	int ret;
-	int asynch_allowed;
-	int companion_device_count;
-	asynch_allowed = 1;
 
 	ret = uclass_get(UCLASS_USB, &uc);
 	if (ret)
@@ -152,7 +153,7 @@ static int usb_init_host(void)
 	 * over any devices they do not understand to their companions, scan
 	 * the companions if necessary.
 	 */
-	if (companion_device_count) {
+	if (uc_priv->companion_device_count) {
 		uclass_foreach_dev(bus, uc) {
 			if (usb_get_dr_mode(dev_of_offset(bus)) != USB_DR_MODE_HOST)
 				continue;

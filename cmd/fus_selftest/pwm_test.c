@@ -17,12 +17,8 @@ int test_pwm(char *szStrBuffer){
 
 	int ret = 0;
 	struct udevice *dev;
-	struct udevice *devp = NULL;
 	struct uclass *uc;
 	struct gpio_desc *test_gpio;
-	const void *fdt = gd->fdt_blob;
-	ofnode subnode;
-	int node;
 	int i,j;
 	int size = 0;
 	u32 *freqs;

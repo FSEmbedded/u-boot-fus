@@ -18,9 +18,7 @@ int test_eeprom(char *szStrBuffer){
 	struct udevice *dev;
 	struct udevice *devp = NULL;
 	struct uclass *uc;
-	const void *fdt = gd->fdt_blob;
 	ofnode subnode;
-	int node;
 	u32 reg = 0;
 
 	/* Clear reason-string */
