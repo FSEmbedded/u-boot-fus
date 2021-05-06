@@ -243,7 +243,7 @@ int tc358764_setup(struct mipi_dsi_client_dev * dev)
 		0x00000, 0x0, 0x1F, 0x1F,
 		0x00001, 0x1,
 		/* Timing and mode settings */
-		0x03200120, 0x1A0014, 0xD20320, 0x160001,
+		0x03200120, 0x1A0014, 0xD20320, 0x160003,
 		0x1501E0, 0x1, 0x44802D, 0x4802D, 0x4,
 		/* color mapping settings	*/
 		0x3020100, 0x8050704 ,0x0F0E0A09, 0x100D0C0B, 0x12111716,
@@ -624,12 +624,12 @@ struct display_info_t const displays[] = {
 			.xres			= 800,
 			.yres			= 480,
 			.pixclock		= 29850, // 10^12/freq
-			.left_margin	= 20,
-			.right_margin	= 242,
+			.left_margin	= 46,
+			.right_margin	= 210,
 			.hsync_len		= 10,
-			.upper_margin	= 22,
-			.lower_margin	= 22,
-			.vsync_len		= 1,
+			.upper_margin	= 21,
+			.lower_margin	= 24,
+			.vsync_len		= 3,
 			.sync			= FB_SYNC_EXT,
 			.vmode			= FB_VMODE_NONINTERLACED
 		}
