@@ -65,6 +65,8 @@ static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, char *label_
 			dm_gpio_set_value((gpios+i),0);
 		}
 	}
+	/* Delay for setup */
+	mdelay(10);
 	return 0;
 }
 
@@ -77,6 +79,9 @@ static int init_switch_gpio(struct udevice *dev, struct gpio_desc *gpio, char *l
 	dm_gpio_request(gpio, label);
 	dm_gpio_set_dir_flags(gpio, GPIOD_IS_OUT);
 	dm_gpio_set_value(gpio,0);
+
+	/* Delay for setup */
+	mdelay(10);
 
 	return 0;
 }
@@ -93,22 +98,23 @@ static void set_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 	for (int i=0; i<size; i++) {
 		val = active_high ? (i == bit) : (i != bit);
 		dm_gpio_set_value((gpios+i),val);
-
-		/* Delay needed for longer loopbacks */
-		mdelay(1);
 	}
+	/* Delay needed for longer loopbacks */
+	mdelay(10);
 }
 
 static u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 {
 	int cmp_val;
 	u32 failmask = 0;
-
 	for (int i=0; i<size; i++) {
 		cmp_val = active_high ? (i == bit) : (i != bit);
 		if (cmp_val != dm_gpio_get_value(gpios+i))
 			failmask |= (1 << i);
 	}
+	/* Delay needed for longer loopbacks */
+	mdelay(10);
+
 	return failmask;
 }
 
@@ -213,7 +219,7 @@ int test_relay(char *szStrBuffer)
 
 		for (i = 0; failmask_on; i++) {
 			if (failmask_on & (1 << i)) {
-				dev_read_string_index(dev, "in-pins-relay-off", i, &in_label);
+				dev_read_string_index(dev, "in-pins-relay-on", i, &in_label);
 				dev_read_string_index(dev, "out-pins-relay", i, &out_label);
 				if (first_pins) {
 					first_pins = 0;

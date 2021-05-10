@@ -100,7 +100,7 @@ int tx_to_rx_test(struct udevice *dev, struct dm_serial_ops *ops, int *msec)
 	while(tx_pos < BUFFERSIZE)
 	{
 	    serialtest_puts(dev,ops,tx_buffer+tx_pos);
-		mdelay(10);
+		mdelay(100);
 
 	    for(int j=tx_pos; j<BUFFERSIZE-1;j++)
 	    {

@@ -60,6 +60,9 @@ static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, char *label_
 			dm_gpio_set_value((gpios+i),0);
 		}
 	}
+	/* Delay for setup */
+	mdelay(10);
+
 	return 0;
 }
 
@@ -75,10 +78,9 @@ static void set_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 	for (int i=0; i<size; i++) {
 		val = active_high ? (i == bit) : (i != bit);
 		dm_gpio_set_value((gpios+i),val);
-
-		/* Delay needed for longer loopbacks */
-		mdelay(1);
 	}
+	/* Delay needed for longer loopbacks */
+	mdelay(10);
 }
 
 static u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
@@ -86,15 +88,14 @@ static u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 	int cmp_val;
 	u32 failmask = 0;
 
-	mute_debug_port(0);
-
 	for (int i=0; i<size; i++) {
 		cmp_val = active_high ? (i == bit) : (i != bit);
-		//printf("i = %d, cmp_val = %d, gpio_val = %d\n",i,cmp_val,dm_gpio_get_value(gpios+i));
 		if (cmp_val != dm_gpio_get_value(gpios+i))
 			failmask |= (1 << i);
 	}
-	mute_debug_port(1);
+	/* Delay needed for longer loopbacks */
+	mdelay(10);
+
 	return failmask;
 }
 
