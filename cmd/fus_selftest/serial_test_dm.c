@@ -181,8 +181,6 @@ int test_serial(char *szStrBuffer)
 		/* Clear reason-string */
 		szStrBuffer[0] = '\0';
 
-		//dev->seq = uclass_resolve_seq(dev);
-
 		dev->driver->ofdata_to_platdata(dev);
 
 		device_probe(dev);
@@ -195,10 +193,7 @@ int test_serial(char *szStrBuffer)
             mdelay(1);
 
 		ops = serial_get_ops(dev);
-		if(dev->seq == 3)
-			ops->setbrg(dev,115200);
-		else
-			ops->setbrg(dev,115200);
+		ops->setbrg(dev,115200);
 
 		mismatch = 0;
 		printf("  internal loopback...");
@@ -213,8 +208,7 @@ int test_serial(char *szStrBuffer)
 		set_loopback(dev,1);
 
        	// Test TX to RX
-		if (dev->seq != 3)
-        	mismatch = tx_to_rx_test(dev, ops, &msec);
+        mismatch = tx_to_rx_test(dev, ops, &msec);
 
 		// Set external
 		wait_tx_buf_empty(dev, ops);
