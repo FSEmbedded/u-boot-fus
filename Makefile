@@ -780,11 +780,13 @@ endif
 
 # Always append ALL so that arch config.mk's can add custom ones
 ALL-y += u-boot.srec u-boot.bin u-boot.sym System.map binary_size_check
-ifndef CONFIG_IMX8M
-ALL-y += uboot.nb0 u-boot.dis
-else
-ALL-y += u-boot.dis
-endif
+
+# Add uboot.nb0 for F&S boards on all i.MX6 and Vybrid variants
+ALL-$(CONFIG_TARGET_FSVYBRID) += uboot.nb0
+ALL-$(CONFIG_ARCH_MX6) += uboot.nb0
+
+# Create disassembler listings if requested
+ALL-$(CONFIG_DISASM) += u-boot.dis
 
 ALL-$(CONFIG_ADDFSHEADER) += uboot.fs
 ALL-$(CONFIG_NAND_U_BOOT) += u-boot-nand.bin
@@ -798,13 +800,29 @@ ifneq ($(CONFIG_SECURE_BOOT), y)
 ALL-$(CONFIG_RAMBOOT_PBL) += u-boot.pbl
 endif
 endif
+
+ifdef CONFIG_SPL_AUTOBUILD
 ALL-$(CONFIG_SPL) += spl/u-boot-spl.bin
+ALL-$(CONFIG_SPL_DISASM) += spl/u-boot-spl.dis
+endif
+
+PHONY += spl
+spl: spl/u-boot-spl.bin
+
 ifeq ($(CONFIG_MX6)$(CONFIG_SECURE_BOOT), yy)
 ALL-$(CONFIG_SPL_FRAMEWORK) += u-boot-ivt.img
 else
 ALL-$(CONFIG_SPL_FRAMEWORK) += u-boot.img
 endif
+
+ifdef CONFIG_TPL_AUTOBUILD
 ALL-$(CONFIG_TPL) += tpl/u-boot-tpl.bin
+ALL-$(CONFIG_TPL_DISASM) += tpl/u-boot-tpl.dis
+endif
+
+PHONY += tpl
+tpl: tpl/u-boot-tpl.bin
+
 ALL-$(CONFIG_OF_SEPARATE) += u-boot.dtb
 ifeq ($(CONFIG_SPL_FRAMEWORK),y)
 ALL-$(CONFIG_OF_SEPARATE) += u-boot-dtb.img
@@ -1092,8 +1110,11 @@ u-boot-spl.kwb: u-boot.img spl/u-boot-spl.bin FORCE
 u-boot.sha1:	u-boot.bin
 		tools/ubsha1 u-boot.bin
 
-u-boot.dis:	u-boot
-		$(OBJDUMP) -d $< > $@
+quiet_cmd_disasm = DISASM  $@
+cmd_disasm = $(OBJDUMP) -d $< > $@
+
+%.dis:	%
+	$(call cmd,disasm)
 
 OBJCOPYFLAGS_uboot.nb0 = --pad-to $(CONFIG_BOARD_SIZE_LIMIT) -I binary -O binary
 uboot.nb0:	u-boot.bin
@@ -1102,8 +1123,28 @@ uboot.nb0:	u-boot.bin
 #			 | tr '\000' '\377' >$@
 #		dd if=$< of=$@ conv=notrunc bs=1K
 
-uboot.fs:	u-boot.bin
-		tools/addfsheader $< $@
+quiet_cmd_addfsheader = FSIMG   $@
+cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 $< > $@
+
+# Use V0.0 F&S header on Vybrid/i.MX6, otherwise V1.0 plus type/descr
+ifneq ($(CONFIG_TARGET_FSVYBRID)$(CONFIG_ARCH_MX6),)
+FSIMG_OPT = -v 0.0
+else
+FSIMG_OPT = -c -p 16 -t U-BOOT -d $(BOARD)
+endif
+ifdef CONFIG_SPL_LOAD_FIT
+addfsheader_target = u-boot-dtb.img
+else
+addfsheader_target = u-boot.bin
+endif
+uboot.fs:	$(addfsheader_target)
+	$(call cmd,addfsheader,$(FSIMG_OPT))
+
+PHONY += nboot
+NBOOT_PATH = board/$(BOARDDIR)/nboot
+nboot: SPL
+	$(Q)$(MAKE) $(build)=$(NBOOT_PATH) $@
+
 
 ifdef CONFIG_TPL
 SPL_PAYLOAD := tpl/u-boot-with-tpl.bin
@@ -1593,6 +1634,7 @@ clean: $(clean-dirs)
 		-o -name '*.ko.*' -o -name '*.su' -o -name '*.cfgtmp' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
+		-o -name '*.fs' \
 		-o -name modules.builtin -o -name '.tmp_*.o.*' \
 		-o -name 'dsdt.aml' -o -name 'dsdt.asl.tmp' -o -name 'dsdt.c' \
 		-o -name '*.gcno' \) -type f -print | xargs rm -f

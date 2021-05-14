@@ -1,16 +1,13 @@
 #
-# Copyright 2018 NXP
+# Copyright 2020 F&S Elektronik Systeme GmbH
 #
 # SPDX-License-Identifier:      GPL-2.0+
 #
 
+ifndef CONFIG_SPL_BUILD
 obj-y += fsimx8mm.o
-obj-$(CONFIG_VIDEO_MXS) += fsimx8mm_video.o
-
+endif
 
 ifdef CONFIG_SPL_BUILD
 obj-y += spl.o
-obj-$(CONFIG_IMX8M_LPDDR4) += lpddr4_timing_k4f8e3s4hd_mgcl.o lpddr4_timing_k4f8e304hb_mgcj.o
-obj-$(CONFIG_IMX8M_LPDDR4) += ddr3l_timing_2x_mt41k128m16tw.o
-obj-$(CONFIG_IMX8M_LPDDR4) += ddr3l_timing_2x_im4g16d3fdbg107i.o
 endif

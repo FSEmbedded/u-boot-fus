@@ -19,7 +19,24 @@
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"
 
-/* ------------------------------------------------------------------------- */
+#ifdef HAVE_BOARD_CFG
+#include <fuse.h>			/* fuse_read() */
+#include "fs_image_common.h"		/* fs_image_*() */
+#endif
+
+/* ============= Functions not available in SPL ============================ */
+
+#ifndef CONFIG_SPL_BUILD
+
+/* String used for system prompt */
+static char fs_sys_prompt[20];
+
+/* Store a pointer to the current board info */
+static const struct fs_board_info *current_bi;
+
+/* ------------- Functions using fs_nboot_args ----------------------------- */
+
+#ifndef HAVE_BOARD_CFG
 
 /* Addresses of arguments coming from NBoot and going to Linux */
 #define NBOOT_ARGS_BASE (CONFIG_SYS_SDRAM_BASE + 0x00001000)
@@ -27,16 +44,9 @@
 
 #define ACTION_RECOVER 0x00000040	/* Start recovery instead of update */
 
-
-/* String used for system prompt */
-static char fs_sys_prompt[20];
-
 /* Copy of the NBoot arguments, split into nboot_args and m4_args */
 static struct fs_nboot_args nboot_args;
 static struct fs_m4_args m4_args;
-
-/* Store a pointer to the current board info */
-static const struct fs_board_info *current_bi;
 
 #if 0
 /* List NBoot args; function can be activated and used for debugging */
@@ -85,15 +95,107 @@ unsigned int fs_board_get_rev(void)
 	return fs_board_get_nboot_args()->chBoardRev;
 }
 
-// ### TODO: In case of SPL, return board specific port number -> board code */
-#ifndef CONFIG_SPL_BUILD
 ulong board_serial_base(void)
 {
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 
 	return pargs->dwDbgSerPortPA;
 }
+
+enum boot_device fs_board_get_boot_dev(void)
+{
+#ifdef CONFIG_ENV_IS_IN_MMC
+	return MMC2_BOOT;
+#else
+	return NAND_BOOT;
 #endif
+}
+
+/* Get the NBoot version */
+const char *fs_board_get_nboot_version(void)
+{
+	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
+	static char version[5];
+
+	memcpy(version, &pargs->dwNBOOT_VER, 4);
+	version[4] = 0;
+
+	return &version[0];
+}
+
+/* Set RAM size (as given by NBoot) and RAM base */
+int dram_init(void)
+{
+	DECLARE_GLOBAL_DATA_PTR;
+	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
+
+	gd->ram_size = pargs->dwMemSize << 20;
+
+	return 0;
+}
+
+void board_nand_state(struct mtd_info *mtd, unsigned int state)
+{
+	/* Save state to pass it to Linux later */
+	nboot_args.chECCstate |= (unsigned char)state;
+}
+#endif /* !HAVE_BOARD_CFG */
+
+/* ------------- Functions using BOARD-CFG --------------------------------- */
+
+#ifdef HAVE_BOARD_CFG
+
+/* Get Pointer to struct cfg_info */
+struct cfg_info *fs_board_get_cfg_info(void)
+{
+	return (struct cfg_info *)CONFIG_SPL_BSS_START_ADDR;
+}
+
+/* Get the boot device from BOARD-CFG) */
+enum boot_device fs_board_get_boot_dev(void)
+{
+	return fs_board_get_cfg_info()->boot_dev;
+}
+
+/* Get board type (zero-based) */
+unsigned int fs_board_get_type(void)
+{
+	return fs_board_get_cfg_info()->board_type;
+}
+
+/* Get board revision (major * 100 + minor, e.g. 120 for rev 1.20) */
+unsigned int fs_board_get_rev(void)
+{
+	return fs_board_get_cfg_info()->board_rev;
+}
+
+/* Get the board features */
+unsigned int fs_board_get_features(void)
+{
+	return fs_board_get_cfg_info()->features;
+}
+
+/* Get the NBoot version */
+const char *fs_board_get_nboot_version(void)
+{
+	return fs_image_get_nboot_version(NULL);
+}
+
+/* Set RAM size */
+int dram_init(void)
+{
+	DECLARE_GLOBAL_DATA_PTR;
+
+	/* rom_pointer[1] holds the size of the TEE */
+	gd->ram_size =
+		(fs_board_get_cfg_info()->dram_size << 20) - rom_pointer[1];
+
+	return 0;
+}
+
+#endif /* HAVE_BOARD_CFG */
+
+/* ------------- Generic functions ----------------------------------------- */
 
 /* Issue reset signal on up to three gpios (~0: gpio unused) */
 void fs_board_issue_reset(uint active_us, uint delay_us,
@@ -121,54 +223,17 @@ void fs_board_issue_reset(uint active_us, uint delay_us,
 		udelay(delay_us);
 }
 
-/* Copy NBoot args to variables and prepare command prompt string */
-void fs_board_init_common(const struct fs_board_info *board_info)
-{
-	DECLARE_GLOBAL_DATA_PTR;
-	struct fs_nboot_args *pargs = (struct fs_nboot_args *)NBOOT_ARGS_BASE;
-
-	/* Save a pointer to this board info */
-	current_bi = board_info;
-
-	/* Save a copy of the NBoot args */
-	memcpy(&nboot_args, pargs, sizeof(struct fs_nboot_args));
-	nboot_args.dwSize = sizeof(struct fs_nboot_args);
-	memcpy(&m4_args, pargs + 1, sizeof(struct fs_m4_args));
-	m4_args.dwSize = sizeof(struct fs_m4_args);
-
-	gd->bd->bi_arch_number = 0xFFFFFFFF;
-	gd->bd->bi_boot_params = BOOT_PARAMS_BASE;
-
-	/* Prepare the command prompt */
-	sprintf(fs_sys_prompt, "%s # ", board_info->name);
-}
-
-/* Set RAM size (as given by NBoot) and RAM base */
-int dram_init(void)
-{
-	DECLARE_GLOBAL_DATA_PTR;
-	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
-
-	gd->ram_size = pargs->dwMemSize << 20;
-
-	return 0;
-}
-
-void board_nand_state(struct mtd_info *mtd, unsigned int state)
-{
-	/* Save state to pass it to Linux later */
-	nboot_args.chECCstate |= (unsigned char)state;
-}
-
 #ifdef CONFIG_CMD_UPDATE
 enum update_action board_check_for_recover(void)
 {
 	char *recover_gpio;
 
+#ifndef HAVE_BOARD_CFG
 	/* On some platforms, the check for recovery is already done in NBoot.
 	   Then the ACTION_RECOVER bit in the dwAction value is set. */
 	if (nboot_args.dwAction & ACTION_RECOVER)
 		return UPDATE_ACTION_RECOVER;
+#endif
 
 	/*
 	 * If a recover GPIO is defined, check if it is in active state. The
@@ -215,6 +280,32 @@ enum update_action board_check_for_recover(void)
 }
 #endif /* CONFIG_CMD_UPDATE */
 
+/* Copy NBoot args to variables and prepare command prompt string */
+void fs_board_init_common(const struct fs_board_info *board_info)
+{
+	DECLARE_GLOBAL_DATA_PTR;
+#ifndef HAVE_BOARD_CFG
+	struct fs_nboot_args *pargs = (struct fs_nboot_args *)NBOOT_ARGS_BASE;
+
+	/* Save a copy of the NBoot args */
+	memcpy(&nboot_args, pargs, sizeof(struct fs_nboot_args));
+	nboot_args.dwSize = sizeof(struct fs_nboot_args);
+	memcpy(&m4_args, pargs + 1, sizeof(struct fs_m4_args));
+	m4_args.dwSize = sizeof(struct fs_m4_args);
+
+	/* For ATAGs, if no device tree is used (basically unused) */
+	gd->bd->bi_boot_params = BOOT_PARAMS_BASE;
+#endif
+	/* There is no arch number if booting Linux with device tree */
+	gd->bd->bi_arch_number = 0xFFFFFFFF;
+
+	/* Save a pointer to this board info */
+	current_bi = board_info;
+
+	/* Prepare the command prompt */
+	sprintf(fs_sys_prompt, "%s # ", board_info->name);
+}
+
 #ifdef CONFIG_BOARD_LATE_INIT
 /* If variable has value "undef", update it with a board specific value */
 static void setup_var(const char *varname, const char *content, int runvar)
@@ -249,6 +340,9 @@ void fs_board_late_init_common(const char *serial_name)
 	int usdhc_boot_device = 0;
 	int mmc_boot_device = 0;
 #endif
+	bool is_nand = (fs_board_get_boot_dev() == NAND_BOOT);
+	const char *bd_kernel, *bd_fdt, *bd_rootfs;
+	char var_name[20];
 
 	/* Set sercon variable if not already set */
 	envvar = env_get("sercon");
@@ -305,7 +399,7 @@ void fs_board_late_init_common(const char *serial_name)
 		env_set("platform", lcasename);
 	}
 
-	/* Set mmcsdhc variable if not already set */
+	/* Set usdhcdev variable if not already set */
 	envvar = env_get("usdhcdev");
 	if (!envvar || !strcmp(envvar, "undef")) {
 		char usdhcdev[DEV_NAME_SIZE];
@@ -342,23 +436,46 @@ void fs_board_late_init_common(const char *serial_name)
 #else
 	setup_var("mode", "rw", 0);
 #endif
+	/* Set boot devices for kernel, device tree and rootfs */
+	if (is_nand) {
+		bd_rootfs = "ubifs";
+		if (current_bi->flags & BI_FLAGS_UBIONLY)
+			bd_kernel = bd_rootfs;
+		else
+			bd_kernel = "nand";
+		bd_fdt = bd_kernel;
+	} else {
+		bd_kernel = "mmc";
+		bd_fdt = bd_kernel;
+		bd_rootfs = bd_kernel;
+	}
+	setup_var("bd_kernel", bd_kernel, 0);
+	setup_var("bd_fdt", bd_fdt, 0);
+	setup_var("bd_rootfs", bd_rootfs, 0);
 
-	/* Set some variables by runnning another variable */
 	setup_var("console", current_bi->console, 1);
 	setup_var("login", current_bi->login, 1);
 	setup_var("mtdparts", current_bi->mtdparts, 1);
 	setup_var("network", current_bi->network, 1);
 	setup_var("init", current_bi->init, 1);
-	setup_var("rootfs", current_bi->rootfs, 1);
-	setup_var("kernel", current_bi->kernel, 1);
 	setup_var("bootfdt", "set_bootfdt", 1);
-	setup_var("fdt", current_bi->fdt, 1);
 	setup_var("bootargs", "set_bootargs", 1);
+
+	/* Set some variables by runnning another variable */
 #ifdef CONFIG_FS_UPDATE_SUPPORT
-	setup_var("selector", current_bi->selector, 1);
-	setup_var("set_rootfs", current_bi->set_rootfs, 1);
-	setup_var("boot_partition", current_bi->boot_partition, 1);
-	setup_var("rootfs_partition", current_bi->rootfs_partition, 1);
+	sprintf(var_name, ".kernel_%s_A", bd_kernel);
+	setup_var("kernel", var_name, 1);
+	sprintf(var_name, ".fdt_%s_A", bd_fdt);
+	setup_var("fdt", var_name, 1);
+	sprintf(var_name, ".rootfs_%s_A", bd_rootfs);
+	setup_var("rootfs", var_name, 1);
+#else
+	sprintf(var_name, ".kernel_%s", bd_kernel);
+	setup_var("kernel", var_name, 1);
+	sprintf(var_name, ".fdt_%s", bd_fdt);
+	setup_var("fdt", var_name, 1);
+	sprintf(var_name, ".rootfs_%s", bd_rootfs);
+	setup_var("rootfs", var_name, 1);
 #endif
 }
 #endif /* CONFIG_BOARD_LATE_INIT */
@@ -374,3 +491,98 @@ char *get_sys_prompt(void)
 {
 	return fs_sys_prompt;
 }
+
+#endif /* ! CONFIG_SPL_BUILD */
+
+/* ============= Functions also available in SPL =========================== */
+
+struct boot_dev_name {
+	enum boot_device boot_dev;
+	const char *name;
+};
+
+const struct boot_dev_name boot_dev_names[] = {
+	{USB_BOOT,  "USB"},
+	{NAND_BOOT, "NAND"},
+	{MMC1_BOOT, "MMC1"},
+	{MMC2_BOOT, "MMC2"},
+	{MMC3_BOOT, "MMC3"},
+	{SD1_BOOT,  "SD1"},
+	{SD2_BOOT,  "SD2"},
+	{SD3_BOOT,  "SD3"},
+};
+
+/* Get the boot device number from the string */
+enum boot_device fs_board_get_boot_dev_from_name(const char *name)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(boot_dev_names); i++) {
+		if (!strcmp(boot_dev_names[i].name, name))
+			return boot_dev_names[i].boot_dev;
+	}
+	return UNKNOWN_BOOT;
+}
+
+/* Get the string from the boot device number */
+const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(boot_dev_names); i++) {
+		if (boot_dev_names[i].boot_dev == boot_dev)
+			return boot_dev_names[i].name;
+	}
+
+	return "(unknown)";
+}
+
+#ifdef HAVE_BOARD_CFG
+
+#include <fdtdec.h>
+
+/* Definitions in boot_cfg (fuse bank 1, word 3) */
+#define BOOT_CFG_DEVSEL_SHIFT 12
+#define BOOT_CFG_DEVSEL_MASK (7 << BOOT_CFG_DEVSEL_SHIFT)
+#define BOOT_CFG_PORTSEL_SHIFT 10
+#define BOOT_CFG_PORTSEL_MASK (3 << BOOT_CFG_PORTSEL_SHIFT)
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB (returned by spl_boot_device()), but is basically fused to boot from
+ * NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 port;
+	enum boot_device boot_dev = USB_BOOT;
+
+	/* boot_cfg is in fuse bank 1, word 3 */
+	if (fuse_read(1, 3, &val)) {
+		puts("Error reading boot_cfg\n");
+		return boot_dev;
+	}
+
+	port = (val & BOOT_CFG_PORTSEL_MASK) >> BOOT_CFG_PORTSEL_SHIFT;
+	switch ((val & BOOT_CFG_DEVSEL_MASK) >> BOOT_CFG_DEVSEL_SHIFT) {
+	case BOOT_TYPE_SD:
+		boot_dev = SD1_BOOT + port;
+		break;
+
+	case BOOT_TYPE_MMC:
+		boot_dev = MMC1_BOOT + port;
+		break;
+
+	case BOOT_TYPE_NAND:
+		boot_dev = NAND_BOOT;
+		break;
+
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+#endif /* HAVE_BOARD_CFG */

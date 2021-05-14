@@ -263,7 +263,8 @@ static int mxs_flash_ident(struct mtd_info *mtd, struct nand_flash_dev *type)
 
 	if (!chip->onfi_version) {
 		printf("unsupported ONFI version: %d\n", val);
-		return 0;
+		chip->onfi_version = INT_MAX;
+//		return 0;
 	}
 
 	if (p->ecc_bits != 0xff) {
@@ -320,7 +321,9 @@ static int is_badblock(struct mtd_info *mtd, loff_t offs, int allowbbt)
 }
 
 /* setup mtd and nand structs and init mxs_nand driver */
-static int mxs_nand_init(void)
+extern int mxs_nand_realloc(struct mtd_info *mtd);
+
+static int mxs_nand_spl_init(void)
 {
 	/* return if already initalized */
 	if (nand_chip.numchips)
@@ -340,8 +343,12 @@ static int mxs_nand_init(void)
 	}
 
 	/* allocate and initialize buffers */
+#ifdef CONFIG_SPL_RAWNAND_BUFFERS_MALLOC
+	mxs_nand_realloc(mtd);
+#else
 	nand_chip.buffers = memalign(ARCH_DMA_MINALIGN,
 				     sizeof(*nand_chip.buffers));
+#endif
 	nand_chip.oob_poi = nand_chip.buffers->databuf + mtd->writesize;
 	/* setup flash layout (does not scan as we override that) */
 	mtd->size = nand_chip.chipsize;
@@ -359,14 +366,20 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *buf)
 	uint8_t *page_buf = NULL;
 	uint32_t page_off;
 
-	if (mxs_nand_init())
+	if (mxs_nand_spl_init())
 		return -ENODEV;
 
 	chip = mtd_to_nand(mtd);
 
-	page_buf = malloc(mtd->writesize);
-	if (!page_buf)
-		return -ENOMEM;
+	/*
+	 * Use the same buffer where the regular mxs_nand driver loads the
+	 * data anyway, so the memcpy() there in mxs_nand_ecc_read_page() is
+	 * actually a no-op. This is faster and we do not need to allocate a
+	 * new buffer here. In early phases in SPL, when using malloc_f, these
+	 * buffers are not freed and consume more and more of valuable OCRAM
+	 * with each call.
+	 */
+	page_buf = chip->buffers->databuf;
 
 	page = offs >> chip->page_shift;
 	page_off = offs & (mtd->writesize - 1);
@@ -402,16 +415,13 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *buf)
 			 */
 			while (is_badblock(mtd, offs, 1)) {
 				page = page + nand_page_per_block;
+				offs += mtd->erasesize;
 				/* Check i we've reached the end of flash. */
-				if (page >= mtd->size >> chip->page_shift) {
-					free(page_buf);
+				if (page >= mtd->size >> chip->page_shift)
 					return -ENOMEM;
-				}
 			}
 		}
 	}
-
-	free(page_buf);
 
 	return 0;
 }

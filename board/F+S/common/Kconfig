@@ -28,6 +28,10 @@ config FS_BOARD_MODE_RO
 	  you want a writable rootfs instead, say N here. But be warned,
 	  this may be dangerous for your data!
 
+config FS_IMAGE_COMMON
+	bool
+	default y if TARGET_FSIMX8MM
+
 config FS_FDT_COMMON
 	bool
 	default y
@@ -38,7 +42,7 @@ config FS_MMC_COMMON
 
 config FS_ETH_COMMON
 	bool
-	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL
+	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX8MM
 
 config FS_USB_COMMON
 	bool
