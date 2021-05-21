@@ -40,15 +40,14 @@ struct ramInfo
 static void getRamInfo(struct ramInfo *rI){
 
 	DECLARE_GLOBAL_DATA_PTR;
-	struct fs_nboot_args *pargs;
-	pargs = fs_board_get_nboot_args();
+
 #ifdef CONFIG_IMX8MM
 	// HOTFIX: Assume rom_pointer[1] == 0x1
-	rI->ramSize = (pargs->dwMemSize + 1) << 20;
+	rI->ramSize = gd->ram_size;
 	// TODO: rom_pointer[1] changes to 0x0, so we would need to save the value from SPL and load it in UBoot
 	//if(rom_pointer[1])
 	//	rI->ramSize += rom_pointer[1];
-	rI->numChips = pargs->dwNumDram;
+	rI->numChips = fs_board_get_cfg_info()->dram_chips;
 	rI->pRamBase = (u64*)CONFIG_SYS_SDRAM_BASE;
 	rI->pUbootBase = (u64*)gd->start_addr_sp;
 #endif
