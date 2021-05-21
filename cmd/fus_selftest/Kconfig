@@ -28,6 +28,9 @@ config CMD_SELFTEST
 	select DM_PMIC_BD71837
 	#select DM_SERIAL
 	select DM_SPI
+	select VIDEO
+	select IMX_SEC_MIPI_DSI
+	select NT35521
 	select CMD_LCD if VIDEO
 	select CMD_DRAW if VIDEO
 	select MXC_SPI

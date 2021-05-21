@@ -20,26 +20,8 @@
 #define BT_PICOCOREMX8MM 	0
 #define BT_PICOCOREMX8MX	1
 
-/* Features set in fs_nboot_args.chFeature2 (available since NBoot VN27) */
-#define FEAT2_8MM_ETH_A  	(1<<0)	/* 0: no LAN0, 1; has LAN0 */
-#define FEAT2_8MM_ETH_B		(1<<1)	/* 0: no LAN1, 1; has LAN1 */
-#define FEAT2_8MM_EMMC   	(1<<2)	/* 0: no eMMC, 1: has eMMC */
-#define FEAT2_8MM_WLAN   	(1<<3)	/* 0: no WLAN, 1: has WLAN */
-#define FEAT2_8MM_HDMICAM	(1<<4)	/* 0: LCD-RGB, 1: HDMI+CAM (PicoMOD) */
-#define FEAT2_8MM_AUDIO   	(1<<5)	/* 0: Codec onboard, 1: Codec extern */
-#define FEAT2_8MM_SPEED   	(1<<6)	/* 0: Full speed, 1: Limited speed */
-#define FEAT2_8MM_LVDS    	(1<<7)	/* 0: MIPI DSI, 1: LVDS */
-#define FEAT2_8MM_ETH_MASK 	(FEAT2_8MM_ETH_A | FEAT2_8MM_ETH_B)
-
-#define FEAT2_8MX_DDR3L_X2 	(1<<0)	/* 0: DDR3L x1, 1; DDR3L x2 */
-#define FEAT2_8MX_NAND_EMMC	(1<<1)	/* 0: NAND, 1: has eMMC */
-#define FEAT2_8MX_CAN		(1<<2)	/* 0: no CAN, 1: has CAN */
-#define FEAT2_8MX_SEC_CHIP	(1<<3)	/* 0: no Security Chip, 1: has Security Chip */
-#define FEAT2_8MX_AUDIO 	(1<<4)	/* 0: no Audio, 1: Audio */
-#define FEAT2_8MX_EXT_RTC   	(1<<5)	/* 0: internal RTC, 1: external RTC */
-#define FEAT2_8MX_LVDS   	(1<<6)	/* 0: MIPI DSI, 1: LVDS */
-#define FEAT2_8MX_ETH   	(1<<7)	/* 0: no LAN, 1; has LAN */
-
+#define FEAT_LVDS	(1<<8)
+#define FEAT_MIPI_DSI	(1<<9)
 
 #ifdef CONFIG_VIDEO_MXS
 
@@ -58,9 +40,9 @@ static iomux_v3_cfg_t const bl_on_pads[] = {
 static iomux_v3_cfg_t const vlcd_on_8mm_pads[] = {
 	IMX8MM_PAD_SAI3_RXFS_GPIO4_IO28 | MUX_PAD_CTRL(NO_PAD_CTRL),
 };
-#define LVDS_RST_8MM_PAD IMX_GPIO_NR(1, 13)
+#define LVDS_RST_8MM_PAD IMX_GPIO_NR(4, 31)
 static iomux_v3_cfg_t const lvds_rst_8mm_pads[] = {
-	IMX8MM_PAD_GPIO1_IO13_GPIO1_IO13 | MUX_PAD_CTRL(NO_PAD_CTRL),
+	IMX8MM_PAD_SAI3_TXFS_GPIO4_IO31 | MUX_PAD_CTRL(NO_PAD_CTRL),
 };
 
 #define LVDS_CLK_8MM_PAD IMX_GPIO_NR(1, 15)
@@ -421,52 +403,12 @@ struct mipi_dsi_client_dev g050tan01_dev = {
 
 int detect_tc358764(struct display_info_t const *dev)
 {
-	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
-	unsigned int features2;
-
-	features2 = pargs->chFeatures2;
-
-	/* if LVDS controller is equipped  */
-	switch (fs_board_get_type()) 
-	{
-	case BT_PICOCOREMX8MM:
-		if(features2 & FEAT2_8MM_LVDS){
-			return 1;
-		}
-		break;
-	case BT_PICOCOREMX8MX:
-		if(features2 & FEAT2_8MX_LVDS){
-			return 1;
-		}
-		break;
-	}
-
-	return 0;
+	return (fs_board_get_features() & FEAT_LVDS) ? 1 : 0;
 }
 
 int detect_mipi_disp(struct display_info_t const *dev)
 {
-	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
-	unsigned int features2;
-
-	features2 = pargs->chFeatures2;
-  
-	/* if LVDS controller is equipped  */
-	switch (fs_board_get_type()) 
-	{
-	case BT_PICOCOREMX8MM:
-		if(features2 & FEAT2_8MM_LVDS) {
-			return 0;
-		}
-		break;
-	case BT_PICOCOREMX8MX:
-		if(features2 & FEAT2_8MX_LVDS) {
-			return 0;
-		}
-		break;
-	}
-
-	return 1;
+	return (fs_board_get_features() & FEAT_MIPI_DSI) ? 1 : 0;
 }
 
 static struct mipi_dsi_client_driver tc358764_drv = {
