@@ -64,7 +64,8 @@
 #define BT_GAR1       4
 #define BT_PICOCOMA7  5
 #define BT_PCOREMX6UL 6
-#define BT_GAR2		  8
+#define BT_GAR2	      8
+#define BT_GAR3	      10
 
 /* Features set in fs_nboot_args.chFeature2 (available since NBoot VN27) */
 #define FEAT2_ETH_A   (1<<0)		/* 0: no LAN0, 1; has LAN0 */
@@ -148,7 +149,7 @@
 #define INSTALL_DEF INSTALL_RAM
 #endif
 
-const struct fs_board_info board_info[9] = {
+const struct fs_board_info board_info[11] = {
 	{	/* 0 (BT_EFUSA7UL) */
 		.name = "efusA7UL",
 		.bootdelay = "3",
@@ -272,6 +273,24 @@ const struct fs_board_info board_info[9] = {
 		.kernel = ".kernel_nand",
 		.fdt = ".fdt_nand",
 	},
+	{	/* 9 (unknown) */
+		.name = "unknown",
+	},
+	{	/* 10 (BT_GAR3) */
+		.name = "GAR3",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = ".init_init",
+		.rootfs = ".rootfs_ubifs",
+		.kernel = ".kernel_nand",
+		.fdt = ".fdt_nand",
+	},
 };
 
 /* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
@@ -304,6 +323,7 @@ int board_early_init_f(void)
 	{
 	case BT_GAR1:
 	case BT_GAR2:
+	case BT_GAR3:
 		SETUP_IOMUX_PADS(gar1_led_pads);
 		gpio_direction_input(IMX_GPIO_NR(3, 5));
 		gpio_direction_input(IMX_GPIO_NR(3, 6));
@@ -358,7 +378,7 @@ int checkboard(void)
 		pargs->chFeatures2 = FEAT2_DEFAULT;
 	}
 	features2 = pargs->chFeatures2;
-	if (board_type == BT_GAR2)
+	if (board_type == BT_GAR2 || board_type == BT_GAR3)
 		features2 |= (FEAT2_ETH_A | FEAT2_ETH_B);
 
 	printf("Board: %s Rev %u.%02u (", board_info[board_type].name,
@@ -906,6 +926,7 @@ static void setup_lcd_pads(int on)
 	case BT_CUBE2_0:
 	case BT_GAR1:
 	case BT_GAR2:
+	case BT_GAR3:
 	default:
 		break;
 	}
@@ -1198,6 +1219,7 @@ int board_ehci_hcd_init(int index)
 			break;
 		case BT_GAR1:	/* PWR active high */
 		case BT_GAR2:
+		case BT_GAR3:   /* J16 - PWR achtive high, J2 always high */
 			cfg.pwr_pad = usb_otg1_pwr_pad_gar1;
 #ifndef CONFIG_FS_USB_PWR_USBNC
 			cfg.pwr_gpio = IMX_GPIO_NR(2, 16);
@@ -1249,6 +1271,7 @@ int board_ehci_hcd_init(int index)
 			break;
 		case BT_GAR1:
 		case BT_GAR2:
+		case BT_GAR3:
 			cfg.pwr_pad = usb_otg2_pwr_pad_gar1;
 #ifndef CONFIG_FS_USB_PWR_USBNC
 			cfg.pwr_gpio = IMX_GPIO_NR(2, 19);
@@ -1490,7 +1513,7 @@ int board_eth_init(bd_t *bis)
 	int id = 0;
 
 	/* Always 2 ETH ports on GAR2, no matter how FEAT2_ETH_A/B are set */
-	if (board_type == BT_GAR2)
+	if (board_type == BT_GAR2 || board_type == BT_GAR3)
 		features2 |= (FEAT2_ETH_A | FEAT2_ETH_B);
 
 	/* Ungate ENET clock, this is a common clock for both ports */
@@ -1540,7 +1563,8 @@ int board_eth_init(bd_t *bis)
 		}
 
 		if ((board_type == BT_PICOCOM1_2) || (board_type == BT_GAR1)
-		    || (board_type == BT_GAR2) || (board_type == BT_PICOCOMA7))
+		    || (board_type == BT_GAR2) || (board_type == BT_PICOCOMA7)
+		    || (board_type == BT_GAR3))
 			phy_addr_a = 1;
 		else
 			phy_addr_a = 0;
@@ -1617,6 +1641,7 @@ int board_eth_init(bd_t *bis)
 		break;
 
 	case BT_GAR2:
+	case BT_GAR3:
 		/* Two DP83484 PHYs with separate reset signals plus switch
 		   chip; see comment above for timing considerations */
 		SETUP_IOMUX_PADS(enet_pads_reset_gar2);
@@ -1689,7 +1714,7 @@ int board_eth_init(bd_t *bis)
 				return -ENOMEM;
 		}
 
-		if (board_type == BT_GAR2)
+		if (board_type == BT_GAR2 || board_type == BT_GAR3)
 			ret = mv88e61xx_init(bis, bus, id);
 		else {
 			phydev = phy_find_by_mask(bus, 1 << phy_addr_b,
@@ -1839,7 +1864,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	unsigned int board_rev = fs_board_get_rev();
 	unsigned int features2 = pargs->chFeatures2;
 
-	if (board_type == BT_GAR2)
+	if (board_type == BT_GAR2 || board_type == BT_GAR3)
 		features2 |= (FEAT2_ETH_A | FEAT2_ETH_B);
 
 	printf("   Setting run-time properties\n");
