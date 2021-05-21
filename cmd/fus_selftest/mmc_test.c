@@ -57,9 +57,12 @@ int test_mmc(char * szStrBuffer){
 		if (fdt_get_property(fdt, node, "is-sdcard", NULL))
 			printf("SD card ..............");
 		else if (fdt_get_property(fdt, node, "is-emmc", NULL))
-			printf("EMMC .................");
+			if (has_feature(FEAT_EMMC))
+				printf("EMMC .................");
+			else
+				continue;
 		else if (fdt_get_property(fdt, node, "is-wlan", NULL))
-			if (wlan_present())
+			if (has_feature(FEAT_WLAN))
 				printf("WLAN .................");
 			else
 				continue;

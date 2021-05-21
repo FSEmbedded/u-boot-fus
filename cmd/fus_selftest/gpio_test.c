@@ -160,7 +160,15 @@ int test_gpio(int uclass, char *szStrBuffer)
 
 		/* CAN / mcp251x */
 		if (dev_read_bool(dev, "can-spi-mcp251x")) {
-			if (can_present()) {
+			if (has_feature(FEAT_CAN)) {
+				port++;
+				continue;
+			}
+		}
+
+		/* WLAN / mcp251x */
+		if (dev_read_bool(dev, "is-wlan")) {
+			if (has_feature(FEAT_WLAN)) {
 				port++;
 				continue;
 			}
@@ -169,7 +177,7 @@ int test_gpio(int uclass, char *szStrBuffer)
 		/* AUDIO / sgtl5000 */
 		sgtl_node = dev_read_subnode(dev, "sgtl5000");
 		if (sgtl_node.of_offset >= 0) {
-			if (audio_present()) {
+			if (has_feature(FEAT_SGTL5000)) {
 				port++;
 				continue;
 			}

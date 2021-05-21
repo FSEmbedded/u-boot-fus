@@ -95,19 +95,21 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	get_processorInfo();
 
-	ret = test_rtc_start();
-#ifdef CONFIG_VIDEO
+	if (has_feature(FEAT_RTC85263))
+		ret = test_rtc_start();
+
 	ret = test_display(szStrBuffer);
-#endif
-#ifdef CONFIG_ENV_IS_IN_NAND
-	ret = test_nand(szStrBuffer);
-#endif
+
+	if (has_feature(FEAT_NAND))
+		ret = test_nand(szStrBuffer);
+
 	ret = test_mmc(szStrBuffer);
 
-	if (can_present())
+	if (has_feature(FEAT_CAN))
 		ret = test_can(szStrBuffer);
 
-	if (sec_present())
+
+	if (has_feature(FEAT_SEC_CHIP))
 		ret = test_sec(szStrBuffer);
 
 	ret = test_pwm(szStrBuffer);
@@ -118,7 +120,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	ret = test_led(szStrBuffer);
 
-	ret = test_eeprom(szStrBuffer);
+	if (has_feature(FEAT_EEPROM))
+		ret = test_eeprom(szStrBuffer);
 
 	ret = test_USBHost(szStrBuffer);
 
@@ -126,7 +129,7 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	ret = test_serial(szStrBuffer);
 
-	if (audio_present())
+	if (has_feature(FEAT_SGTL5000))
 		ret = test_audio(szStrBuffer);
 
 	ret = test_gpio(UCLASS_SPI, szStrBuffer);
@@ -139,7 +142,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	ret = test_pmic(szStrBuffer);
 
-	ret = test_rtc_end(szStrBuffer);
+	if (has_feature(FEAT_RTC85263))
+		ret = test_rtc_end(szStrBuffer);
 
 	ret = test_ram(szStrBuffer);
 
