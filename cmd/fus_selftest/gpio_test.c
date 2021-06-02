@@ -120,13 +120,53 @@ static u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 	return failmask;
 }
 
+int test_gpio_dev(struct udevice *dev, u32 *failmask)
+{
+	int i;
+	struct gpio_desc *in_gpios, *out_gpios;
+
+	/* Init failmask */
+	*failmask = 0;
+
+	/* Get both GPIO-Lists (in-pins,in-gpios & out-pins,out-gpios) */
+	if (get_gpio_lists(dev, &in_gpios, &out_gpios))
+		return size;
+
+	/* Initialize and request the GPIOs */
+	if (init_gpios(dev, in_gpios, INPUT) || init_gpios(dev, out_gpios, OUTPUT))
+		return size;
+
+	/* Mark that at least one device of the driver has a gpio-test-config */
+	if (size > 0) {
+		/* Set IOMUX to gpiotest */
+		pinctrl_select_state(dev,"gpiotest");
+
+		/* Test every GPIO-Bit    */
+		/* Active High: 001, 010, 100 */
+		for (i = 0; i < size; i++) {
+			set_test_bit(out_gpios, i, 1);
+			*failmask |= cmp_test_bit(in_gpios, i, 1);
+		}
+		/* Active Low: 110, 101, 011 */
+		for (i = 0; i < size; i++) {
+			set_test_bit(out_gpios, i, 0);
+			*failmask |= cmp_test_bit(in_gpios, i, 0);
+		}
+
+		/* Free GPIOs */
+		free_gpios(dev, in_gpios);
+		free_gpios(dev, out_gpios);
+	}
+
+	return size;
+}
+
 // main functions
 
 int test_gpio(int uclass, char *szStrBuffer)
 {
 	struct udevice *dev;
 	int port, gpio_exists, failed, first_pins, i;
-	struct gpio_desc *in_gpios, *out_gpios;
 	const char *in_label, *out_label;
 	char *device_name;
 
@@ -175,37 +215,9 @@ int test_gpio(int uclass, char *szStrBuffer)
 			}
 		}
 
-		/* Get both GPIO-Lists (in-pins,in-gpios & out-pins,out-gpios) */
-		if (get_gpio_lists(dev, &in_gpios, &out_gpios)) {
-			port++;
-			continue;
-		}
-
-		/* Initialize and request the GPIOs */
-		if (init_gpios(dev, in_gpios, INPUT) || init_gpios(dev, out_gpios, OUTPUT)) {
-			port++;
-			continue;
-		}
-
-		/* Mark that at least one device of the driver has a gpio-test-config */
-		if (size > 0) {
+		/* If a size is returned, gpios exists */
+		if(test_gpio_dev(dev, &failmask))
 			gpio_exists = 1;
-
-			/* Set IOMUX to gpiotest */
-			pinctrl_select_state(dev,"gpiotest");
-		}
-
-		/* Test every GPIO-Bit    */
-		/* Active High: 001, 010, 100 */
-		for (i = 0; i < size; i++) {
-			set_test_bit(out_gpios, i, 1);
-			failmask |= cmp_test_bit(in_gpios, i, 1);
-		}
-		/* Active Low: 110, 101, 011 */
-		for (i = 0; i < size; i++) {
-			set_test_bit(out_gpios, i, 0);
-			failmask |= cmp_test_bit(in_gpios, i, 0);
-		}
 
 		if (failmask)
 				failed = 1;
@@ -223,10 +235,6 @@ int test_gpio(int uclass, char *szStrBuffer)
 				failmask &= ~(1 << i);
 			}
 		}
-
-		/* Free GPIOs */
-		free_gpios(dev, in_gpios);
-		free_gpios(dev, out_gpios);
 
 		port++;
 	}

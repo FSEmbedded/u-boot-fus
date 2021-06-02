@@ -18,7 +18,7 @@
 #include "serial_test_dm.h"
 #endif
 #include "selftest.h"
-
+#include "gpio_test.h"
 #define TIMEOUT 1 // ms (1 sec)
 
 #define OUTPUT 0
@@ -158,7 +158,9 @@ int test_serial(char *szStrBuffer)
 	int node;
 	int ret = 0, msec = 0;
 	int mismatch = 0;
-
+	const char *in_label, *out_label;
+	int gpio_exists, failed, first_pins, i;
+	u32 failmask;
 	ret = init_uart();
 
 	// Seed the current time to achieve a better pseudo randomizer
@@ -176,6 +178,11 @@ int test_serial(char *szStrBuffer)
 		return 1;
 
 	uclass_foreach_dev(dev, uc) {
+
+		failmask = 0;
+		gpio_exists = 0;
+		failed = 0;
+		first_pins  = 1;
 
 		ret = 0;
 		/* Clear reason-string */
@@ -251,6 +258,40 @@ int test_serial(char *szStrBuffer)
 			ret = 1;
 		}
 		test_OkOrFail(ret, 1, szStrBuffer);
+
+		/* Test RTS/CTS */
+		/* If a size is returned, gpios exists */
+
+		/* Clear reason-string */
+		szStrBuffer[0] = '\0';
+
+		if(test_gpio_dev(dev, &failmask))
+			gpio_exists = 1;
+
+		if (failmask)
+				failed = 1;
+
+		for (i = 0; failmask; i++) {
+			if (failmask & (1 << i)) {
+				dev_read_string_index(dev, "in-pins", i, &in_label);
+				dev_read_string_index(dev, "out-pins", i, &out_label);
+				if (first_pins) {
+					first_pins = 0;
+					sprintf(szStrBuffer + strlen(szStrBuffer),"%s->%s", out_label, in_label);
+				}
+				else
+					sprintf(szStrBuffer + strlen(szStrBuffer),", %s->%s", out_label, in_label);
+				failmask &= ~(1 << i);
+			}
+		}
+
+		if (gpio_exists) {
+			printf("  RTS/CTS.............");
+			if (failed)
+				test_OkOrFail(-1, 1, szStrBuffer);
+			else
+				test_OkOrFail(0, 1, NULL);
+		}
 	}
 	return 0;
 }

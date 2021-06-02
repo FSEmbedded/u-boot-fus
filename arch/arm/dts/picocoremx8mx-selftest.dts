@@ -572,22 +572,34 @@
 
 #ifdef CONFIG_PICOCOREMX8MX_UART_A
 &uart1 { /* console */
-	pinctrl-names = "default", "mute";
+	pinctrl-names = "default", "mute", "gpiotest";
 	pinctrl-0 = <&pinctrl_uart1>;
 	pinctrl-1 = <&pinctrl_uart1_gpio>;
+	pinctrl-2 = <&pinctrl_uart1_testgpio>;
 	status = "okay";
 	port-name="uart1";
 	debug-port;
+
+	out-pins = "UART_A_CTS";
+	out-gpios = <&gpio4 23 0>;
+	in-pins = "UART_A_RTS";
+	in-gpios = <&gpio4 24 0>;
 };
 #endif
 
 #ifdef CONFIG_PICOCOREMX8MX_UART_B
 &uart2 { /* console */
-	pinctrl-names = "default", "mute";
+	pinctrl-names = "default", "mute", "gpiotest";
 	pinctrl-0 = <&pinctrl_uart2>;
 	pinctrl-1 = <&pinctrl_uart2_gpio>;
+	pinctrl-2 = <&pinctrl_uart2_testgpio>;
 	status = "okay";
 	port-name="uart2";
+
+	out-pins = "UART_B_CTS";
+	out-gpios = <&gpio4 30 0>;
+	in-pins = "UART_B_RTS";
+	in-gpios = <&gpio4 29 0>;
 };
 #endif
 
@@ -911,6 +923,14 @@
 				MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22			0x00149
 			>;
 		};
+
+		pinctrl_uart1_testgpio: uart1testgpiogrp {
+			fsl,pins = <
+				/* UART_A_CTS -> UART_A_RTS */
+				MX8MM_IOMUXC_SAI2_RXD0_GPIO4_IO23			0x400001c3
+				MX8MM_IOMUXC_SAI2_TXFS_GPIO4_IO24			0x00029
+			>;
+		};
 #endif
 
 #ifdef CONFIG_PICOCOREMX8MX_UART_B
@@ -925,6 +945,14 @@
 			fsl,pins = <
 				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0				0x00149
 				MX8MM_IOMUXC_SAI3_TXFS_GPIO4_IO31			0x00149
+			>;
+		};
+
+		pinctrl_uart2_testgpio: uart2testgpiogrp {
+			fsl,pins = <
+				/* UART_B_CTS -> UART_B_RTS */
+				MX8MM_IOMUXC_SAI3_RXD_GPIO4_IO30			0x400001c3
+				MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29			0x00029
 			>;
 		};
 #endif
