@@ -38,7 +38,7 @@
 #include "processor_info.h"
 
 
-static char szStrBuffer[70];
+static char szStrBuffer[256];
 
 static int selftest_common(enum proto_t, cmd_tbl_t *, int, char * const []);
 
