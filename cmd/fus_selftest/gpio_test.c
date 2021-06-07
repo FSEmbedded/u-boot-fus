@@ -206,6 +206,22 @@ int test_gpio(int uclass, char *szStrBuffer)
 			}
 		}
 
+		/* MIPI */
+		if (dev_read_bool(dev, "mipi-gpios-only")) {
+			if (lvds_present()) {
+				port++;
+				continue;
+			}
+		}
+
+		/* LVDS */
+		if (dev_read_bool(dev, "lvds-gpios-only")) {
+			if (!lvds_present()) {
+				port++;
+				continue;
+			}
+		}
+
 		/* AUDIO / sgtl5000 */
 		sgtl_node = dev_read_subnode(dev, "sgtl5000");
 		if (sgtl_node.of_offset >= 0) {

@@ -10,6 +10,7 @@
 
 int audio_present(void);
 int can_present(void);
+int lvds_present(void);
 int sec_present(void);
 int wlan_present(void);
 

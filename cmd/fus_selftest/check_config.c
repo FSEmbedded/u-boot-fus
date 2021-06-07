@@ -80,6 +80,26 @@ int can_present(){
 	return ret;
 }
 
+int lvds_present(){
+	int ret = 0;
+	struct fs_nboot_args *pargs = fs_board_get_nboot_args ();
+
+	switch (fs_board_get_type())
+	{
+#ifdef CONFIG_IMX8MM
+	case BT_PICOCOREMX8MM:
+		if(pargs->chFeatures2 & FEAT2_8MM_LVDS)
+			ret = 1;
+		break;
+	case BT_PICOCOREMX8MX:
+		if(pargs->chFeatures2 & FEAT2_8MX_LVDS)
+			ret = 1;
+		break;
+#endif
+	}
+	return ret;
+}
+
 int sec_present(){
 	int ret = 0;
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args ();
