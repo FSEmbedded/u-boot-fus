@@ -90,8 +90,9 @@ int test_mmc(char * szStrBuffer){
 			 * initializes some power settings. So we always check for MMC and SD
 			 * first, even if we know its SDIO
 			 */
+			mute_debug_port(1);
 			err = sdio_init(mmc, &uiManfid);
-
+			mute_debug_port(0);
 			if (!err){
 
 				if( 0x97 == uiManfid )
