@@ -28,16 +28,20 @@ int test_sec(char *szStrBuffer){
 		return 1;
 
 	uclass_foreach_dev(dev, uc) {
-
 		subnode = dev_read_subnode(dev, "sec050");
 
 		if (subnode.of_offset < 0)
 			continue;
 
 		printf("SEC_CHIP..............");
+
 		ofnode_read_u32(subnode, "reg", &reg);
 
+		/* Probe chip to set enable gpio */
+		ret = i2c_get_chip(dev, reg, 1, &devp);
+
 	  	ret = dm_i2c_probe(dev,reg,0x0,&devp);
+
 		if (ret){
 			sprintf(szStrBuffer, "Device not found");
 		}

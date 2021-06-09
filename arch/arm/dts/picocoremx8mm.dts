@@ -471,8 +471,14 @@ config {
 		reg = <0x0a>;
 		status = "okay";
 	};
+
 	/* Security Chip */
 	sec050: sec050@48 {
+		compatible = "i2c-generic-probe";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_sec050>;
+   		enable-gpio = <&gpio5 1 GPIO_ACTIVE_HIGH>;
+
 		reg = <0x48>;
 		status = "okay";
 	};
@@ -809,6 +815,12 @@ config {
 			fsl,pins = <
 				MX8MM_IOMUXC_I2C4_SCL_GPIO5_IO20			0x119
 				MX8MM_IOMUXC_I2C4_SDA_GPIO5_IO21			0x119
+			>;
+		};
+
+		pinctrl_sec050: sec050grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_SAI3_TXD_GPIO5_IO1	0x00041
 			>;
 		};
 

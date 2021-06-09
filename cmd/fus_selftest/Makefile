@@ -41,6 +41,7 @@ obj-$(CONFIG_CMD_SELFTEST) += common/canfdspi/mcp251x.o
 obj-$(CONFIG_CMD_SELFTEST) += common/pcf85063tp.o
 obj-$(CONFIG_CMD_SELFTEST) += common/pcf85263atl.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fus_sai.o
+obj-$(CONFIG_CMD_SELFTEST) += common/i2c_generic_probe.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fsl_sgtl5000.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fsl_spi_dummy.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fus_sdio.o
