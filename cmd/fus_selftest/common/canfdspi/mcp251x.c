@@ -166,7 +166,7 @@ int TEST_TransmitMessage_8byte(uint8_t *txd, uint32_t can_id)
 }
 int TEST_ReceiveMessage(uint8_t *rxd, int size)
 {
-	uint32_t attempts = 10000;
+	uint32_t attempts = 100000;
 
 	 do {
     	// Check if FIFO is not empty

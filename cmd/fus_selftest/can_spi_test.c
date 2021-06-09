@@ -66,7 +66,7 @@ int test_can(char * szStrBuffer){
 			err = can_id;
 
 			if (err < 0) {
-				sprintf(szStrBuffer,"CAN revice failed");
+				sprintf(szStrBuffer,"CAN receive failed");
 				goto error;
 			}
 
