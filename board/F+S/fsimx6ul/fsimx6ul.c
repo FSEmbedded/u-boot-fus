@@ -16,6 +16,7 @@
 #include "../common/fs_eth_common.h"	/* fs_eth_*() */
 #endif
 #include <serial.h>			/* struct serial_device */
+#include <environment.h>
 
 #ifdef CONFIG_FSL_ESDHC
 #include <mmc.h>
@@ -33,6 +34,7 @@
 #include "../common/fs_disp_common.h"	/* struct fs_disp_port, fs_disp_*() */
 #endif
 
+#include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/video.h>
 #include <asm/gpio.h>
 #include <asm/io.h>
@@ -150,6 +152,21 @@
 #define INSTALL_DEF INSTALL_RAM
 #endif
 
+#ifdef CONFIG_ENV_IS_IN_MMC
+#define ROOTFS ".rootfs_mmc"
+#define KERNEL ".kernel_mmc"
+#define FDT ".fdt_mmc"
+#elif CONFIG_ENV_IS_IN_NAND
+#define ROOTFS ".rootfs_ubifs"
+#define KERNEL ".kernel_nand"
+#define FDT ".fdt_nand"
+#else /* Default = Nand */
+#define ROOTFS ".rootfs_ubifs"
+#define KERNEL ".kernel_nand"
+#define FDT ".fdt_nand"
+#endif
+
+
 const struct fs_board_info board_info[13] = {
 	{	/* 0 (BT_EFUSA7UL) */
 		.name = "efusA7UL",
@@ -162,9 +179,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_std",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_nand",
-		.fdt = ".fdt_nand",
+		.flags = 0,
 	},
 	{	/* 1 (BT_CUBEA7UL) */
 		.name = "CubeA7UL",
@@ -177,9 +192,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_ubionly",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_ubifs",
-		.fdt = ".fdt_ubifs",
+		.flags = 0,
 	},
 	{	/* 2 (BT_PICOCOM1_2) */
 		.name = "PicoCOM1.2",
@@ -192,9 +205,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_std",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_nand",
-		.fdt = ".fdt_nand",
+		.flags = 0,
 	},
 	{	/* 3 (BT_CUBE2_0) */
 		.name = "Cube2.0",
@@ -207,9 +218,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_ubionly",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_ubifs",
-		.fdt = ".fdt_ubifs",
+		.flags = 0,
 	},
 	{	/* 4 (BT_GAR1) */
 		.name = "GAR1",
@@ -222,9 +231,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_std",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_nand",
-		.fdt = ".fdt_nand",
+		.flags = 0,
 	},
 	{	/* 5 (PICOCOMA7) */
 		.name = "PicoCOMA7",
@@ -237,9 +244,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_std",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_nand",
-		.fdt = ".fdt_nand",
+		.flags = 0,
 	},
 	{	/* 6 (BT_PCOREMX6UL) */
 		.name = "PicoCoreMX6UL",
@@ -252,9 +257,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_std",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_nand",
-		.fdt = ".fdt_nand",
+		.flags = 0,
 	},
 	{	/* 7 (unknown) */
 		.name = "unknown",
@@ -270,9 +273,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_std",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_nand",
-		.fdt = ".fdt_nand",
+		.flags = 0,
 	},
 	{	/* 9 (unknown) */
 		.name = "unknown",
@@ -294,9 +295,7 @@ const struct fs_board_info board_info[13] = {
 		.mtdparts = ".mtdparts_std",
 		.network = ".network_off",
 		.init = ".init_init",
-		.rootfs = ".rootfs_ubifs",
-		.kernel = ".kernel_nand",
-		.fdt = ".fdt_nand",
+		.flags = 0,
 	},
 };
 
@@ -383,6 +382,30 @@ int board_early_init_f(void)
 #endif
 
 	return 0;
+}
+
+/* Return the appropriate environment depending on the fused boot device */
+enum env_location env_get_location(enum env_operation op, int prio)
+{
+	if (prio == 0) {
+		switch (get_boot_device()) {
+		case NAND_BOOT:
+			return ENVL_NAND;
+		case SD1_BOOT:
+		case SD2_BOOT:
+		case SD3_BOOT:
+		case SD4_BOOT:
+		case MMC1_BOOT:
+		case MMC2_BOOT:
+		case MMC3_BOOT:
+		case MMC4_BOOT:
+			return ENVL_MMC;
+		default:
+			break;
+		}
+	}
+
+	return ENVL_UNKNOWN;
 }
 
 /* Check board type */
@@ -519,6 +542,9 @@ void board_nand_init(void)
 	int reg;
 	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
 	struct mxs_nand_fus_platform_data pdata;
+
+	if (get_boot_device() != NAND_BOOT)
+		return;
 
 	/* config gpmi nand iomux */
 	SETUP_IOMUX_PADS(nfc_pads);

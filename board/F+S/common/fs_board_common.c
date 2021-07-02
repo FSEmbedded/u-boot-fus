@@ -12,10 +12,12 @@
 #include <config.h>
 #include <common.h>			/* types, get_board_name(), ... */
 #include <serial.h>			/* get_serial_device() */
+#include <stdio_dev.h>			/* DEV_NAME_SIZE */
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #include "fs_board_common.h"		/* Own interface */
+#include "fs_mmc_common.h"
 
 /* ------------------------------------------------------------------------- */
 
@@ -254,6 +256,16 @@ void fs_board_late_init_common(void)
 {
 	const char *envvar;
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
+#ifdef CONFIG_FS_MMC_COMMON
+	int usdhc_boot_device = get_usdhc_boot_device();
+	int mmc_boot_device = get_mmc_boot_device();
+#else // support FSVYBRID
+	int usdhc_boot_device = 0;
+	int mmc_boot_device = 0;
+#endif
+	bool is_nand = (get_boot_device() == NAND_BOOT);
+	const char *bd_kernel, *bd_fdt, *bd_rootfs;
+	char var_name[20];
 
 	/* Set sercon variable if not already set */
 	envvar = env_get("sercon");
@@ -335,6 +347,24 @@ void fs_board_late_init_common(void)
 		env_set("platform", lcasename);
 	}
 
+	/* Set usdhcdev variable if not already set */
+	envvar = env_get("usdhcdev");
+	if (!envvar || !strcmp(envvar, "undef")) {
+		char usdhcdev[DEV_NAME_SIZE];
+
+		sprintf(usdhcdev, "%c", '0' + usdhc_boot_device);
+		env_set("usdhcdev", usdhcdev);
+	}
+
+	/* Set mmcdev variable if not already set */
+	envvar = env_get("mmcdev");
+	if (!envvar || !strcmp(envvar, "undef")) {
+		char mmcdev[DEV_NAME_SIZE];
+
+		sprintf(mmcdev, "%c", '0' + mmc_boot_device);
+		env_set("mmcdev", mmcdev);
+	}
+
 	/* Set some variables with a direct value */
 	setup_var("bootdelay", current_bi->bootdelay, 0);
 	setup_var("updatecheck", current_bi->updatecheck, 0);
@@ -347,6 +377,22 @@ void fs_board_late_init_common(void)
 #else
 	setup_var("mode", "rw", 0);
 #endif
+	/* Set boot devices for kernel, device tree and rootfs */
+	if (is_nand) {
+		bd_rootfs = "ubifs";
+		if (current_bi->flags & BI_FLAGS_UBIONLY)
+			bd_kernel = bd_rootfs;
+		else
+			bd_kernel = "nand";
+		bd_fdt = bd_kernel;
+	} else {
+		bd_kernel = "mmc";
+		bd_fdt = bd_kernel;
+		bd_rootfs = bd_kernel;
+	}
+	setup_var("bd_kernel", bd_kernel, 0);
+	setup_var("bd_fdt", bd_fdt, 0);
+	setup_var("bd_rootfs", bd_rootfs, 0);
 
 	/* Set some variables by runnning another variable */
 	setup_var("console", current_bi->console, 1);
@@ -354,11 +400,16 @@ void fs_board_late_init_common(void)
 	setup_var("mtdparts", current_bi->mtdparts, 1);
 	setup_var("network", current_bi->network, 1);
 	setup_var("init", current_bi->init, 1);
-	setup_var("rootfs", current_bi->rootfs, 1);
-	setup_var("kernel", current_bi->kernel, 1);
 	setup_var("bootfdt", "set_bootfdt", 1);
-	setup_var("fdt", current_bi->fdt, 1);
 	setup_var("bootargs", "set_bootargs", 1);
+
+	/* Set some variables by runnning another variable */
+	sprintf(var_name, ".kernel_%s", bd_kernel);
+	setup_var("kernel", var_name, 1);
+	sprintf(var_name, ".fdt_%s", bd_fdt);
+	setup_var("fdt", var_name, 1);
+	sprintf(var_name, ".rootfs_%s", bd_rootfs);
+	setup_var("rootfs", var_name, 1);
 }
 #endif /* CONFIG_BOARD_LATE_INIT */
 
