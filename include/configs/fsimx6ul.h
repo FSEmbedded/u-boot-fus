@@ -49,14 +49,15 @@
  * BOOTPARTITION1
  * 0x0000_0000 - 0x0000_FFFF: NBoot: NBoot image, primary copy (64KB)
  * 0x0001_0000 - 0x0001_FFFF: NBoot: NBoot image, secondary copy (64KB)
- * 0x0002_0000 - 0x0005_FFFF: M4: M4 image (256KB)
- * 0x0006_0000 - 0x0007_FFFF: UBootEnv: U-Boot environment (128KB)
- * 0x0008_0000 - 0x000F_FFFF: UBoot: U-Boot image (512KB)
- * USER AREA
- * 0x0000_0000 - 0x0000_43FF: GPT: Linux Kernel zImage (34 * 512B)
- * 0x0010_0000 - 0x01FF_FFFF: System: System Partition (Kernel + FDT) (31MB)
- * 0x0200_0000 - (End of RootFS): TargetFS: Root filesystem (Size)
- * (end of rootfs) -         END: Data: Data filesystem for user
+ * 0x0002_0000 - 0x0002_1FFF: NBoot: NBoot configuration (4KB)
+ * 0x0002_2000 - 0x0005_FFFF: M4: M4 image (248KB)
+ * 0x0010_0000 - 0x0010_3FFF: UBootEnv (16KB)
+ * 0x0010_4000 - 0x0010_7FFF: UBootEnvRed (16KB)
+ *
+ * User HW partition only:
+ * 0x0020_0000: UBoot_A (3MB)              nboot-info: mmc-u-boot[0]
+ * 0x0050_0000: UBoot_B (3MB)              nboot-info: mmc-u-boot[1]
+ * 0x0080_0000: Regular filesystem partitions (Kernel, TargetFS, etc)
  */
 
 #ifndef __FSIMX6UL_CONFIG_H
@@ -363,10 +364,10 @@
  ************************************************************************/
 /* Environment settings for large blocks (128KB). The environment is held in
    the heap, so keep the real env size small to not waste malloc space. */
-#define CONFIG_ENV_SIZE		0x00002000	/* 16KB */
+#define CONFIG_ENV_SIZE		0x00004000	/* 16KB */
 #define CONFIG_ENV_OVERWRITE			/* Allow overwriting ethaddr */
 
-#define CONFIG_ENV_MMC_OFFSET	0x00060000	/* See MMC layout above */
+#define CONFIG_ENV_MMC_OFFSET	0x000100000	/* See MMC layout above */
 
 #define CONFIG_ENV_NAND_RANGE	0x00040000	/* 2 blocks = 256KB */
 #define CONFIG_ENV_NAND_OFFSET	0x00200000	/* See NAND layout above */
