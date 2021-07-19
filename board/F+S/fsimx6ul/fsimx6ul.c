@@ -1052,6 +1052,7 @@ void board_display_set_power(int port, int on)
 {
 	static unsigned int vlcd_users;
 	unsigned int gpio;
+	unsigned int value = on;
 
 	switch (fs_board_get_type()) {
 	case BT_EFUSA7UL:		/* VLCD_ON is active high */
@@ -1059,8 +1060,9 @@ void board_display_set_power(int port, int on)
 		gpio = IMX_GPIO_NR(5, 4);
 		break;
 
-	case BT_PICOCOMA7:		/* VLCD_ON is active high */
+	case BT_PICOCOMA7:		/* VLCD_ON is active low*/
 		gpio = IMX_GPIO_NR(3, 25);
+		value = !on;
 		break;
 
 	case BT_PCOREMX6UL:		/* VLCD_ON is active high */
@@ -1079,7 +1081,7 @@ void board_display_set_power(int port, int on)
 			setup_lcd_pads(0);
 	}
 	if (!vlcd_users) {
-		gpio_direction_output(gpio, on);
+		gpio_direction_output(gpio, value);
 		if (on)
 			mdelay(1);
 	}
@@ -1410,9 +1412,7 @@ int board_ehci_hcd_init(int index)
 			break;
 		case BT_PICOCOMA7:
 			cfg.pwr_pad = usb_otg2_pwr_pad_picocoma7;
-#ifndef CONFIG_FS_USB_PWR_USBNC
 			cfg.pwr_gpio = IMX_GPIO_NR(1, 28);
-#endif
 			break;
 		case BT_CUBEA7UL:
 		case BT_CUBE2_0:
@@ -1737,7 +1737,7 @@ int board_eth_init(bd_t *bis)
 		else
 			phy_addr_a = 0;
 
-		if (board_type == BT_GAR1)
+		if (board_type == BT_GAR1 || (board_type == BT_PICOCOMA7 && board_rev >= 100))
 			phy_addr_b = 17;
 		else
 			phy_addr_b = 3;
