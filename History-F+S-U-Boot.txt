@@ -1,6 +1,24 @@
 History of Changes for U-Boot on F&S Boards and Modules
 -------------------------------------------------------
 
+u-boot-2018.03-fsimx6ul-B2019.11.1 (03.08.2021)
+-----------------------------------------------
+Supported boards: efusA7UL, PicoCOM1.2, PicoCoreMX6UL, PicoCoreMX6UL100,
+                  PicoCOMA7
+Not tested:       armStoneA9, armStoneA9r2, efusA9, PicoMODA9, NetDCUA9,
+                  QBlissA9, QBlissA9r2, efusA9X, PicoCOMA9X, PicoCoreMX6SX,
+                  CONT1, CUBEA5, armStoneA5, NetDCUA5, PicoCOMA5, AGATEWAY,
+                  HGATEWAY, GAR1, GAR2, CubeA7UL, Cube2.0
+
+- Add support for picocoremx6ul100
+- Add support for same defconfig independent from boot device
+- Setup new layout which matches with future target
+- Add support for command fsimage
+- Improve PicoCOMA7 lcd and usb setup
+- Improve iomuxc support and emmc support for fsimx6ul
+
+
+
 u-boot-2018.03-fsimx6ul-B2019.11 (15.11.2019)
 ---------------------------------------------
 Supported boards: efusA7UL, PicoCOM1.2, PicoCoreMX6UL, GAR1, GAR2,
