@@ -47,12 +47,17 @@
 	};
 
 	relay: relay {
-		compatible = "fus,test-relay";
+		compatible = "fus,test-gpio";
 		status = "disabled";
 	};
 
 	led: led {
-		compatible = "fus,test-led";
+		compatible = "fus,test-gpio";
+		status = "disabled";
+	};
+
+	mount_option: mount_option {
+		compatible = "fus,test-gpio";
 		status = "disabled";
 	};
 
@@ -344,6 +349,16 @@ pmic: bd71837@4b {
 	status = "okay";
 };
 
+&mount_option {
+	pinctrl-names = "mntgpio";
+	pinctrl-0 = <&pinctrl_mnt_gpio>;
+	in-pins-mnt = "RS485/232";
+	in-gpios-mnt = <&gpio1 7 0>;
+	in-high-mnt = "RS485";
+	in-low-mnt = "RS232";
+	status = "okay";
+};
+
 /* micro SD */
 &usdhc1 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
@@ -562,6 +577,13 @@ pmic: bd71837@4b {
 				MX8MM_IOMUXC_SAI2_MCLK_GPIO4_IO27		0x00029
 				/* LEDSTATUS_Test */
 				MX8MM_IOMUXC_SAI3_RXD_GPIO4_IO30		0x00029
+			>;
+		};
+
+		pinctrl_mnt_gpio: mntgpiogrp {
+			fsl,pins = <
+				/* RS485/232 */
+				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7		0x00029
 			>;
 		};
 

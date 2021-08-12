@@ -19,6 +19,7 @@
 #include "dram_test.h"
 #include "relay_test.h"
 #include "led_test.h"
+#include "mnt_opt_test.h"
 #include "gpio_test.h"
 #include "usb_test.h"
 #ifdef CONFIG_ENV_IS_IN_NAND
@@ -117,6 +118,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	ret = test_relay(szStrBuffer);
 
 	ret = test_led(szStrBuffer);
+
+	ret = test_mnt_opt(szStrBuffer);
 
 	ret = test_eeprom(szStrBuffer);
 
