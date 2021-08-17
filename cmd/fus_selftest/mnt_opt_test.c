@@ -77,7 +77,8 @@ int test_mnt_opt(char *szStrBuffer)
 {
 	struct udevice *dev;
 	struct uclass *uc;
-	int gpio_exists, first_pins, i;
+	int gpio_exists, failed, first_pins, i, ret;
+	u32 req_val[128];
 	struct gpio_desc *in_gpios;
 	const char *in_label, *in_label_val;
 
@@ -87,6 +88,7 @@ int test_mnt_opt(char *szStrBuffer)
 	mute_debug_port(1);
 
 	gpio_exists = 0;
+	failed = 0;
 	first_pins = 1;
 
 	if (uclass_get(UCLASS_GPIO, &uc))
@@ -110,21 +112,69 @@ int test_mnt_opt(char *szStrBuffer)
 			pinctrl_select_state(dev,"mntgpio");
 		}
 
-		/* Print every GPIO */
-		for (i = 0; i < size; i++) {
-			
-			dev_read_string_index(dev, "in-pins-mnt", i, &in_label);
-			if (dm_gpio_get_value(in_gpios+i))
-				dev_read_string_index(dev, "in-high-mnt", i, &in_label_val);
-			else
-				dev_read_string_index(dev, "in-low-mnt", i, &in_label_val);
+		ret = dev_read_u32_array(dev, "req-val-mnt", req_val, size);
 
-			if (first_pins) {
-				first_pins = 0;
-				sprintf(szStrBuffer + strlen(szStrBuffer),"%s=%s", in_label, in_label_val);
+		if(!ret) {
+			/* req-val-mnt set in devicetree, compare with gpio inputs */
+			bool failed_tmp;
+
+			/* Handle every GPIO */
+			for (i = 0; i < size; i++) {
+
+				/* Check for failed */
+				failed_tmp = (dm_gpio_get_value(in_gpios+i) != req_val[i]);
+
+				/* Get description of pin and value */
+				dev_read_string_index(dev, "in-pins-mnt", i, &in_label);
+				if (req_val[i])
+					dev_read_string_index(dev, "in-high-mnt", i, &in_label_val);
+				else
+					dev_read_string_index(dev, "in-low-mnt", i, &in_label_val);
+
+				/* Print results to szStrBuffer */
+				if (first_pins)
+					first_pins = 0;
+				else
+					sprintf(szStrBuffer + strlen(szStrBuffer),", ");
+
+				sprintf(szStrBuffer + strlen(szStrBuffer),"%s",in_label);
+
+				if (failed_tmp) {
+					failed = 1;
+					sprintf(szStrBuffer + strlen(szStrBuffer),"!=");
+				}
+				else
+					sprintf(szStrBuffer + strlen(szStrBuffer),"=");
+
+				sprintf(szStrBuffer + strlen(szStrBuffer),"%s",in_label_val);
 			}
-			else
+		}
+		else if(ret == -1) {
+			/* req-val-mnt not set in devicetree, just output the mounting option present */
+
+			/* Handle every GPIO */
+			for (i = 0; i < size; i++) {
+
+				/* Get description of pin and value */
+				dev_read_string_index(dev, "in-pins-mnt", i, &in_label);
+				if (dm_gpio_get_value(in_gpios+i))
+					dev_read_string_index(dev, "in-high-mnt", i, &in_label_val);
+				else
+					dev_read_string_index(dev, "in-low-mnt", i, &in_label_val);
+
+				/* Print results to szStrBuffer */
+				if (first_pins)
+					first_pins = 0;
+				else
+					sprintf(szStrBuffer + strlen(szStrBuffer),", ");
+
 				sprintf(szStrBuffer + strlen(szStrBuffer),", %s=%s", in_label, in_label_val);
+			}
+		}
+		else {
+			/* Unexpected return value from dev_read_u32_array() */
+			failed = 1;
+			sprintf(szStrBuffer + strlen(szStrBuffer),"req-val-mnt not okay");
 		}
 
 		/* Free GPIOs */
@@ -136,7 +186,10 @@ int test_mnt_opt(char *szStrBuffer)
 
 	if (gpio_exists) {
 		printf("MOUNT_OPTION..........");
-		test_OkOrFail(0, 1, szStrBuffer);
+		if (failed)
+			test_OkOrFail(-1, 1, szStrBuffer);
+		else
+			test_OkOrFail(0, 1, szStrBuffer);
 	}
 
 	return 0;
