@@ -162,6 +162,14 @@ int test_mnt_opt(char *szStrBuffer)
 				else
 					dev_read_string_index(dev, "in-low-mnt", i, &in_label_val);
 
+				if (size == 1) {
+					mute_debug_port(0);
+					printf("MOUNT_OPTION..........%s\n",in_label_val);
+					gpio_exists = 0;
+					mute_debug_port(1);
+					continue;
+				}
+
 				/* Print results to szStrBuffer */
 				if (first_pins)
 					first_pins = 0;

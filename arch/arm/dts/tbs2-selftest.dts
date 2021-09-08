@@ -356,7 +356,6 @@ pmic: bd71837@4b {
 	in-gpios-mnt = <&gpio1 7 0>;
 	in-high-mnt = "RS485";
 	in-low-mnt = "RS232";
-	req-val-mnt = <1>;
 	status = "okay";
 };
 
