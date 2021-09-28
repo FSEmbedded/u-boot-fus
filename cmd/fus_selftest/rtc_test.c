@@ -26,12 +26,13 @@ static struct rtc_time rtc_rec;
 
 static int ret = 0;
 static ulong start_time;
-enum RET { INIT_FAILED = 1, DEVICE_NOT_FOUND, ERROR_WRITE, ERROR_READ};
+enum RET { SKIP = 1, INIT_FAILED, DEVICE_NOT_FOUND, ERROR_WRITE, ERROR_READ};
 
 
 int test_rtc_start(void){
+	ret = uclass_get_device(UCLASS_RTC,0,&dev);
 
-	if (uclass_get_device(UCLASS_RTC,0,&dev) == 0) {
+	if (ret == 0) {
 
 		struct dm_i2c_chip *chip = dev_get_parent_platdata(dev);
 		struct udevice *bus = dev_get_parent(dev);
@@ -53,8 +54,11 @@ int test_rtc_start(void){
 			return ret;
 		}
 	}
+	else if (ret == -ENODEV) {
+		ret = -SKIP;
+	}
 	else {
-		ret = INIT_FAILED;
+		ret = -INIT_FAILED;
 	}
 
 	return ret;
@@ -67,8 +71,9 @@ int test_rtc_end(char *szStrBuffer){
 	/* Clear reason-string */
 	szStrBuffer[0] = '\0';
 
-	if (ret == INIT_FAILED) /* No RTC in device tree */
+	if (ret == -SKIP){ /* No RTC in device tree */
         return 1;
+	}
 	else {
 		printf("RTC..................."); /* Only print if RTC is in device tree */
 
@@ -76,6 +81,9 @@ int test_rtc_end(char *szStrBuffer){
 			  sprintf(szStrBuffer, "Device not found");
 		else if (ret == -ERROR_WRITE)
 			sprintf(szStrBuffer, "Error write");
+		else if (ret == -INIT_FAILED)
+			sprintf(szStrBuffer, "Probe failed");
+
 		if (ret){
 			test_OkOrFail(ret, 1, szStrBuffer);
 			return ret;
