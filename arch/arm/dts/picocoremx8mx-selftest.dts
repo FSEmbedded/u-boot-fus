@@ -514,8 +514,9 @@
 		};
 	};
 
-	rtc85063@51 {
-		compatible = "nxp,pcf85263";
+	pcf85263@51 {
+ 		compatible = "nxp,pcf85263";
+		quartz-load-capacitance = <0x2>; /* 12.5 pF */
 		reg = <0x51>;
 		status = "okay";
 	};

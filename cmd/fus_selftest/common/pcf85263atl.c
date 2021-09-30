@@ -17,10 +17,29 @@
 #define PCF85263_REG_STOPENABLE 0x2e
 #define PCF85263_REG_STOPENABLE_STOP	BIT(0)
 
+#define PCF85263_REG_OSCILLATOR	0x25
+
+
 #define PCF85263_REG_RESET	0x2f	/* Reset command */
 #define PCF85263_REG_RESET_CMD_CPR	0xa4	/* Clear prescaler */
 
 #define PCF85263_MAX_REG 0x2f
+
+static int pcf85263atl_set_load_capacitance(struct udevice *dev, uint32_t cap)
+{
+	u8 reg, ret;
+
+	ret = dm_i2c_read(dev, PCF85263_REG_OSCILLATOR, &reg, sizeof(reg));
+
+	if (ret)
+		return ret;
+
+	reg |= cap;
+
+	ret = dm_i2c_write(dev, PCF85263_REG_OSCILLATOR, &reg, sizeof(reg));
+
+	return 0;
+}
 
 static int pcf85263atl_rtc_set(struct udevice *dev, const struct rtc_time *tm)
 {
@@ -96,6 +115,22 @@ static int pcf85263atl_rtc_reset(struct udevice *dev)
 	return 0;
 }
 
+static int pcf85263atl_rtc_probe(struct udevice *dev)
+{
+	uint32_t cap, ret;
+
+	ret = dev_read_u32(dev,"quartz-load-capacitance", &cap);
+
+	if (!ret){
+		ret = pcf85263atl_set_load_capacitance(dev, cap);
+		if (ret) {
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 
 static const struct rtc_ops pcf85263atl_rtc_ops = {
 	.get = pcf85263atl_rtc_get,
@@ -113,5 +148,6 @@ U_BOOT_DRIVER(rtc_pcf85263atl) = {
 	.id	= UCLASS_RTC,
 	.of_match = pcf85263atl_rtc_ids,
 	.ops	= &pcf85263atl_rtc_ops,
+	.probe  = pcf85263atl_rtc_probe,
 };
 
