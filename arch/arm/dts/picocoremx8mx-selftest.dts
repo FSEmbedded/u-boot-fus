@@ -66,8 +66,8 @@
  * SD_B - External SD port with Card Detect (CD) and Write Protect (WP)
  * Not connected on PicoCoreMX8MM SKIT
  */
-//#define CONFIG_PICOCOREMX8MX_SD_B
-//#define CONFIG_PICOCOREMX8MX_SD_B_CD
+#define CONFIG_PICOCOREMX8MX_SD_B
+#define CONFIG_PICOCOREMX8MX_SD_B_CD
 //#define CONFIG_PICOCOREMX8MX_SD_B_WP
 
 /* IF NAND is used, eMMC can´t be used */
@@ -253,10 +253,24 @@
 	pinctrl-0 = <&pinctrl_ecspi1_gpio>;
 	/* cs-gpios must be declared */
 	cs-gpios = <&gpio5 9 GPIO_ACTIVE_HIGH>;
-	out-pins = "SPI_A_MISO", "SPI_A_CS1";
-	out-gpios = <&gpio5 8 0>, <&gpio5 9 0>;
-	in-pins = "SPI_A_MOSI", "SPI_A_SCK";
-	in-gpios = <&gpio5 7 0>, <&gpio5 6 0>;
+	out-pins = "SPI_A_SS0", "SPI_A_MOSI";
+	out-gpios = <&gpio5 9 0>, <&gpio5 7 0>;
+	in-pins = "SPI_A_SCLK", "SPI_A_MISO";
+	in-gpios = <&gpio5 6 0>, <&gpio5 8 0>;
+	status = "okay";
+};
+#endif
+
+#ifdef CONFIG_PICOCOREMX8MX_SPI_B
+&ecspi3 {
+	pinctrl-names = "gpiotest";
+	pinctrl-0 = <&pinctrl_ecspi3_gpio>;
+	/* cs-gpios must be declared */
+	cs-gpios = <&gpio5 25 GPIO_ACTIVE_HIGH>;
+	out-pins = "SPI_B_SS0", "SPI_B_MOSI";
+	out-gpios = <&gpio5 25 0>, <&gpio5 23 0>;
+	in-pins = "SPI_B_SCLK", "SPI_B_MISO";
+	in-gpios = <&gpio5 22 0>, <&gpio5 24 0>;
 	status = "okay";
 };
 #endif
@@ -272,7 +286,7 @@
 	spi-max-frequency = <1000000>;
 	status = "okay";
 
-	out-pins = "SPI_C_CS1", "SPI_C_MOSI", "PWM", "GPIO_J2_73";
+	out-pins = "SPI_C_SS0", "SPI_C_MOSI", "PWM", "GPIO_J2_73";
 	out-gpios = <&gpio5 13 0>, <&gpio5 11 0>, <&gpio5 5 0>, <&gpio4 26 0>;
 	in-pins = "SPI_C_MISO", "SPI_C_SCLK", "GPIO_J2_69", "GPIO_J2_75";
 	in-gpios = <&gpio5 12 0>, <&gpio5 10 0>, <&gpio4 25 0>, <&gpio4 28 0>;
@@ -290,6 +304,30 @@
 	in-pins = "GPIO_J1_7", "VLCD_ON", "MPCIE_WAKE";
 	in-gpios = <&gpio1 1 0>, <&gpio5 1 0>, <&gpio3 20 0>;
 	status = "okay";
+};
+
+&gpio2 {
+	pinctrl-names = "gpiotest";
+	pinctrl-0 = <&pinctrl_gpio2>;
+	out-pins = "GPIO_J1_54";
+	out-gpios = <&gpio1 15 0>;
+	in-pins = "GPIO_J1_52";
+	in-gpios = <&gpio1 8 0>;
+	status = "okay";
+
+	mipi-gpios-only;
+};
+
+&gpio3 {
+	pinctrl-names = "gpiotest";
+	pinctrl-0 = <&pinctrl_gpio3>;
+	out-pins = "GPIO_J2_77";
+	out-gpios = <&gpio4 0 0>;
+	in-pins = "GPIO_J2_79";
+	in-gpios = <&gpio4 1 0>;
+	status = "okay";
+
+	lvds-gpios-only;
 };
 
 
@@ -476,8 +514,9 @@
 		};
 	};
 
-	rtc85063@51 {
-		compatible = "nxp,pcf85263";
+	pcf85263@51 {
+ 		compatible = "nxp,pcf85263";
+		quartz-load-capacitance = <0x2>; /* 12.5 pF */
 		reg = <0x51>;
 		status = "okay";
 	};
@@ -558,22 +597,34 @@
 
 #ifdef CONFIG_PICOCOREMX8MX_UART_A
 &uart1 { /* console */
-	pinctrl-names = "default", "mute";
+	pinctrl-names = "default", "mute", "gpiotest";
 	pinctrl-0 = <&pinctrl_uart1>;
 	pinctrl-1 = <&pinctrl_uart1_gpio>;
+	pinctrl-2 = <&pinctrl_uart1_testgpio>;
 	status = "okay";
 	port-name="uart1";
 	debug-port;
+
+	out-pins = "UART_A_CTS";
+	out-gpios = <&gpio4 23 0>;
+	in-pins = "UART_A_RTS";
+	in-gpios = <&gpio4 24 0>;
 };
 #endif
 
 #ifdef CONFIG_PICOCOREMX8MX_UART_B
 &uart2 { /* console */
-	pinctrl-names = "default", "mute";
+	pinctrl-names = "default", "mute", "gpiotest";
 	pinctrl-0 = <&pinctrl_uart2>;
 	pinctrl-1 = <&pinctrl_uart2_gpio>;
+	pinctrl-2 = <&pinctrl_uart2_testgpio>;
 	status = "okay";
 	port-name="uart2";
+
+	out-pins = "UART_B_CTS";
+	out-gpios = <&gpio4 30 0>;
+	in-pins = "UART_B_RTS";
+	in-gpios = <&gpio4 29 0>;
 };
 #endif
 
@@ -613,10 +664,10 @@
 #endif
 	/* reset pin will used as vmmc supply */
 	vmmc-supply = <&reg_usdhc1_vmmc>;
-	out-pins = "SD_A_CMD", "SD_A_CD", "SD_A_WP", "SD_A_DATA0", "SD_A_DATA2", "SD_A_DATA4", "SD_A_DATA6";
-	out-gpios = <&gpio2 1 0>, <&gpio1 6 0>, <&gpio1 7 0>, <&gpio2 2 0>, <&gpio2 4 0>, <&gpio2 6 0>, <&gpio2 8 0>;
-	in-pins = "SD_A_CLK", "SD_A_RST", "SD_A_WP", "SD_A_DATA1", "SD_A_DATA3", "SD_A_DATA5", "SD_A_DATA7";
-	in-gpios = <&gpio2 0 0>, <&gpio2 10 0>, <&gpio2 20 0>, <&gpio2 3 0>, <&gpio2 5 0>, <&gpio2 7 0>, <&gpio2 9 0>;
+	out-pins = "SD_A_CMD", "SD_A_CD", "SD_A_DATA0", "SD_A_DATA2", "SD_A_DATA4", "SD_A_DATA6";
+	out-gpios = <&gpio2 1 0>, <&gpio1 6 0>, <&gpio2 2 0>, <&gpio2 4 0>, <&gpio2 6 0>, <&gpio2 8 0>;
+	in-pins = "SD_A_CLK", "SD_A_RST", "SD_A_DATA1", "SD_A_DATA3", "SD_A_DATA5", "SD_A_DATA7";
+	in-gpios = <&gpio2 0 0>, <&gpio2 10 0>, <&gpio2 3 0>, <&gpio2 5 0>, <&gpio2 7 0>, <&gpio2 9 0>;
 	status = "okay";
 //	is-sdcard;
 };
@@ -631,19 +682,18 @@
 	pinctrl-3 = <&pinctrl_usdhc2_testgpio>;
 	bus-width = <4>;
 #ifdef CONFIG_PICOCOREMX8MX_SD_B_CD
-	cd-gpios = <&gpio2 12 GPIO_ACTIVE_LOW>;
+	//cd-gpios = <&gpio2 12 GPIO_ACTIVE_LOW>;
 #endif
 #ifdef CONFIG_PICOCOREMX8MX_SD_B_WP
-	wp-gpios = <&gpio2 20 GPIO_ACTIVE_HIGH>;
+	//wp-gpios = <&gpio2 20 GPIO_ACTIVE_HIGH>;
 #endif
 	/* reset pin will used as vmmc supply */
 	vmmc-supply = <&reg_usdhc2_vmmc>;
-	out-pins = "SD_B_CMD", "SD_B_DATA0", "SD_B_DATA2";
-	out-gpios = <&gpio2 14 0>, <&gpio2 15 0>, <&gpio2 17 0>;
-	in-pins = "SD_B_CLK", "SD_B_DATA1", "SD_B_DATA3";
-	in-gpios = <&gpio2 13 0>, <&gpio2 16 0>, <&gpio2 18 0>;
+	out-pins = "SD_B_CMD", "SD_B_RST", "SD_A_WP", "SD_B_DATA0", "SD_B_DATA2";
+	out-gpios = <&gpio2 14 0>, <&gpio2 19 0>, <&gpio1 7 0>, <&gpio2 15 0>, <&gpio2 17 0>;
+	in-pins = "SD_B_CLK", "SD_B_CD", "SD_B_WP", "SD_B_DATA1", "SD_B_DATA3";
+	in-gpios = <&gpio2 13 0>, <&gpio2 12 0>, <&gpio2 20 0>, <&gpio2 16 0>, <&gpio2 18 0>;
 	status = "okay";
-	is-wlan;
 };
 #endif
 
@@ -740,17 +790,36 @@
 		};
 #endif
 
+		/* The GPIOs for every mounting option */
 		pinctrl_gpio1: gpio1grp {
 			fsl,pins = <
 				/* GPIO_J1_2 -> GPIO_J1_7 */
 				MX8MM_IOMUXC_GPIO1_IO13_GPIO1_IO13				0x400001c3
 				MX8MM_IOMUXC_GPIO1_IO01_GPIO1_IO1				0x00029
-				/* BL_ON -> VLCD_ON */
-				MX8MM_IOMUXC_SPDIF_TX_GPIO5_IO3					0x400001c3
-				MX8MM_IOMUXC_SAI3_TXD_GPIO5_IO1					0x00029
 				/* MPCIE_PERST -> MPCIE_WAKE */
 				MX8MM_IOMUXC_SAI5_RXFS_GPIO3_IO19				0x400001c3
 				MX8MM_IOMUXC_SAI5_RXC_GPIO3_IO20				0x00029
+				/* BL_ON -> VLCD_ON */
+				MX8MM_IOMUXC_SPDIF_TX_GPIO5_IO3					0x400001c3
+				MX8MM_IOMUXC_SAI3_TXD_GPIO5_IO1					0x00029
+			>;
+		};
+
+		/* Only the GPIOs for MIPI */
+		pinctrl_gpio2: gpio2grp {
+			fsl,pins = <
+				/* GPIO_J1_54 -> GPIO_J1_52 */
+				MX8MM_IOMUXC_GPIO1_IO15_GPIO1_IO15				0x400001c3
+				MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8				0x00029
+			>;
+		};
+
+		/* Only the GPIOs for LVDS */
+		pinctrl_gpio3: gpio3grp {
+			fsl,pins = <
+				/* GPIO_J2_77 -> GPIO_J2_79 */
+				MX8MM_IOMUXC_SAI1_RXFS_GPIO4_IO0				0x400001c3
+				MX8MM_IOMUXC_SAI1_RXC_GPIO4_IO1					0x00029
 			>;
 		};
 
@@ -813,12 +882,23 @@
 #endif
 
 #ifdef CONFIG_PICOCOREMX8MX_SPI_A
+		pinctrl_ecspi1: ecspi1grp {
+			fsl,pins = <
+				MX8MM_IOMUXC_ECSPI1_SCLK_ECSPI1_SCLK		0x00082
+				MX8MM_IOMUXC_ECSPI1_MOSI_ECSPI1_MOSI		0x00082
+				MX8MM_IOMUXC_ECSPI1_MISO_ECSPI1_MISO		0x00082
+				MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9			0x00144
+			>;
+		};
+
 		pinctrl_ecspi1_gpio: ecspi1gpiogrp {
 			fsl,pins = <
-				MX8MM_IOMUXC_ECSPI1_SCLK_GPIO5_IO6				0x400001c3
-				MX8MM_IOMUXC_ECSPI1_MOSI_GPIO5_IO7				0x00029
-				MX8MM_IOMUXC_ECSPI1_MISO_GPIO5_IO8				0x400001c3
-				MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9				0x00029
+				/* SPI_A_SS0 -> SPI_A_SCLK */
+				MX8MM_IOMUXC_ECSPI1_SS0_GPIO5_IO9				0x400001c3
+				MX8MM_IOMUXC_ECSPI1_SCLK_GPIO5_IO6				0x00029
+				/* SPI_A_MOSI -> SPI_A_MISO */
+				MX8MM_IOMUXC_ECSPI1_MOSI_GPIO5_IO7				0x400001c3
+				MX8MM_IOMUXC_ECSPI1_MISO_GPIO5_IO8				0x00029
 			>;
 		};
 #endif
@@ -835,10 +915,12 @@
 
 		pinctrl_ecspi3_gpio: ecspi3gpiogrp {
 			fsl,pins = <
-				MX8MM_IOMUXC_UART1_RXD_GPIO5_IO22				0x400001c3
-				MX8MM_IOMUXC_UART1_TXD_GPIO5_IO23				0x00029
-				MX8MM_IOMUXC_UART2_RXD_GPIO5_IO24				0x400001c3
-				MX8MM_IOMUXC_UART2_TXD_GPIO5_IO25				0x00029
+				/* SPI_B_SS0 -> SPI_B_SCLK */
+				MX8MM_IOMUXC_UART2_TXD_GPIO5_IO25				0x400001c3
+				MX8MM_IOMUXC_UART1_RXD_GPIO5_IO22				0x00029
+				/* SPI_B_MOSI -> SPI_B_MISO */
+				MX8MM_IOMUXC_UART1_TXD_GPIO5_IO23				0x400001c3
+				MX8MM_IOMUXC_UART2_RXD_GPIO5_IO24				0x00029
 			>;
 		};
 #endif
@@ -851,7 +933,6 @@
 				MX8MM_IOMUXC_ECSPI2_MISO_ECSPI2_MISO		0x00082
 				MX8MM_IOMUXC_ECSPI2_SS0_GPIO5_IO13			0x00144
 			>;
-
 		};
 
 		pinctrl_ecspi2_gpio: ecspi2gpiogrp {
@@ -869,7 +950,6 @@
 				MX8MM_IOMUXC_SAI2_TXD0_GPIO4_IO26			0x400001c3
 				MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28			0x00029
 			>;
-
 		};
 #endif
 
@@ -887,6 +967,14 @@
 				MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22			0x00149
 			>;
 		};
+
+		pinctrl_uart1_testgpio: uart1testgpiogrp {
+			fsl,pins = <
+				/* UART_A_CTS -> UART_A_RTS */
+				MX8MM_IOMUXC_SAI2_RXD0_GPIO4_IO23			0x400001c3
+				MX8MM_IOMUXC_SAI2_TXFS_GPIO4_IO24			0x00029
+			>;
+		};
 #endif
 
 #ifdef CONFIG_PICOCOREMX8MX_UART_B
@@ -901,6 +989,14 @@
 			fsl,pins = <
 				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0				0x00149
 				MX8MM_IOMUXC_SAI3_TXFS_GPIO4_IO31			0x00149
+			>;
+		};
+
+		pinctrl_uart2_testgpio: uart2testgpiogrp {
+			fsl,pins = <
+				/* UART_B_CTS -> UART_B_RTS */
+				MX8MM_IOMUXC_SAI3_RXD_GPIO4_IO30			0x400001c3
+				MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29			0x00029
 			>;
 		};
 #endif
@@ -988,20 +1084,24 @@
 
 		pinctrl_usdhc1_testgpio: usdhc1testgpiogrp {
 			fsl,pins = <
-				MX8MM_IOMUXC_SD1_CMD_GPIO2_IO1				0x001d0
-				MX8MM_IOMUXC_SD1_CLK_GPIO2_IO0				0x001d0
-				MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6			0x001d0
-				MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10			0x001d0
-				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7			0x001d0
-				MX8MM_IOMUXC_SD2_WP_GPIO2_IO20				0x001d0
-				MX8MM_IOMUXC_SD1_DATA0_GPIO2_IO2			0x001d0
-				MX8MM_IOMUXC_SD1_DATA1_GPIO2_IO3			0x001d0
-				MX8MM_IOMUXC_SD1_DATA2_GPIO2_IO4			0x001d0
-				MX8MM_IOMUXC_SD1_DATA3_GPIO2_IO5			0x001d0
-				MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6			0x001d0
-				MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7			0x001d0
-				MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8			0x001d0
-				MX8MM_IOMUXC_SD1_DATA7_GPIO2_IO9			0x001d0
+				/* SD_A_CMD -> SD_A_CLK */
+				MX8MM_IOMUXC_SD1_CMD_GPIO2_IO1				0x400001c3
+				MX8MM_IOMUXC_SD1_CLK_GPIO2_IO0				0x00029
+				/* SD_A_RST -> SD_A_CD */
+				MX8MM_IOMUXC_SD1_RESET_B_GPIO2_IO10			0x400001c3
+				MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6			0x00029
+				/* SD_A_DATA0 -> SD_A_DATA1 */
+				MX8MM_IOMUXC_SD1_DATA0_GPIO2_IO2			0x400001c3
+				MX8MM_IOMUXC_SD1_DATA1_GPIO2_IO3			0x00029
+				/* SD_A_DATA2 -> SD_A_DATA3 */
+				MX8MM_IOMUXC_SD1_DATA2_GPIO2_IO4			0x400001c3
+				MX8MM_IOMUXC_SD1_DATA3_GPIO2_IO5			0x00029
+				/* SD_A_DATA4 -> SD_A_DATA5 */
+				MX8MM_IOMUXC_SD1_DATA4_GPIO2_IO6			0x400001c3
+				MX8MM_IOMUXC_SD1_DATA5_GPIO2_IO7			0x00029
+				/* SD_A_DATA6 -> SD_A_DATA7 */
+				MX8MM_IOMUXC_SD1_DATA6_GPIO2_IO8			0x400001c3
+				MX8MM_IOMUXC_SD1_DATA7_GPIO2_IO9			0x00029
 			>;
 		};
 #endif
@@ -1057,12 +1157,21 @@
 
 		pinctrl_usdhc2_testgpio: usdhc2testgpiogrp {
 			fsl,pins = <
-				MX8MM_IOMUXC_SD2_CLK_GPIO2_IO13				0x00190
-				MX8MM_IOMUXC_SD2_CMD_GPIO2_IO14				0x001d0
-				MX8MM_IOMUXC_SD2_DATA0_GPIO2_IO15			0x001d0
-				MX8MM_IOMUXC_SD2_DATA1_GPIO2_IO16			0x001d0
-				MX8MM_IOMUXC_SD2_DATA2_GPIO2_IO17			0x001d0
-				MX8MM_IOMUXC_SD2_DATA3_GPIO2_IO18			0x001d0
+				/* SD_B_CMD -> SD_B_CLK */
+				MX8MM_IOMUXC_SD2_CMD_GPIO2_IO14				0x400001c3
+				MX8MM_IOMUXC_SD2_CLK_GPIO2_IO13				0x00029
+				/* SD_B_RST -> SD_B_CD */
+				MX8MM_IOMUXC_SD2_RESET_B_GPIO2_IO19			0x400001c3
+				MX8MM_IOMUXC_SD2_CD_B_GPIO2_IO12			0x00029
+				/* SD_A_WP -> SD_B_WP */
+				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7			0x400001c3
+				MX8MM_IOMUXC_SD2_WP_GPIO2_IO20				0x00029
+				/* SD_B_DATA0 -> SD_B_DATA1 */
+				MX8MM_IOMUXC_SD2_DATA0_GPIO2_IO15			0x400001c3
+				MX8MM_IOMUXC_SD2_DATA1_GPIO2_IO16			0x00029
+				/* SD_B_DATA2 -> SD_B_DATA3 */
+				MX8MM_IOMUXC_SD2_DATA2_GPIO2_IO17			0x400001c3
+				MX8MM_IOMUXC_SD2_DATA3_GPIO2_IO18			0x00029
 			>;
 		};
 #endif

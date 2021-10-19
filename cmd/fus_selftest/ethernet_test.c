@@ -201,7 +201,32 @@ int test_ethernet(char *szStrBuffer/*, char cmd*/)
 			mute_debug_port(1);
 
 			ret = phy_config(phy);
-			ret |= phy_startup(phy);
+
+			mute_debug_port(0);
+
+			if (ret)
+			{
+				/* PHY doesn't communicate or is not present */
+			    sprintf(szStrBuffer, "PHY timeout!");
+			    test_OkOrFail(-1, 1, szStrBuffer);
+				continue;
+			}
+
+			if (phy->drv->uid == 0xffffffff)
+			{
+				/* No PHY found, generic driver is loaded */
+			    sprintf(szStrBuffer, "Can't match UID and PHY driver!");
+			    test_OkOrFail(-1, 1, szStrBuffer);
+				continue;
+			}
+
+			test_OkOrFail(0, 1, szStrBuffer);
+
+			printf("  external loopback...");
+
+			mute_debug_port(1);
+
+			ret = phy_startup(phy);
 
 			mute_debug_port(0);
 
@@ -211,10 +236,6 @@ int test_ethernet(char *szStrBuffer/*, char cmd*/)
 			    test_OkOrFail(-1, 1, szStrBuffer);
 				continue;
 			}
-
-			test_OkOrFail(0, 1, szStrBuffer);
-
-			printf("  external loopback...");
 
 			if (phy->drv->features & PHY_1000BT_FEATURES)
 				target_speed = 1000;

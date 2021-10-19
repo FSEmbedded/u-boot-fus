@@ -8,14 +8,14 @@
 
 #include <dm.h>
 
-static const struct udevice_id relay_ids[] = {
-	{ .compatible = "fus,test-relay" },
+static const struct udevice_id gpio_ids[] = {
+	{ .compatible = "fus,test-gpio" },
 	{ }
 };
 
-U_BOOT_DRIVER(fus_relay) = {
-	.name	= "fus_relay",
+U_BOOT_DRIVER(fus_gpio) = {
+	.name	= "fus_gpio",
 	.id	= UCLASS_GPIO,
-	.of_match = relay_ids,
+	.of_match = gpio_ids,
 	.ops	= NULL,
 };
