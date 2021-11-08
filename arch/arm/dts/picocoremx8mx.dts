@@ -299,6 +299,31 @@
 	status = "okay";
 };
 
+&gpio2 {
+	pinctrl-names = "gpiotest";
+	pinctrl-0 = <&pinctrl_gpio2>;
+	out-pins = "GPIO_J1_54";
+	out-gpios = <&gpio1 15 0>;
+	in-pins = "GPIO_J1_52";
+	in-gpios = <&gpio1 8 0>;
+	status = "okay";
+
+	mipi-gpios-only;
+};
+
+&gpio3 {
+	pinctrl-names = "gpiotest";
+	pinctrl-0 = <&pinctrl_gpio3>;
+	out-pins = "GPIO_J2_77";
+	out-gpios = <&gpio4 0 0>;
+	in-pins = "GPIO_J2_79";
+	in-gpios = <&gpio4 1 0>;
+	status = "okay";
+
+	lvds-gpios-only;
+};
+
+
 #ifdef CONFIG_PICOCOREMX8MX_I2C_D
 &i2c1 {
 	clock-frequency = <100000>;
@@ -769,6 +794,25 @@
 				MX8MM_IOMUXC_SAI1_TXFS_GPIO4_IO10			0x00029
 			>;
 		};
+
+		/* Only the GPIOs for MIPI */
+		pinctrl_gpio2: gpio2grp {
+			fsl,pins = <
+				/* GPIO_J1_54 -> GPIO_J1_52 */
+				MX8MM_IOMUXC_GPIO1_IO15_GPIO1_IO15				0x400001c3
+				MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8				0x00029
+			>;
+		};
+
+		/* Only the GPIOs for LVDS */
+		pinctrl_gpio3: gpio3grp {
+			fsl,pins = <
+				/* GPIO_J2_77 -> GPIO_J2_79 */
+				MX8MM_IOMUXC_SAI1_RXFS_GPIO4_IO0				0x400001c3
+				MX8MM_IOMUXC_SAI1_RXC_GPIO4_IO1					0x00029
+			>;
+		};
+
 
 #ifdef CONFIG_PICOCOREMX8MX_I2C_D
 		pinctrl_i2c1: i2c1grp {
