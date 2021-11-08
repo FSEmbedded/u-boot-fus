@@ -478,7 +478,6 @@ dtb-$(CONFIG_ARCH_IMX8M) += fsl-imx8mq-evk.dtb \
 		tbs2.dtb \
 		picocoremx8mm-selftest.dtb \
 		picocoremx8mx-selftest.dtb \
-		tbs2-selftest.dtb \
 
 dtb-$(CONFIG_ARCH_IMX8) += fsl-imx8dx-17x17-val.dtb \
 		fsl-imx8dx-mek.dtb \

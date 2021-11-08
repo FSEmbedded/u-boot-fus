@@ -26,6 +26,10 @@
 		stdout-path = &uart1;
 	};
 
+	aliases {
+		serial3 = &uart4;
+	};
+
 	reg_usdhc3_vmmc: regulator-usdhc3 {
 		compatible = "regulator-fixed";
 		regulator-name = "VSD3_3V3";
@@ -36,6 +40,48 @@
 		startup-delay-us = <100>;
 		off-on-delay-us = <12000>;
 	};
+
+	pwm4: pwm@30690000 {
+		compatible = "fus,test-pwm";
+		status = "disabled";
+	};
+
+	relay: relay {
+		compatible = "fus,test-gpio";
+		status = "disabled";
+	};
+
+	led: led {
+		compatible = "fus,test-gpio";
+		status = "disabled";
+	};
+
+	mount_option: mount_option {
+		compatible = "fus,test-gpio";
+		status = "disabled";
+	};
+
+	uart4: serial@30a60000 {
+		compatible = "fsl,imx8mm-uart",
+			     "fsl,imx6q-uart", "fsl,imx21-uart";
+		reg = <0x0 0x30a60000 0x0 0x10000>;
+		interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gpc>;
+		clocks = <&clk IMX8MM_CLK_UART4_ROOT>,
+			<&clk IMX8MM_CLK_UART4_ROOT>;
+		clock-names = "ipg", "per";
+		status = "disabled";
+	};
+};
+
+&gpio1 {
+	pinctrl-names = "gpiotest";
+	pinctrl-0 = <&pinctrl_gpio1>;
+	out-pins = "GPO", "WIEGAND_OUT2", "TCS400_GPI1", "TCS400_GPO0", "TCS400_GPO2";
+	out-gpios = <&gpio1 8 0>, <&gpio5 6 0>, <&gpio5 10 0>, <&gpio3 21 0>, <&gpio3 23 0>;
+	in-pins = "CROSSMATCH_RC", "WIEGAND_OUT1", "TCS400_GPI0", "TCS400_GPO1", "TCS400_GPO3";
+	in-gpios = <&gpio1 9 0>, <&gpio5 7 0>, <&gpio5 11 0>, <&gpio3 22 0>, <&gpio3 24 0>;
+	status = "okay";
 };
 
 &i2c1 {
@@ -192,6 +238,25 @@ pmic: bd71837@4b {
 			};
 		};
 	};
+
+	pcf85263@51 {
+		compatible = "nxp,pcf85263";
+		quartz-load-capacitance = <0x2>; /* 12.5 pF */
+		reg = <0x51>;
+		status = "okay";
+	};
+
+	/* EEPROM */
+	eeprom: eeprom@50 {
+		reg = <0x50>;
+		status = "okay";
+	};
+
+	/* ADC Chip */
+	ads1015: ads1015@48 {
+		reg = <0x48>;
+		status = "okay";
+	};
 };
 
 &i2c2 {
@@ -209,6 +274,9 @@ pmic: bd71837@4b {
 	phy-handle = <&ethphy0>;
 	fsl,magic-packet;
 	status = "okay";
+	phy-reset-gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;
+	phy-reset-duration = <50>;
+	phy-reset-post-delay = <200>;
 
 	mdio {
 		#address-cells = <1>;
@@ -222,8 +290,73 @@ pmic: bd71837@4b {
 };
 
 &uart1 { /* console */
-	pinctrl-names = "default";
+	pinctrl-names = "default", "mute";
 	pinctrl-0 = <&pinctrl_uart1>;
+	pinctrl-1 = <&pinctrl_uart1_gpio>;
+	status = "okay";
+	port-name="uart1";
+	debug-port;
+};
+
+&uart2 {
+	pinctrl-names = "default", "mute";
+	pinctrl-0 = <&pinctrl_uart2>;
+	pinctrl-1 = <&pinctrl_uart2_gpio>;
+	status = "okay";
+	port-name="RFID";
+};
+
+&uart4 {
+	pinctrl-names = "default", "mute";
+	pinctrl-0 = <&pinctrl_uart4>;
+	pinctrl-1 = <&pinctrl_uart4_gpio>;
+	rs485-cts-pin = <&gpio5 12 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+	port-name="uart4";
+};
+
+&pwm4 {
+	pinctrl-names = "pwmgpio";
+	pinctrl-0 = <&pinctrl_pwm4_gpio>;
+	gpio = <&gpio5 18 GPIO_ACTIVE_HIGH>;
+	freqs = <1000>,<0>,<500>; //Hz
+	times = <250>,<500>,<500>; //msec
+	status = "okay";
+};
+
+&relay {
+	pinctrl-names = "relaygpio";
+	pinctrl-0 = <&pinctrl_relay_gpio>;
+	out-pins-relay = "RELAY_COM";
+	out-gpios-relay = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+	in-pins-relay-on = "RELAY_NO";
+	in-gpios-relay-on = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+	in-pins-relay-off = "RELAY_NC";
+	in-gpios-relay-off = <&gpio5 0 GPIO_ACTIVE_HIGH>;
+
+	switch-pin-relay = "RELAY";
+	switch-gpio-relay = <&gpio4 29 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&led {
+	pinctrl-names = "ledgpio";
+	pinctrl-0 = <&pinctrl_led_gpio>;
+	in-pins-led = "LEDBLUE_Test", "LEDGREEN_Test", "LEDRED_Test", "LEDSTATUS_Test";
+	in-gpios-led = <&gpio4 28 GPIO_ACTIVE_LOW>, <&gpio4 26 GPIO_ACTIVE_LOW>, <&gpio4 27 GPIO_ACTIVE_LOW>, <&gpio4 30 GPIO_ACTIVE_LOW>;
+	out-pins-led = "LEDBLUE_PWM", "LEDGREEN_PWM", "LEDRED_PWM", "LEDSTATUS_GPIO";
+	out-gpios-led = <&gpio5 19 GPIO_ACTIVE_LOW>, <&gpio5 20 GPIO_ACTIVE_LOW>, <&gpio5 21 GPIO_ACTIVE_LOW>, <&gpio5 2 GPIO_ACTIVE_LOW>;
+	is-inverted;
+	status = "okay";
+};
+
+&mount_option {
+	pinctrl-names = "mntgpio";
+	pinctrl-0 = <&pinctrl_mnt_gpio>;
+	in-pins-mnt = "RS485/232";
+	in-gpios-mnt = <&gpio1 7 0>;
+	in-high-mnt = "RS485";
+	in-low-mnt = "RS232";
 	status = "okay";
 };
 
@@ -236,6 +369,7 @@ pmic: bd71837@4b {
 	bus-width = <4>;
 	cd-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
 	status = "okay";
+	is-sdcard;
 };
 
 /* WLAN */
@@ -245,8 +379,10 @@ pmic: bd71837@4b {
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
 	pinctrl-2 = <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>;
 	bus-width = <4>;
+	non-removable;
 	//vmmc-supply = <&reg_usdhc2_vmmc>;
-	status = "disabled";
+	status = "okay";
+	is-wlan;
 };
 
 /* eMMC */
@@ -259,6 +395,7 @@ pmic: bd71837@4b {
 	non-removable;
 	vmmc-supply = <&reg_usdhc3_vmmc>;
 	status = "okay";
+	is-emmc;
 };
 
 &wdog1 {
@@ -273,7 +410,7 @@ pmic: bd71837@4b {
 };
 
 &usbotg1 {
-	dr_mode = "otg";
+	dr_mode = "peripheral";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usbotg1>;
 	status = "okay";
@@ -311,8 +448,30 @@ pmic: bd71837@4b {
 			MX8MM_IOMUXC_ENET_RXC_ENET1_RX_ER			0x00056
 			MX8MM_IOMUXC_ENET_RX_CTL_ENET1_RGMII_RX_CTL	0x00056
 			MX8MM_IOMUXC_ENET_TX_CTL_ENET1_RGMII_TX_CTL	0x00056
+			/* ETH_SW_RST  */
+			MX8MM_IOMUXC_GPIO1_IO05_GPIO1_IO5			0x00019
 			/* IRQn */
 			MX8MM_IOMUXC_GPIO1_IO11_GPIO1_IO11			0x00019
+			>;
+		};
+
+		pinctrl_gpio1: gpio1grp {
+			fsl,pins = <
+				/* GPO -> CROSSMATCH_RC */
+				MX8MM_IOMUXC_GPIO1_IO08_GPIO1_IO8		0x400001c3
+				MX8MM_IOMUXC_GPIO1_IO09_GPIO1_IO9		0x00029
+				/* WIEGAND_OUT2 -> WIEGAND_OUT1 */
+				MX8MM_IOMUXC_ECSPI1_SCLK_GPIO5_IO6		0x400001c3
+				MX8MM_IOMUXC_ECSPI1_MOSI_GPIO5_IO7		0x00029
+				/* TCS400_GPI1 -> TCS400_GPI0 */
+				MX8MM_IOMUXC_ECSPI2_SCLK_GPIO5_IO10		0x400001c3
+				MX8MM_IOMUXC_ECSPI2_MOSI_GPIO5_IO11		0x00029
+				/* TCS400_GPO0 -> TCS400_GPO1 */
+				MX8MM_IOMUXC_SAI5_RXD0_GPIO3_IO21		0x400001c3
+				MX8MM_IOMUXC_SAI5_RXD1_GPIO3_IO22		0x00029
+				/* TCS400_GPO2 -> TCS400_GPO3 */
+				MX8MM_IOMUXC_SAI5_RXD2_GPIO3_IO23		0x400001c3
+				MX8MM_IOMUXC_SAI5_RXD3_GPIO3_IO24		0x00029
 			>;
 		};
 
@@ -340,6 +499,92 @@ pmic: bd71837@4b {
 			fsl,pins = <
 			MX8MM_IOMUXC_SAI2_RXC_UART1_DCE_RX			0x00049
 			MX8MM_IOMUXC_SAI2_RXFS_UART1_DCE_TX			0x00049
+			>;
+		};
+
+		pinctrl_uart1_gpio: uart1gpiogrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_SAI2_RXFS_GPIO4_IO21		0x00149
+				MX8MM_IOMUXC_SAI2_RXC_GPIO4_IO22		0x00149
+			>;
+		};
+
+		pinctrl_uart2: uart2grp {
+			fsl,pins = <
+			MX8MM_IOMUXC_UART2_RXD_UART2_DCE_RX			0x00049
+			MX8MM_IOMUXC_UART2_TXD_UART2_DCE_TX			0x00049
+			>;
+		};
+
+		pinctrl_uart2_gpio: uart2gpiogrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_UART2_RXD_GPIO5_IO24		0x00149
+				MX8MM_IOMUXC_UART2_TXD_GPIO5_IO25		0x00149
+			>;
+		};
+
+		pinctrl_uart4: uart4grp {
+			fsl,pins = <
+			MX8MM_IOMUXC_UART4_RXD_UART4_DCE_RX			0x00049
+			MX8MM_IOMUXC_UART4_TXD_UART4_DCE_TX			0x00049
+			MX8MM_IOMUXC_ECSPI2_MISO_GPIO5_IO12			0x00049
+			MX8MM_IOMUXC_ECSPI2_SS0_UART4_DCE_RTS_B		0x00049
+			>;
+		};
+
+		pinctrl_uart4_gpio: uart4gpiogrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_UART4_RXD_GPIO5_IO28		0x00149
+				MX8MM_IOMUXC_UART4_TXD_GPIO5_IO29		0x00149
+				MX8MM_IOMUXC_ECSPI2_MISO_GPIO5_IO12		0x00149
+				MX8MM_IOMUXC_ECSPI2_SS0_GPIO5_IO13		0x00149
+			>;
+		};
+
+		pinctrl_pwm4_gpio: pwm4gpiogrp {
+			fsl,pins = <
+				MX8MM_IOMUXC_I2C3_SCL_GPIO5_IO18		0x00149
+			>;
+		};
+
+		pinctrl_relay_gpio: relaygpiogrp {
+			fsl,pins = <
+				/* RELAY_COM (GPI1) */
+				MX8MM_IOMUXC_GPIO1_IO14_GPIO1_IO14		0x400001c3
+				/* RELAY_NO (GPI2) */
+				MX8MM_IOMUXC_GPIO1_IO15_GPIO1_IO15		0x00029
+				/* RELAY_NC (GPI3) */
+				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0			0x00029
+				/* RELAY (Switch) */
+				MX8MM_IOMUXC_SAI3_RXC_GPIO4_IO29		0x400001c3
+			>;
+		};
+
+		pinctrl_led_gpio: ledgpiogrp {
+			fsl,pins = <
+				/* LEDBLUE_PWM */
+				MX8MM_IOMUXC_I2C3_SDA_GPIO5_IO19		0x00149
+				/* LEDGREEN_PWM */
+				MX8MM_IOMUXC_I2C4_SCL_GPIO5_IO20		0x00149
+				/* LEDRED_PWM */
+				MX8MM_IOMUXC_I2C4_SDA_GPIO5_IO21		0x00149
+				/* LEDSTATUS_GPIO */
+				MX8MM_IOMUXC_SAI3_MCLK_GPIO5_IO2		0x00149
+				/* LEDBLUE_Test */
+				MX8MM_IOMUXC_SAI3_RXFS_GPIO4_IO28		0x00029
+				/* LEDGREEN_Test */
+				MX8MM_IOMUXC_SAI2_TXD0_GPIO4_IO26		0x00029
+				/* LEDRED_Test */
+				MX8MM_IOMUXC_SAI2_MCLK_GPIO4_IO27		0x00029
+				/* LEDSTATUS_Test */
+				MX8MM_IOMUXC_SAI3_RXD_GPIO4_IO30		0x00029
+			>;
+		};
+
+		pinctrl_mnt_gpio: mntgpiogrp {
+			fsl,pins = <
+				/* RS485/232 */
+				MX8MM_IOMUXC_GPIO1_IO07_GPIO1_IO7		0x00029
 			>;
 		};
 
