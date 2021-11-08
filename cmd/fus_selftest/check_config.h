@@ -28,4 +28,5 @@
 #endif
 
 int has_feature(int feature);
+int get_board_fert(char *fert);
 #endif /* CMD_FUS_SELFTEST_CHECK_CONFIG_H_ */

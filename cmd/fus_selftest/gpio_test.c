@@ -16,11 +16,17 @@
 #include "check_config.h"
 
 #include "serial_test.h" // mute_debug_port()
+#include "../../board/F+S/common/fs_image_common.h"/* MAX_DESCR_LEN */
 
 #define OUTPUT 0
 #define INPUT 1
 
 static int size;
+char in_gpios_str[32];
+char out_gpios_str[32];
+char in_pins_str[32];
+char out_pins_str[32];
+char pinctrl_str[32];
 
 enum{
 	TEST_SD,
@@ -39,6 +45,15 @@ struct test_driver {
 
 // helper functions
 
+void set_gpios_default(void)
+{
+	strcpy(in_gpios_str,"in-gpios");
+	strcpy(out_gpios_str,"out-gpios");
+	strcpy(in_pins_str,"in-pins");
+	strcpy(out_pins_str,"out-pins");
+	strcpy(pinctrl_str,"gpiotest");
+}
+
 static int get_gpio_lists(struct udevice *dev, struct gpio_desc **in_gpios, struct gpio_desc **out_gpios)
 {
 	int ret, in_size, out_size;
@@ -46,14 +61,14 @@ static int get_gpio_lists(struct udevice *dev, struct gpio_desc **in_gpios, stru
 	size = 0;
 
 	/* Get GPIO List */
-	in_size = gpio_get_list_count(dev, "in-gpios");
+	in_size = gpio_get_list_count(dev, in_gpios_str);
 	*in_gpios = calloc(in_size, sizeof(struct gpio_desc));
-	ret = gpio_request_list_by_name(dev, "in-gpios", *in_gpios, in_size, 0);
+	ret = gpio_request_list_by_name(dev, in_gpios_str, *in_gpios, in_size, 0);
 	if (ret < 0)
 		return -1;
-	out_size = gpio_get_list_count(dev, "out-gpios");
+	out_size = gpio_get_list_count(dev, out_gpios_str);
 	*out_gpios = calloc(out_size, sizeof(struct gpio_desc));
-	ret = gpio_request_list_by_name(dev, "out-gpios", *out_gpios, out_size, 0);
+	ret = gpio_request_list_by_name(dev, out_gpios_str, *out_gpios, out_size, 0);
 	if (ret < 0)
 		return -1;
 
@@ -70,7 +85,7 @@ static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
 	const char * label;
 
 	for (int i = 0; i < size; i++) {
-		dev_read_string_index(dev, input ? "in-pins" : "out-pins", i, &label);
+		dev_read_string_index(dev, input ? in_pins_str : out_pins_str, i, &label);
 		dm_gpio_free(dev, (gpios+i));
 		dm_gpio_request((gpios+i), label);
 
@@ -123,14 +138,36 @@ static u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 int test_gpio_dev(struct udevice *dev, u32 *failmask)
 {
 	int i;
+	char variant[MAX_DESCR_LEN+1];
 	struct gpio_desc *in_gpios, *out_gpios;
 
 	/* Init failmask */
 	*failmask = 0;
 
+	/* Init gpio names */
+	set_gpios_default();
+
+	/* Check special board variations (gpiotest-fert7) */
+	variant[0] = '-';
+	get_board_fert(variant+1); /* is either fertX or empty string */
+	if (variant[1] != '\0') {
+		strcat(in_gpios_str, variant);
+		strcat(out_gpios_str, variant);
+		strcat(in_pins_str, variant);
+		strcat(out_pins_str, variant);
+		strcat(pinctrl_str, variant);
+	}
+
 	/* Get both GPIO-Lists (in-pins,in-gpios & out-pins,out-gpios) */
-	if (get_gpio_lists(dev, &in_gpios, &out_gpios))
-		return size;
+	if (get_gpio_lists(dev, &in_gpios, &out_gpios)) {
+
+		/* If variant specific doesn't exist, try default gpios */
+		set_gpios_default();
+
+		/* Get both GPIO-Lists (in-pins,in-gpios & out-pins,out-gpios) */
+		if (get_gpio_lists(dev, &in_gpios, &out_gpios))
+			return size;
+	}
 
 	/* Initialize and request the GPIOs */
 	if (init_gpios(dev, in_gpios, INPUT) || init_gpios(dev, out_gpios, OUTPUT))
@@ -139,7 +176,7 @@ int test_gpio_dev(struct udevice *dev, u32 *failmask)
 	/* Mark that at least one device of the driver has a gpio-test-config */
 	if (size > 0) {
 		/* Set IOMUX to gpiotest */
-		pinctrl_select_state(dev,"gpiotest");
+		pinctrl_select_state(dev,pinctrl_str);
 
 		/* Test every GPIO-Bit    */
 		/* Active High: 001, 010, 100 */
@@ -248,8 +285,8 @@ int test_gpio(int uclass, char *szStrBuffer)
 
 		for (i = 0; failmask; i++) {
 			if (failmask & (1 << i)) {
-				dev_read_string_index(dev, "in-pins", i, &in_label);
-				dev_read_string_index(dev, "out-pins", i, &out_label);
+				dev_read_string_index(dev, in_pins_str, i, &in_label);
+				dev_read_string_index(dev, out_pins_str, i, &out_label);
 				if (first_pins) {
 					first_pins = 0;
 					sprintf(szStrBuffer + strlen(szStrBuffer),"%s->%s", out_label, in_label);
