@@ -9,6 +9,19 @@
 
 MINIMAL=
 
+ifdef CONFIG_FUS_COMMON_CMD_OPTIONS
+ifdef CONFIG_CMD_SELFTEST
+SCRIPT_DIR = $(srctree)/scripts
+INCLUDE_DIR = $(srctree)/include/generated
+version = $(shell $(SCRIPT_DIR)/fsversion.sh)
+
+$(INCLUDE_DIR)/gitversion.h: FORCE
+	@echo "#define GIT_VERSION \"${version}\"" > $@
+
+$(obj)/fs_board_common.o: $(INCLUDE_DIR)/gitversion.h
+endif
+endif
+
 ifdef CONFIG_SPL_BUILD
 ifdef CONFIG_SPL_INIT_MINIMAL
 MINIMAL=y

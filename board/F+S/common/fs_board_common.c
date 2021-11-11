@@ -24,6 +24,10 @@
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
 
+#if defined(CONFIG_FUS_COMMON_CMD_OPTIONS) && defined(CONFIG_CMD_SELFTEST)
+#include <generated/gitversion.h>
+#endif
+
 /* ============= Functions not available in SPL ============================ */
 
 #ifndef CONFIG_SPL_BUILD
@@ -491,6 +495,30 @@ char *get_sys_prompt(void)
 {
 	return fs_sys_prompt;
 }
+
+#if defined(CONFIG_FUS_COMMON_CMD_OPTIONS) && defined(CONFIG_CMD_SELFTEST)
+/* For selftest, also display the gittag */
+int show_board_info(void)
+{
+	int ret = 0;
+#ifdef CONFIG_OF_CONTROL
+	DECLARE_GLOBAL_DATA_PTR;
+	const char *model;
+
+	model = fdt_getprop(gd->fdt_blob, 0, "model", NULL);
+
+	if (model)
+		printf("Model: %s\n", model);
+#endif
+	ret = checkboard();
+
+#ifdef GIT_VERSION
+	printf("Git:   %s\n", GIT_VERSION);
+#endif
+
+	return ret;
+}
+#endif
 
 #endif /* ! CONFIG_SPL_BUILD */
 
