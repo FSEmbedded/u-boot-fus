@@ -159,20 +159,19 @@ int test_serial(char *szStrBuffer)
 	int ret = 0, msec = 0;
 	int mismatch = 0;
 	const char *in_label, *out_label;
-	int gpio_exists, failed, first_pins, i;
+	int gpio_exists, first_pins, i;
 	u32 failmask;
 	ret = init_uart();
 
 	// Seed the current time to achieve a better pseudo randomizer
 	srand(timer_get_us());
 
-    for(int i=0; i<BUFFERSIZE-1; i++)
-	{
+	for (int i=0; i<BUFFERSIZE-1; i++) {
 		//tx_buffer[i] = (char) ((rand() % 223) + 33);
 		tx_buffer[i] = (char) (i + 33);
 	}
 
-    tx_buffer[BUFFERSIZE-1] = 0;
+	tx_buffer[BUFFERSIZE-1] = 0;
 
 	if (uclass_get(UCLASS_SERIAL, &uc))
 		return 1;
@@ -181,7 +180,6 @@ int test_serial(char *szStrBuffer)
 
 		failmask = 0;
 		gpio_exists = 0;
-		failed = 0;
 		first_pins  = 1;
 
 		ret = 0;
@@ -195,9 +193,9 @@ int test_serial(char *szStrBuffer)
 		node = dev_of_offset(dev);
 
 		printf("SERIAL %d: (%s)\n", dev->seq, fdt_get_property(fdt, node, "port-name", NULL)->data);
-        // Wait for debug output to finish
-        if(fdt_get_property(fdt, node, "debug-port", NULL))
-            mdelay(1);
+		// Wait for debug output to finish
+		if (fdt_get_property(fdt, node, "debug-port", NULL))
+			mdelay(1);
 
 		ops = serial_get_ops(dev);
 		ops->setbrg(dev,115200);
@@ -214,24 +212,24 @@ int test_serial(char *szStrBuffer)
 
 		set_loopback(dev,1);
 
-       	// Test TX to RX
-        mismatch = tx_to_rx_test(dev, ops, &msec);
+		// Test TX to RX
+		mismatch = tx_to_rx_test(dev, ops, &msec);
 
 		// Set external
 		wait_tx_buf_empty(dev, ops);
 
 		set_loopback(dev,0);
-    		clear_rx_buf(dev, ops);
+		clear_rx_buf(dev, ops);
 
-        	// Print result
+		// Print result
 		if (msec >= TIMEOUT) {
 			sprintf(szStrBuffer, "Failed with timeout");
 			ret = -1;
 		}
-        else if(mismatch){
+		else if (mismatch) {
 			sprintf(szStrBuffer, "Failed with TX/RX mismatch");
 			ret = -1;
-        }
+		}
 		test_OkOrFail(ret, 1, szStrBuffer);
 
 		printf("  external loopback...");
@@ -239,37 +237,43 @@ int test_serial(char *szStrBuffer)
 		// If RS485 initialize CTS pin
 		init_rs485_cts(dev);
 
-		if (!fdt_get_property(fdt, node, "debug-port", NULL)) {
-           	 // Test TX to RX
-            	mismatch = tx_to_rx_test(dev, ops, &msec);
-
-            	// Print result
-				if (msec >= TIMEOUT) {
-    			sprintf(szStrBuffer, "Failed with timeout");
-    			ret = -1;
-				}
-            else if(mismatch){
-    			sprintf(szStrBuffer, "Failed with TX/RX mismatch");
-    			ret = -1;
-				}
-			}
-		else {
-			sprintf(szStrBuffer, "Debug port");
-			ret = 1;
-		}
-		test_OkOrFail(ret, 1, szStrBuffer);
-
-		/* Test RTS/CTS */
-		/* If a size is returned, gpios exists */
-
+		ret = 0;
 		/* Clear reason-string */
 		szStrBuffer[0] = '\0';
 
-		if(test_gpio_dev(dev, &failmask))
+		if (test_gpio_dev(dev, &failmask))
 			gpio_exists = 1;
 
-		if (failmask)
-				failed = 1;
+		if (!fdt_get_property(fdt, node, "debug-port", NULL)) {
+			// Test TX to RX
+			mismatch = tx_to_rx_test(dev, ops, &msec);
+
+			// Print result
+			if (msec >= TIMEOUT) {
+				sprintf(szStrBuffer + strlen(szStrBuffer), "TX/RX timeout");
+				ret = -1;
+			}
+			else if (mismatch) {
+				sprintf(szStrBuffer + strlen(szStrBuffer), "TX/RX mismatch");
+				ret = -1;
+			}
+		}
+		else {
+			sprintf(szStrBuffer + strlen(szStrBuffer), "Debug port");
+			if (gpio_exists) {
+				sprintf(szStrBuffer + strlen(szStrBuffer), ", ");
+				if (!failmask)
+					sprintf(szStrBuffer + strlen(szStrBuffer), "TX/RX skipped");
+			}
+			else
+				ret = 1;
+		}
+
+		if (failmask) {
+			if (ret == -1)
+				sprintf(szStrBuffer + strlen(szStrBuffer), ", ");
+			ret = -1;
+		}
 
 		for (i = 0; failmask; i++) {
 			if (failmask & (1 << i)) {
@@ -285,13 +289,7 @@ int test_serial(char *szStrBuffer)
 			}
 		}
 
-		if (gpio_exists) {
-			printf("  RTS/CTS.............");
-			if (failed)
-				test_OkOrFail(-1, 1, szStrBuffer);
-			else
-				test_OkOrFail(0, 1, NULL);
-		}
+		test_OkOrFail(ret, 1, szStrBuffer);
 	}
 	return 0;
 }
