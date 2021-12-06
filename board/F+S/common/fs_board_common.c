@@ -18,9 +18,9 @@
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"
+#include <fuse.h>			/* fuse_read() */
 
 #ifdef HAVE_BOARD_CFG
-#include <fuse.h>			/* fuse_read() */
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
 
@@ -33,7 +33,7 @@
 #ifndef CONFIG_SPL_BUILD
 
 /* String used for system prompt */
-static char fs_sys_prompt[20];
+static char fs_sys_prompt[32];
 
 /* Store a pointer to the current board info */
 static const struct fs_board_info *current_bi;
@@ -106,15 +106,6 @@ ulong board_serial_base(void)
 	return pargs->dwDbgSerPortPA;
 }
 
-enum boot_device fs_board_get_boot_dev(void)
-{
-#ifdef CONFIG_ENV_IS_IN_MMC
-	return MMC2_BOOT;
-#else
-	return NAND_BOOT;
-#endif
-}
-
 /* Get the NBoot version */
 const char *fs_board_get_nboot_version(void)
 {
@@ -142,6 +133,74 @@ void board_nand_state(struct mtd_info *mtd, unsigned int state)
 {
 	/* Save state to pass it to Linux later */
 	nboot_args.chECCstate |= (unsigned char)state;
+}
+
+/* Definitions in boot_cfg (fuse bank 0, word 5) */
+#define BOOT_CFG_DEVSEL_SHIFT 4
+#define BOOT_CFG_DEVSEL_MASK (15 << BOOT_CFG_DEVSEL_SHIFT)
+#ifdef CONFIG_TARGET_FSIMX6UL
+#define BOOT_CFG_PORTSEL_SHIFT 11
+#define BOOT_CFG_PORTSEL_MASK (3 << BOOT_CFG_PORTSEL_SHIFT)
+#else
+#define BOOT_CFG_PORTSEL_SHIFT 3
+#define BOOT_CFG_PORTSEL_MASK (3 << BOOT_CFG_PORTSEL_SHIFT)
+#endif
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB, but is basically fused to boot from NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 port;
+	enum boot_device boot_dev = USB_BOOT;
+
+#ifdef CONFIG_TARGET_FSIMX6UL
+	/* boot_cfg1 is in fuse bank 0, word 5 */
+	if (fuse_read(0, 5, &val)) {
+		puts("Error reading boot_cfg1\n");
+		return boot_dev;
+	}
+	port = (val & BOOT_CFG_PORTSEL_MASK) >> BOOT_CFG_PORTSEL_SHIFT;
+#else
+	/* boot_cfg2 is in fuse bank 0, word 6 */
+	if (fuse_read(0, 6, &val)) {
+		puts("Error reading boot_cfg2\n");
+		return boot_dev;
+	}
+	port = (val & BOOT_CFG_PORTSEL_MASK) >> BOOT_CFG_PORTSEL_SHIFT;
+
+	/* boot_cfg1 is in fuse bank 0, word 5 */
+	if (fuse_read(0, 5, &val)) {
+		puts("Error reading boot_cfg1\n");
+		return boot_dev;
+	}
+#endif
+	val = (val & BOOT_CFG_DEVSEL_MASK) >> BOOT_CFG_DEVSEL_SHIFT;
+	if (val >= 0x4)
+		val &= 0xE;
+
+	switch (val) {
+	case 0x04:
+		boot_dev = SD1_BOOT + port;
+		break;
+	case 0x06:
+		boot_dev = MMC1_BOOT + port;
+		break;
+	case 0x08:
+		boot_dev = NAND_BOOT;
+		break;
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+enum boot_device fs_board_get_boot_dev(void)
+{
+	return fs_board_get_boot_dev_from_fuses();
 }
 #endif /* !HAVE_BOARD_CFG */
 
@@ -369,12 +428,14 @@ void fs_board_late_init_common(const char *serial_name)
 		char *p = current_bi->name;
 		char *l = lcasename;
 		char c;
+		int len = 0;
 
 		do {
 			c = *p++;
 			if ((c >= 'A') && (c <= 'Z'))
 				c += 'a' - 'A';
 			*l++ = c;
+			len++;
 		} while (c);
 
 #ifdef CONFIG_MX6QDL
@@ -386,18 +447,45 @@ void fs_board_late_init_common(const char *serial_name)
 #elif defined(CONFIG_MX6UL) || defined(CONFIG_MX6ULL)
 		/*
 		 * In case of i.MX6ULL, append a second 'l' if the name already
-		 * ends with 'ul', otherwise append 'ull'. This results in the
-		 * names efusa7ull, cubea7ull, picocom1.2ull, cube2.0ull, ...
+		 * have a substring with 'ul', otherwise append 'ull'.
+		 * This results in the names efusa7ull, cubea7ull,
+		 * picocom1.2ull, cube2.0ull, picocoremx6ul100 ...
 		 */
 		if (is_mx6ull()) {
-			l--;
-			/* Names have > 2 chars, so negative index is valid */
-			if ((l[-2] != 'u') || (l[-1] != 'l')) {
-				*l++ = 'u';
+			int i = 0;
+			bool found = false;
+			p = lcasename;
+			do {
+				if (*p == 'u' && *++p == 'l')
+				{
+					i += 2;
+					*l = '\0';
+					do {
+						//*l-- = *l;
+						*l = l[-1];
+						l--;
+						len--;
+					} while (i != len);
+					*l = 'l';
+					found = true;
+					break;
+				}
+				p++;
+				i++;
+			} while (*p);
+
+			if (!found) {
+				l--;
+				/* Names have > 2 chars, so negative index
+				 * is valid
+				 */
+				if ((l[-2] != 'u') || (l[-1] != 'l')) {
+					*l++ = 'u';
+					*l++ = 'l';
+				}
 				*l++ = 'l';
+				*l++ = '\0';
 			}
-			*l++ = 'l';
-			*l++ = '\0';
 		}
 #endif
 		env_set("platform", lcasename);
@@ -569,6 +657,90 @@ const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev)
 
 #include <fdtdec.h>
 
+#ifdef CONFIG_IMX8MN
+/* Definitions in boot_cfg (fuse bank 1, word 3) */
+#define BOOT_CFG_DEVSEL_SHIFT 12
+#define BOOT_CFG_DEVSEL_MASK (15 << BOOT_CFG_DEVSEL_SHIFT)
+#define BOOT_CFG_FORCE_ALT_USDHC BIT(11)
+#define BOOT_CFG_ALT_SEL_SHIFT 9
+#define BOOT_CFG_ALT_SEL_MASK (3 << BOOT_CFG_ALT_SEL_SHIFT)
+enum boot_device usdhc_alt[] = {
+	SD1_BOOT,
+	MMC1_BOOT,
+	MMC2_BOOT,
+	SD3_BOOT,
+};
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB (returned by spl_boot_device()), but is basically fused to boot from
+ * NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 alt;
+	bool force_alt_usdhc;
+	enum boot_device boot_dev = USB_BOOT;
+
+	/* boot_cfg is in fuse bank 1, word 3 */
+	if (fuse_read(1, 3, &val)) {
+		puts("Error reading boot_cfg\n");
+		return boot_dev;
+	}
+
+	force_alt_usdhc = val & BOOT_CFG_FORCE_ALT_USDHC;
+	alt = (val & BOOT_CFG_ALT_SEL_MASK) >> BOOT_CFG_ALT_SEL_SHIFT;
+	switch ((val & BOOT_CFG_DEVSEL_MASK) >> BOOT_CFG_DEVSEL_SHIFT) {
+	case 0x2: // eMMC(SD3)
+		boot_dev = MMC3_BOOT;
+		if (force_alt_usdhc)
+			boot_dev = usdhc_alt[alt];
+		break;
+
+	case 0x3: // SD(SD2)
+		boot_dev = SD2_BOOT;
+		if (force_alt_usdhc)
+			boot_dev = usdhc_alt[alt];
+		break;
+
+	case 0x4: // NAND(256 pages)
+	case 0x5: // NAND(512 pages)
+		boot_dev = NAND_BOOT;
+		break;
+
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+#define IMG_CNTN_SET1_OFFSET_SHIFT 19
+#define IMG_CNTN_SET1_OFFSET_MASK 0x0f
+u32 fs_board_get_secondary_offset(void)
+{
+	u32 val;
+
+	/* Secondary boot image offset is in fuse bank 2, word 1 */
+	if (fuse_read(2, 1, &val)) {
+		puts("Error reading secondary image offset from fuses\n");
+		return 0;
+	}
+
+	val >>= IMG_CNTN_SET1_OFFSET_SHIFT;
+	val &= IMG_CNTN_SET1_OFFSET_MASK;
+	if (val == 0)
+		val = 2;
+	else if (val == 2)
+		val = 0;
+	val += 20;
+	val = 1 << val;
+
+	return val;
+}
+
+#else
 /* Definitions in boot_cfg (fuse bank 1, word 3) */
 #define BOOT_CFG_DEVSEL_SHIFT 12
 #define BOOT_CFG_DEVSEL_MASK (7 << BOOT_CFG_DEVSEL_SHIFT)
@@ -612,5 +784,6 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 
 	return boot_dev;
 }
+#endif /* CONFIG_IMX8MN */
 
 #endif /* HAVE_BOARD_CFG */

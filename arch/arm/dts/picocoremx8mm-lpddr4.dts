@@ -1,16 +1,21 @@
 /*
 * Copyright 2019-2020 F&S Elektronik Systeme GmbH
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+*
+* This program is free software; you can redistribute it and/or
+* modify it under the terms of the GNU General Public License
+* as published by the Free Software Foundation; either version 2
+* of the License, or (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* Remark:
+* CONFIG names use "PICOCOREMX8MM" because this is the marking on the PCB.
+* This will make it easier to merge the two device trees picocoremx8mm-lpddr4
+* and picocoremx8mn-lpddr4 in the future.
+*/
 
 /dts-v1/;
 
@@ -52,7 +57,7 @@
 
 /*
  * SD_B - External SD port with Card Detect (CD) and Write Protect (WP)
- * only available if WLAN is not equipped.
+ * Not connected on PicoCoreMX8MM SKIT
  */
 #define CONFIG_PICOCOREMX8MM_SD_B
 //#define CONFIG_PICOCOREMX8MM_SD_B_CD
@@ -76,8 +81,8 @@
 #include "fsl-imx8mm.dtsi"
 
 / {
-	model = "PicoCoreMX8MM";
-	compatible = "fus,picocoremx8mm", "fsl,imx8mm";
+	model = "PicoCoreMX8MM-LPDDR4";
+	compatible = "fus,picocoremx8mm-lpddr4", "fsl,imx8mm";
 
 	aliases {
 		emmc = &usdhc3;
@@ -86,7 +91,7 @@
 		spi2 = &ecspi2;
 	};
 
-config {
+	config {
 		/* Environment in NAND must match UBootEnv MTD partition */
 		u-boot,nand-env-range = <0x00040000>;
 		u-boot,nand-env-offset = <0x480000>;
@@ -312,7 +317,13 @@ config {
 		compatible = "rohm,bd71837";
 		/* PMIC BD71837 PMIC_nINT GPIO3_IO24 */
 		pinctrl-0 = <&pinctrl_pmic>;
+#if CONFIG_PICOCOREMX8MX_BOARD_REVISION < 130
+		/* PMIC BD71837 PMIC_nINT SAI5_RXD3: GPIO3_IO24 */
 		gpio_intr = <&gpio3 24 GPIO_ACTIVE_LOW>;
+#else
+		/* PMIC BD71837 PMIC_nINT SAI3_MCLK: GPIO5_IO02 */
+		gpio_intr = <&gpio5 2 GPIO_ACTIVE_LOW>;
+#endif
 
 		gpo {
 			rohm,drv = <0x0C>;	/* 0b0000_1100 all gpos with cmos output mode */
@@ -492,8 +503,8 @@ config {
 	pinctrl-0 = <&pinctrl_fec1>;
 	phy-mode = "rgmii-id";
 	phy-reset-gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <50>;
-	phy-reset-post-delay=<200>;
+	phy-reset-duration = <11>;
+	phy-reset-post-delay=<1>;
 	phy-handle = <&ethphy4>;
 	fsl,magic-packet;
 	status = "okay";
@@ -679,10 +690,10 @@ config {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog_1>;
 
-	picocoremx8mm {
+	picocoremx8mm-lpddr4 {
 		pinctrl_hog_1: hoggrp-1 {
 			fsl,pins = <
-			/* LVDS_RST */
+				/* LVDS_RST */
 				MX8MM_IOMUXC_GPIO1_IO13_GPIO1_IO13	0x00019
 				/* CLKO2 -> EXTCLK */
 				MX8MM_IOMUXC_GPIO1_IO15_CCMSRCGPCMIX_CLKO2	0x00059
@@ -754,8 +765,8 @@ config {
 #ifdef CONFIG_PICOCOREMX8MM_I2C_A
 		pinctrl_i2c1: i2c1grp {
 			fsl,pins = <
-				MX8MM_IOMUXC_I2C1_SCL_I2C1_SCL			0x400001c3
-				MX8MM_IOMUXC_I2C1_SDA_I2C1_SDA			0x400001c3
+				MX8MM_IOMUXC_I2C1_SCL_I2C1_SCL		0x400001c3
+				MX8MM_IOMUXC_I2C1_SDA_I2C1_SDA		0x400001c3
 			>;
 		};
 
@@ -770,8 +781,8 @@ config {
 #ifdef CONFIG_PICOCOREMX8MM_I2C_B
 		pinctrl_i2c2: i2c2grp {
 			fsl,pins = <
-				MX8MM_IOMUXC_I2C2_SCL_I2C2_SCL			0x400001c3
-				MX8MM_IOMUXC_I2C2_SDA_I2C2_SDA			0x400001c3
+				MX8MM_IOMUXC_I2C2_SCL_I2C2_SCL		0x400001c3
+				MX8MM_IOMUXC_I2C2_SDA_I2C2_SDA		0x400001c3
 			>;
 		};
 
@@ -784,11 +795,10 @@ config {
 #endif
 
 #ifdef CONFIG_PICOCOREMX8MM_I2C_C
-
 		pinctrl_i2c3: i2c3grp {
 			fsl,pins = <
-				MX8MM_IOMUXC_I2C3_SCL_I2C3_SCL			0x400001c3
-				MX8MM_IOMUXC_I2C3_SDA_I2C3_SDA			0x400001c3
+				MX8MM_IOMUXC_I2C3_SCL_I2C3_SCL		0x400001c3
+				MX8MM_IOMUXC_I2C3_SDA_I2C3_SDA		0x400001c3
 			>;
 		};
 
@@ -803,8 +813,8 @@ config {
 #ifdef CONFIG_PICOCOREMX8MM_I2C_D
 		pinctrl_i2c4: i2c4grp {
 			fsl,pins = <
-				MX8MM_IOMUXC_I2C4_SCL_I2C4_SCL			0x400001c3
-				MX8MM_IOMUXC_I2C4_SDA_I2C4_SDA			0x400001c3
+				MX8MM_IOMUXC_I2C4_SCL_I2C4_SCL		0x400001c3
+				MX8MM_IOMUXC_I2C4_SDA_I2C4_SDA		0x400001c3
 			>;
 		};
 
@@ -823,7 +833,11 @@ config {
 
 		pinctrl_pmic: pmicirq {
 			fsl,pins = <
+#if CONFIG_PICOCOREMX8MX_BOARD_REVISION < 130
 				MX8MM_IOMUXC_SAI5_RXD3_GPIO3_IO24	0x00041
+#else
+				MX8MM_IOMUXC_SAI3_MCLK_GPIO5_IO02	0x00041
+#endif
 			>;
 		};
 #endif
@@ -898,7 +912,7 @@ config {
 #endif
 
 #ifdef CONFIG_PICOCOREMX8MM_SD_A
-       pinctrl_usdhc1_gpio: usdhc1grpgpio {
+		pinctrl_usdhc1_gpio: usdhc1grpgpio {
 			fsl,pins = <
 #ifdef CONFIG_PICOCOREMX8MM_SD_A_CD
 				MX8MM_IOMUXC_GPIO1_IO06_GPIO1_IO6	0x00041

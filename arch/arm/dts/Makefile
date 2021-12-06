@@ -471,13 +471,12 @@ dtb-$(CONFIG_ARCH_IMX8M) += fsl-imx8mq-evk.dtb \
 		fsl-imx8mm-evk.dtb \
 		fsl-imx8mn-ddr4-evk.dtb \
 		fsl-imx8mn-evk.dtb \
-		picocoremx8mm.dtb \
-		picocoremx8mx.dtb \
+		picocoremx8mm-lpddr4.dtb \
+		picocoremx8mm-ddr3l.dtb \
 		armstonemx8m.dtb \
-		picocoremx8mn.dtb \
-		tbs2.dtb \
-		picocoremx8mm-selftest.dtb \
-		picocoremx8mx-selftest.dtb \
+		picocoremx8mn-lpddr4.dtb \
+		picocoremx8mn-ddr3l.dtb \
+		tbs2.dtb
 
 dtb-$(CONFIG_ARCH_IMX8) += fsl-imx8dx-17x17-val.dtb \
 		fsl-imx8dx-mek.dtb \
@@ -487,8 +486,7 @@ dtb-$(CONFIG_ARCH_IMX8) += fsl-imx8dx-17x17-val.dtb \
 		fsl-imx8qm-mek-xen.dtb \
 		fsl-imx8qxp-17x17-val.dtb \
 		fsl-imx8qxp-lpddr4-arm2.dtb \
-		fsl-imx8qxp-mek.dtb \
-		efusmx8x.dtb
+		fsl-imx8qxp-mek.dtb
 
 dtb-$(CONFIG_RCAR_GEN3) += \
 	r8a7795-h3ulcb.dtb \

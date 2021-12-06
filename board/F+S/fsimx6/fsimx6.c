@@ -77,8 +77,10 @@
 #define FEAT2_DEFAULT FEAT2_ETH_A
 
 /* Device tree paths */
-#define FDT_NAND	"/soc/gpmi-nand@00112000"
-#define FDT_ETH_A	"/soc/aips-bus@02100000/ethernet@02188000"
+#define FDT_NAND         "nand"
+#define FDT_NAND_LEGACY  "/soc/gpmi-nand@00112000"
+#define FDT_ETH_A        "ethernet0"
+#define FDT_ETH_A_LEGACY "/soc/aips-bus@02100000/ethernet@02188000"
 
 #define UART_PAD_CTRL  (PAD_CTL_PUS_100K_UP |			\
 	PAD_CTL_SPEED_MED | PAD_CTL_DSE_40ohm |			\
@@ -779,6 +781,19 @@ static iomux_v3_cfg_t const lcd_extra_pads_pmoda9[] = {
 	/* Signals are active low -> pull-up to switch off */
 	IOMUX_PADS(PAD_SD4_DAT4__GPIO2_IO12 | MUX_PAD_CTRL(0xb010)),
 	IOMUX_PADS(PAD_SD4_DAT5__GPIO2_IO13 | MUX_PAD_CTRL(0xb010)),
+	/* Signals acre connected to LCD pins*/
+	IOMUX_PADS(PAD_CSI0_PIXCLK__GPIO5_IO18  | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_MCLK__GPIO5_IO19    | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DATA_EN__GPIO5_IO20 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_VSYNC__GPIO5_IO21   | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DAT12__GPIO5_IO30 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DAT13__GPIO5_IO31 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DAT14__GPIO6_IO00 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DAT15__GPIO6_IO01 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DAT16__GPIO6_IO02 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DAT17__GPIO6_IO03 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DAT18__GPIO6_IO04 | MUX_PAD_CTRL(0x3010)),
+	IOMUX_PADS(PAD_CSI0_DAT19__GPIO6_IO05 | MUX_PAD_CTRL(0x3010)),
 };
 
 /* Use I2C2 to talk to RGB adapter on armStoneA9 */
@@ -1691,13 +1706,19 @@ void __led_toggle(led_id_t id)
 /* Do any additional board-specific device tree modifications */
 int ft_board_setup(void *fdt, bd_t *bd)
 {
-	int offs;
+	int offs,err;
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 
 	printf("   Setting run-time properties\n");
 
 	/* Set ECC strength for NAND driver */
 	offs = fs_fdt_path_offset(fdt, FDT_NAND);
+
+	if (offs < 0) {
+		printf("   Trying legacy path\n");
+		offs = fs_fdt_path_offset(fdt, FDT_NAND_LEGACY);
+	}
+
 	if (offs >= 0) {
 		fs_fdt_set_u32(fdt, offs, "fus,ecc_strength",
 			       pargs->chECCtype, 1);
@@ -1721,8 +1742,13 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	}
 
 	/* Disable ethernet node(s) if feature is not available */
-	if (!(pargs->chFeatures2 & FEAT2_ETH_A))
-		fs_fdt_enable(fdt, FDT_ETH_A, 0);
+	if (!(pargs->chFeatures2 & FEAT2_ETH_A)){
+		err = fs_fdt_enable(fdt, FDT_ETH_A, 0);
+		if(err){
+			printf("   Trying legacy path\n");
+			fs_fdt_enable(fdt, FDT_ETH_A_LEGACY, 0);
+		}
+	}
 #if 0
 	if (!(pargs->chFeatures2 & FEAT2_ETH_B))
 		fs_fdt_enable(fdt, FDT_ETH_B, 0);
