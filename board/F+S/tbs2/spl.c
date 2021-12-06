@@ -87,7 +87,7 @@ static void fs_board_init_nboot_args(void)
 
 	/* Setup TBS2 settings */
 	nbootargs.chBoardType = BT_TBS2;
-	nbootargs.chBoardRev = 111;
+	nbootargs.chBoardRev = 120;
 	nbootargs.chFeatures2 = 1<<0 | 1<<1 | 1<<2;
 
 	nbootargs.dwNumDram = NumDram;
