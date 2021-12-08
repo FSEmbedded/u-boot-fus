@@ -583,15 +583,28 @@ static int setup_fec(void)
 {
 	struct iomuxc_gpr_base_regs *const iomuxc_gpr_regs =
 		(struct iomuxc_gpr_base_regs*) IOMUXC_GPR_BASE_ADDR;
+	unsigned int board_type = fs_board_get_type();
+	enum enet_freq freq;
 
 	if(fs_board_get_type() == BT_PICOCOREMX8MX)
 		setup_iomux_fec();
 
-	/* Use 125M anatop REF_CLK1 for ENET1, not from external */
-	clrsetbits_le32(&iomuxc_gpr_regs->gpr[1],
-			IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_SHIFT, 0);
 
-	return set_clk_enet(ENET_125MHZ);
+	switch(board_type) {
+	case BT_TBS2:
+		/* external 25 MHz oscilator REF_CLK => 50 MHz */
+		clrbits_le32(&iomuxc_gpr_regs->gpr[1],
+				IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_MASK);
+		freq = ENET_50MHZ;
+		break;
+	default:
+		/* Use 125M anatop REF_CLK1 for ENET1, not from external */
+		clrsetbits_le32(&iomuxc_gpr_regs->gpr[1],
+				IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_SHIFT, 0);
+		freq = ENET_125MHZ;
+		break;
+	}
+	return set_clk_enet(freq);
 }
 
 #define KSZ9893R_SLAVE_ADDR		0x5F
@@ -683,17 +696,34 @@ static int board_setup_ksz9893r(void)
 
 int board_phy_config(struct phy_device *phydev)
 {
-	if (fs_board_get_type() != BT_PICOCOREMX8MX) {
-		/* enable rgmii rxc skew and phy mode select to RGMII copper */
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x1f);
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x8);
+	unsigned int board_type = fs_board_get_type();
+	u16 reg = 0;
 
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x05);
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x100);
+	switch(board_type) {
+	case BT_TBS2:
+		/* do not use KSZ8081RNA specific config funcion.
+		 * This function says clock input to XI is 50 MHz, but
+		 * we have an 25 MHz oscilator, so we need to set
+		 * bit 7 to 0 (register 0x1f)
+		 */
+		reg = phy_read(phydev, 0x0, 0x1f);
+		reg &= 0xff7f;
+		phy_write(phydev, 0x0, 0x1f, reg);
+		break;
+	default:
+		if (fs_board_get_type() != BT_PICOCOREMX8MX) {
+			/* enable rgmii rxc skew and phy mode select to RGMII copper */
+			phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x1f);
+			phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x8);
+
+			phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x05);
+			phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x100);
+		}
+
+		if (phydev->drv->config)
+			phydev->drv->config(phydev);
+		break;
 	}
-
-	if (phydev->drv->config)
-		phydev->drv->config(phydev);
 
 	return 0;
 }
