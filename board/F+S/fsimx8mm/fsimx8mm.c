@@ -45,6 +45,8 @@
 #include "../common/fs_image_common.h"	/* fs_image_*() */
 #include <nand.h>
 
+#include <power/regulator.h>
+
 /* ------------------------------------------------------------------------- */
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -313,6 +315,11 @@ int board_init(void)
 	if (board_type == BT_PICOCOREMX8MX) {
 		board_setup_ksz9893r();
 	}
+
+/* TODO KM: Is this generally a better way to initialize all the fixed GPIOs? */
+
+	/* Enable regulators defined in device tree */
+	regulators_enable_boot_on(false);
 
 	return 0;
 }
