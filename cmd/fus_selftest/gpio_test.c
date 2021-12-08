@@ -20,10 +20,15 @@
 
 #define OUTPUT 0
 #define INPUT 1
+#define SET 2
+#define CLR 3
 
 static int size;
+static int set_size;
+char set_gpios_str[32];
 char in_gpios_str[32];
 char out_gpios_str[32];
+char set_pins_str[32];
 char in_pins_str[32];
 char out_pins_str[32];
 char pinctrl_str[32];
@@ -47,10 +52,12 @@ struct test_driver {
 
 void set_gpios_default(void)
 {
-	strcpy(in_gpios_str,"in-gpios");
-	strcpy(out_gpios_str,"out-gpios");
+	strcpy(set_pins_str,"set-pins");
 	strcpy(in_pins_str,"in-pins");
 	strcpy(out_pins_str,"out-pins");
+	strcpy(set_gpios_str,"set-gpios");
+	strcpy(in_gpios_str,"in-gpios");
+	strcpy(out_gpios_str,"out-gpios");
 	strcpy(pinctrl_str,"gpiotest");
 }
 
@@ -80,24 +87,61 @@ static int get_gpio_lists(struct udevice *dev, struct gpio_desc **in_gpios, stru
 	return 0;
 }
 
+static int get_set_list(struct udevice *dev, struct gpio_desc **set_gpios)
+{
+	int ret;
+
+	set_size = 0;
+
+	/* Get GPIO List */
+	set_size = gpio_get_list_count(dev, set_gpios_str);
+	*set_gpios = calloc(set_size, sizeof(struct gpio_desc));
+	ret = gpio_request_list_by_name(dev, set_gpios_str, *set_gpios, set_size, 0);
+	if (ret < 0) {
+		set_size = 0;
+		return -1;
+	}
+
+	return 0;
+}
+
 static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
 {
 	const char * label;
 
-	for (int i = 0; i < size; i++) {
-		dev_read_string_index(dev, input ? in_pins_str : out_pins_str, i, &label);
-		dm_gpio_free(dev, (gpios+i));
-		dm_gpio_request((gpios+i), label);
+	switch (input) {
+		case OUTPUT:
+		case INPUT:
+			for (int i = 0; i < size; i++) {
+				dev_read_string_index(dev, input ? in_pins_str : out_pins_str, i, &label);
+				dm_gpio_free(dev, (gpios+i));
+				dm_gpio_request((gpios+i), label);
 
-		if (input)
-			dm_gpio_set_dir_flags((gpios+i), GPIOD_IS_IN);
-		else {
-			dm_gpio_set_dir_flags((gpios+i), GPIOD_IS_OUT);
-			dm_gpio_set_value((gpios+i),0);
-		}
+				if (input)
+					dm_gpio_set_dir_flags((gpios+i), GPIOD_IS_IN);
+				else {
+					dm_gpio_set_dir_flags((gpios+i), GPIOD_IS_OUT);
+					dm_gpio_set_value((gpios+i),0);
+				}
+			}
+			break;
+		case SET:
+			for (int i = 0; i < set_size; i++) {
+				dev_read_string_index(dev, set_pins_str, i, &label);
+				dm_gpio_free(dev, (gpios+i));
+				dm_gpio_request((gpios+i), label);
+
+				dm_gpio_set_dir_flags((gpios+i), GPIOD_IS_OUT);
+				dm_gpio_set_value((gpios+i),1);
+			}
+			break;
+		case CLR:
+		default:
+			break;
 	}
+
 	/* Delay for setup */
-	mdelay(10);
+	mdelay(100);
 
 	return 0;
 }
@@ -105,6 +149,12 @@ static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
 static void free_gpios(struct udevice *dev, struct gpio_desc *gpios)
 {
 	for (int i = 0; i < size; i++)
+		dm_gpio_free(dev, (gpios+i));
+}
+
+static void free_set_gpios(struct udevice *dev, struct gpio_desc *gpios)
+{
+	for (int i = 0; i < set_size; i++)
 		dm_gpio_free(dev, (gpios+i));
 }
 
@@ -139,7 +189,7 @@ int test_gpio_dev(struct udevice *dev, u32 *failmask)
 {
 	int i;
 	char variant[MAX_DESCR_LEN+1];
-	struct gpio_desc *in_gpios, *out_gpios;
+	struct gpio_desc *in_gpios, *out_gpios, *set_gpios;
 
 	/* Init failmask */
 	*failmask = 0;
@@ -151,8 +201,10 @@ int test_gpio_dev(struct udevice *dev, u32 *failmask)
 	variant[0] = '-';
 	get_board_fert(variant+1); /* is either fertX or empty string */
 	if (variant[1] != '\0') {
+		strcat(set_gpios_str, variant);
 		strcat(in_gpios_str, variant);
 		strcat(out_gpios_str, variant);
+		strcat(set_pins_str, variant);
 		strcat(in_pins_str, variant);
 		strcat(out_pins_str, variant);
 		strcat(pinctrl_str, variant);
@@ -169,16 +221,20 @@ int test_gpio_dev(struct udevice *dev, u32 *failmask)
 			return size;
 	}
 
+	get_set_list(dev, &set_gpios);
+
 	/* Initialize and request the GPIOs */
 	if (init_gpios(dev, in_gpios, INPUT) || init_gpios(dev, out_gpios, OUTPUT))
 		return size;
+
+	init_gpios(dev, set_gpios, SET);
 
 	/* Mark that at least one device of the driver has a gpio-test-config */
 	if (size > 0) {
 		/* Set IOMUX to gpiotest */
 		pinctrl_select_state(dev,pinctrl_str);
 
-		/* Test every GPIO-Bit    */
+		/* Test every GPIO-Bit */
 		/* Active High: 001, 010, 100 */
 		for (i = 0; i < size; i++) {
 			set_test_bit(out_gpios, i, 1);
@@ -193,6 +249,7 @@ int test_gpio_dev(struct udevice *dev, u32 *failmask)
 		/* Free GPIOs */
 		free_gpios(dev, in_gpios);
 		free_gpios(dev, out_gpios);
+		free_set_gpios(dev, set_gpios);
 	}
 
 	return size;

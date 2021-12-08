@@ -168,66 +168,68 @@ int test_relay(char *szStrBuffer)
 
 			/* Set IOMUX to relaygpio */
 			pinctrl_select_state(dev,"relaygpio");
-		}
 
-		/* Deactivate relay switch */
-		dm_gpio_set_value(switch_gpio,0);
+			/* Deactivate relay switch */
+			dm_gpio_set_value(switch_gpio,0);
+			mdelay(10);
 
-		/* Test every GPIO-Bit with relay off */
-		/* Active High: 001, 010, 100 */
-		for (i = 0; i < size; i++) {
-			set_test_bit(out_gpios, i, 1);
-			failmask_off |= cmp_test_bit(in_gpios_off, i, 1);
-		}
-		/* Active Low: 110, 101, 011 */
-		for (i = 0; i < size; i++) {
-			set_test_bit(out_gpios, i, 0);
-			failmask_off |= cmp_test_bit(in_gpios_off, i, 0);
-		}
-
-		/* Activate relay switch */
-		dm_gpio_set_value(switch_gpio,1);
-
-		/* Test every GPIO-Bit with relay on */
-		/* Active High: 001, 010, 100 */
-		for (i = 0; i < size; i++) {
-			set_test_bit(out_gpios, i, 1);
-			failmask_on |= cmp_test_bit(in_gpios_on, i, 1);
-		}
-		/* Active Low: 110, 101, 011 */
-		for (i = 0; i < size; i++) {
-			set_test_bit(out_gpios, i, 0);
-			failmask_on |= cmp_test_bit(in_gpios_on, i, 0);
-		}
-
-		if (failmask_off || failmask_on)
-				failed = 1;
-
-		for (i = 0; failmask_off; i++) {
-			if (failmask_off & (1 << i)) {
-				dev_read_string_index(dev, "in-pins-relay-off", i, &in_label);
-				dev_read_string_index(dev, "out-pins-relay", i, &out_label);
-				if (first_pins) {
-					first_pins = 0;
-					sprintf(szStrBuffer + strlen(szStrBuffer),"%s->%s", out_label, in_label);
-				}
-				else
-					sprintf(szStrBuffer + strlen(szStrBuffer),", %s->%s", out_label, in_label);
-				failmask_off &= ~(1 << i);
+			/* Test every GPIO-Bit with relay off */
+			/* Active High: 001, 010, 100 */
+			for (i = 0; i < size; i++) {
+				set_test_bit(out_gpios, i, 1);
+				failmask_off |= cmp_test_bit(in_gpios_off, i, 1);
 			}
-		}
+			/* Active Low: 110, 101, 011 */
+			for (i = 0; i < size; i++) {
+				set_test_bit(out_gpios, i, 0);
+				failmask_off |= cmp_test_bit(in_gpios_off, i, 0);
+			}
 
-		for (i = 0; failmask_on; i++) {
-			if (failmask_on & (1 << i)) {
-				dev_read_string_index(dev, "in-pins-relay-on", i, &in_label);
-				dev_read_string_index(dev, "out-pins-relay", i, &out_label);
-				if (first_pins) {
-					first_pins = 0;
-					sprintf(szStrBuffer + strlen(szStrBuffer),"%s->%s", out_label, in_label);
+			/* Activate relay switch */
+			dm_gpio_set_value(switch_gpio,1);
+			mdelay(10);
+
+			/* Test every GPIO-Bit with relay on */
+			/* Active High: 001, 010, 100 */
+			for (i = 0; i < size; i++) {
+				set_test_bit(out_gpios, i, 1);
+				failmask_on |= cmp_test_bit(in_gpios_on, i, 1);
+			}
+			/* Active Low: 110, 101, 011 */
+			for (i = 0; i < size; i++) {
+				set_test_bit(out_gpios, i, 0);
+				failmask_on |= cmp_test_bit(in_gpios_on, i, 0);
+			}
+
+			if (failmask_off || failmask_on)
+					failed = 1;
+
+			for (i = 0; failmask_off; i++) {
+				if (failmask_off & (1 << i)) {
+					dev_read_string_index(dev, "in-pins-relay-off", i, &in_label);
+					dev_read_string_index(dev, "out-pins-relay", i, &out_label);
+					if (first_pins) {
+						first_pins = 0;
+						sprintf(szStrBuffer + strlen(szStrBuffer),"%s->%s", out_label, in_label);
+					}
+					else
+						sprintf(szStrBuffer + strlen(szStrBuffer),", %s->%s", out_label, in_label);
+					failmask_off &= ~(1 << i);
 				}
-				else
-					sprintf(szStrBuffer + strlen(szStrBuffer),", %s->%s", out_label, in_label);
-				failmask_on &= ~(1 << i);
+			}
+
+			for (i = 0; failmask_on; i++) {
+				if (failmask_on & (1 << i)) {
+					dev_read_string_index(dev, "in-pins-relay-on", i, &in_label);
+					dev_read_string_index(dev, "out-pins-relay", i, &out_label);
+					if (first_pins) {
+						first_pins = 0;
+						sprintf(szStrBuffer + strlen(szStrBuffer),"%s->%s", out_label, in_label);
+					}
+					else
+						sprintf(szStrBuffer + strlen(szStrBuffer),", %s->%s", out_label, in_label);
+					failmask_on &= ~(1 << i);
+				}
 			}
 		}
 
