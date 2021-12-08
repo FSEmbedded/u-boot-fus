@@ -28,6 +28,7 @@ config CMD_SELFTEST
 	select DM_PMIC_BD71837
 	select DM_SERIAL
 	select DM_SPI
+	select DM_PWM
 	select VIDEO
 	select IMX_SEC_MIPI_DSI
 	select NT35521
