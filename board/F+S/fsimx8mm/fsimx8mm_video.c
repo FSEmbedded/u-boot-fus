@@ -20,6 +20,7 @@
 
 #define BT_PICOCOREMX8MM 	0
 #define BT_PICOCOREMX8MX	1
+#define BT_TBS2 		2
 
 #define FEAT_LVDS	(1<<8)
 #define FEAT_MIPI_DSI	(1<<9)
@@ -700,12 +701,12 @@ struct mipi_dsi_client_dev tc358775_dev = {
 
 int detect_tc358775(struct display_info_t const *dev)
 {
-	return 1;
+	return (fs_board_get_features() & (FEAT_LVDS | FEAT_MIPI_DSI)) ? 1 : 0;
 }
 
 int detect_mipi_disp(struct display_info_t const *dev)
 {
-	return (fs_board_get_features() & FEAT_MIPI_DSI) ? 1 : 0;
+	return 0;
 }
 
 static struct mipi_dsi_client_driver tc358775_drv = {
@@ -731,100 +732,103 @@ void enable_tc358775(struct display_info_t const *dev)
 {
 	int ret = 0;
 
-	display = dev;
-
-	if (detect_mipi_disp(dev))
+	if (fs_board_get_type() != BT_TBS2)
 	{
-		struct udevice *bus = 0, *gpio_dev = 0;
-		uint8_t val = 0;
+		display = dev;
 
-		i2c_bus = 1;
-
-		ret = uclass_get_device_by_seq (UCLASS_I2C, i2c_bus, &bus);
-		if (ret)
+		if (detect_mipi_disp(dev))
 		{
-			printf ("%s: No bus %d\n", __func__, i2c_bus);
-			return;
-		}
+			struct udevice *bus = 0, *gpio_dev = 0;
+			uint8_t val = 0;
 
-		ret = dm_i2c_probe (bus, PCA9634_ADDR, 0, &gpio_dev);
-		if (ret)
-		{
-			printf ("%s: Can't find device id=0x%x, on bus %d, ret %d\n", __func__,
-				PCA9634_ADDR, i2c_bus, ret);
-			return;
-		}
+			i2c_bus = 1;
 
-		/* offset */
-		i2c_set_chip_offset_len (gpio_dev, 1);
+			ret = uclass_get_device_by_seq (UCLASS_I2C, i2c_bus, &bus);
+			if (ret)
+			{
+				printf ("%s: No bus %d\n", __func__, i2c_bus);
+				return;
+			}
 
-		udelay(50);
-		/* Set from low power mode to normal mode, otherwise LEDs can't be set */
-		val = 0;
-		dm_i2c_write (gpio_dev, 0x0, &val, sizeof(val));
-		udelay (5);
-		val = OUTDRV;
-		dm_i2c_write (gpio_dev, 0x1, &val, sizeof(val));
-		val = BL_PWM | MIPI_RST;
-		dm_i2c_write (gpio_dev, 0xC, &val, sizeof(val));
-		val = MIPI_STBY;
-		dm_i2c_write (gpio_dev, 0xD, &val, sizeof(val));
-		mdelay (10);
-		val = 0;
-		dm_i2c_write (gpio_dev, 0xD, &val, sizeof(val));
-		mdelay (10);
-		val = BL_PWM;
-		dm_i2c_write (gpio_dev, 0xC, &val, sizeof(val));
-		udelay (10);
-	}
-	else
-	{
-		imx_iomux_v3_setup_multiple_pads (lvds_clk_8mm_pads, ARRAY_SIZE (lvds_clk_8mm_pads));
-		gpio_request (LVDS_CLK_8MM_PAD, "LVDS_CLK");
-		gpio_direction_output (LVDS_CLK_8MM_PAD, 0);
+			ret = dm_i2c_probe (bus, PCA9634_ADDR, 0, &gpio_dev);
+			if (ret)
+			{
+				printf ("%s: Can't find device id=0x%x, on bus %d, ret %d\n", __func__,
+					PCA9634_ADDR, i2c_bus, ret);
+				return;
+			}
 
-		switch (fs_board_get_type()) 
-		{
-		case BT_PICOCOREMX8MM:
-			i2c_bus = 3;
-			imx_iomux_v3_setup_multiple_pads (lvds_rst_8mm_pads, ARRAY_SIZE (lvds_rst_8mm_pads));
-			gpio_request (LVDS_RST_8MM_PAD, "LVDS_RST");
-			gpio_direction_output (LVDS_RST_8MM_PAD, 0);
+			/* offset */
+			i2c_set_chip_offset_len (gpio_dev, 1);
+
+			udelay(50);
+			/* Set from low power mode to normal mode, otherwise LEDs can't be set */
+			val = 0;
+			dm_i2c_write (gpio_dev, 0x0, &val, sizeof(val));
+			udelay (5);
+			val = OUTDRV;
+			dm_i2c_write (gpio_dev, 0x1, &val, sizeof(val));
+			val = BL_PWM | MIPI_RST;
+			dm_i2c_write (gpio_dev, 0xC, &val, sizeof(val));
+			val = MIPI_STBY;
+			dm_i2c_write (gpio_dev, 0xD, &val, sizeof(val));
 			mdelay (10);
-			gpio_direction_output (LVDS_RST_8MM_PAD, 1);
+			val = 0;
+			dm_i2c_write (gpio_dev, 0xD, &val, sizeof(val));
+			mdelay (10);
+			val = BL_PWM;
+			dm_i2c_write (gpio_dev, 0xC, &val, sizeof(val));
 			udelay (10);
-			break;
-		case BT_PICOCOREMX8MX:
-			i2c_bus = 0;
-			imx_iomux_v3_setup_multiple_pads (lvds_rst_8mx_pads, ARRAY_SIZE (lvds_rst_8mx_pads));
-			gpio_request (LVDS_STBY_8MX_PAD, "LVDS_STBY");
-			gpio_request (LVDS_RST_8MX_PAD, "LVDS_RST");
-			gpio_direction_output (LVDS_STBY_8MX_PAD, 0);
-			gpio_direction_output (LVDS_RST_8MX_PAD, 0);
-			mdelay (10);
-			gpio_direction_output (LVDS_STBY_8MX_PAD, 1);
-			mdelay (10);
-			gpio_direction_output (LVDS_RST_8MX_PAD, 1);
-			udelay (10);
-			break;
 		}
+		else
+		{
+			imx_iomux_v3_setup_multiple_pads (lvds_clk_8mm_pads, ARRAY_SIZE (lvds_clk_8mm_pads));
+			gpio_request (LVDS_CLK_8MM_PAD, "LVDS_CLK");
+			gpio_direction_output (LVDS_CLK_8MM_PAD, 0);
+
+			switch (fs_board_get_type())
+			{
+			case BT_PICOCOREMX8MM:
+				i2c_bus = 3;
+				imx_iomux_v3_setup_multiple_pads (lvds_rst_8mm_pads, ARRAY_SIZE (lvds_rst_8mm_pads));
+				gpio_request (LVDS_RST_8MM_PAD, "LVDS_RST");
+				gpio_direction_output (LVDS_RST_8MM_PAD, 0);
+				mdelay (10);
+				gpio_direction_output (LVDS_RST_8MM_PAD, 1);
+				udelay (10);
+				break;
+			case BT_PICOCOREMX8MX:
+				i2c_bus = 0;
+				imx_iomux_v3_setup_multiple_pads (lvds_rst_8mx_pads, ARRAY_SIZE (lvds_rst_8mx_pads));
+				gpio_request (LVDS_STBY_8MX_PAD, "LVDS_STBY");
+				gpio_request (LVDS_RST_8MX_PAD, "LVDS_RST");
+				gpio_direction_output (LVDS_STBY_8MX_PAD, 0);
+				gpio_direction_output (LVDS_RST_8MX_PAD, 0);
+				mdelay (10);
+				gpio_direction_output (LVDS_STBY_8MX_PAD, 1);
+				mdelay (10);
+				gpio_direction_output (LVDS_RST_8MX_PAD, 1);
+				udelay (10);
+				break;
+			}
+		}
+
+		/* enable the dispmix & mipi phy power domain */
+		call_imx_sip (FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_PM_DOMAIN, DISPMIX, true, 0);
+		call_imx_sip (FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_PM_DOMAIN, MIPI, true, 0);
+
+		/* Put lcdif out of reset */
+		disp_mix_bus_rstn_reset (imx8mm_mipi_dsim_plat_data.gpr_base, false);
+		disp_mix_lcdif_clks_enable (imx8mm_mipi_dsim_plat_data.gpr_base, true);
+
+		/* Setup mipi dsim */
+		ret = sec_mipi_dsim_setup (&imx8mm_mipi_dsim_plat_data);
+		if (ret)
+			return;
+		tc358775_init();
+		tc358775_dev.name = display->mode.name;
+		ret = imx_mipi_dsi_bridge_attach (&tc358775_dev); /* attach tc358775 device */
 	}
-
-	/* enable the dispmix & mipi phy power domain */
-	call_imx_sip (FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_PM_DOMAIN, DISPMIX, true, 0);
-	call_imx_sip (FSL_SIP_GPC, FSL_SIP_CONFIG_GPC_PM_DOMAIN, MIPI, true, 0);
-
-	/* Put lcdif out of reset */
-	disp_mix_bus_rstn_reset (imx8mm_mipi_dsim_plat_data.gpr_base, false);
-	disp_mix_lcdif_clks_enable (imx8mm_mipi_dsim_plat_data.gpr_base, true);
-
-	/* Setup mipi dsim */
-	ret = sec_mipi_dsim_setup (&imx8mm_mipi_dsim_plat_data);
-	if (ret)
-		return;
-	tc358775_init();
-	tc358775_dev.name = display->mode.name;
-	ret = imx_mipi_dsi_bridge_attach (&tc358775_dev); /* attach tc358775 device */
 }
 
 void enable_sn65dsi84(struct display_info_t const *dev)
