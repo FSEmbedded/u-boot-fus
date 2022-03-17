@@ -30,7 +30,7 @@ struct memtestinfo
 
 struct ramInfo
 {
-	u32 ramSize; /* In Byte */
+	phys_size_t ramSize; /* In Byte */
 	u8  numChips;
 	u64* pRamBase; /* Address */
 	u64* pUbootBase; /* Address */
@@ -269,18 +269,21 @@ int test_ram(char * szStrBuffer)
 	 struct memtestinfo memtable_no_interleave[] =
 	{	/* using 64 bit accesses in all cases */
 		/* No bank interleave */
-	    {0x00200000,  256,  8*8, "128MB."},    /*  128MB (1x 1Gb) */
-	    {0x00200000,  256, 8*16, "256MB."},    /*  256MB (1x 2Gb) */
-		{0x00200000,  256, 8*32, "512MB."},    /*  512MB (1x 4Gb) */
-		{0x00200000,  256, 8*64, "1024MB"},    /* 1024MB (1x 8Gb) */
-	    {0x00200000,  512,  8*8, "256MB."},    /*  256MB (2x 1Gb) */
-	    {0x00200000,  512, 8*16, "512MB."},    /*  512MB (2x 2Gb) */
-		{0x00200000,  512, 8*32, "1024MB"},    /* 1024MB (2x 4Gb) */
-		{0x00200000,  512, 8*64, "2048MB"},    /* 2048MB (2x 8Gb) */
-	    {0x00200000, 1024,  8*8, "512MB."},    /*  512MB (4x 1Gb) */
-	    {0x00200000, 1024, 8*16, "1024MB"},    /* 1024MB (4x 2Gb) */
-		{0x00200000, 1024, 8*32, "2048MB"},    /* 2048MB (4x 4Gb) */
-		{0x00200000, 1024, 8*64, "3840MB"},    /* 4096MB (4x 8Gb) */
+	    {0x00200000,  256,   8*8, "128MB."},    /*  128MB (1x  1Gb) */
+	    {0x00200000,  256,  8*16, "256MB."},    /*  256MB (1x  2Gb) */
+		{0x00200000,  256,  8*32, "512MB."},    /*  512MB (1x  4Gb) */
+		{0x00200000,  256,  8*64, "1024MB"},    /* 1024MB (1x  8Gb) */
+		{0x00200000,  256, 8*128, "2048MB"},    /* 2048MB (1x 16Gb) */
+	    {0x00200000,  512,   8*8, "256MB."},    /*  256MB (2x  1Gb) */
+	    {0x00200000,  512,  8*16, "512MB."},    /*  512MB (2x  2Gb) */
+		{0x00200000,  512,  8*32, "1024MB"},    /* 1024MB (2x  4Gb) */
+		{0x00200000,  512,  8*64, "2048MB"},    /* 2048MB (2x  8Gb) */
+		{0x00200000,  512, 8*128, "4096MB"},    /* 4096MB (2x 16Gb) */
+	    {0x00200000, 1024,   8*8, "512MB."},    /*  512MB (4x  1Gb) */
+	    {0x00200000, 1024,  8*16, "1024MB"},    /* 1024MB (4x  2Gb) */
+		{0x00200000, 1024,  8*32, "2048MB"},    /* 2048MB (4x  4Gb) */
+		{0x00200000, 1024,  8*64, "4096MB"},    /* 4096MB (4x  8Gb) */
+		{0x00200000, 1024, 8*128, "8192MB"},    /* 8192MB (4x 16Gb) */
 	};
 
 	getRamInfo(&rI);
@@ -288,7 +291,9 @@ int test_ram(char * szStrBuffer)
 	ramsize = (rI.ramSize/1024)/1024;
 	dwChipSize = ramsize/ rI.numChips;
 
-	if (dwChipSize == 1024)
+	if (dwChipSize == 2048)
+		index = 4;
+	else if (dwChipSize == 1024)
 		index = 3;
 	else if (dwChipSize == 512)
 		index = 2;
@@ -296,10 +301,11 @@ int test_ram(char * szStrBuffer)
 		index = 1;
 	else
 		index = 0;
-	if (rI.numChips== 4)
-		index += 8;
-	else if (rI.numChips== 2)
-		index += 4;
+
+	if (rI.numChips == 4)
+		index += 10;
+	else if (rI.numChips == 2)
+		index += 5;
 
 	pMemInfo = &memtable_no_interleave[index];
 
