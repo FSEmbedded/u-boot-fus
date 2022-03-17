@@ -35,7 +35,7 @@
 		have-eth-phy;
 		have-wlan;
 		//have-lvds;
-		//have-mipi-dsi;
+		have-mipi-dsi;
 		//have-rtc-pcf85063;
 		have-rtc-pcf85263;
 		//have-security;
