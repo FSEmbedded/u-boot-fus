@@ -706,7 +706,7 @@ int detect_tc358775(struct display_info_t const *dev)
 
 int detect_mipi_disp(struct display_info_t const *dev)
 {
-	return 0;
+	return (fs_board_get_features() & FEAT_MIPI_DSI) ? 1 : 0;
 }
 
 static struct mipi_dsi_client_driver tc358775_drv = {
