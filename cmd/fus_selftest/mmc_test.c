@@ -6,6 +6,7 @@
 #include "check_config.h"
 #include "common/fus_sdio.h"
 #include "serial_test.h" // mute_debug_port()
+#include <asm/gpio.h>
 
 
 
@@ -62,8 +63,17 @@ int test_mmc(char * szStrBuffer){
 			else
 				continue;
 		else if (fdt_get_property(fdt, node, "is-wlan", NULL))
-			if (has_feature(FEAT_WLAN))
+			if (has_feature(FEAT_WLAN)){
+				/* If a reset is found, pull it for 500ms */
+				struct gpio_desc desc;
+				if (!gpio_request_by_name(dev, "rst-gpios", 0, &desc, GPIOD_IS_OUT)){
+					dm_gpio_set_value(&desc,0);
+					mdelay(500);
+					dm_gpio_set_value(&desc,1);
+					mdelay(500);
+				}
 				printf("WLAN .................");
+			}
 			else
 				continue;
 		else{

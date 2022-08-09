@@ -605,6 +605,7 @@
 #ifdef CONFIG_PICOCOREMX8MM_SD_B_WP
 	wp-gpios = <&gpio2 20 GPIO_ACTIVE_HIGH>;
 #endif
+	rst-gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;
 	is-wlan;
 	non-removable;
 	/* reset pin will used as vmmc supply */
@@ -973,6 +974,7 @@
 			fsl,pins = <
 				MX8MM_IOMUXC_SD2_CD_B_GPIO2_IO12	0x00041
 				MX8MM_IOMUXC_SD2_RESET_B_GPIO2_IO19	0x00041
+				MX8MM_IOMUXC_SAI3_TXC_GPIO5_IO0		0x00041
 			>;
 		};
 
