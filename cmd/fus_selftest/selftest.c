@@ -128,7 +128,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	ret = test_USBHost(szStrBuffer);
 
-	ret = test_ethernet(szStrBuffer);
+	if (has_feature(FEAT_ETH_A))
+		ret = test_ethernet(szStrBuffer);
 
 	ret = test_serial(szStrBuffer);
 
