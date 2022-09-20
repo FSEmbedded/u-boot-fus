@@ -105,6 +105,7 @@ DECLARE_GLOBAL_DATA_PTR;
 const struct fs_board_info board_info[] = {
 	{	/* 0 (BT_PICOCOREMX8MM) */
 		.name = "PicoCoreMX8MM-LPDDR4",
+		.alias = "PicoCoreMX8MM",
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -118,6 +119,7 @@ const struct fs_board_info board_info[] = {
 	},
 	{	/* 1 (BT_PICOCOREMX8MX) */
 		.name = "PicoCoreMX8MM-DDR3L",
+		.alias = "PicoCoreMX8MX",
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -131,6 +133,7 @@ const struct fs_board_info board_info[] = {
 	},
 	{	/* 2 (BT_PICOCOREMX8MMr2) */
 		.name = "PicoCoreMX8MMr2-LPDDR4",
+		.alias = "PicoCoreMX8MMr2",
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -196,7 +199,7 @@ static void fs_spl_setup_cfg_info(void)
 
 	tmp = fdt_getprop(fdt, offs, "board-name", NULL);
 	for (i = 0; i < ARRAY_SIZE(board_info) - 1; i++) {
-		if (!strcmp(tmp, board_info[i].name))
+		if (!strcmp(tmp, board_info[i].name) || !strcmp(tmp, board_info[i].alias))
 			break;
 	}
 	cfg->board_type = i;
