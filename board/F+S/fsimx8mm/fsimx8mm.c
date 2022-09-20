@@ -53,7 +53,8 @@ DECLARE_GLOBAL_DATA_PTR;
 
 #define BT_PICOCOREMX8MM 	0
 #define BT_PICOCOREMX8MX	1
-#define BT_TBS2 		2
+#define BT_PICOCOREMX8MMr2	2
+#define BT_TBS2 		3
 
 /* Board features; these values can be resorted and redefined at will */
 #define FEAT_ETH_A	(1<<0)
@@ -128,7 +129,20 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 2 (BT_TBS2) */
+	{	/* 2 (BT_PICOCOREMX8MMr2) */
+		.name = "PicoCoreMX8MMr2-LPDDR4",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 3 (BT_TBS2) */
 		.name = "TBS2",
 		.bootdelay = "3",
 		.updatecheck = "mmc0,mmc2",
@@ -367,6 +381,7 @@ static int setup_typec(void)
 	switch (fs_board_get_type())
 	{
 	case BT_PICOCOREMX8MM:
+	case BT_PICOCOREMX8MMr2:
 		port_config.i2c_bus = 3;
 		break;
 	case BT_PICOCOREMX8MX:
@@ -701,6 +716,15 @@ static int board_setup_ksz9893r(void)
 	return ret;
 }
 
+/* Board specific cleanup before Linux is started */
+void board_preboot_os(void)
+{
+	/* Shut down all ethernet PHYs (suspend mode) */
+	mdio_shutdown_all();
+}
+
+#define MIIM_RTL8211F_PAGE_SELECT      0x1f
+
 int board_phy_config(struct phy_device *phydev)
 {
 	unsigned int board_type = fs_board_get_type();
@@ -717,15 +741,31 @@ int board_phy_config(struct phy_device *phydev)
 		reg &= 0xff7f;
 		phy_write(phydev, 0x0, 0x1f, reg);
 		break;
-	default:
-		if (fs_board_get_type() != BT_PICOCOREMX8MX) {
-			/* enable rgmii rxc skew and phy mode select to RGMII copper */
-			phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x1f);
-			phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x8);
+	case BT_PICOCOREMX8MM:
+		/* enable rgmii rxc skew and phy mode select to RGMII copper */
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x1f);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x8);
 
-			phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x05);
-			phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x100);
-		}
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x1d, 0x05);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x1e, 0x100);
+
+		if (phydev->drv->config)
+			phydev->drv->config(phydev);
+		break;
+	case BT_PICOCOREMX8MMr2:
+		/* Set LED2 for Link, LED1 for Activity */
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0xd04);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, 0x8360);
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0x0);
+
+		/* Disable CLKOUT*/
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0xa43);
+		reg = phy_read(phydev, MDIO_DEVAD_NONE, 0x19);
+		reg &= ~(1 << 0);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x19, reg);
 
 		if (phydev->drv->config)
 			phydev->drv->config(phydev);

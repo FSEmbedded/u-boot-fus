@@ -45,6 +45,12 @@ BOARD_CONFIGS = \
 	PCoreMX8MM-FERT12.130.fs \
 	PCoreMX8MM-FERT13.130.fs \
 	PCoreMX8MM-FERT15.130.fs \
+	PCoreMX8MMr2-FERT3.100.fs \
+	PCoreMX8MMr2-FERT4.100.fs \
+	PCoreMX8MMr2-FERT9.100.fs \
+	PCoreMX8MMr2-FERT12.100.fs \
+	PCoreMX8MMr2-FERT13.100.fs \
+	PCoreMX8MMr2-FERT15.100.fs \
 	PCoreMX8MX-FERT5.120.fs \
 	PCoreMX8MX-FERT5.110.fs \
 	PCoreMX8MX-FERT6.120.fs \
@@ -165,7 +171,7 @@ DRAM_TIMINGS_LDS = $(obj)/.dram-timings.lds.tmp
 DRAM_TIMINGS_REPLACE_SED_CMD = \
 	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(CONFIG_SPL_DRAM_TIMING_ADDR)/g"
 
-$(DRAM_TIMINGS_LDS): $(NBOOT_PATH)/dram-timings.lds ${srctree}/include/configs/$(BOARD).h
+$(DRAM_TIMINGS_LDS): $(NBOOT_PATH)/dram-timings.lds
 	$(call cmd,sed,$(DRAM_TIMINGS_REPLACE_SED_CMD))
 
 quiet_cmd_dram_elf = LINK    $@
