@@ -135,6 +135,8 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	if (has_feature(FEAT_SGTL5000))
 		ret = test_audio(szStrBuffer);
+	else
+		ret = test_gpio(UCLASS_I2C_GENERIC, szStrBuffer);
 
 	ret = test_gpio(UCLASS_SPI, szStrBuffer);
 

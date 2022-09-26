@@ -412,8 +412,14 @@
 	sgtl5000: sgtl5000@0a {
 		compatible = "fsl,sgtl5000";
 		/* MCLK is needed for i2c sgtl driver */
-		pinctrl-names = "default";
+		pinctrl-names = "default", "gpiotest";
 		pinctrl-0 = <&pinctrl_sgtl5000>;
+		pinctrl-1 = <&pinctrl_sgtl5000_gpio>;
+
+		out-pins = "AUDIO_A_LOUT_L","AUDIO_A_LOUT_R";
+		out-gpios = <&gpio3 23 0>,<&gpio3 22 0>;
+		in-pins = "AUDIO_A_LIN_L","AUDIO_A_LOUT_R";
+		in-gpios = <&gpio3 25 0>,<&gpio4 1 0>;
 		sai = <&sai5>;
 		reg = <0x0a>;
 		status = "okay";
@@ -1060,6 +1066,9 @@
 				/* AUDIO_A_LOUT_L -> AUDIO_A_LIN_L */
 				MX8MM_IOMUXC_SAI5_RXD2_GPIO3_IO23		0x000d6 /* AUDIO_A_LOUT_L */
 				MX8MM_IOMUXC_SAI5_MCLK_GPIO3_IO25		0x000d6 /* AUDIO_A_LIN_L */
+				/* AUDIO_A_LOUT_R -> AUDIO_A_LIN_R */
+				MX8MM_IOMUXC_SAI5_RXD1_GPIO3_IO22		0x000d6 /* AUDIO_A_LOUT_R */
+				MX8MM_IOMUXC_SAI1_RXC_GPIO4_IO1			0x000d6 /* AUDIO_A_LIN_R */
 				/* AUDIO_A_HP_L -> AUDIO_A_HP_R */
 				MX8MM_IOMUXC_SAI5_RXD3_GPIO3_IO24		0x000d6 /* AUDIO_A_HP_L */
 				MX8MM_IOMUXC_SAI5_RXD0_GPIO3_IO21		0x000d6 /* AUDIO_A_HP_R */

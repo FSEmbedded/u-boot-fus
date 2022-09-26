@@ -278,6 +278,8 @@ int test_gpio(int uclass, char *szStrBuffer)
 		device_name = "SPI.";
 	else if (uclass == UCLASS_I2C)
 		device_name = "I2C.";
+	else if (uclass == UCLASS_I2C_GENERIC)
+		device_name = "SAI.";
 	else if (uclass == UCLASS_MMC)
 		device_name = "SD..";
 	else if (uclass == UCLASS_GPIO)
@@ -319,15 +321,6 @@ int test_gpio(int uclass, char *szStrBuffer)
 		/* LVDS */
 		if (dev_read_bool(dev, "lvds-gpios-only")) {
 			if (!has_feature(FEAT_LVDS)) {
-				port++;
-				continue;
-			}
-		}
-
-		/* AUDIO / sgtl5000 */
-		sgtl_node = dev_read_subnode(dev, "sgtl5000");
-		if (sgtl_node.of_offset >= 0) {
-			if (has_feature(FEAT_SGTL5000)) {
 				port++;
 				continue;
 			}
