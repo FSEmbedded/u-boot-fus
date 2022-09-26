@@ -20,7 +20,8 @@
 
 #define BT_PICOCOREMX8MM 	0
 #define BT_PICOCOREMX8MX	1
-#define BT_TBS2 		2
+#define BT_PICOCOREMX8MMR2 	2
+#define BT_TBS2 		3
 
 #define FEAT_LVDS	(1<<8)
 #define FEAT_MIPI_DSI	(1<<9)
@@ -387,6 +388,7 @@ int tc358775_setup(struct mipi_dsi_client_dev * dev)
 	switch (fs_board_get_type())
 	{
 	case BT_PICOCOREMX8MM:
+	case BT_PICOCOREMX8MMR2:
 		imx_iomux_v3_setup_multiple_pads (vlcd_on_8mm_pads, ARRAY_SIZE (vlcd_on_8mm_pads));
 		gpio_request (VLCD_ON_8MM_PAD, "VLCD_ON");
 		gpio_direction_output (VLCD_ON_8MM_PAD, 1);
@@ -564,6 +566,7 @@ static int sn65dsi84_init(void)
 	switch (fs_board_get_type())
 	{
 	case BT_PICOCOREMX8MM:
+	case BT_PICOCOREMX8MMR2:
 		imx_iomux_v3_setup_multiple_pads (vlcd_on_8mm_pads, ARRAY_SIZE (vlcd_on_8mm_pads));
 		gpio_request (VLCD_ON_8MM_PAD, "VLCD_ON");
 		gpio_direction_output (VLCD_ON_8MM_PAD, 1);
@@ -789,6 +792,7 @@ void enable_tc358775(struct display_info_t const *dev)
 			switch (fs_board_get_type())
 			{
 			case BT_PICOCOREMX8MM:
+			case BT_PICOCOREMX8MMR2:
 				i2c_bus = 3;
 				imx_iomux_v3_setup_multiple_pads (lvds_rst_8mm_pads, ARRAY_SIZE (lvds_rst_8mm_pads));
 				gpio_request (LVDS_RST_8MM_PAD, "LVDS_RST");
