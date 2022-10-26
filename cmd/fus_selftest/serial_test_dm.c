@@ -164,7 +164,7 @@ int test_serial(char *szStrBuffer)
 	ret = init_uart();
 
 	// Seed the current time to achieve a better pseudo randomizer
-	srand(timer_get_us());
+	//srand(timer_get_us());
 
 	for (int i=0; i<BUFFERSIZE-1; i++) {
 		//tx_buffer[i] = (char) ((rand() % 223) + 33);
