@@ -11,6 +11,7 @@
 #include <dm.h>
 #include <dm/pinctrl.h>
 #include <asm/gpio.h>
+#include <malloc.h>
 #include "gpio_test.h"
 #include "selftest.h"
 #include "check_config.h"
@@ -292,38 +293,10 @@ int test_gpio(int uclass, char *szStrBuffer)
 	while (uclass_get_device(uclass,port,&dev) == 0) {
 
 		u32 failmask = 0;
-		ofnode sgtl_node;
 
-		/* CAN / mcp251x */
-		if (dev_read_bool(dev, "can-spi-mcp251x")) {
-			if (has_feature(FEAT_CAN)) {
-				port++;
-				continue;
-			}
-		}
-
-		/* WLAN / mcp251x */
-		if (dev_read_bool(dev, "is-wlan")) {
-			if (has_feature(FEAT_WLAN)) {
-				port++;
-				continue;
-			}
-		}
-
-		/* MIPI */
-		if (dev_read_bool(dev, "mipi-gpios-only")) {
-			if (!has_feature(FEAT_MIPI_DSI)) {
-				port++;
-				continue;
-			}
-		}
-
-		/* LVDS */
-		if (dev_read_bool(dev, "lvds-gpios-only")) {
-			if (!has_feature(FEAT_LVDS)) {
-				port++;
-				continue;
-			}
+		if (skip_node(dev)) {
+			port++;
+			continue;
 		}
 
 		/* If a size is returned, gpios exists */

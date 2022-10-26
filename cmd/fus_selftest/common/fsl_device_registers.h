@@ -29,6 +29,13 @@
 #include "i2s_regs/MIMX8MM6_cm4_features.h"
 #endif
 
+#ifdef CONFIG_IMX8MP
+/* CMSIS-style register definitions */
+#include "i2s_regs/MIMX8ML8_cm7.h"
+/* CPU specific feature definitions */
+#include "i2s_regs/MIMX8ML8_cm7_features.h"
+#endif
+
 #endif /* __FSL_DEVICE_REGISTERS_H__ */
 
 /*******************************************************************************

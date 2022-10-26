@@ -9,11 +9,7 @@ ifndef CONFIG_SPL_BUILD
 obj-$(CONFIG_CMD_SELFTEST) += selftest.o
 obj-$(CONFIG_CMD_SELFTEST) += check_config.o
 obj-$(CONFIG_CMD_SELFTEST) += ethernet_test.o
-ifndef CONFIG_DM_SERIAL
-obj-$(CONFIG_CMD_SELFTEST) += serial_test.o
-else
 obj-$(CONFIG_CMD_SELFTEST) += serial_test_dm.o
-endif
 ifdef CONFIG_ENV_IS_IN_NAND
 obj-$(CONFIG_CMD_SELFTEST) += nand_test.o
 endif
@@ -57,6 +53,12 @@ obj-$(CONFIG_CMD_SELFTEST) += common/fus_gpio.o
 ifdef CONFIG_IMX8MM
 obj-$(CONFIG_CMD_SELFTEST) += imx8mm/audio_imx8mm.o
 obj-$(CONFIG_CMD_SELFTEST) += imx8mm/serial_imx8mm.o
+obj-$(CONFIG_CMD_SELFTEST) += imx8mm/gpio_imx8mm.o
+endif
+ifdef CONFIG_IMX8MP
+obj-$(CONFIG_CMD_SELFTEST) += imx8mp/audio_imx8mp.o
+obj-$(CONFIG_CMD_SELFTEST) += imx8mp/serial_imx8mp.o
+obj-$(CONFIG_CMD_SELFTEST) += imx8mp/gpio_imx8mp.o
 endif
 ifdef CONFIG_IMX8QXP
 obj-$(CONFIG_CMD_SELFTEST) += imx8x/ethernet_imx8x.o

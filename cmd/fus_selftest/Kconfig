@@ -25,15 +25,12 @@ config CMD_SELFTEST
 	bool "selftest"
 	default y
 	select DM_RTC
+	select DM_PMIC
 	select DM_PMIC_BD71837
 	select DM_SERIAL
+	select SPI
 	select DM_SPI
 	select DM_PWM
-	select VIDEO
-	select IMX_SEC_MIPI_DSI
-	select NT35521
-	select CMD_LCD if VIDEO
-	select CMD_DRAW if VIDEO
 	select MXC_SPI
 	help
 		Standard selftest for F&S boards. The argument of the command

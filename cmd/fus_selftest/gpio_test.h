@@ -5,5 +5,6 @@
 
 int test_gpio(int uclass, char *szStrBuffer);
 int test_gpio_dev(struct udevice *dev, u32 *failmask); // return count of gpio pairs
+int skip_node(struct udevice *dev);
 
 #endif // CMD_FUS_SELFTEST_GPIO_TEST_H_
