@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2012 Boundary Devices Inc.
  * Copyright (C) 2014-2016 Freescale Semiconductor, Inc.
  * Copyright 2018 NXP
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <common.h>
 #include <malloc.h>
@@ -94,6 +93,9 @@ static void * const i2c_bases[] = {
 #endif
 #ifdef I2C4_BASE_ADDR
 	(void *)I2C4_BASE_ADDR,
+#endif
+#ifdef I2C5_BASE_ADDR
+	(void *)I2C5_BASE_ADDR,
 #endif
 };
 

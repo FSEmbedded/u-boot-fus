@@ -1,7 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2014-2015 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * (C) Copyright 2014 Freescale Semiconductor, Inc.
+ * Copyright 2018-2020 NXP
  */
 
 #define MXC_CPU_MX23		0x23
@@ -18,7 +18,7 @@
 #define MXC_CPU_MX6Q		0x63
 #define MXC_CPU_MX6UL		0x64
 #define MXC_CPU_MX6ULL		0x65
-#define MXC_CPU_MX6ULZ		0x6b /* dummy ID */
+#define MXC_CPU_MX6ULZ		0x6B
 #define MXC_CPU_MX6SOLO		0x66 /* dummy */
 #define MXC_CPU_MX6SLL		0x67
 #define MXC_CPU_MX6D		0x6A
@@ -41,10 +41,17 @@
 #define MXC_CPU_IMX8MNL		0x8e /* dummy ID */
 #define MXC_CPU_IMX8MNDL		0x8f /* dummy ID */
 #define MXC_CPU_IMX8MNSL		0x181 /* dummy ID */
-
+#define MXC_CPU_IMX8MNUQ		0x182 /* dummy ID */
+#define MXC_CPU_IMX8MNUD		0x183 /* dummy ID */
+#define MXC_CPU_IMX8MNUS		0x184 /* dummy ID */
+#define MXC_CPU_IMX8MP		0x185/* dummy ID */
+#define MXC_CPU_IMX8MP6		0x186 /* dummy ID */
+#define MXC_CPU_IMX8MPL		0x187 /* dummy ID */
+#define MXC_CPU_IMX8MPD		0x188 /* dummy ID */
+#define MXC_CPU_IMX8QXP_A0	0x90 /* dummy ID */
 #define MXC_CPU_IMX8QM		0x91 /* dummy ID */
 #define MXC_CPU_IMX8QXP		0x92 /* dummy ID */
-#define MXC_CPU_IMX8DX		0x93 /* dummy ID */
+#define MXC_CPU_IMX8DXL     0x9E /* dummy ID */
 #define MXC_CPU_MX7ULP		0xE1 /* Temporally hard code */
 #define MXC_CPU_VF610		0xF6 /* dummy ID */
 
@@ -64,9 +71,11 @@
 #define CHIP_REV_2_5            0x25
 #define CHIP_REV_3_0            0x30
 
-#define CHIP_REV_A				0x0
-#define CHIP_REV_B				0x1
-#define CHIP_REV_C				0x2
+#define CHIP_REV_A		0x0
+#define CHIP_REV_B		0x1
+#define CHIP_REV_C		0x2
+#define CHIP_REV_A1		0x11
+#define CHIP_REV_A2		0x12
 
 #define BOARD_REV_1_0           0x0
 #define BOARD_REV_2_0           0x1

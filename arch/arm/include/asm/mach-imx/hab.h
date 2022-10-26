@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2012-2015 Freescale Semiconductor, Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier:    GPL-2.0+
  *
 */
 
@@ -140,7 +139,7 @@ struct imx_sec_config_fuse_t {
 	int word;
 };
 
-#if defined(CONFIG_SECURE_BOOT)
+#if defined(CONFIG_IMX_HAB)
 extern struct imx_sec_config_fuse_t const imx_sec_config_fuse;
 #endif
 
@@ -198,7 +197,7 @@ typedef void hapi_clock_init_t(void);
 #define HAB_RVT_BASE_OLD		0x00000094
 #define HAB_RVT_BASE ((is_mx6dqp()) ?					\
 			HAB_RVT_BASE_NEW :				\
-			(is_mx6dq() && (soc_rev() >= CHIP_REV_1_5)) ?	\
+			(is_mx6dq() && (soc_rev() >= CHIP_REV_1_3)) ?	\
 			HAB_RVT_BASE_NEW :				\
 			(is_mx6sdl() && (soc_rev() >= CHIP_REV_1_2)) ?	\
 			HAB_RVT_BASE_NEW : HAB_RVT_BASE_OLD)
@@ -217,6 +216,7 @@ typedef void hapi_clock_init_t(void);
 #define HAB_CID_ROM 0 /**< ROM Caller ID */
 #define HAB_CID_UBOOT 1 /**< UBOOT Caller ID*/
 
+#define HAB_TAG_RVT          0xDD  /* ROM Vector Table */
 #define HAB_CMD_HDR          0xD4  /* CSF Header */
 #define HAB_CMD_WRT_DAT      0xCC  /* Write Data command tag */
 #define HAB_CMD_CHK_DAT      0xCF  /* Check Data command tag */

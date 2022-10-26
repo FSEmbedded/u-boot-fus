@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2014 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <cpu_func.h>
+#include <vsprintf.h>
 #include <asm/arch/clock.h>
 #include <asm/io.h>
 #include <asm/arch/immap_ls102xa.h>
@@ -27,7 +28,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#ifndef CONFIG_SYS_DCACHE_OFF
+#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
 
 /*
  * Bit[1] of the descriptor indicates the descriptor type,
@@ -216,7 +217,7 @@ void enable_caches(void)
 	invalidate_dcache_all();
 	set_cr(get_cr() | CR_C);
 }
-#endif /* #ifndef CONFIG_SYS_DCACHE_OFF */
+#endif /* #if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF) */
 
 
 uint get_svr(void)
@@ -297,7 +298,7 @@ int cpu_mmc_init(bd_t *bis)
 
 int cpu_eth_init(bd_t *bis)
 {
-#ifdef CONFIG_TSEC_ENET
+#if defined(CONFIG_TSEC_ENET) && !defined(CONFIG_DM_ETH)
 	tsec_standard_init(bis);
 #endif
 

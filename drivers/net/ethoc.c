@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Opencore 10/100 ethernet mac driver
  *
@@ -6,11 +7,10 @@
  *   Thierry Reding <thierry.reding@avionic-design.de>
  * Copyright (C) 2010 Thomas Chou <thomas@wytron.com.tw>
  * Copyright (C) 2016 Cadence Design Systems Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <dm/platform_data/net_ethoc.h>
 #include <linux/io.h>

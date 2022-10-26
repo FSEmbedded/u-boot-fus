@@ -1,15 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * board.c
  *
  * Board functions for TCL SL50 board
  *
  * Copyright (C) 2011, Texas Instruments, Incorporated - http://www.ti.com/
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <env.h>
 #include <errno.h>
+#include <init.h>
+#include <serial.h>
 #include <spl.h>
 #include <asm/arch/cpu.h>
 #include <asm/arch/hardware.h>
@@ -28,9 +30,8 @@
 #include <cpsw.h>
 #include <power/tps65217.h>
 #include <power/tps65910.h>
-#include <environment.h>
+#include <env_internal.h>
 #include <watchdog.h>
-#include <environment.h>
 #include "board.h"
 
 DECLARE_GLOBAL_DATA_PTR;

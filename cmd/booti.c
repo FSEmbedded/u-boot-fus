@@ -1,20 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000-2009
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <bootm.h>
 #include <command.h>
 #include <image.h>
+#include <irq_func.h>
 #include <lmb.h>
 #include <mapmem.h>
 #include <linux/kernel.h>
 #include <linux/sizes.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 /*
  * Image booting support
@@ -33,18 +31,17 @@ static int booti_start(cmd_tbl_t *cmdtp, int flag, int argc,
 	/* Setup Linux kernel Image entry point */
 	if (!argc) {
 		ld = images->ep = get_loadaddr();
-		debug("*  kernel: default image load address = 0x%08lx\n",
-				images->ep);
+		debug("*  kernel: default image load address = 0x%08lx\n", ld);
 	} else {
 		ld = simple_strtoul(argv[0], NULL, 16);
 		debug("*  kernel: cmdline image address = 0x%08lx\n", ld);
 	}
 
-	ret = booti_setup(ld, &relocated_addr, &image_size);
+	ret = booti_setup(ld, &relocated_addr, &image_size, false);
 	if (ret != 0)
 		return 1;
 
-#if defined(CONFIG_SECURE_BOOT) && !defined(CONFIG_AVB_SUPPORT)
+#if defined(CONFIG_IMX_HAB) && !defined(CONFIG_AVB_SUPPORT)
 	extern int authenticate_image(
 		uint32_t ddr_start, uint32_t raw_image_size);
 	if (authenticate_image(ld, image_size) != 0) {
@@ -61,6 +58,9 @@ static int booti_start(cmd_tbl_t *cmdtp, int flag, int argc,
 	}
 
 	images->ep = relocated_addr;
+	images->os.start = relocated_addr;
+	images->os.end = relocated_addr + image_size;
+
 	lmb_reserve(&images->lmb, images->ep, le32_to_cpu(image_size));
 
 	/*
@@ -90,7 +90,11 @@ int do_booti(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	bootm_disable_interrupts();
 
 	images.os.os = IH_OS_LINUX;
+#ifdef CONFIG_RISCV_SMODE
+	images.os.arch = IH_ARCH_RISCV;
+#elif CONFIG_ARM64
 	images.os.arch = IH_ARCH_ARM64;
+#endif
 	ret = do_bootm_states(cmdtp, flag, argc, argv,
 #ifdef CONFIG_SYS_BOOT_RAMDISK_HIGH
 			      BOOTM_STATE_RAMDISK |
@@ -105,7 +109,7 @@ int do_booti(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #ifdef CONFIG_SYS_LONGHELP
 static char booti_help_text[] =
 	"[addr [initrd[:size]] [fdt]]\n"
-	"    - boot arm64 Linux Image stored in memory\n"
+	"    - boot Linux 'Image' stored at 'addr'\n"
 	"\tThe argument 'initrd' is optional and specifies the address\n"
 	"\tof an initrd in memory. The optional parameter ':size' allows\n"
 	"\tspecifying the size of a RAW initrd.\n"
@@ -120,5 +124,5 @@ static char booti_help_text[] =
 
 U_BOOT_CMD(
 	booti,	CONFIG_SYS_MAXARGS,	1,	do_booti,
-	"boot arm64 Linux Image image from memory", booti_help_text
+	"boot Linux kernel 'Image' format from memory", booti_help_text
 );

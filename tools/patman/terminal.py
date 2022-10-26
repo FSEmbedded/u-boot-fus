@@ -1,6 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0+
 # Copyright (c) 2011 The Chromium OS Authors.
-#
-# SPDX-License-Identifier:	GPL-2.0+
 #
 
 """Terminal utilities
@@ -129,7 +128,7 @@ class Color(object):
         return ''
 
     def Stop(self):
-        """Retruns a stop color code.
+        """Returns a stop color code.
 
         Returns:
           If color is enabled, returns an ANSI color reset sequence,

@@ -1,6 +1,4 @@
-/*
- * SPDX-License-Identifier:	GPL-2.0+
- */
+/* SPDX-License-Identifier: GPL-2.0+ */
 
 #ifndef __ASM_ARCH_IOMUX_H__
 #define __ASM_ARCH_IOMUX_H__
@@ -19,12 +17,6 @@
 #define IOMUXC_GPR1_TEST_POWERDOWN		(1 << 18)
 
 #define IOMUXC_GPR1_PCIE_SW_RST		(1 << 29)
-
-/*
- * IOMUXC_GPR5 bit fields
- */
-#define IOMUXC_GPR5_PCIE_BTNRST			(1 << 19)
-#define IOMUXC_GPR5_PCIE_PERST			(1 << 18)
 
 /*
  * IOMUXC_GPR5 bit fields

@@ -1,11 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2016, NVIDIA CORPORATION.
- *
- * SPDX-License-Identifier: GPL-2.0
  */
 
 #include <common.h>
 #include <dm.h>
+#include <malloc.h>
 #include <misc.h>
 #include <power-domain-uclass.h>
 #include <asm/arch-tegra/bpmp_abi.h>
@@ -72,7 +72,7 @@ static int tegra186_power_domain_off(struct power_domain *power_domain)
 
 struct power_domain_ops tegra186_power_domain_ops = {
 	.request = tegra186_power_domain_request,
-	.free = tegra186_power_domain_free,
+	.rfree = tegra186_power_domain_free,
 	.on = tegra186_power_domain_on,
 	.off = tegra186_power_domain_off,
 };

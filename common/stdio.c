@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2009 Sergey Kubushyn <ksi@koi8.net>
  *
@@ -5,8 +6,6 @@
  *
  * (C) Copyright 2000
  * Paolo Scaffardi, AIRVENT SAM s.p.a - RIMINI(ITALY), arsenio@tin.it
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <config.h>
@@ -17,6 +16,8 @@
 #include <malloc.h>
 #include <stdio_dev.h>
 #include <serial.h>
+#include <splash.h>
+#include <video_link.h>
 
 #if defined(CONFIG_SYS_I2C)
 #include <i2c.h>
@@ -189,7 +190,7 @@ struct stdio_dev* stdio_clone(const struct stdio_dev *dev)
 	memcpy(_dev, dev, sizeof(struct stdio_dev));
 
 	return _dev;
-	}
+}
 
 int stdio_register_dev(const struct stdio_dev *dev, struct stdio_dev **devp)
 {
@@ -228,7 +229,7 @@ int stdio_deregister_dev(struct stdio_dev *dev, int force)
 				continue;
 			}
 			/* Device is assigned -> report error */
-		return -1;
+			return -1;
 		}
 		memcpy (&temp_names[l][0],
 			stdio_devices[l]->name,
@@ -247,7 +248,7 @@ int stdio_deregister_dev(struct stdio_dev *dev, int force)
 		}
 	}
 	return 0;
-	}
+}
 
 int stdio_deregister(const char *devname, int force)
 {
@@ -315,6 +316,10 @@ int stdio_add_devices(void)
 #else
 #endif
 #ifdef CONFIG_DM_VIDEO
+
+#ifdef CONFIG_VIDEO_LINK
+	video_link_init();
+#endif
 	/*
 	 * If the console setting is not in environment variables then
 	 * console_init_r() will not be calling iomux_doenv() (which calls
@@ -337,6 +342,9 @@ int stdio_add_devices(void)
 	if (ret)
 		printf("%s: Video device failed (ret=%d)\n", __func__, ret);
 #endif /* !CONFIG_SYS_CONSOLE_IS_IN_ENV */
+#if defined(CONFIG_SPLASH_SCREEN) && defined(CONFIG_CMD_BMP)
+	splash_display();
+#endif /* CONFIG_SPLASH_SCREEN && CONFIG_CMD_BMP */
 #else
 # if defined(CONFIG_LCD)
 	drv_lcd_init ();

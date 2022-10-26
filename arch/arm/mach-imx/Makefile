@@ -1,32 +1,34 @@
+# SPDX-License-Identifier: GPL-2.0+
 #
 # (C) Copyright 2000-2006
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
 # (C) Copyright 2011 Freescale Semiconductor, Inc.
-#
-# SPDX-License-Identifier:	GPL-2.0+
-#
 
 ifeq ($(SOC),$(filter $(SOC),mx25 mx35 mx5 mx6 mx7 imx8m vf610))
 obj-y	= iomux-v3.o
 endif
 
 ifeq ($(SOC),$(filter $(SOC),imx8m))
+ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
-obj-y += mmc_env.o
+endif
+obj-$(CONFIG_ENV_IS_IN_MMC) += mmc_env.o
 obj-$(CONFIG_FEC_MXC) += mac.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
-obj-$(CONFIG_SECURE_BOOT) += hab.o
-obj-$(CONFIG_IMX_VIDEO_SKIP) += video.o
+obj-$(CONFIG_IMX_HAB) += hab.o
 obj-y += cpu.o
 endif
 
 ifeq ($(SOC),$(filter $(SOC),mx5 mx6))
 obj-y	+= cpu.o speed.o
+ifneq ($(CONFIG_MX51),y)
+obj-y	+= mmdc_size.o
+endif
 obj-$(CONFIG_GPT_TIMER) += timer.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
 endif
-ifeq ($(SOC),$(filter $(SOC),mx7 mx6 mxs mx7ulp imx8m imx8))
+ifeq ($(SOC),$(filter $(SOC),mx7 mx6 mxs mx7ulp imx8m imx8 imxrt))
 obj-y	+= misc.o
 obj-$(CONFIG_CMD_PRIBLOB) += priblob.o
 obj-$(CONFIG_SPL_BUILD)	+= spl.o
@@ -38,37 +40,40 @@ ifeq ($(SOC),$(filter $(SOC),mx7))
 obj-y 	+= cpu.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
 obj-y += mmc_env.o
+endif
+ifeq ($(SOC),$(filter $(SOC),mx7 imx8))
 obj-$(CONFIG_FSL_MFGPROT) += cmd_mfgprot.o
+endif
+ifeq ($(SOC),$(filter $(SOC),mx5 mx6 mx7))
+obj-$(CONFIG_IMX_VIDEO_SKIP) += video.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx6 mx7))
 obj-y 	+= cache.o init.o
 obj-$(CONFIG_FEC_MXC) += mac.o
-obj-$(CONFIG_IMX_VIDEO_SKIP) += video.o
 obj-$(CONFIG_IMX_RDC) += rdc-sema.o
 ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
 endif
 obj-$(CONFIG_SATA) += sata.o
-obj-$(CONFIG_SECURE_BOOT)    += hab.o
+obj-$(CONFIG_IMX_HAB)    += hab.o
 obj-$(CONFIG_FS_SECURE_BOOT) += checkboot.o
 obj-$(CONFIG_SYSCOUNTER_TIMER) += syscounter.o
 obj-$(CONFIG_IMX_TRUSTY_OS) += trusty.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx7ulp))
-obj-y  += cache.o
-obj-$(CONFIG_IMX_VIDEO_SKIP) += video.o
-obj-$(CONFIG_SECURE_BOOT) += hab.o
+obj-y  += cache.o mmdc_size.o
+obj-$(CONFIG_IMX_HAB) += hab.o
+obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
 endif
 ifeq ($(SOC),$(filter $(SOC),vf610))
 obj-y += ddrmc-vf610.o
+obj-$(CONFIG_DDRMC_VF610_CALIBRATION) += ddrmc-vf610-calibration.o
 endif
 ifeq ($(SOC),$(filter $(SOC),imx8))
-obj-$(CONFIG_HAVE_SC_FIRMWARE) += sci/
 ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
-endif
-obj-$(CONFIG_IMX_VIDEO_SKIP) += video.o
 obj-y  += misc.o
+endif
 endif
 ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_CMD_BMODE) += cmd_bmode.o
@@ -76,6 +81,7 @@ obj-$(CONFIG_CMD_HDMIDETECT) += cmd_hdmidet.o
 obj-$(CONFIG_BLINK_IMX) += blink_timer.o
 obj-$(CONFIG_USE_IRQ) += interrupts.o
 obj-$(CONFIG_CMD_DEKBLOB) += cmd_dek.o
+obj-$(CONFIG_CMD_NANDBCB) += cmd_nandbcb.o
 obj-$(CONFIG_IMX_VSERVICE) += imx_vservice.o
 endif
 
@@ -218,7 +224,12 @@ flash.bin: spl/u-boot-spl-ddr.bin u-boot.itb FORCE
 endif
 
 ifeq ($(CONFIG_ARCH_IMX8), y)
-SPL:
+MKIMAGEFLAGS_SPL = -n spl/u-boot-spl.cfgout \
+		   -T $(IMAGE_TYPE) -e 0x100000
+SPL: MKIMAGEOUTPUT = SPL.log
+
+SPL: spl/u-boot-spl.bin FORCE
+	$(call if_changed,mkimage)
 
 MKIMAGEFLAGS_flash.bin = -n spl/u-boot-spl.cfgout -T $(IMAGE_TYPE) -e 0x100000
 flash.bin: MKIMAGEOUTPUT = flash.log
@@ -283,5 +294,8 @@ obj-$(CONFIG_MX5) += mx5/
 obj-$(CONFIG_MX6) += mx6/
 obj-$(CONFIG_MX7) += mx7/
 obj-$(CONFIG_ARCH_MX7ULP) += mx7ulp/
-obj-$(CONFIG_IMX8) += imx8/
 obj-$(CONFIG_IMX8M) += imx8m/
+obj-$(CONFIG_ARCH_IMX8) += imx8/
+obj-$(CONFIG_ARCH_IMXRT) += imxrt/
+
+obj-$(CONFIG_SPL_BOOTROM_SUPPORT) += spl_imx_romapi.o

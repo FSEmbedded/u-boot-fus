@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Xilinx AXI Bridge for PCI Express Driver
  *
  * Copyright (C) 2016 Imagination Technologies
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 
 #include <common.h>
@@ -55,7 +54,7 @@ static bool pcie_xilinx_link_up(struct xilinx_pcie *pcie)
  *
  * Return: 0 on success, else -ENODEV
  */
-static int pcie_xilinx_config_address(struct udevice *udev, pci_dev_t bdf,
+static int pcie_xilinx_config_address(const struct udevice *udev, pci_dev_t bdf,
 				      uint offset, void **paddress)
 {
 	struct xilinx_pcie *pcie = dev_get_priv(udev);
@@ -98,7 +97,7 @@ static int pcie_xilinx_config_address(struct udevice *udev, pci_dev_t bdf,
  *
  * Return: 0 on success, else -ENODEV or -EINVAL
  */
-static int pcie_xilinx_read_config(struct udevice *bus, pci_dev_t bdf,
+static int pcie_xilinx_read_config(const struct udevice *bus, pci_dev_t bdf,
 				   uint offset, ulong *valuep,
 				   enum pci_size_t size)
 {

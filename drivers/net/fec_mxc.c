@@ -1,21 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2009 Ilya Yanok, Emcraft Systems Ltd <yanok@emcraft.com>
  * (C) Copyright 2008,2009 Eric Jarrige <eric.jarrige@armadeus.org>
  * (C) Copyright 2008 Armadeus Systems nc
  * (C) Copyright 2007 Pengutronix, Sascha Hauer <s.hauer@pengutronix.de>
  * (C) Copyright 2007 Pengutronix, Juergen Beisert <j.beisert@pengutronix.de>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
-
 #include <common.h>
+#include <cpu_func.h>
 #include <dm.h>
+#include <env.h>
 #include <malloc.h>
 #include <memalign.h>
 #include <miiphy.h>
 #include <net.h>
 #include <netdev.h>
-#include "fec_mxc.h"
+#include <power/regulator.h>
 
 #include <asm/io.h>
 #include <linux/errno.h>
@@ -25,6 +25,9 @@
 #include <asm/arch/imx-regs.h>
 #include <asm/mach-imx/sys_proto.h>
 #include <asm-generic/gpio.h>
+
+#include "fec_mxc.h"
+#include <eth_phy.h>
 #include <asm/arch/sys_proto.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -122,7 +125,41 @@ static int fec_mdio_read(struct ethernet_regs *eth, uint8_t phyaddr,
 	return val;
 }
 
-static void fec_mii_setspeed(struct ethernet_regs *eth)
+#ifndef imx_get_fecclk
+u32 __weak imx_get_fecclk(void)
+{
+	return 0;
+}
+#endif
+
+static int fec_get_clk_rate(void *udev, int idx)
+{
+	struct fec_priv *fec;
+	struct udevice *dev;
+	int ret;
+
+	if (IS_ENABLED(CONFIG_IMX8) ||
+	    CONFIG_IS_ENABLED(CLK_CCF)) {
+		dev = udev;
+		if (!dev) {
+			ret = uclass_get_device_by_seq(UCLASS_ETH, idx, &dev);
+			if (ret < 0) {
+				debug("Can't get FEC udev: %d\n", ret);
+				return ret;
+			}
+		}
+
+		fec = dev_get_priv(dev);
+		if (fec)
+			return fec->clk_rate;
+
+		return -EINVAL;
+	} else {
+		return imx_get_fecclk();
+	}
+}
+
+static void fec_mii_setspeed(struct ethernet_regs *eth, int idx)
 {
 	/*
 	 * Set MII_SPEED = (1/(mii_speed * 2)) * System Clock
@@ -139,9 +176,20 @@ static void fec_mii_setspeed(struct ethernet_regs *eth)
 	 * Given that ceil(clkrate / 5000000) <= 64, the calculation for
 	 * holdtime cannot result in a value greater than 3.
 	 */
-	u32 pclk = imx_get_fecclk();
-	u32 speed = DIV_ROUND_UP(pclk, 5000000);
-	u32 hold = DIV_ROUND_UP(pclk, 100000000) - 1;
+	u32 pclk;
+	u32 speed;
+	u32 hold;
+	int ret;
+
+	ret = fec_get_clk_rate(NULL, idx);
+	if (ret < 0) {
+		printf("Can't find FEC0 clk rate: %d\n", ret);
+		return;
+	}
+	pclk = ret;
+	speed = DIV_ROUND_UP(pclk, 5000000);
+	hold = DIV_ROUND_UP(pclk, 100000000) - 1;
+
 #ifdef FEC_QUIRK_ENET_MAC
 	speed--;
 #endif
@@ -571,7 +619,7 @@ static int fec_init(struct eth_device *dev, bd_t *bd)
 	fec_reg_setup(fec);
 
 	if (fec->bus && (fec->xcv_type != SEVENWIRE))
-		fec_mii_setspeed(fec->bus->priv);
+		fec_mii_setspeed(fec->bus->priv, fec->dev_id);
 
 	/* Set Opcode/Pause Duration Register */
 	writel(0x00010020, &fec->eth->op_pause);	/* FIXME 0xffff0020; */
@@ -581,7 +629,7 @@ static int fec_init(struct eth_device *dev, bd_t *bd)
 	writel(0x00000000, &fec->eth->gaddr1);
 	writel(0x00000000, &fec->eth->gaddr2);
 
-	/* Do not access reserved register for i.MX6UL/6ULL/i.MX8/i.MX8M */
+	/* Do not access reserved register */
 	if (!is_mx6ul() && !is_mx6ull() && !is_imx8() && !is_imx8m()) {
 		/* clear MIB RAM */
 		for (i = mib_ptr; i <= mib_ptr + 0xfc; i += 4)
@@ -1059,7 +1107,7 @@ struct mii_dev *fec_get_miibus(ulong base_addr, int dev_id)
 		free(bus);
 		return NULL;
 	}
-	fec_mii_setspeed(eth);
+	fec_mii_setspeed(eth, dev_id);
 	return bus;
 }
 
@@ -1134,7 +1182,7 @@ static int fec_probe(bd_t *bd, int dev_id, uint32_t base_addr,
 	fec->dev_id = (dev_id == -1) ? 0 : dev_id;
 	fec->bus = bus;
 	if (bus)
-		fec_mii_setspeed(bus->priv);
+		fec_mii_setspeed(bus->priv, fec->dev_id);
 #ifdef CONFIG_PHYLIB
 	fec->phydev = phydev;
 	if (phydev) {
@@ -1174,8 +1222,9 @@ err1:
 	return ret;
 }
 
-int fecmxc_initialize_multi_type(bd_t *bd, int dev_id, int phy_id,
-				 uint32_t addr, enum xceiver_type xcv_type)
+int fecmxc_initialize_multi_type_if_mode(bd_t *bd, int dev_id, int phy_id,
+				 uint32_t addr, enum xceiver_type xcv_type,
+				 phy_interface_t if_mode)
 {
 	uint32_t base_mii;
 	struct mii_dev *bus = NULL;
@@ -1206,7 +1255,7 @@ int fecmxc_initialize_multi_type(bd_t *bd, int dev_id, int phy_id,
 	if (!bus)
 		return -ENOMEM;
 #ifdef CONFIG_PHYLIB
-	phydev = phy_find_by_mask(bus, 1 << phy_id, PHY_INTERFACE_MODE_RGMII);
+	phydev = phy_find_by_mask(bus, 1 << phy_id, if_mode);
 	if (!phydev) {
 		mdio_unregister(bus);
 		free(bus);
@@ -1224,6 +1273,13 @@ int fecmxc_initialize_multi_type(bd_t *bd, int dev_id, int phy_id,
 		free(bus);
 	}
 	return ret;
+}
+
+int fecmxc_initialize_multi_type(bd_t *bd, int dev_id, int phy_id,
+			 	uint32_t addr, enum xceiver_type xcv_type)
+{
+	return fecmxc_initialize_multi_type_if_mode(bd, dev_id, phy_id, addr,
+					xcv_type, PHY_INTERFACE_MODE_RGMII);
 }
 
 int fecmxc_initialize_multi(bd_t *bd, int dev_id, int phy_id, uint32_t addr)
@@ -1346,11 +1402,106 @@ static int fecmxc_probe(struct udevice *dev)
 		return -ENODEV;
 	}
 #endif
-	init_clk_fec(dev->seq);
+
+	if (IS_ENABLED(CONFIG_IMX8)) {
+		struct clk clk_2x_txclk;
+		ret = clk_get_by_name(dev, "ipg", &priv->ipg_clk);
+		if (ret < 0) {
+			debug("Can't get FEC ipg clk: %d\n", ret);
+			return ret;
+		}
+		ret = clk_enable(&priv->ipg_clk);
+		if (ret < 0) {
+			debug("Can't enable FEC ipg clk: %d\n", ret);
+			return ret;
+		}
+
+		ret = clk_get_by_name(dev, "ahb", &priv->ahb_clk);
+		if (ret < 0) {
+			debug("Can't get FEC ahb clk: %d\n", ret);
+			return ret;
+		}
+		ret = clk_enable(&priv->ahb_clk);
+		if (ret < 0) {
+			debug("Can't enable FEC ahb clk: %d\n", ret);
+			return ret;
+		}
+
+		ret = clk_get_by_name(dev, "enet_clk_ref", &priv->clk_ref);
+		if (ret >= 0) {
+			ret = clk_enable(&priv->clk_ref);
+			if (ret < 0) {
+				debug("Can't enable FEC ref clk: %d\n", ret);
+				return ret;
+			}
+		}
+
+		ret = clk_get_by_name(dev, "enet_2x_txclk", &clk_2x_txclk);
+		if (ret >= 0) {
+			ret = clk_enable(&clk_2x_txclk);
+			if (ret < 0) {
+				debug("Can't enable FEC 2x_tx clk: %d\n", ret);
+				return ret;
+			}
+		}
+
+		priv->clk_rate = clk_get_rate(&priv->ipg_clk);
+	} else if (CONFIG_IS_ENABLED(CLK_CCF)) {
+		ret = clk_get_by_name(dev, "ipg", &priv->ipg_clk);
+		if (ret < 0) {
+			debug("Can't get FEC ipg clk: %d\n", ret);
+			return ret;
+		}
+		ret = clk_enable(&priv->ipg_clk);
+		if(ret)
+			return ret;
+
+		ret = clk_get_by_name(dev, "ahb", &priv->ahb_clk);
+		if (ret < 0) {
+			debug("Can't get FEC ahb clk: %d\n", ret);
+			return ret;
+		}
+		ret = clk_enable(&priv->ahb_clk);
+		if (ret)
+			return ret;
+
+		ret = clk_get_by_name(dev, "enet_out", &priv->clk_enet_out);
+		if (!ret) {
+			ret = clk_enable(&priv->clk_enet_out);
+			if (ret)
+				return ret;
+		}
+
+		ret = clk_get_by_name(dev, "enet_clk_ref", &priv->clk_ref);
+		if (!ret) {
+			ret = clk_enable(&priv->clk_ref);
+			if (ret)
+				return ret;
+		}
+
+		ret = clk_get_by_name(dev, "ptp", &priv->clk_ptp);
+		if (!ret) {
+			ret = clk_enable(&priv->clk_ptp);
+			if (ret)
+				return ret;
+		}
+
+		priv->clk_rate = clk_get_rate(&priv->ipg_clk);
+	}
 
 	ret = fec_alloc_descs(priv);
 	if (ret)
 		return ret;
+
+#ifdef CONFIG_DM_REGULATOR
+	if (priv->phy_supply) {
+		ret = regulator_set_enable(priv->phy_supply, true);
+		if (ret) {
+			printf("%s: Error enabling phy supply\n", dev->name);
+			return ret;
+		}
+	}
+#endif
 
 #if CONFIG_IS_ENABLED(DM_GPIO)
 	fec_gpio_reset(priv);
@@ -1368,17 +1519,27 @@ static int fecmxc_probe(struct udevice *dev)
 	}
 
 	fec_reg_setup(priv);
-
 	priv->dev_id = dev->seq;
-#ifdef CONFIG_FEC_MXC_MDIO_BASE
-	bus = fec_get_miibus((ulong)CONFIG_FEC_MXC_MDIO_BASE, dev->seq);
-#else
-	bus = fec_get_miibus((ulong)priv->eth, dev->seq);
+
+#ifdef CONFIG_DM_ETH_PHY
+	bus = eth_phy_get_mdio_bus(dev);
 #endif
+
+	if (!bus) {
+#ifdef CONFIG_FEC_MXC_MDIO_BASE
+		bus = fec_get_miibus((ulong)CONFIG_FEC_MXC_MDIO_BASE, dev->seq);
+#else
+		bus = fec_get_miibus((ulong)priv->eth, dev->seq);
+#endif
+	}
 	if (!bus) {
 		ret = -ENOMEM;
 		goto err_mii;
 	}
+
+#ifdef CONFIG_DM_ETH_PHY
+	eth_phy_set_mdio_bus(dev, bus);
+#endif
 
 	priv->bus = bus;
 	priv->interface = pdata->phy_interface;
@@ -1426,6 +1587,11 @@ static int fecmxc_remove(struct udevice *dev)
 	mdio_unregister(priv->bus);
 	mdio_free(priv->bus);
 
+#ifdef CONFIG_DM_REGULATOR
+	if (priv->phy_supply)
+		regulator_set_enable(priv->phy_supply, false);
+#endif
+
 	return 0;
 }
 
@@ -1448,6 +1614,10 @@ static int fecmxc_ofdata_to_platdata(struct udevice *dev)
 		debug("%s: Invalid PHY interface '%s'\n", __func__, phy_mode);
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_DM_REGULATOR
+	device_get_supply_regulator(dev, "phy-supply", &priv->phy_supply);
+#endif
 
 #if CONFIG_IS_ENABLED(DM_GPIO)
 	ret = gpio_request_by_name(dev, "phy-reset-gpios", 0,
@@ -1476,11 +1646,15 @@ static int fecmxc_ofdata_to_platdata(struct udevice *dev)
 }
 
 static const struct udevice_id fecmxc_ids[] = {
+	{ .compatible = "fsl,imx28-fec" },
 	{ .compatible = "fsl,imx6q-fec" },
 	{ .compatible = "fsl,imx6sl-fec" },
 	{ .compatible = "fsl,imx6sx-fec" },
 	{ .compatible = "fsl,imx6ul-fec" },
+	{ .compatible = "fsl,imx53-fec" },
 	{ .compatible = "fsl,imx7d-fec" },
+	{ .compatible = "fsl,mvf600-fec" },
+	{ .compatible = "fsl,imx8qm-fec" },
 	{ }
 };
 

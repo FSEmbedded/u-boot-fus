@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2008 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <config.h>
 #include <command.h>
+#include <irq_func.h>
 
 static int do_interrupts(cmd_tbl_t *cmdtp, int flag, int argc,
 			 char * const argv[])

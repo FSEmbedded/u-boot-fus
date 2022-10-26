@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2011
  * Corscience GmbH & Co. KG - Simon Schwarz <schwarz@corscience.de>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <common.h>
 #include <config.h>
@@ -12,32 +11,27 @@
 #include <linux/libfdt_env.h>
 #include <fdt.h>
 
-#ifdef CONFIG_PARSE_CONTAINER
-int __weak nand_load_image_parse_container(struct spl_image_info *spl_image,
-				   unsigned long offset)
-{
-	return -EINVAL;
-}
-#endif
-
 uint32_t __weak spl_nand_get_uboot_raw_page(void)
 {
-       return CONFIG_SYS_NAND_U_BOOT_OFFS;
+	return CONFIG_SYS_NAND_U_BOOT_OFFS;
 }
 
 #if defined(CONFIG_SPL_NAND_RAW_ONLY)
-int spl_nand_load_image(struct spl_image_info *spl_image,
+static int spl_nand_load_image(struct spl_image_info *spl_image,
 			struct spl_boot_device *bootdev)
 {
+	u32 from;
+	
 	nand_init();
-	nand_spl_load_image(spl_nand_get_uboot_raw_page(),
-						CONFIG_SYS_NAND_U_BOOT_SIZE,
-						(void *)CONFIG_SYS_NAND_U_BOOT_DST);
-#if defined(CONFIG_SPL_RAW_IMAGE_ARM_TRUSTED_FIRMWARE)
-	spl_set_header_raw_atf(spl_image);
-#else
+
+	from = spl_nand_get_uboot_raw_page();
+	printf("Loading U-Boot from 0x%08x (size 0x%08x) to 0x%08x\n",
+	       from, CONFIG_SYS_NAND_U_BOOT_SIZE,
+	       CONFIG_SYS_NAND_U_BOOT_DST);
+
+	nand_spl_load_image(from, CONFIG_SYS_NAND_U_BOOT_SIZE,
+			    (void *)CONFIG_SYS_NAND_U_BOOT_DST);
 	spl_set_header_raw_uboot(spl_image);
-#endif
 	nand_deselect();
 
 	return 0;
@@ -76,16 +70,21 @@ static int spl_nand_load_element(struct spl_image_info *spl_image,
 		load.bl_len = 1;
 		load.read = spl_nand_fit_read;
 		return spl_load_simple_fit(spl_image, &load, offset, header);
+	} else if (IS_ENABLED(CONFIG_SPL_LOAD_IMX_CONTAINER)) {
+		struct spl_load_info load;
+
+		load.dev = NULL;
+		load.priv = NULL;
+		load.filename = NULL;
+		load.bl_len = 1;
+		load.read = spl_nand_fit_read;
+		return spl_load_imx_container(spl_image, &load, offset);
 	} else {
-#ifdef CONFIG_PARSE_CONTAINER
-		return nand_load_image_parse_container(spl_image, offset);
-#else
 		err = spl_parse_image_header(spl_image, header);
 		if (err)
 			return err;
 		return nand_spl_load_image(offset, spl_image->size,
 					   (void *)(ulong)spl_image->load_addr);
-#endif
 	}
 }
 
@@ -104,8 +103,8 @@ static int spl_nand_load_image(struct spl_image_info *spl_image,
 #endif
 	nand_init();
 
-	/*use CONFIG_SYS_TEXT_BASE as temporary storage area */
-	header = (struct image_header *)(CONFIG_SYS_TEXT_BASE);
+	header = spl_get_load_buffer(0, sizeof(*header));
+
 #ifdef CONFIG_SPL_OS_BOOT
 	if (!spl_start_uboot()) {
 		/*

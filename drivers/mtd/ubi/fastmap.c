@@ -1,14 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2012 Linutronix GmbH
  * Copyright (c) 2014 sigma star gmbh
  * Author: Richard Weinberger <richard@nod.at>
  *
- * SPDX-License-Identifier:	GPL-2.0+
- *
  */
 
 #ifndef __UBOOT__
+#include <dm/devres.h>
 #include <linux/crc32.h>
+#include <linux/err.h>
+#include <u-boot/crc.h>
 #else
 #include <div64.h>
 #include <malloc.h>

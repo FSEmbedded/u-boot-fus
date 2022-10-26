@@ -1,11 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2012, Google Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <fs.h>
+#include <malloc.h>
 #include <os.h>
 
 int sandbox_fs_set_blk_dev(struct blk_desc *rbdd, disk_partition_t *info)

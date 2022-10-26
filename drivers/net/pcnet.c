@@ -1,13 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2002 Wolfgang Grandegger, wg@denx.de.
  *
  * This driver for AMD PCnet network controllers is derived from the
  * Linux driver pcnet32.c written 1996-1999 by Thomas Bogendoerfer.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <malloc.h>
 #include <net.h>
 #include <netdev.h>

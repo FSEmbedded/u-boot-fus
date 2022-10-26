@@ -1,13 +1,13 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Blink timer support, can be used for LEDs, cursor, etc.
  *
  * (C) Copyright 2014
  * F&S Elektronik Systeme GmbH <keller@fs-net.d>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <blink.h>
 
 #ifndef CONFIG_SYS_BLINK_CLIENTS
 #define CONFIG_SYS_BLINK_CLIENTS 1

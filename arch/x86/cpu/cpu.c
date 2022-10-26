@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2008-2011
  * Graeme Russ, <graeme.russ@gmail.com>
@@ -15,17 +16,18 @@
  *
  * Part of this file is adapted from coreboot
  * src/arch/x86/lib/cpu.c
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <acpi_s3.h>
 #include <command.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <errno.h>
+#include <init.h>
 #include <malloc.h>
 #include <syscon.h>
-#include <asm/acpi_s3.h>
+#include <asm/acpi.h>
 #include <asm/acpi_table.h>
 #include <asm/control_regs.h>
 #include <asm/coreboot_tables.h>
@@ -45,6 +47,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#ifndef CONFIG_TPL_BUILD
 static const char *const x86_vendor_name[] = {
 	[X86_VENDOR_INTEL]     = "Intel",
 	[X86_VENDOR_CYRIX]     = "Cyrix",
@@ -57,6 +60,7 @@ static const char *const x86_vendor_name[] = {
 	[X86_VENDOR_NSC]       = "NSC",
 	[X86_VENDOR_SIS]       = "SiS",
 };
+#endif
 
 int __weak x86_cleanup_before_linux(void)
 {
@@ -76,35 +80,9 @@ int x86_init_cache(void)
 }
 int init_cache(void) __attribute__((weak, alias("x86_init_cache")));
 
-int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
-{
-	printf("resetting ...\n");
-
-	/* wait 50 ms */
-	udelay(50000);
-	disable_interrupts();
-	reset_cpu(0);
-
-	/*NOTREACHED*/
-	return 0;
-}
-
 void  flush_cache(unsigned long dummy1, unsigned long dummy2)
 {
 	asm("wbinvd\n");
-}
-
-__weak void reset_cpu(ulong addr)
-{
-	/* Do a hard reset through the chipset's reset control register */
-	outb(SYS_RST | RST_CPU, IO_PORT_RESET);
-	for (;;)
-		cpu_hlt();
-}
-
-void x86_full_reset(void)
-{
-	outb(FULL_RST | SYS_RST | RST_CPU, IO_PORT_RESET);
 }
 
 /* Define these functions to allow ehch-hcd to function */
@@ -139,6 +117,7 @@ int icache_status(void)
 	return 1;
 }
 
+#ifndef CONFIG_TPL_BUILD
 const char *cpu_vendor_name(int vendor)
 {
 	const char *name;
@@ -149,6 +128,7 @@ const char *cpu_vendor_name(int vendor)
 
 	return name;
 }
+#endif
 
 char *cpu_get_name(char *name)
 {
@@ -194,7 +174,7 @@ void show_boot_progress(int val)
 	outb(val, POST_PORT);
 }
 
-#ifndef CONFIG_SYS_COREBOOT
+#if !defined(CONFIG_SYS_COREBOOT) && !defined(CONFIG_EFI_STUB)
 /*
  * Implement a weak default function for boards that optionally
  * need to clean up the system before jumping to the kernel.
@@ -205,16 +185,31 @@ __weak void board_final_cleanup(void)
 
 int last_stage_init(void)
 {
+	struct acpi_fadt __maybe_unused *fadt;
+
 	board_final_cleanup();
 
-#if CONFIG_HAVE_ACPI_RESUME
-	struct acpi_fadt *fadt = acpi_find_fadt();
+#ifdef CONFIG_HAVE_ACPI_RESUME
+	fadt = acpi_find_fadt();
 
-	if (fadt != NULL && gd->arch.prev_sleep_state == ACPI_S3)
+	if (fadt && gd->arch.prev_sleep_state == ACPI_S3)
 		acpi_resume(fadt);
 #endif
 
 	write_tables();
+
+#ifdef CONFIG_GENERATE_ACPI_TABLE
+	fadt = acpi_find_fadt();
+
+	/* Don't touch ACPI hardware on HW reduced platforms */
+	if (fadt && !(fadt->flags & ACPI_FADT_HW_REDUCED_ACPI)) {
+		/*
+		 * Other than waiting for OSPM to request us to switch to ACPI
+		 * mode, do it by ourselves, since SMI will not be triggered.
+		 */
+		enter_acpi_mode(fadt->pm1a_cnt_blk);
+	}
+#endif
 
 	return 0;
 }

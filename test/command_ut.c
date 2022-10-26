@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2012, The Chromium Authors
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #define DEBUG
 
 #include <common.h>
+#include <command.h>
 
 static const char test_cmd[] = "setenv list 1\n setenv list ${list}2; "
 		"setenv list ${list}3\0"

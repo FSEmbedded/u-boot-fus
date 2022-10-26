@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /* #define DEBUG */
@@ -180,7 +179,7 @@ flash_write (char *src, ulong addr, ulong cnt)
 /*-----------------------------------------------------------------------
  */
 
-void flash_perror (int err)
+void flash_perror(int err)
 {
 	switch (err) {
 	case ERR_OK:

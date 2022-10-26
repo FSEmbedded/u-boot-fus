@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2003
  * Texas Instruments.
@@ -8,8 +9,6 @@
  * ARM Ltd.
  * Philippe Robin, <philippe.robin@arm.com>
  * Configuration for Compact Integrator board.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __CONFIG_H
@@ -53,22 +52,16 @@
  */
 #if ( PHYS_FLASH_SIZE == 0x04000000 )
 
-#define CONFIG_ENV_ADDR		0x27F00000
 #define CONFIG_SYS_MONITOR_BASE	0x27F40000
 
 #elif (PHYS_FLASH_SIZE == 0x02000000 )
 
-#define CONFIG_ENV_ADDR		0x25F00000
 #define CONFIG_SYS_MONITOR_BASE	0x25F40000
 
 #else
 
-#define CONFIG_ENV_ADDR		0x24F00000
 #define CONFIG_SYS_MONITOR_BASE	0x27F40000
 
 #endif
-
-#define CONFIG_ENV_SECT_SIZE	0x40000		/* 256KB */
-#define CONFIG_ENV_SIZE		8192		/* 8KB */
 
 #endif /* __CONFIG_H */

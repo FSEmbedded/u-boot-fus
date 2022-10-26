@@ -1,13 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Keystone2: Architecture initialization
  *
  * (C) Copyright 2012-2014
  *     Texas Instruments Incorporated, <www.ti.com>
- *
- * SPDX-License-Identifier:     GPL-2.0+
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <ns16550.h>
 #include <asm/io.h>
 #include <asm/arch/msmc.h>
@@ -205,7 +205,7 @@ void reset_cpu(ulong addr)
 
 void enable_caches(void)
 {
-#ifndef CONFIG_SYS_DCACHE_OFF
+#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
 	/* Enable D-cache. I-cache is already enabled in start.S */
 	dcache_enable();
 #endif

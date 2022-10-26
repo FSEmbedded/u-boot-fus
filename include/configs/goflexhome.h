@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2013 Suriyan Ramasami <suriyan.r@gmail.com>
  *
@@ -8,8 +9,6 @@
  * Prafulla Wadaskar <prafulla@marvell.com>
  * (C) Copyright 2009
  * Marvell Semiconductor <www.marvell.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _CONFIG_GOFLEXHOME_H
@@ -42,8 +41,6 @@
  * Commands configuration
  */
 
-#define CONFIG_SYS_MVFS         /* Picks up Filesystem from mv-common.h */
-
 /*
  * mv-common.h should be defined after CMD configs since it used them
  * to enable certain macros
@@ -53,16 +50,10 @@
 /*
  *  Environment variables configurations
  */
-#ifdef CONFIG_CMD_NAND
-#define CONFIG_ENV_SECT_SIZE		0x20000	/* 128K */
-#endif
 /*
  * max 4k env size is enough, but in case of nand
  * it has to be rounded to sector size
  */
-#define CONFIG_ENV_SIZE			0x20000	/* 128k */
-#define CONFIG_ENV_ADDR			0xC0000
-#define CONFIG_ENV_OFFSET		0xC0000	/* env starts here */
 
 /*
  * Default environment variables
@@ -95,12 +86,5 @@
 #ifdef CONFIG_MVSATA_IDE
 #define CONFIG_SYS_ATA_IDE0_OFFSET      MV_SATA_PORT0_OFFSET
 #endif /*CONFIG_MVSATA_IDE*/
-
-/*
- *  * RTC driver configuration
- *   */
-#ifdef CONFIG_CMD_DATE
-#define CONFIG_RTC_MV
-#endif /* CONFIG_CMD_DATE */
 
 #endif /* _CONFIG_GOFLEXHOME_H */

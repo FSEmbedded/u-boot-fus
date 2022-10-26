@@ -1,7 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2010-2011 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -14,18 +13,11 @@
 #include <asm/mach-imx/iomux-v3.h>
 #include <asm/mach-imx/boot_mode.h>
 #include <mmc.h>
-#include <fsl_esdhc.h>
+#include <fsl_esdhc_imx.h>
 #include <miiphy.h>
 #include <netdev.h>
 #include <usb.h>
 #include <asm/arch/sys_proto.h>
-
-#ifdef CONFIG_FSL_FASTBOOT
-#include <fsl_fastboot.h>
-#ifdef CONFIG_ANDROID_RECOVERY
-#include <recovery.h>
-#endif
-#endif /*CONFIG_FSL_FASTBOOT*/
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -135,7 +127,7 @@ static void setup_iomux_enet(void)
 	imx_iomux_v3_setup_multiple_pads(enet_pads, ARRAY_SIZE(enet_pads));
 }
 
-#ifdef CONFIG_FSL_ESDHC
+#ifdef CONFIG_FSL_ESDHC_IMX
 #ifndef CONFIG_DM_MMC
 struct fsl_esdhc_cfg usdhc_cfg[2] = {
 	{USDHC3_BASE_ADDR},
@@ -190,16 +182,6 @@ int board_mmc_init(bd_t *bis)
 	return 0;
 }
 #endif
-
-int board_mmc_get_env_dev(int devno)
-{
-	return devno - 2;
-}
-
-int mmc_map_to_kernel_blk(int devno)
-{
-	return devno + 2;
-}
 #endif
 
 #define MII_MMD_ACCESS_CTRL_REG		0xd
@@ -339,29 +321,4 @@ void ldo_mode_set(int ldo_bypass)
 {
 	return;
 }
-#endif
-
-#ifdef CONFIG_FSL_FASTBOOT
-void board_fastboot_setup(void)
-{
-	if (!getenv("fastboot_dev"))
-		setenv("fastboot_dev", "mmc0");
-	if (!getenv("bootcmd"))
-		setenv("bootcmd", "boota mmc0");
-}
-
-#ifdef CONFIG_ANDROID_RECOVERY
-int check_recovery_cmd_file(void) {
-	return 0;
-}
-
-void board_recovery_setup(void)
-{
-	if (!getenv("bootcmd_android_recovery"))
-		setenv("bootcmd_android_recovery", "boota mmc0 recovery");
-
-	printf("setup env for recovery..\n");
-	setenv("bootcmd", "run bootcmd_android_recovery");
-}
-#endif
 #endif

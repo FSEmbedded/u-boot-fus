@@ -1,23 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * (C) Copyright 2015 Google, Inc
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 
 #include <common.h>
 #include <clk-uclass.h>
 #include <dm.h>
 #include <errno.h>
+#include <malloc.h>
 #include <syscon.h>
 #include <asm/io.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/cru_rk3036.h>
-#include <asm/arch/hardware.h>
+#include <asm/arch-rockchip/clock.h>
+#include <asm/arch-rockchip/cru_rk3036.h>
+#include <asm/arch-rockchip/hardware.h>
 #include <dm/lists.h>
 #include <dt-bindings/clock/rk3036-cru.h>
 #include <linux/log2.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 enum {
 	VCO_MAX_HZ	= 2400U * 1000000,
@@ -317,11 +315,19 @@ static struct clk_ops rk3036_clk_ops = {
 	.set_rate	= rk3036_clk_set_rate,
 };
 
+static int rk3036_clk_ofdata_to_platdata(struct udevice *dev)
+{
+	struct rk3036_clk_priv *priv = dev_get_priv(dev);
+
+	priv->cru = dev_read_addr_ptr(dev);
+
+	return 0;
+}
+
 static int rk3036_clk_probe(struct udevice *dev)
 {
 	struct rk3036_clk_priv *priv = dev_get_priv(dev);
 
-	priv->cru = (struct rk3036_cru *)devfdt_get_addr(dev);
 	rkclk_init(priv->cru);
 
 	return 0;
@@ -347,7 +353,7 @@ static int rk3036_clk_bind(struct udevice *dev)
 		sys_child->priv = priv;
 	}
 
-#if CONFIG_IS_ENABLED(CONFIG_RESET_ROCKCHIP)
+#if CONFIG_IS_ENABLED(RESET_ROCKCHIP)
 	ret = offsetof(struct rk3036_cru, cru_softrst_con[0]);
 	ret = rockchip_reset_bind(dev, ret, 9);
 	if (ret)
@@ -367,6 +373,7 @@ U_BOOT_DRIVER(rockchip_rk3036_cru) = {
 	.id		= UCLASS_CLK,
 	.of_match	= rk3036_clk_ids,
 	.priv_auto_alloc_size = sizeof(struct rk3036_clk_priv),
+	.ofdata_to_platdata = rk3036_clk_ofdata_to_platdata,
 	.ops		= &rk3036_clk_ops,
 	.bind		= rk3036_clk_bind,
 	.probe		= rk3036_clk_probe,

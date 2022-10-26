@@ -1,28 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2018 NXP
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
-
 #include <common.h>
-#include <malloc.h>
-#include <errno.h>
 #include <asm/io.h>
 #include <miiphy.h>
 #include <netdev.h>
 #include <asm/mach-imx/iomux-v3.h>
 #include <asm-generic/gpio.h>
-#include <fsl_esdhc.h>
-#include <mmc.h>
 #include <asm/arch/imx8mm_pins.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/gpio.h>
 #include <asm/mach-imx/mxc_i2c.h>
 #include <asm/arch/clock.h>
-#include <spl.h>
+#include <i2c.h>
 #include <asm/mach-imx/dma.h>
-#include <power/pmic.h>
-#include <power/bd71837.h>
 #include "../common/tcpc.h"
 #include <usb.h>
 
@@ -42,28 +34,6 @@ static iomux_v3_cfg_t const wdog_pads[] = {
 };
 #endif
 
-#ifdef CONFIG_FSL_FSPI
-#define QSPI_PAD_CTRL	(PAD_CTL_DSE2 | PAD_CTL_HYS)
-static iomux_v3_cfg_t const qspi_pads[] = {
-	IMX8MM_PAD_NAND_ALE_QSPI_A_SCLK | MUX_PAD_CTRL(QSPI_PAD_CTRL | PAD_CTL_PE | PAD_CTL_PUE),
-	IMX8MM_PAD_NAND_CE0_B_QSPI_A_SS0_B | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-
-	IMX8MM_PAD_NAND_DATA00_QSPI_A_DATA0 | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-	IMX8MM_PAD_NAND_DATA01_QSPI_A_DATA1 | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-	IMX8MM_PAD_NAND_DATA02_QSPI_A_DATA2 | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-	IMX8MM_PAD_NAND_DATA03_QSPI_A_DATA3 | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-};
-
-int board_qspi_init(void)
-{
-	imx_iomux_v3_setup_multiple_pads(qspi_pads, ARRAY_SIZE(qspi_pads));
-
-	set_clk_qspi();
-
-	return 0;
-}
-#endif
-
 #ifdef CONFIG_MXC_SPI
 #define SPI_PAD_CTRL	(PAD_CTL_DSE2 | PAD_CTL_HYS)
 static iomux_v3_cfg_t const ecspi1_pads[] = {
@@ -77,6 +47,8 @@ static void setup_spi(void)
 {
 	imx_iomux_v3_setup_multiple_pads(ecspi1_pads, ARRAY_SIZE(ecspi1_pads));
 	gpio_request(IMX_GPIO_NR(5, 9), "ECSPI1 CS");
+
+	init_clk_ecspi(0);
 }
 
 int board_spi_cs_gpio(unsigned bus, unsigned cs)
@@ -109,6 +81,8 @@ static iomux_v3_cfg_t const gpmi_pads[] = {
 static void setup_gpmi_nand(void)
 {
 	imx_iomux_v3_setup_multiple_pads(gpmi_pads, ARRAY_SIZE(gpmi_pads));
+
+	init_nand_clk();
 }
 #endif
 
@@ -124,6 +98,8 @@ int board_early_init_f(void)
 
 	imx_iomux_v3_setup_multiple_pads(uart_pads, ARRAY_SIZE(uart_pads));
 
+	init_uart_clk(1);
+
 #ifdef CONFIG_NAND_MXS
 	setup_gpmi_nand(); /* SPL will call the board_early_init_f */
 #endif
@@ -131,33 +107,7 @@ int board_early_init_f(void)
 	return 0;
 }
 
-#ifdef CONFIG_BOARD_POSTCLK_INIT
-int board_postclk_init(void)
-{
-	/* TODO */
-	return 0;
-}
-#endif
-
-int dram_init(void)
-{
-	/* rom_pointer[1] contains the size of TEE occupies */
-	if (rom_pointer[1])
-		gd->ram_size = PHYS_SDRAM_SIZE - rom_pointer[1];
-	else
-		gd->ram_size = PHYS_SDRAM_SIZE;
-
-	return 0;
-}
-
-#ifdef CONFIG_OF_BOARD_SETUP
-int ft_board_setup(void *blob, bd_t *bd)
-{
-	return 0;
-}
-#endif
-
-#ifdef CONFIG_FEC_MXC
+#if IS_ENABLED(CONFIG_FEC_MXC)
 #ifndef CONFIG_TARGET_IMX8MM_DDR3L_VAL
 #define FEC_RST_PAD IMX_GPIO_NR(4, 22)
 static iomux_v3_cfg_t const fec1_rst_pads[] = {
@@ -179,7 +129,7 @@ static void setup_iomux_fec(void)
 static int setup_fec(void)
 {
 #ifdef CONFIG_TARGET_IMX8MM_DDR3L_VAL
-	struct iomuxc_gpr_base_regs *const iomuxc_gpr_regs
+	struct iomuxc_gpr_base_regs *gpr
 		= (struct iomuxc_gpr_base_regs *) IOMUXC_GPR_BASE_ADDR;
 	/*
 	* GPR1 bit 13:
@@ -187,18 +137,18 @@ static int setup_fec(void)
 	* 0:enet1 rmii clock comes from external phy or osc
 	*/
 
-	setbits_le32(&iomuxc_gpr_regs->gpr[1],
+	setbits_le32(&gpr->gpr[1],
 			IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_MASK);
 	return set_clk_enet(ENET_50MHZ);
 #else
 
-	struct iomuxc_gpr_base_regs *const iomuxc_gpr_regs
+	struct iomuxc_gpr_base_regs *gpr
 		= (struct iomuxc_gpr_base_regs *) IOMUXC_GPR_BASE_ADDR;
 
 	setup_iomux_fec();
 
 	/* Use 125M anatop REF_CLK1 for ENET1, not from external */
-	clrsetbits_le32(&iomuxc_gpr_regs->gpr[1],
+	clrsetbits_le32(&gpr->gpr[1],
 			IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_MASK, 0);
 	return set_clk_enet(ENET_125MHZ);
 #endif
@@ -297,7 +247,7 @@ struct tcpc_port_config port2_config = {
 	.i2c_bus = 1, /*i2c2*/
 	.addr = 0x52,
 	.port_type = TYPEC_PORT_UFP,
-	.max_snk_mv = 5000,
+	.max_snk_mv = 9000,
 	.max_snk_ma = 3000,
 	.max_snk_mw = 40000,
 	.op_snk_mv = 9000,
@@ -388,7 +338,7 @@ int board_ehci_usb_phy_mode(struct udevice *dev)
 	enum typec_cc_state state;
 	struct tcpc_port *port_ptr;
 
-	if (dev->seq == 0)
+	if (dev->req_seq == 0)
 		port_ptr = &port1;
 	else
 		port_ptr = &port2;
@@ -416,25 +366,10 @@ int board_init(void)
 	setup_spi();
 #endif
 
-#ifdef CONFIG_FEC_MXC
-	setup_fec();
-#endif
-
-#ifdef CONFIG_FSL_FSPI
-	board_qspi_init();
-#endif
+	if (IS_ENABLED(CONFIG_FEC_MXC))
+		setup_fec();
 
 	return 0;
-}
-
-int board_mmc_get_env_dev(int devno)
-{
-	return devno - 1;
-}
-
-int mmc_map_to_kernel_blk(int devno)
-{
-	return devno + 1;
 }
 
 int board_late_init(void)
@@ -443,5 +378,9 @@ int board_late_init(void)
 	board_late_mmc_env_init();
 #endif
 
+#ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
+	env_set("board_name", "VAL");
+	env_set("board_rev", "iMX8MM");
+#endif
 	return 0;
 }

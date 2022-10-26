@@ -1,14 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2007
  * Sascha Hauer, Pengutronix
  *
  * (C) Copyright 2009 Freescale Semiconductor, Inc.
  * Copyright 2018 NXP
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <init.h>
 #include <linux/errno.h>
 #include <asm/io.h>
 #include <asm/arch/imx-regs.h>
@@ -28,14 +28,10 @@
 #ifdef CONFIG_IMX_SEC_INIT
 #include <fsl_caam.h>
 #endif
+#include <hang.h>
+#include <cpu_func.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
-enum ldo_reg {
-	LDO_ARM,
-	LDO_SOC,
-	LDO_PU,
-};
 
 struct scu_regs {
 	u32	ctrl;
@@ -58,7 +54,7 @@ U_BOOT_DEVICE(imx6_thermal) = {
 };
 #endif
 
-#if defined(CONFIG_SECURE_BOOT)
+#if defined(CONFIG_IMX_HAB)
 struct imx_sec_config_fuse_t const imx_sec_config_fuse = {
 	.bank = 0,
 	.word = 6,
@@ -242,9 +238,6 @@ u32 __weak get_board_rev(void)
 	if (type == MXC_CPU_MX6D)
 		cpurev = (MXC_CPU_MX6Q) << 12 | (cpurev & 0xFFF);
 
-	if (type == MXC_CPU_MX6QP || type == MXC_CPU_MX6DP)
-		cpurev = (MXC_CPU_MX6Q) << 12 | ((cpurev + 0x10) & 0xFFF);
-
 	return cpurev;
 }
 #endif
@@ -299,7 +292,7 @@ static void clear_ldo_ramp(void)
  * Possible values are from 0.725V to 1.450V in steps of
  * 0.025V (25mV).
  */
-static int set_ldo_voltage(enum ldo_reg ldo, u32 mv)
+int set_ldo_voltage(enum ldo_reg ldo, u32 mv)
 {
 	struct anatop_regs *anatop = (struct anatop_regs *)ANATOP_BASE_ADDR;
 	u32 val, step, old, reg = readl(&anatop->reg_core);
@@ -419,6 +412,37 @@ static void init_bandgap(void)
 	}
 }
 
+#if defined(CONFIG_MX6Q) || defined(CONFIG_MX6QDL)
+static void noc_setup(void)
+{
+	enable_ipu_clock();
+
+	writel(0x80000201, 0xbb0608);
+	/* Bypass IPU1 QoS generator */
+	writel(0x00000002, 0x00bb048c);
+	/* Bypass IPU2 QoS generator */
+	writel(0x00000002, 0x00bb050c);
+	/* Bandwidth THR for of PRE0 */
+	writel(0x00000200, 0x00bb0690);
+	/* Bandwidth THR for of PRE1 */
+	writel(0x00000200, 0x00bb0710);
+	/* Bandwidth THR for of PRE2 */
+	writel(0x00000200, 0x00bb0790);
+	/* Bandwidth THR for of PRE3 */
+	writel(0x00000200, 0x00bb0810);
+	/* Saturation THR for of PRE0 */
+	writel(0x00000010, 0x00bb0694);
+	/* Saturation THR for of PRE1 */
+	writel(0x00000010, 0x00bb0714);
+	/* Saturation THR for of PRE2 */
+	writel(0x00000010, 0x00bb0794);
+	/* Saturation THR for of PRE */
+	writel(0x00000010, 0x00bb0814);
+
+	disable_ipu_clock();
+}
+#endif
+
 static void set_preclk_from_osc(void)
 {
 	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
@@ -535,7 +559,7 @@ static void imx_set_pcie_phy_power_down(void)
 	}
 }
 
-bool is_usb_boot(void)
+__weak bool is_usb_boot(void)
 {
 	if (gd->flags & GD_FLG_ARCH_IMX_USB_BOOT)
 		return true;
@@ -551,27 +575,6 @@ int arch_cpu_init(void)
 	if (!is_mx6sl() && !is_mx6sx()
 		&& !is_mx6ul() && !is_mx6ull()
 		&& !is_mx6sll()) {
-		/*
-		 * imx6sl doesn't have pcie at all.
-		 * this bit is not used by imx6sx anymore
-		 */
-		u32 val;
-
-		/*
-		 * There are about 0.02% percentage, random pcie link down
-		 * when warm-reset is used.
-		 * clear the ref_ssp_en bit16 of gpr1 to workaround it.
-		 * then warm-reset imx6q/dl/solo again.
-		 */
-		val = readl(IOMUXC_BASE_ADDR + 0x4);
-		if (val & (0x1 << 16)) {
-			val &= ~(0x1 << 16);
-			writel(val, IOMUXC_BASE_ADDR + 0x4);
-			reset_cpu(0);
-		}
-	}
-
-	if (!is_mx6sl() && !is_mx6sx() && !is_mx6ul() && !is_mx6ull()) {
 		/*
 		 * imx6sl doesn't have pcie at all.
 		 * this bit is not used by imx6sx anymore
@@ -656,19 +659,6 @@ int arch_cpu_init(void)
 			0x3, MX6UL_SNVS_LP_BASE_ADDR);
 	}
 
-	if (is_mx6ull() || is_mx6ul()) {
-		struct iomuxc *iomux = (struct iomuxc *)IOMUXC_BASE_ADDR;
-		if (iomux->gpr[9] & 0x1) {
-			/* When trust zone is enabled,
-			 * set Region 0 attribute to allow secure and non-secure read/write permission
-			 * Because PL301 hard code to non-secure for some masters on m_3/4/5 ports.
-			 * Like LCDIF, PXP, CSI can't work with secure memory.
-			 */
-
-			writel(0xf0000000, IP2APB_TZASC1_BASE_ADDR + 0x108);
-		}
-	}
-
 	/* Set perclk to source from OSC 24MHz */
 	if (is_mx6sl())
 		set_preclk_from_osc();
@@ -686,24 +676,18 @@ int arch_cpu_init(void)
 		!is_mx6ull() && !is_mx6sll())
 		imx_set_vddpu_power_down();
 
-#ifndef CONFIG_PCIE_IMX
-	if (is_mx6sx())
-		set_ldo_voltage(LDO_PU, 0);	/* Set LDO for PCIe to off */
-#endif
-
 	init_src();
 
-#ifndef CONFIG_MX6SX
-	if (is_mx6dqp()) {
-		writel(0x80000201, 0xbb0608);
-		enable_ipu_clock();
-	}
+#if defined(CONFIG_MX6Q) || defined(CONFIG_MX6QDL)
+	if (is_mx6dqp())
+		noc_setup();
 #endif
 
 #ifdef CONFIG_IMX_SEC_INIT
 	/* Secure init function such RNG */
 	imx_sec_init();
 #endif
+	configure_tzc380();
 
 	return 0;
 }
@@ -714,13 +698,16 @@ int arch_cpu_init(void)
 
 __weak int board_mmc_get_env_dev(int devno)
 {
-	return CONFIG_SYS_MMC_ENV_DEV;
+	return devno;
 }
 
 static int mmc_get_boot_dev(void)
 {
-	struct src *src_regs = (struct src *)SRC_BASE_ADDR;
-	u32 soc_sbmr = readl(&src_regs->sbmr1);
+	struct ocotp_regs *ocotp = (struct ocotp_regs *)OCOTP_BASE_ADDR;
+	struct fuse_bank *bank = &ocotp->bank[0];
+	struct fuse_bank0_regs *fuse =
+		(struct fuse_bank0_regs *)bank->fuse_regs;
+	u32 cfg4 = readl(&fuse->cfg4);
 	u32 bootsel;
 	int devno;
 
@@ -730,27 +717,30 @@ static int mmc_get_boot_dev(void)
 	 * Chapter "8.5.3.1 Expansion Device eFUSE Configuration"
 	 * i.MX6SL/SX/UL has same layout.
 	 */
-	bootsel = (soc_sbmr & 0x000000FF) >> 6;
+	bootsel = (cfg4 & 0x000000FF) >> 6;
 
 	/* No boot from sd/mmc */
 	if (is_usb_boot() || bootsel != 1)
 		return -1;
 
 	/* BOOT_CFG2[3] and BOOT_CFG2[4] */
-	devno = (soc_sbmr & 0x00001800) >> 11;
+	devno = (cfg4 & 0x00001800) >> 11;
 
 	return devno;
 }
 
 int mmc_get_env_dev(void)
 {
-	int devno = mmc_get_boot_dev();
+	int envdev = mmc_get_boot_dev();
+	int devno;
+
+	devno = board_mmc_get_env_dev(envdev);
 
 	/* If not boot from sd/mmc, use default value */
 	if (devno < 0)
 	    return env_get_ulong("mmcdev", 10, CONFIG_SYS_MMC_ENV_DEV);
 
-	return board_mmc_get_env_dev(devno);
+	return devno;
 }
 
 #ifdef CONFIG_SYS_MMC_ENV_PART
@@ -761,13 +751,16 @@ __weak int board_mmc_get_env_part(int devno)
 
 uint mmc_get_env_part(struct mmc *mmc)
 {
-	int devno = mmc_get_boot_dev();
+	int envdev = mmc_get_boot_dev();
+	int devno;
+
+	devno = board_mmc_get_env_part(envdev);
 
 	/* If not boot from sd/mmc, use default value */
 	if (devno < 0)
 		return CONFIG_SYS_MMC_ENV_PART;
 
-	return board_mmc_get_env_part(devno);
+	return devno;
 }
 #endif
 
@@ -827,10 +820,14 @@ const struct boot_mode soc_boot_modes[] = {
 enum boot_device get_boot_device(void)
 {
 	enum boot_device boot_dev = UNKNOWN_BOOT;
-	uint soc_sbmr = readl(SRC_BASE_ADDR + 0x4);
-	uint bt_mem_ctl = (soc_sbmr & 0x000000FF) >> 4 ;
-	uint bt_mem_type = (soc_sbmr & 0x00000008) >> 3;
-	uint bt_dev_port = (soc_sbmr & 0x00001800) >> 11;
+	struct ocotp_regs *ocotp = (struct ocotp_regs *)OCOTP_BASE_ADDR;
+	struct fuse_bank *bank = &ocotp->bank[0];
+	struct fuse_bank0_regs *fuse =
+		(struct fuse_bank0_regs *)bank->fuse_regs;
+	uint cfg4 = readl(&fuse->cfg4);
+	uint bt_mem_ctl = (cfg4 & 0x000000FF) >> 4 ;
+	uint bt_mem_type = (cfg4 & 0x00000008) >> 3;
+	uint bt_dev_port = (cfg4 & 0x00001800) >> 11;
 
 	switch (bt_mem_ctl) {
 	case 0x0:
@@ -891,8 +888,10 @@ void set_wdog_reset(struct wdog_regs *wdog)
 
 void reset_misc(void)
 {
-#ifdef CONFIG_VIDEO_MXS
+#ifndef CONFIG_SPL_BUILD
+#if defined(CONFIG_VIDEO_MXS) && !defined(CONFIG_DM_VIDEO)
 	lcdif_power_down();
+#endif
 #endif
 }
 
@@ -995,6 +994,35 @@ void imx_setup_hdmi(void)
 	}
 }
 #endif
+
+/*
+ * gpr_init() function is common for boards using MX6S, MX6DL, MX6D,
+ * MX6Q and MX6QP processors
+ */
+void gpr_init(void)
+{
+	struct iomuxc *iomux = (struct iomuxc *)IOMUXC_BASE_ADDR;
+
+	/*
+	 * If this function is used in a common MX6 spl implementation
+	 * we have to ensure that it is only called for suitable cpu types,
+	 * otherwise it breaks hardware parts like enet1, can1, can2, etc.
+	 */
+	if (!is_mx6dqp() && !is_mx6dq() && !is_mx6sdl())
+		return;
+
+	/* enable AXI cache for VDOA/VPU/IPU */
+	writel(0xF00000CF, &iomux->gpr[4]);
+	if (is_mx6dqp()) {
+		/* set IPU AXI-id1 Qos=0x1 AXI-id0/2/3 Qos=0x7 */
+		writel(0x77177717, &iomux->gpr[6]);
+		writel(0x77177717, &iomux->gpr[7]);
+	} else {
+		/* set IPU AXI-id0 Qos=0xf(bypass) AXI-id1 Qos=0x7 */
+		writel(0x007F007F, &iomux->gpr[6]);
+		writel(0x007F007F, &iomux->gpr[7]);
+	}
+}
 
 #ifdef CONFIG_LDO_BYPASS_CHECK
 DECLARE_GLOBAL_DATA_PTR;
@@ -1114,20 +1142,3 @@ void finish_anatop_bypass(void)
 		set_arm_freq_400M(false);
 }
 #endif
-
-void gpr_init(void)
-{
-	struct iomuxc *iomux = (struct iomuxc *)IOMUXC_BASE_ADDR;
-
-	/* enable AXI cache for VDOA/VPU/IPU */
-	writel(0xF00000CF, &iomux->gpr[4]);
-	if (is_mx6dqp()) {
-		/* set IPU AXI-id1 Qos=0x1 AXI-id0/2/3 Qos=0x7 */
-		writel(0x77177717, &iomux->gpr[6]);
-		writel(0x77177717, &iomux->gpr[7]);
-	} else {
-		/* set IPU AXI-id0 Qos=0xf(bypass) AXI-id1 Qos=0x7 */
-		writel(0x007F007F, &iomux->gpr[6]);
-		writel(0x007F007F, &iomux->gpr[7]);
-	}
-}

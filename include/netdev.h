@@ -1,8 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2008
  * Benjamin Warren, biggerbadderben@gmail.com
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -11,6 +10,7 @@
 
 #ifndef _NETDEV_H_
 #define _NETDEV_H_
+#include <phy_interface.h>
 
 /*
  * Board and CPU-specific initialization functions
@@ -22,31 +22,30 @@
  */
 
 int board_eth_init(bd_t *bis);
+int board_interface_eth_init(struct udevice *dev,
+			     phy_interface_t interface_type);
 int cpu_eth_init(bd_t *bis);
 
 /* Driver initialization prototypes */
 int at91emac_register(bd_t *bis, unsigned long iobase);
-int au1x00_enet_initialize(bd_t*);
 int ax88180_initialize(bd_t *bis);
 int bcm_sf2_eth_register(bd_t *bis, u8 dev_num);
 int bfin_EMAC_initialize(bd_t *bis);
 int calxedaxgmac_initialize(u32 id, ulong base_addr);
 int cs8900_initialize(u8 dev_num, int base_addr);
-int davinci_emac_initialize(void);
 int dc21x4x_initialize(bd_t *bis);
 int designware_initialize(ulong base_addr, u32 interface);
 int dm9000_initialize(bd_t *bis);
 int dnet_eth_initialize(int id, void *regs, unsigned int phy_addr);
 int e1000_initialize(bd_t *bis);
 int eepro100_initialize(bd_t *bis);
-int enc28j60_initialize(unsigned int bus, unsigned int cs,
-	unsigned int max_hz, unsigned int mode);
 int ep93xx_eth_initialize(u8 dev_num, int base_addr);
 int eth_3com_initialize (bd_t * bis);
 int ethoc_initialize(u8 dev_num, int base_addr);
 int fec_initialize (bd_t *bis);
 
 #ifdef CONFIG_FEC_MXC
+#include <phy.h>
 /**
  * Supported phy types on this platform
  */
@@ -62,13 +61,15 @@ int fecmxc_initialize(bd_t *bis);
 int fecmxc_initialize_multi(bd_t *bis, int dev_id, int phy_id, uint32_t addr);
 int fecmxc_initialize_multi_type(bd_t *bis, int dev_id, int phy_id,
 				 uint32_t addr, enum xceiver_type xcv_type);
+int fecmxc_initialize_multi_type_if_mode(bd_t *bis, int dev_id, int phy_id,
+				 uint32_t addr, enum xceiver_type xcv_type,
+				 phy_interface_t if_mode);
 #endif
 
 #define AX88796_MODE_BUS8_DP8	0	/* Buswidth 8, data port width 8 */
 #define AX88796_MODE_BUS16_DP8	1	/* Buswidth 16, data port width 8 */
 #define AX88796_MODE_BUS16_DP16	2	/* Buswidth 16, data port width 16 */
 int ax88796_initialize(int dev_id, uint32_t base_addr, int mode); 
-int ftgmac100_initialize(bd_t *bits);
 int ftmac100_initialize(bd_t *bits);
 int ftmac110_initialize(bd_t *bits);
 void gt6426x_eth_initialize(bd_t *bis);
@@ -81,7 +82,7 @@ int mcffec_initialize(bd_t *bis);
 int mvgbe_initialize(bd_t *bis);
 int mvneta_initialize(bd_t *bis, int base_addr, int devnum, int phy_addr);
 int natsemi_initialize(bd_t *bis);
-int ne2000_initialize(u8 dev_num, int base_addr);
+int ne2k_register(void);
 int npe_initialize(bd_t *bis);
 int ns8382x_initialize(bd_t *bis);
 int pcnet_initialize(bd_t *bis);
@@ -93,7 +94,6 @@ int sh_eth_initialize(bd_t *bis);
 int skge_initialize(bd_t *bis);
 int smc91111_initialize(u8 dev_num, int base_addr);
 int smc911x_initialize(u8 dev_num, int base_addr);
-int tsi108_eth_initialize(bd_t *bis);
 int uec_standard_init(bd_t *bis);
 int uli526x_initialize(bd_t *bis);
 int armada100_fec_register(unsigned long base_addr);

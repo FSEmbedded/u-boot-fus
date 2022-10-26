@@ -1896,6 +1896,12 @@ Void_t* mEMALIGn(alignment, bytes) size_t alignment; size_t bytes;
 
   if ((long)bytes < 0) return NULL;
 
+#if CONFIG_VAL(SYS_MALLOC_F_LEN)
+	if (!(gd->flags & GD_FLG_FULL_MALLOC_INIT)) {
+		return memalign_simple(alignment, bytes);
+	}
+#endif
+
   /* If need less alignment than we give anyway, just relay to malloc */
 
   if (alignment <= MALLOC_ALIGNMENT) return mALLOc(bytes);
@@ -2085,7 +2091,7 @@ Void_t* cALLOc(n, elem_size) size_t n; size_t elem_size;
   {
 #if CONFIG_VAL(SYS_MALLOC_F_LEN)
 	if (!(gd->flags & GD_FLG_FULL_MALLOC_INIT)) {
-		MALLOC_ZERO(mem, sz);
+		memset(mem, 0, sz);
 		return mem;
 	}
 #endif

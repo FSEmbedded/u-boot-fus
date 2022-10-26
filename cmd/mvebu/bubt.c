@@ -1,13 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2016 Marvell International Ltd.
- *
- * SPDX-License-Identifier:	GPL-2.0
  * https://spdx.org/licenses
  */
 
 #include <config.h>
 #include <common.h>
 #include <command.h>
+#include <env.h>
+#include <image.h>
 #include <vsprintf.h>
 #include <errno.h>
 #include <dm.h>
@@ -423,8 +424,10 @@ static int is_usb_active(void)
 #ifdef CONFIG_CMD_NET
 static size_t tftp_read_file(const char *file_name)
 {
-	/* update global variable load_addr before tftp file from network */
-	load_addr = get_load_addr();
+	/*
+	 * update global variable image_load_addr before tftp file from network
+	 */
+	image_load_addr = get_load_addr();
 	return net_loop(TFTPGET);
 }
 

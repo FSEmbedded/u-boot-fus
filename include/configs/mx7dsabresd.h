@@ -1,10 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2015 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2018 NXP
  *
  * Configuration settings for the Freescale i.MX7D SABRESD board.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __MX7D_SABRESD_CONFIG_H
@@ -13,7 +12,6 @@
 #include "mx7_common.h"
 #include "imx_env.h"
 
-#define CONFIG_DBG_MONITOR
 #define PHYS_SDRAM_SIZE			SZ_1G
 
 #define CONFIG_MXC_UART_BASE            UART1_IPS_BASE_ADDR
@@ -21,40 +19,16 @@
 /* Size of malloc() pool */
 #define CONFIG_SYS_MALLOC_LEN		(32 * SZ_1M)
 
-/* Network */
-#ifdef CONFIG_DM_ETH
-#define CONFIG_FEC_MXC
-#define CONFIG_MII
-#define CONFIG_FEC_XCV_TYPE             RGMII
-#define CONFIG_FEC_ENET_DEV		0
-
-#define CONFIG_PHY_BROADCOM
-/* ENET1 */
-#if (CONFIG_FEC_ENET_DEV == 0)
-#define IMX_FEC_BASE			ENET_IPS_BASE_ADDR
-#define CONFIG_FEC_MXC_PHYADDR          0x0
-#define CONFIG_ETHPRIME                 "eth0"
-#elif (CONFIG_FEC_ENET_DEV == 1)
-#define IMX_FEC_BASE			ENET2_IPS_BASE_ADDR
-#define CONFIG_FEC_MXC_PHYADDR          0x1
-#define CONFIG_ETHPRIME                 "eth1"
-#endif
-
-#define CONFIG_FEC_MXC_MDIO_BASE	ENET_IPS_BASE_ADDR
-#endif
-
 /* MMC Config*/
 #define CONFIG_SYS_FSL_ESDHC_ADDR       0
 
-#undef CONFIG_BOOTM_NETBSD
-#undef CONFIG_BOOTM_PLAN9
-#undef CONFIG_BOOTM_RTEMS
+/* Default ETH port */
+#define CONFIG_ETHPRIME                 "eth0"
 
 /* I2C configs */
 #define CONFIG_SYS_I2C_MXC
 #define CONFIG_SYS_I2C_SPEED		100000
 
-#define CONFIG_SUPPORT_EMMC_BOOT	/* eMMC specific */
 #define CONFIG_SYS_MMC_IMG_LOAD_PART	1
 
 #ifdef CONFIG_IMX_BOOTAUX
@@ -64,7 +38,7 @@
 	"m4image=m4_qspi.bin\0" \
 	"loadm4image=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${m4image}\0" \
 	"update_m4_from_sd=" \
-		"if sf probe 1:0; then " \
+		"if sf probe 0:0; then " \
 			"if run loadm4image; then " \
 				"setexpr fw_sz ${filesize} + 0xffff; " \
 				"setexpr fw_sz ${fw_sz} / 0x10000; "	\
@@ -73,7 +47,7 @@
 				"sf write ${loadaddr} 0x100000 ${filesize}; " \
 			"fi; " \
 		"fi\0" \
-	"m4boot=sf probe 1:0; bootaux "__stringify(CONFIG_SYS_AUXCORE_BOOTDATA)"\0"
+	"m4boot=sf probe 0:0; bootaux "__stringify(CONFIG_SYS_AUXCORE_BOOTDATA)"\0"
 #else
 #define UPDATE_M4_ENV \
 	"m4image=m4_qspi.bin\0" \
@@ -85,7 +59,7 @@
 #endif
 
 #ifdef CONFIG_NAND_BOOT
-#define MFG_NAND_PARTITION "mtdparts=gpmi-nand:64m(nandboot),16m(nandkernel),16m(nanddtb),16m(nandtee),-(nandrootfs) "
+#define MFG_NAND_PARTITION "mtdparts=gpmi-nand:64m(nandboot),16m(nandkernel),16m(nanddtb),16m(nandtee),-(nandrootfs)"
 #else
 #define MFG_NAND_PARTITION ""
 #endif
@@ -98,7 +72,7 @@
 	CONFIG_MFG_ENV_SETTINGS_DEFAULT \
 	"initrd_addr=0x86800000\0" \
 	"initrd_high=0xffffffff\0" \
-	"emmc_dev=1\0"\
+	"emmc_dev=2\0"\
 	"sd_dev=0\0" \
 	"mtdparts=" MFG_NAND_PARTITION \
 	"\0"\
@@ -113,16 +87,15 @@
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	CONFIG_MFG_ENV_SETTINGS \
 	TEE_ENV \
-	"panel=TFT43AB\0" \
 	"fdt_addr=0x83000000\0" \
 	"tee_addr=0x84000000\0" \
 	"fdt_high=0xffffffff\0"	  \
 	"console=ttymxc0\0" \
-	"bootargs=console=ttymxc0,115200 ubi.mtd=4 "  \
+	"bootargs=console=ttymxc0,115200 ubi.mtd=nandrootfs "  \
 		"root=ubi0:nandrootfs rootfstype=ubifs "		     \
 		MFG_NAND_PARTITION \
 		"\0" \
-	"bootcmd=nand read ${loadaddr} 0x4000000 0x800000;"\
+	"bootcmd=nand read ${loadaddr} 0x4000000 0xc00000;"\
 		"nand read ${fdt_addr} 0x5000000 0x100000;"\
 		"if test ${tee} = yes; then " \
 			"nand read ${tee_addr} 0x6000000 0x400000;"\
@@ -148,7 +121,7 @@
 	"tee_file=uTee-7dsdb\0" \
 	"boot_fdt=try\0" \
 	"ip_dyn=yes\0" \
-	"panel=TFT43AB\0" \
+	"splashimage=0x8c000000\0" \
 	"mmcdev="__stringify(CONFIG_SYS_MMC_ENV_DEV)"\0" \
 	"mmcpart=" __stringify(CONFIG_SYS_MMC_IMG_LOAD_PART) "\0" \
 	"mmcroot=" CONFIG_MMCROOT " rootwait rw\0" \
@@ -238,7 +211,6 @@
 #define CONFIG_SYS_HZ			1000
 
 /* Physical Memory Map */
-#define CONFIG_NR_DRAM_BANKS		1
 #define PHYS_SDRAM			MMDC0_ARB_BASE_ADDR
 
 #define CONFIG_SYS_SDRAM_BASE		PHYS_SDRAM
@@ -251,22 +223,12 @@
 	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
 
 /* environment organization */
-#define CONFIG_ENV_SIZE			SZ_8K
 
-#if defined(CONFIG_ENV_IS_IN_MMC)
-#define CONFIG_ENV_OFFSET		(14 * SZ_64K)
-#elif defined(CONFIG_ENV_IS_IN_SPI_FLASH)
-#define CONFIG_ENV_OFFSET		(896 * 1024)
-#define CONFIG_ENV_SECT_SIZE		(64 * 1024)
+#if defined(CONFIG_ENV_IS_IN_SPI_FLASH)
 #define CONFIG_ENV_SPI_BUS		CONFIG_SF_DEFAULT_BUS
 #define CONFIG_ENV_SPI_CS		CONFIG_SF_DEFAULT_CS
 #define CONFIG_ENV_SPI_MODE		CONFIG_SF_DEFAULT_MODE
 #define CONFIG_ENV_SPI_MAX_HZ		CONFIG_SF_DEFAULT_SPEED
-#elif defined(CONFIG_ENV_IS_IN_NAND)
-#undef CONFIG_ENV_SIZE
-#define CONFIG_ENV_OFFSET		(60 << 20)
-#define CONFIG_ENV_SECT_SIZE		(128 << 10)
-#define CONFIG_ENV_SIZE			CONFIG_ENV_SECT_SIZE
 #endif
 
 #ifdef CONFIG_FSL_QSPI
@@ -278,20 +240,16 @@
  * If want to use nand, define CONFIG_CMD_NAND and rework board
  * to support nand, since emmc has pin conflicts with nand
  */
-#ifdef CONFIG_CMD_NAND
-#define CONFIG_NAND_MXS
-#define CONFIG_CMD_NAND_TRIMFFS
+#ifdef CONFIG_NAND_MXS
 
 /* NAND stuff */
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
 #define CONFIG_SYS_NAND_BASE		0x40000000
 #define CONFIG_SYS_NAND_5_ADDR_CYCLE
 #define CONFIG_SYS_NAND_ONFI_DETECTION
+#define CONFIG_SYS_NAND_USE_FLASH_BBT
 
 /* DMA stuff, needed for GPMI/MXS NAND support */
-#define CONFIG_APBH_DMA
-#define CONFIG_APBH_DMA_BURST
-#define CONFIG_APBH_DMA_BURST8
 #endif
 
 #ifdef CONFIG_NAND_MXS
@@ -311,7 +269,8 @@
 
 #define CONFIG_IMX_THERMAL
 
-#ifdef CONFIG_VIDEO
+#ifdef CONFIG_DM_VIDEO
+#define CONFIG_VIDEO_LINK
 #define CONFIG_VIDEO_MXS
 #define CONFIG_VIDEO_LOGO
 #define CONFIG_SPLASH_SCREEN
@@ -319,7 +278,6 @@
 #define CONFIG_BMP_16BPP
 #define CONFIG_VIDEO_BMP_RLE8
 #define CONFIG_VIDEO_BMP_LOGO
-#define CONFIG_IMX_VIDEO_SKIP
 #endif
 
 /* #define CONFIG_SPLASH_SCREEN*/
@@ -332,7 +290,6 @@
 /*
  * Framebuffer and LCD
  */
-#define CONFIG_CMD_BMP
 #define CONFIG_SPLASH_SCREEN
 
 #undef LCD_TEST_PATTERN
@@ -349,22 +306,10 @@
 
 #ifdef CONFIG_FSL_QSPI
 #define CONFIG_SYS_FSL_QSPI_AHB
-#define CONFIG_SF_DEFAULT_BUS		1 /* SOFT SPI occupies the BUS 0, so change the QSPI1 to BUS 1*/
-#define CONFIG_SF_DEFAULT_CS		0
-#define CONFIG_SF_DEFAULT_SPEED		40000000
-#define CONFIG_SF_DEFAULT_MODE		SPI_MODE_0
 #define FSL_QSPI_FLASH_NUM		1
 #define FSL_QSPI_FLASH_SIZE		SZ_64M
 #define QSPI0_BASE_ADDR			QSPI1_IPS_BASE_ADDR
 #define QSPI0_AMBA_BASE			QSPI0_ARB_BASE_ADDR
-#endif
-
-#if defined(CONFIG_ANDROID_SUPPORT)
-#include "mx7dsabresdandroid.h"
-#elif defined(CONFIG_ANDROID_THINGS_SUPPORT)
-#include "mx7dsabresd_androidthings.h"
-#else
-#define CONFIG_USBD_HS
 #endif
 
 #endif	/* __CONFIG_H */

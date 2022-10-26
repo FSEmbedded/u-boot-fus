@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  *
  * (C) Copyright 2000-2003
@@ -5,11 +6,10 @@
  *
  * Copyright (C) 2004-2008, 2012 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <vsprintf.h>
 #include <watchdog.h>
 #include <command.h>
 #include <netdev.h>
@@ -146,7 +146,6 @@ int watchdog_init(void)
  * create a board-specific function called:
  * 	int board_eth_init(bd_t *bis)
  */
-
 int cpu_eth_init(bd_t *bis)
 {
 	return mcffec_initialize(bis);

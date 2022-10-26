@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2012, NVIDIA CORPORATION.  All rights reserved.
  *
  * Inspired by cmd_ext_common.c, cmd_fat.c.
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 
 #include <common.h>
@@ -72,6 +71,20 @@ U_BOOT_CMD(
 	"list files in a directory (default /)",
 	"<interface> [<dev[:part]> [directory]]\n"
 	"    - List files in directory 'directory' of partition 'part' on\n"
+	"      device type 'interface' instance 'dev'."
+)
+
+static int do_ln_wrapper(cmd_tbl_t *cmdtp, int flag, int argc,
+			 char * const argv[])
+{
+	return do_ln(cmdtp, flag, argc, argv, FS_TYPE_ANY);
+}
+
+U_BOOT_CMD(
+	ln,	5,	1,	do_ln_wrapper,
+	"Create a symbolic link",
+	"<interface> <dev[:part]> target linkname\n"
+	"    - create a symbolic link to 'target' with the name 'linkname' on\n"
 	"      device type 'interface' instance 'dev'."
 )
 

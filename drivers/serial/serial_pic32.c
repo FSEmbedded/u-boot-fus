@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (c) 2015 Paul Thacker <paul.thacker@microchip.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  *
  */
 #include <common.h>
 #include <clk.h>
 #include <dm.h>
+#include <malloc.h>
 #include <serial.h>
 #include <wait_bit.h>
 #include <mach/pic32.h>
@@ -177,7 +177,6 @@ U_BOOT_DRIVER(pic32_serial) = {
 	.of_match	= pic32_uart_ids,
 	.probe		= pic32_uart_probe,
 	.ops		= &pic32_uart_ops,
-	.flags		= DM_FLAG_PRE_RELOC,
 	.priv_auto_alloc_size = sizeof(struct pic32_uart_priv),
 };
 

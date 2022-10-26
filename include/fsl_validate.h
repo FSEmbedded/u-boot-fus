@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright 2015 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _FSL_VALIDATE_H_
@@ -213,7 +212,7 @@ struct fsl_secboot_sg_table {
 
 /* ESBC global structure.
  * Data to be used across verification of different images.
- * Stores follwoing Data:
+ * Stores following Data:
  * IE Table
  */
 struct fsl_secboot_glb {

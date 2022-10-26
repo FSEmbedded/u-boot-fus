@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2012 Henrik Nordstrom <henrik@henriknordstrom.net>
  *
@@ -6,11 +7,10 @@
  * Tom Cubie <tangliang@allwinnertech.com>
  *
  * Some init for sunxi platform.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <mmc.h>
 #include <i2c.h>
 #include <serial.h>
@@ -53,7 +53,7 @@ static struct mm_region sunxi_mem_map[] = {
 		/* RAM */
 		.virt = 0x40000000UL,
 		.phys = 0x40000000UL,
-		.size = 0x80000000UL,
+		.size = 0xC0000000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_INNER_SHARE
 	}, {
@@ -66,6 +66,7 @@ struct mm_region *mem_map = sunxi_mem_map;
 
 static int gpio_init(void)
 {
+	__maybe_unused uint val;
 #if CONFIG_CONS_INDEX == 1 && defined(CONFIG_UART0_PORT_F)
 #if defined(CONFIG_MACH_SUN4I) || \
     defined(CONFIG_MACH_SUN7I) || \
@@ -108,6 +109,10 @@ static int gpio_init(void)
 	sunxi_gpio_set_cfgpin(SUNXI_GPB(8), SUN50I_GPB_UART0);
 	sunxi_gpio_set_cfgpin(SUNXI_GPB(9), SUN50I_GPB_UART0);
 	sunxi_gpio_set_pull(SUNXI_GPB(9), SUNXI_GPIO_PULL_UP);
+#elif CONFIG_CONS_INDEX == 1 && defined(CONFIG_MACH_SUN50I_H6)
+	sunxi_gpio_set_cfgpin(SUNXI_GPH(0), SUN50I_H6_GPH_UART0);
+	sunxi_gpio_set_cfgpin(SUNXI_GPH(1), SUN50I_H6_GPH_UART0);
+	sunxi_gpio_set_pull(SUNXI_GPH(1), SUNXI_GPIO_PULL_UP);
 #elif CONFIG_CONS_INDEX == 1 && defined(CONFIG_MACH_SUN8I_A83T)
 	sunxi_gpio_set_cfgpin(SUNXI_GPB(9), SUN8I_A83T_GPB_UART0);
 	sunxi_gpio_set_cfgpin(SUNXI_GPB(10), SUN8I_A83T_GPB_UART0);
@@ -134,6 +139,14 @@ static int gpio_init(void)
 	sunxi_gpio_set_pull(SUNXI_GPL(3), SUNXI_GPIO_PULL_UP);
 #else
 #error Unsupported console port number. Please fix pin mux settings in board.c
+#endif
+
+#ifdef CONFIG_MACH_SUN50I_H6
+	/* Update PIO power bias configuration by copy hardware detected value */
+	val = readl(SUNXI_PIO_BASE + SUN50I_H6_GPIO_POW_MOD_VAL);
+	writel(val, SUNXI_PIO_BASE + SUN50I_H6_GPIO_POW_MOD_SEL);
+	val = readl(SUNXI_R_PIO_BASE + SUN50I_H6_GPIO_POW_MOD_VAL);
+	writel(val, SUNXI_R_PIO_BASE + SUN50I_H6_GPIO_POW_MOD_SEL);
 #endif
 
 	return 0;
@@ -208,16 +221,22 @@ void s_init(void)
 	eth_init_board();
 }
 
-#ifdef CONFIG_SPL_BUILD
-DECLARE_GLOBAL_DATA_PTR;
-#endif
+#define SUNXI_INVALID_BOOT_SOURCE	-1
+
+static int sunxi_get_boot_source(void)
+{
+	if (!is_boot0_magic(SPL_ADDR + 4)) /* eGON.BT0 */
+		return SUNXI_INVALID_BOOT_SOURCE;
+
+	return readb(SPL_ADDR + 0x28);
+}
 
 /* The sunxi internal brom will try to loader external bootloader
  * from mmc0, nand flash, mmc2.
  */
 uint32_t sunxi_get_boot_device(void)
 {
-	int boot_source;
+	int boot_source = sunxi_get_boot_source();
 
 	/*
 	 * When booting from the SD card or NAND memory, the "eGON.BT0"
@@ -235,16 +254,16 @@ uint32_t sunxi_get_boot_device(void)
 	 * binary over USB. If it is found, it determines where SPL was
 	 * read from.
 	 */
-	if (!is_boot0_magic(SPL_ADDR + 4)) /* eGON.BT0 */
-		return BOOT_DEVICE_BOARD;
-
-	boot_source = readb(SPL_ADDR + 0x28);
 	switch (boot_source) {
+	case SUNXI_INVALID_BOOT_SOURCE:
+		return BOOT_DEVICE_BOARD;
 	case SUNXI_BOOTED_FROM_MMC0:
+	case SUNXI_BOOTED_FROM_MMC0_HIGH:
 		return BOOT_DEVICE_MMC1;
 	case SUNXI_BOOTED_FROM_NAND:
 		return BOOT_DEVICE_NAND;
 	case SUNXI_BOOTED_FROM_MMC2:
+	case SUNXI_BOOTED_FROM_MMC2_HIGH:
 		return BOOT_DEVICE_MMC2;
 	case SUNXI_BOOTED_FROM_SPI:
 		return BOOT_DEVICE_SPI;
@@ -255,6 +274,26 @@ uint32_t sunxi_get_boot_device(void)
 }
 
 #ifdef CONFIG_SPL_BUILD
+/*
+ * The eGON SPL image can be located at 8KB or at 128KB into an SD card or
+ * an eMMC device. The boot source has bit 4 set in the latter case.
+ * By adding 120KB to the normal offset when booting from a "high" location
+ * we can support both cases.
+ */
+unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
+{
+	unsigned long sector = CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR;
+
+	switch (sunxi_get_boot_source()) {
+	case SUNXI_BOOTED_FROM_MMC0_HIGH:
+	case SUNXI_BOOTED_FROM_MMC2_HIGH:
+		sector += (128 - 8) * 2;
+		break;
+	}
+
+	return sector;
+}
+
 u32 spl_boot_device(void)
 {
 	return sunxi_get_boot_device();
@@ -287,10 +326,15 @@ void reset_cpu(ulong addr)
 		/* sun5i sometimes gets stuck without this */
 		writel(WDT_MODE_RESET_EN | WDT_MODE_EN, &wdog->mode);
 	}
-#elif defined(CONFIG_SUNXI_GEN_SUN6I)
+#elif defined(CONFIG_SUNXI_GEN_SUN6I) || defined(CONFIG_MACH_SUN50I_H6)
+#if defined(CONFIG_MACH_SUN50I_H6)
+	/* WDOG is broken for some H6 rev. use the R_WDOG instead */
 	static const struct sunxi_wdog *wdog =
-		 ((struct sunxi_timer_reg *)SUNXI_TIMER_BASE)->wdog;
-
+		(struct sunxi_wdog *)SUNXI_R_WDOG_BASE;
+#else
+	static const struct sunxi_wdog *wdog =
+		((struct sunxi_timer_reg *)SUNXI_TIMER_BASE)->wdog;
+#endif
 	/* Set the watchdog for its shortest interval (.5s) and wait */
 	writel(WDT_CFG_RESET, &wdog->cfg);
 	writel(WDT_MODE_EN, &wdog->mode);
@@ -299,7 +343,7 @@ void reset_cpu(ulong addr)
 #endif
 }
 
-#if !defined(CONFIG_SYS_DCACHE_OFF) && !defined(CONFIG_ARM64)
+#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF) && !defined(CONFIG_ARM64)
 void enable_caches(void)
 {
 	/* Enable D-cache. I-cache is already enabled in start.S */

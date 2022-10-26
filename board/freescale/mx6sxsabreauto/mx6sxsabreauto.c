@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2014-2016 Freescale Semiconductor, Inc.
  * Copyright 2017-2018 nxp
  *
  * Author: Ye Li <ye.li@nxp.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
+#include <init.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/crm_regs.h>
 #include <asm/arch/iomux.h>
@@ -19,7 +19,7 @@
 #include <asm/io.h>
 #include <linux/sizes.h>
 #include <common.h>
-#include <fsl_esdhc.h>
+#include <fsl_esdhc_imx.h>
 #include <miiphy.h>
 #include <netdev.h>
 #include <power/pmic.h>
@@ -29,13 +29,6 @@
 #include <usb/ehci-ci.h>
 #include <pca953x.h>
 #include <asm/mach-imx/video.h>
-#ifdef CONFIG_FSL_FASTBOOT
-#include <fsl_fastboot.h>
-#ifdef CONFIG_ANDROID_RECOVERY
-#include <recovery.h>
-#include "../common/recovery_keypad.h"
-#endif
-#endif /*CONFIG_FSL_FASTBOOT*/
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -77,74 +70,35 @@ static iomux_v3_cfg_t const uart1_pads[] = {
 	MX6_PAD_GPIO1_IO05__UART1_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
 };
 
-static iomux_v3_cfg_t const fec1_pads[] = {
-	MX6_PAD_ENET1_MDC__ENET1_MDC | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET1_MDIO__ENET1_MDIO | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII1_RX_CTL__ENET1_RX_EN | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII1_RD0__ENET1_RX_DATA_0 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII1_RD1__ENET1_RX_DATA_1 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII1_RD2__ENET1_RX_DATA_2 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII1_RD3__ENET1_RX_DATA_3 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII1_RXC__ENET1_RX_CLK | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII1_TX_CTL__ENET1_TX_EN | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII1_TD0__ENET1_TX_DATA_0 | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII1_TD1__ENET1_TX_DATA_1 | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII1_TD2__ENET1_TX_DATA_2 | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII1_TD3__ENET1_TX_DATA_3 | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII1_TXC__ENET1_RGMII_TXC | MUX_PAD_CTRL(ENET_PAD_CTRL),
-};
-
-static iomux_v3_cfg_t const fec2_pads[] = {
-	MX6_PAD_ENET1_MDC__ENET2_MDC | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_ENET1_MDIO__ENET2_MDIO | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII2_RX_CTL__ENET2_RX_EN | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII2_RD0__ENET2_RX_DATA_0 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII2_RD1__ENET2_RX_DATA_1 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII2_RD2__ENET2_RX_DATA_2 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII2_RD3__ENET2_RX_DATA_3 | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII2_RXC__ENET2_RX_CLK | MUX_PAD_CTRL(ENET_RX_PAD_CTRL),
-	MX6_PAD_RGMII2_TX_CTL__ENET2_TX_EN | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII2_TD0__ENET2_TX_DATA_0 | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII2_TD1__ENET2_TX_DATA_1 | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII2_TD2__ENET2_TX_DATA_2 | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII2_TD3__ENET2_TX_DATA_3 | MUX_PAD_CTRL(ENET_PAD_CTRL),
-	MX6_PAD_RGMII2_TXC__ENET2_RGMII_TXC | MUX_PAD_CTRL(ENET_PAD_CTRL),
-};
-
 static void setup_iomux_uart(void)
 {
 	imx_iomux_v3_setup_multiple_pads(uart1_pads, ARRAY_SIZE(uart1_pads));
 }
 
-static int setup_fec(int fec_id)
-{
-	struct iomuxc *iomuxc_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
-
-	if (0 == fec_id)
-		/* Use 125M anatop REF_CLK1 for ENET1, clear gpr1[13], gpr1[17]*/
-		clrsetbits_le32(&iomuxc_regs->gpr[1], IOMUX_GPR1_FEC1_MASK, 0);
-	else
-		/* Use 125M anatop REF_CLK1 for ENET2, clear gpr1[14], gpr1[18]*/
-		clrsetbits_le32(&iomuxc_regs->gpr[1], IOMUX_GPR1_FEC2_MASK, 0);
-
-	return enable_fec_anatop_clock(fec_id, ENET_125MHZ);
-}
-
-int board_eth_init(bd_t *bis)
+static int setup_fec(void)
 {
 	int ret;
+	struct iomuxc *iomuxc_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
 
-	if (0 == CONFIG_FEC_ENET_DEV)
-		imx_iomux_v3_setup_multiple_pads(fec1_pads, ARRAY_SIZE(fec1_pads));
-	else
-		imx_iomux_v3_setup_multiple_pads(fec2_pads, ARRAY_SIZE(fec2_pads));
+	/* Use 125M anatop REF_CLK1 for ENET1, clear gpr1[13], gpr1[17]*/
+	clrsetbits_le32(&iomuxc_regs->gpr[1], IOMUX_GPR1_FEC1_MASK, 0);
 
-	ret = fecmxc_initialize_multi(bis, CONFIG_FEC_ENET_DEV,
-		CONFIG_FEC_MXC_PHYADDR, IMX_FEC_BASE);
-	if (ret)
-		printf("FEC%d MXC: %s:failed\n", 1, __func__);
+	/* Use 125M anatop REF_CLK1 for ENET2, clear gpr1[14], gpr1[18]*/
+	clrsetbits_le32(&iomuxc_regs->gpr[1], IOMUX_GPR1_FEC2_MASK, 0);
 
-	return ret;
+	ret = enable_fec_anatop_clock(0, ENET_125MHZ);
+	if (ret) {
+		printf("enable fec0 clock failed\n");
+		return ret;
+	}
+
+	ret = enable_fec_anatop_clock(1, ENET_125MHZ);
+	if (ret) {
+		printf("enable fec0 clock failed\n");
+		return ret;
+	}
+
+	return 0;
 }
 
 int board_phy_config(struct phy_device *phydev)
@@ -197,7 +151,7 @@ void ldo_mode_set(int ldo_bypass)
 	struct udevice *dev;
 	int ret;
 
-	ret = pmic_get("pfuze100", &dev);
+	ret = pmic_get("pfuze100@8", &dev);
 	if (ret == -ENODEV) {
 		printf("No PMIC found!\n");
 		return;
@@ -271,20 +225,6 @@ int board_early_init_f(void)
 	return 0;
 }
 
-int board_mmc_get_env_dev(int devno)
-{
-	/*
-	 * need subtract 2 to map to the mmc device id
-	 * see the comments in board_mmc_init function
-	 */
-	return devno - 2;
-}
-
-int mmc_map_to_kernel_blk(int devno)
-{
-	return devno + 2;
-}
-
 #ifdef CONFIG_VIDEO_MXS
 static iomux_v3_cfg_t const lvds_ctrl_pads[] = {
 	/* Use GPIO for Brightness adjustment, duty cycle = period */
@@ -341,19 +281,36 @@ void do_enable_lvds(struct display_info_t const *dev)
 	dm_gpio_set_value(&desc, 1);
 
 	/* Set Brightness to high */
-	gpio_request(IMX_GPIO_NR(6, 3), "lcd backlight");
-	gpio_direction_output(IMX_GPIO_NR(6, 3) , 1);
+	ret = dm_gpio_lookup_name("GPIO6_3", &desc);
+	if (ret)
+		return;
+
+	ret = dm_gpio_request(&desc, "lcd backlight");
+	if (ret)
+		return;
+
+	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);
 }
 
 void do_enable_parallel_lcd(struct display_info_t const *dev)
 {
+	struct gpio_desc desc;
+	int ret;
+
 	enable_lcdif_clock(dev->bus, 1);
 
 	imx_iomux_v3_setup_multiple_pads(lcd_pads, ARRAY_SIZE(lcd_pads));
 
 	/* Power up the LCD */
-	gpio_request(IMX_GPIO_NR(3, 27), "lcd reset");
-	gpio_direction_output(IMX_GPIO_NR(3, 27) , 1);
+	ret = dm_gpio_lookup_name("GPIO3_27", &desc);
+	if (ret)
+		return;
+
+	ret = dm_gpio_request(&desc, "lcd reset");
+	if (ret)
+		return;
+
+	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);
 }
 
 struct display_info_t const displays[] = {{
@@ -399,35 +356,8 @@ size_t display_count = ARRAY_SIZE(displays);
 #endif
 
 #ifdef CONFIG_FSL_QSPI
-
-#ifndef CONFIG_DM_SPI
-#define QSPI_PAD_CTRL1	\
-	(PAD_CTL_SRE_FAST | PAD_CTL_SPEED_HIGH | \
-	 PAD_CTL_PKE | PAD_CTL_PUE | PAD_CTL_PUS_47K_UP | PAD_CTL_DSE_40ohm)
-
-static iomux_v3_cfg_t const quadspi_pads[] = {
-	MX6_PAD_QSPI1A_SS0_B__QSPI1_A_SS0_B   | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1A_SCLK__QSPI1_A_SCLK     | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1A_DATA0__QSPI1_A_DATA_0  | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1A_DATA1__QSPI1_A_DATA_1  | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1A_DATA2__QSPI1_A_DATA_2  | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1A_DATA3__QSPI1_A_DATA_3  | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1B_SS0_B__QSPI1_B_SS0_B   | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1B_SCLK__QSPI1_B_SCLK     | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1B_DATA0__QSPI1_B_DATA_0  | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1B_DATA1__QSPI1_B_DATA_1  | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1B_DATA2__QSPI1_B_DATA_2  | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-	MX6_PAD_QSPI1B_DATA3__QSPI1_B_DATA_3  | MUX_PAD_CTRL(QSPI_PAD_CTRL1),
-};
-#endif
-
 int board_qspi_init(void)
 {
-#ifndef CONFIG_DM_SPI
-	/* Set the iomux */
-	imx_iomux_v3_setup_multiple_pads(quadspi_pads,
-					 ARRAY_SIZE(quadspi_pads));
-#endif
 	/* Set the clock */
 	enable_qspi_clk(0);
 
@@ -519,7 +449,7 @@ int board_init(void)
 
 	/* Also used for OF_CONTROL enabled */
 #ifdef CONFIG_FEC_MXC
-	setup_fec(CONFIG_FEC_ENET_DEV);
+	setup_fec();
 #endif
 
 	return 0;
@@ -562,15 +492,3 @@ int checkboard(void)
 
 	return 0;
 }
-
-#ifdef CONFIG_FSL_FASTBOOT
-#ifdef CONFIG_ANDROID_RECOVERY
-int is_recovery_key_pressing(void)
-{
-	return is_recovery_keypad_pressing();
-}
-
-#endif /*CONFIG_ANDROID_RECOVERY*/
-
-#endif /*CONFIG_FSL_FASTBOOT*/
-

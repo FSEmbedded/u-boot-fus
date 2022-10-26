@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright 2011-2015 Freescale Semiconductor, Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Copyright 2011 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
 #ifndef __ARCH_ARM_MACH_MX6_CCM_REGS_H__
@@ -456,11 +455,11 @@ struct mxc_ccm_reg {
 #define MXC_CCM_CS2CDR_ENFC_CLK_SEL_DQ(v)		(((v) & 0x3) << 16)
 
 #define MXC_CCM_CS2CDR_ENFC_CLK_SEL_MASK		\
-	((is_mx6dqp() || is_mx6ul() || is_mx6ull()) ?	\
+	((is_mx6dqp() || is_mx6ul() || is_mx6ull()) ? \
 	 MXC_CCM_CS2CDR_ENFC_CLK_SEL_MASK_DQP :		\
 	 MXC_CCM_CS2CDR_ENFC_CLK_SEL_MASK_DQ)
 #define MXC_CCM_CS2CDR_ENFC_CLK_SEL_OFFSET		\
-	((is_mx6dqp() || is_mx6ul() || is_mx6ull()) ?	\
+	((is_mx6dqp() || is_mx6ul() || is_mx6ull()) ? \
 	 MXC_CCM_CS2CDR_ENFC_CLK_SEL_OFFSET_DQP :	\
 	 MXC_CCM_CS2CDR_ENFC_CLK_SEL_OFFSET_DQ)
 #define MXC_CCM_CS2CDR_ENFC_CLK_SEL(v)			\
@@ -1000,7 +999,7 @@ struct mxc_ccm_reg {
 #define MXC_CCM_CCGR6_BCH_OFFSET		6
 #define MXC_CCM_CCGR6_BCH_MASK			(3 << MXC_CCM_CCGR6_BCH_OFFSET)
 #define MXC_CCM_CCGR6_GPMI_OFFSET		8
-#define MXC_CCM_CCGR6_GPMI_MASK			(3 << MXC_CCM_CCGR6_GPMI_OFFSET)
+#define MXC_CCM_CCGR6_GPMI_MASK		(3 << MXC_CCM_CCGR6_GPMI_OFFSET)
 
 #define MXC_CCM_CCGR6_USDHC3_OFFSET		6
 #define MXC_CCM_CCGR6_USDHC3_MASK		(3 << MXC_CCM_CCGR6_USDHC3_OFFSET)

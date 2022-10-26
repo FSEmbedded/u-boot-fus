@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (c) 2013 Google, Inc
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <dm/device.h>
+#include <dm/ofnode.h>
+#include <dm/read.h>
 #include <dm/util.h>
 #include <linux/libfdt.h>
 #include <vsprintf.h>
@@ -31,26 +33,48 @@ int list_count_items(struct list_head *head)
 	return count;
 }
 
-bool dm_fdt_pre_reloc(const void *blob, int offset)
+#if CONFIG_IS_ENABLED(OF_CONTROL) && !CONFIG_IS_ENABLED(OF_PLATDATA)
+bool dm_ofnode_pre_reloc(ofnode node)
 {
-	if (fdt_getprop(blob, offset, "u-boot,dm-pre-reloc", NULL))
+#if defined(CONFIG_SPL_BUILD) || defined(CONFIG_TPL_BUILD)
+	/* for SPL and TPL the remaining nodes after the fdtgrep 1st pass
+	 * had property dm-pre-reloc or u-boot,dm-spl/tpl.
+	 * They are removed in final dtb (fdtgrep 2nd pass)
+	 */
+	return true;
+#else
+	if (ofnode_read_bool(node, "u-boot,dm-pre-reloc"))
+		return true;
+	if (ofnode_read_bool(node, "u-boot,dm-pre-proper"))
 		return true;
 
-#ifdef CONFIG_TPL_BUILD
-	if (fdt_getprop(blob, offset, "u-boot,dm-tpl", NULL))
-		return true;
-#elif defined(CONFIG_SPL_BUILD)
-	if (fdt_getprop(blob, offset, "u-boot,dm-spl", NULL))
-		return true;
-#else
 	/*
 	 * In regular builds individual spl and tpl handling both
 	 * count as handled pre-relocation for later second init.
 	 */
-	if (fdt_getprop(blob, offset, "u-boot,dm-spl", NULL) ||
-	    fdt_getprop(blob, offset, "u-boot,dm-tpl", NULL))
+	if (ofnode_read_bool(node, "u-boot,dm-spl") ||
+	    ofnode_read_bool(node, "u-boot,dm-tpl"))
 		return true;
-#endif
 
 	return false;
+#endif
 }
+#endif
+
+#if !CONFIG_IS_ENABLED(OF_PLATDATA)
+int pci_get_devfn(struct udevice *dev)
+{
+	struct fdt_pci_addr addr;
+	int ret;
+
+	/* Extract the devfn from fdt_pci_addr */
+	ret = ofnode_read_pci_addr(dev_ofnode(dev), FDT_PCI_SPACE_CONFIG,
+				   "reg", &addr);
+	if (ret) {
+		if (ret != -ENOENT)
+			return -EINVAL;
+	}
+
+	return addr.phys_hi & 0xff00;
+}
+#endif

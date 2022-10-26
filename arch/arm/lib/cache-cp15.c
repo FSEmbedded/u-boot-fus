@@ -1,19 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <asm/system.h>
 #include <asm/cache.h>
 #include <linux/compiler.h>
+#include <asm/armv7_mpu.h>
 
-#if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
+#if !(CONFIG_IS_ENABLED(SYS_ICACHE_OFF) && CONFIG_IS_ENABLED(SYS_DCACHE_OFF))
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#ifdef CONFIG_SYS_ARM_MMU
 __weak void arm_init_before_mmu(void)
 {
 }
@@ -161,7 +163,7 @@ static inline void mmu_setup(void)
 		asm volatile("mcr p15, 0, %0, c10, c2, 0"
 			: : "r" (MEMORY_ATTRIBUTES) : "memory");
 	}
-#elif defined(CONFIG_CPU_V7)
+#elif defined(CONFIG_CPU_V7A)
 	if (is_hyp()) {
 		/* Set HTCR to disable LPAE */
 		asm volatile("mcr p15, 4, %0, c2, c0, 2"
@@ -205,15 +207,23 @@ static int mmu_enabled(void)
 {
 	return get_cr() & CR_M;
 }
+#endif /* CONFIG_SYS_ARM_MMU */
 
 /* cache_bit must be either CR_I or CR_C */
 static void cache_enable(uint32_t cache_bit)
 {
 	uint32_t reg;
 
-	/* The data cache is not active unless the mmu is enabled too */
+	/* The data cache is not active unless the mmu/mpu is enabled too */
+#ifdef CONFIG_SYS_ARM_MMU
 	if ((cache_bit == CR_C) && !mmu_enabled())
 		mmu_setup();
+#elif defined(CONFIG_SYS_ARM_MPU)
+	if ((cache_bit == CR_C) && !mpu_enabled()) {
+		printf("Consider enabling MPU before enabling caches\n");
+		return;
+	}
+#endif
 	reg = get_cr();	/* get control reg. */
 	set_cr(reg | cache_bit);
 }
@@ -229,12 +239,18 @@ static void cache_disable(uint32_t cache_bit)
 		/* if cache isn;t enabled no need to disable */
 		if ((reg & CR_C) != CR_C)
 			return;
+#ifdef CONFIG_SYS_ARM_MMU
 		/* if disabling data cache, disable mmu too */
 		cache_bit |= CR_M;
+#endif
 	}
 	reg = get_cr();
 
+#ifdef CONFIG_SYS_ARM_MMU
 	if (cache_bit == (CR_C | CR_M)) {
+#elif defined(CONFIG_SYS_ARM_MPU)
+	if (cache_bit == CR_C) {
+#endif
 		flush_dcache_all();
 		set_cr(reg & ~CR_C);
 		flush_dcache_all();
@@ -243,18 +259,18 @@ static void cache_disable(uint32_t cache_bit)
 }
 #endif
 
-#ifdef CONFIG_SYS_ICACHE_OFF
-void icache_enable (void)
+#if CONFIG_IS_ENABLED(SYS_ICACHE_OFF)
+void icache_enable(void)
 {
 	return;
 }
 
-void icache_disable (void)
+void icache_disable(void)
 {
 	return;
 }
 
-int icache_status (void)
+int icache_status(void)
 {
 	return 0;					/* always off */
 }
@@ -275,18 +291,18 @@ int icache_status(void)
 }
 #endif
 
-#ifdef CONFIG_SYS_DCACHE_OFF
-void dcache_enable (void)
+#if CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
+void dcache_enable(void)
 {
 	return;
 }
 
-void dcache_disable (void)
+void dcache_disable(void)
 {
 	return;
 }
 
-int dcache_status (void)
+int dcache_status(void)
 {
 	return 0;					/* always off */
 }

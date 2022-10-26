@@ -14,6 +14,7 @@
 
 #include <common.h>
 #include <spl.h>
+#include <hang.h>
 #include <asm/io.h>
 #include <errno.h>
 #include <asm/io.h>
@@ -25,10 +26,9 @@
 #include <power/bd71837.h>
 #include <asm/mach-imx/gpio.h>
 #include <asm/mach-imx/mxc_i2c.h>
-#include <fsl_esdhc.h>
 #include <mmc.h>
 #include <nand.h>
-#include <asm/arch/imx8m_ddr.h>
+#include <asm/arch/ddr.h>
 
 #include <asm/sections.h>
 #include <sdp.h>
@@ -44,13 +44,11 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BT_PICOCOREMX8MX 0x1
 #define BT_PICOCOREMX8MMr2 0x2
 #define BT_TBS2          0x3
-
 static const char *board_names[] = {
 	"PicoCoreMX8MM-LPDDR4",
 	"PicoCoreMX8MM-DDR3L",
 	"PicoCoreMX8MMr2-LPDDR4",
 	"TBS2",
-
 	"(unknown)"
 };
 
@@ -127,33 +125,33 @@ int power_init_board(void)
 
 
 	/* decrease RESET key long push time from the default 10s to 10ms */
-	pmic_reg_write(p, BD71837_PWRONCONFIG1, 0x0);
+	pmic_reg_write(p, BD718XX_PWRONCONFIG1, 0x0);
 
 	/* unlock the PMIC regs */
-	pmic_reg_write(p, BD71837_REGLOCK, 0x1);
+	pmic_reg_write(p, BD718XX_REGLOCK, 0x1);
 
 	/* increase VDD_SOC to typical value 0.85v before first DRAM access */
-	pmic_reg_write(p, BD71837_BUCK1_VOLT_RUN, 0x0f);
+	pmic_reg_write(p, BD718XX_BUCK1_VOLT_RUN, 0x0f);
 
 	switch (board_type)
 	{
 	case BT_PICOCOREMX8MM:
 	case BT_PICOCOREMX8MMr2:
 		/* increase VDD_DRAM to 0.975v f-*or 3Ghz DDR */
-		pmic_reg_write(p, BD71837_BUCK5_VOLT, 0x83);
+		pmic_reg_write(p, BD718XX_1ST_NODVS_BUCK_VOLT, 0x83);
 		break;
 	case BT_PICOCOREMX8MX:
 	case BT_TBS2:
 		/* increase VDD_DRAM to 0.9v for 3Ghz DDR */
-		pmic_reg_write(p, BD71837_BUCK5_VOLT, 0x2);
+		pmic_reg_write(p, BD718XX_1ST_NODVS_BUCK_VOLT, 0x2);
 
 		/* increase NVCC_DRAM_1V35 to 1.35v for DDR3L */
-		pmic_reg_write(p, BD71837_BUCK8_VOLT, 0x37);
+		pmic_reg_write(p, BD718XX_4TH_NODVS_BUCK_VOLT, 0x37);
 		break;
 	}
 
 	/* lock the PMIC regs */
-	pmic_reg_write(p, BD71837_REGLOCK, 0x11);
+	pmic_reg_write(p, BD718XX_REGLOCK, 0x11);
 
 	return 0;
 }
@@ -194,16 +192,18 @@ static void config_uart(int board_type)
 	default:
 	case BT_PICOCOREMX8MM:
 	case BT_PICOCOREMX8MMr2:
-		/* Setup UART pads */
+		/* Setup UART1 on UART1 pads */
 		imx_iomux_v3_setup_multiple_pads(uart_pads_mm,
 						 ARRAY_SIZE(uart_pads_mm));
+		init_uart_clk(0);
 		break;
 
 	case BT_PICOCOREMX8MX:
 	case BT_TBS2:
-		/* Setup UART pads */
+		/* Setup UART1 on SAI2 pads */
 		imx_iomux_v3_setup_multiple_pads(uart_pads_mx,
 						 ARRAY_SIZE(uart_pads_mx));
+		init_uart_clk(0);
 		break;
 	}
 
@@ -314,15 +314,19 @@ static int fs_spl_init_boot_dev(enum boot_device boot_dev, bool start,
 #ifdef CONFIG_NAND_MXS
 	case NAND_BOOT:
 		fs_spl_init_nand_pads();
-		if (start)
+		if (start) {
+			init_nand_clk();
 			nand_init();
+		}
 		break;
 #endif
 #ifdef CONFIG_MMC
 	case MMC3_BOOT:
 		fs_spl_init_emmc_pads();
-		if (start)
+		if (start) {
+			init_clk_usdhc(2);
 			mmc_initialize(NULL);
+		}
 		break;
 		//### TODO: Also have setups for MMC1_BOOT and MMC2_BOOT
 #endif
@@ -531,7 +535,7 @@ unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
 }
 
 /* U-Boot is always loaded from the User HW partition */
-int spl_boot_part(struct mmc *mmc)
+int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	return 0;
 }

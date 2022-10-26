@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2015 Freescale Semiconductor, Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __ASM_ARCH_MX7_IMX_REGS_H__
@@ -144,7 +143,7 @@
 #define ELCDIF1_IPS_BASE_ADDR           (AIPS2_OFF_BASE_ADDR+0x130000)
 #define MIPI_CSI2_IPS_BASE_ADDR         (AIPS2_OFF_BASE_ADDR+0x150000)
 #define MIPI_DSI_IPS_BASE_ADDR          (AIPS2_OFF_BASE_ADDR+0x160000)
-#define IP2APB_TZASC1_IPS_BASE_ADDR     (AIPS2_OFF_BASE_ADDR+0x180000)
+#define IP2APB_TZASC1_BASE_ADDR     	(AIPS2_OFF_BASE_ADDR+0x180000)
 #define DDRPHY_IPS_BASE_ADDR            (AIPS2_OFF_BASE_ADDR+0x190000)
 #define DDRC_IPS_BASE_ADDR              (AIPS2_OFF_BASE_ADDR+0x1A0000)
 #define IP2APB_PERFMON1_IPS_BASE_ADDR   (AIPS2_OFF_BASE_ADDR+0x1C0000)
@@ -267,6 +266,8 @@ struct src {
 	u32 reserved5[985];
 	u32 ddrc_rcr;
 };
+
+#define src_base ((struct src *)SRC_BASE_ADDR)
 
 #define SRC_M4_REG_OFFSET		0xC
 #define SRC_M4C_NON_SCLR_RST_OFFSET	0
@@ -835,6 +836,7 @@ struct src {
 #define IMX7D_GPR5_CSI1_MUX_CTRL_MIPI_CSI		(0x1 << 4)
 
 struct iomuxc {
+	u32 reserved[0x4000];
 	u32 gpr[23];
 	/* mux and pad registers */
 };

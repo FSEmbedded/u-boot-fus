@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -10,10 +9,13 @@
  */
 #include <common.h>
 #include <command.h>
+#include <env.h>
+#include <image.h>
 #include <net.h>
 
 static int netboot_common(enum proto_t, cmd_tbl_t *, int, char * const []);
 
+#ifdef CONFIG_CMD_BOOTP
 static int do_bootp(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	return netboot_common(BOOTP, cmdtp, argc, argv);
@@ -24,7 +26,9 @@ U_BOOT_CMD(
 	"boot image via network using BOOTP/TFTP protocol",
 	"[loadAddress] [[hostIPaddr:]bootfilename]"
 );
+#endif
 
+#ifdef CONFIG_CMD_TFTPBOOT
 int do_tftpb(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	int ret;
@@ -40,6 +44,7 @@ U_BOOT_CMD(
 	"boot image via network using TFTP protocol",
 	"[loadAddress] [[hostIPaddr:]bootfilename]"
 );
+#endif
 
 #ifdef CONFIG_CMD_TFTPPUT
 static int do_tftpput(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
@@ -181,6 +186,8 @@ static int netboot_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	char  *paddr = NULL;
 	ulong addr;
 
+	net_boot_file_name_explicit = false;
+
 	switch (argc) {
 	case 1:
 		break;
@@ -234,9 +241,13 @@ static int netboot_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	/* If name not given use default name made from IP address */
 	net_boot_file_name[0] = 0;
-	if (pname)
+	if (!pname)
+		pname = env_get("bootfile");
+	if (pname) {
+		net_boot_file_name_explicit = true;
 		copy_filename(net_boot_file_name, pname,
 			      sizeof(net_boot_file_name));
+	}
 
 	bootstage_mark(BOOTSTAGE_ID_NET_START);
 

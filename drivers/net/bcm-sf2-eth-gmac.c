@@ -1,7 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2014-2017 Broadcom.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifdef BCM_GMAC_DEBUG
@@ -12,6 +11,7 @@
 
 #include <config.h>
 #include <common.h>
+#include <cpu_func.h>
 #include <malloc.h>
 #include <net.h>
 #include <asm/io.h>

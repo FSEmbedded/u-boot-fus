@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * MPC823 and PXA LCD Controller
  *
@@ -6,8 +7,6 @@
  *
  * (C) Copyright 2001
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _LCD_H_
@@ -32,6 +31,7 @@ void lcd_ctrl_init(void *lcdbase);
 void lcd_enable(void);
 void lcd_setcolreg(ushort regno, ushort red, ushort green, ushort blue);
 void lcd_initcolregs (void);
+ulong lcd_setmem(ulong addr);
 
 /**
  * Set whether we need to flush the dcache when changing the LCD image. This

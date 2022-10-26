@@ -1,10 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2008 - 2013 Tensilica Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <time.h>
 #include <asm/global_data.h>
 #include <linux/stringify.h>
 

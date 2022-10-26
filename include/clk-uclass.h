@@ -1,9 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (c) 2015 Google, Inc
  * Written by Simon Glass <sjg@chromium.org>
  * Copyright (c) 2016, NVIDIA CORPORATION.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _CLK_UCLASS_H
@@ -54,14 +53,14 @@ struct clk_ops {
 	 */
 	int (*request)(struct clk *clock);
 	/**
-	 * free - Free a previously requested clock.
+	 * rfree - Free a previously requested clock.
 	 *
 	 * This is the implementation of the client clk_free() API.
 	 *
 	 * @clock:	The clock to free.
 	 * @return 0 if OK, or a negative error code.
 	 */
-	int (*free)(struct clk *clock);
+	int (*rfree)(struct clk *clock);
 	/**
 	 * get_rate() - Get current clock rate.
 	 *

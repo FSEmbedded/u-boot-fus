@@ -1,7 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2017 NXP
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Copyright 2018 NXP
  */
 
 #include <common.h>
@@ -21,13 +20,12 @@ static int imx8_pinctrl_probe(struct udevice *dev)
 	struct imx_pinctrl_soc_info *info =
 		(struct imx_pinctrl_soc_info *)dev_get_driver_data(dev);
 
-	info->base = (void *)gd->arch.ipc_channel_handle;
 	return imx_pinctrl_probe(dev, info);
 }
 
 static const struct udevice_id imx8_pinctrl_match[] = {
-	{ .compatible = "fsl,imx8qm-iomuxc", .data = (ulong)&imx8_pinctrl_soc_info },
 	{ .compatible = "fsl,imx8qxp-iomuxc", .data = (ulong)&imx8_pinctrl_soc_info },
+	{ .compatible = "fsl,imx8qm-iomuxc", .data = (ulong)&imx8_pinctrl_soc_info },
 	{ /* sentinel */ }
 };
 

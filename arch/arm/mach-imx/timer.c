@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2007
  * Sascha Hauer, Pengutronix
@@ -5,11 +6,10 @@
  * (C) Copyright 2009-2016 Freescale Semiconductor, Inc.
  * Copyright 2018 NXP
  * (C) Copyright 2017 F&S Elektronik Systeme GmbH
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <time.h>
 #include <asm/io.h>
 #include <div64.h>
 #include <asm/arch/imx-regs.h>

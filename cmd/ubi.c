@@ -13,10 +13,14 @@
 
 #include <common.h>
 #include <command.h>
+#include <env.h>
 #include <exports.h>
+#include <malloc.h>
 #include <memalign.h>
+#include <mtd.h>
 #include <nand.h>
 #include <onenand_uboot.h>
+#include <dm/devres.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 #include <linux/err.h>
@@ -27,26 +31,13 @@
 #undef ubi_msg
 #define ubi_msg(fmt, ...) printf("UBI: " fmt "\n", ##__VA_ARGS__)
 
-#define DEV_TYPE_NONE		0
-#define DEV_TYPE_NAND		1
-#define DEV_TYPE_ONENAND	2
-#define DEV_TYPE_NOR		3
-
 /* Private own data */
 static struct ubi_device *ubi;
-static int ubi_initialized;
 
-struct selected_dev {
-	char part_name[PARTITION_MAXLEN];
-	int selected;
-	struct mtd_info *mtd_info;
-};
-
-static struct selected_dev ubi_dev;
+char current_part_name[80] = { 0 };
 
 #ifdef CONFIG_CMD_UBIFS
-int ubifs_is_mounted(void);
-void cmd_ubifs_umount(void);
+#include <ubifs_uboot.h>
 #endif
 
 static void display_volume_info(struct ubi_device *ubi)
@@ -115,7 +106,6 @@ static int ubi_check(char *name)
 	return 1;
 }
 
-
 static int verify_mkvol_req(const struct ubi_device *ubi,
 			    const struct ubi_mkvol_req *req)
 {
@@ -160,7 +150,8 @@ bad:
 	return err;
 }
 
-static int ubi_create_vol(char *volume, int64_t size, int dynamic, int vol_id)
+static int ubi_create_vol(char *volume, int64_t size, int dynamic, int vol_id,
+			  bool skipcheck)
 {
 	struct ubi_mkvol_req req;
 	int err;
@@ -177,7 +168,10 @@ static int ubi_create_vol(char *volume, int64_t size, int dynamic, int vol_id)
 	strcpy(req.name, volume);
 	req.name_len = strlen(volume);
 	req.name[req.name_len] = '\0';
-	req.padding1 = 0;
+	req.flags = 0;
+	if (skipcheck)
+		req.flags |= UBI_VOL_SKIP_CRC_CHECK_FLG;
+
 	/* It's duplicated at drivers/mtd/ubi/cdev.c */
 	err = verify_mkvol_req(ubi, &req);
 	if (err) {
@@ -265,10 +259,8 @@ static int ubi_volume_continue_write(char *volume, void *buf, size_t size)
 	struct ubi_volume *vol;
 
 	vol = ubi_find_volume(volume);
-	if (vol == NULL) {
-		printf("No such volume\n");
+	if (vol == NULL)
 		return ENODEV;
-	}
 
 	err = ubi_more_update_data(ubi, vol, buf, size);
 	if (err < 0) {
@@ -304,10 +296,8 @@ int ubi_volume_begin_write(char *volume, void *buf, size_t size,
 	struct ubi_volume *vol;
 
 	vol = ubi_find_volume(volume);
-	if (vol == NULL) {
-		printf("No such volume\n");
+	if (vol == NULL)
 		return ENODEV;
-	}
 
 	rsvd_bytes = vol->reserved_pebs * (ubi->leb_size - vol->data_pad);
 	if (size > rsvd_bytes) {
@@ -340,10 +330,8 @@ int ubi_volume_read(char *volume, char *buf, size_t size, size_t *loaded)
 
 	*loaded = 0;
 	vol = ubi_find_volume(volume);
-	if (vol == NULL) {
-		printf("No such volume\n");
+	if (vol == NULL)
 		return ENODEV;
-	}
 
 	if (vol->updating) {
 		printf("Volume busy (updating)\n");
@@ -358,6 +346,8 @@ int ubi_volume_read(char *volume, char *buf, size_t size, size_t *loaded)
 
 	if (size == 0)
 		size = vol->used_bytes;
+
+	printf("Read %zu bytes from volume %s to %p\n", size, volume, buf);
 
 	if (vol->corrupted)
 		printf("(Volume %d is corrupted!) ", vol->vol_id);
@@ -412,13 +402,54 @@ int ubi_volume_read(char *volume, char *buf, size_t size, size_t *loaded)
 	return err;
 }
 
-extern int get_mtd_info(u8  type, u8 num, struct mtd_info **mtd);
-
-int ubi_detach(void)
+static int ubi_dev_scan(struct mtd_info *info, const char *vid_header_offset)
 {
-	if (!ubi_initialized)
-		return 0;
+	char ubi_mtd_param_buffer[80];
+	int err;
 
+	if (!vid_header_offset)
+		sprintf(ubi_mtd_param_buffer, "%s", info->name);
+	else
+		sprintf(ubi_mtd_param_buffer, "%s,%s", info->name,
+			vid_header_offset);
+
+	err = ubi_mtd_param_parse(ubi_mtd_param_buffer, NULL);
+	if (err)
+		return -err;
+
+	err = ubi_init();
+	if (err)
+		return -err;
+
+	return 0;
+}
+
+static int ubi_set_skip_check(char *volume, bool skip_check)
+{
+	struct ubi_vtbl_record vtbl_rec;
+	struct ubi_volume *vol;
+
+	vol = ubi_find_volume(volume);
+	if (!vol)
+		return ENODEV;
+
+	printf("%sing skip_check on volume %s\n",
+	       skip_check ? "Sett" : "Clear", volume);
+
+	vtbl_rec = ubi->vtbl[vol->vol_id];
+	if (skip_check) {
+		vtbl_rec.flags |= UBI_VTBL_SKIP_CRC_CHECK_FLG;
+		vol->skip_check = 1;
+	} else {
+		vtbl_rec.flags &= ~UBI_VTBL_SKIP_CRC_CHECK_FLG;
+		vol->skip_check = 0;
+	}
+
+	return ubi_change_vtbl_record(ubi, vol->vol_id, &vtbl_rec);
+}
+
+static int ubi_detach(void)
+{
 #ifdef CONFIG_CMD_UBIFS
 	/*
 	 * Automatically unmount UBIFS partition when user
@@ -429,83 +460,48 @@ int ubi_detach(void)
 		cmd_ubifs_umount();
 #endif
 
-	/* Call ubi_exit() before re-initializing the UBI subsystem */
-	ubi_exit();
-	del_mtd_partitions(ubi_dev.mtd_info);
-	ubi_initialized = 0;
-	ubi_dev.selected = 0;
+	/*
+	 * Call ubi_exit() before re-initializing the UBI subsystem
+	 */
+	if (ubi)
+		ubi_exit();
+
+	ubi = NULL;
+	current_part_name[0] = 0;
 
 	return 0;
 }
 
 int set_ubi_part(const char *part_name, const char *vid_header_offset)
 {
-	struct mtd_device *dev;
-	struct part_info *part;
-	struct mtd_partition mtd_part;
-	static char buffer[PARTITION_MAXLEN];
-	char ubi_mtd_param_buffer[PARTITION_MAXLEN];
-	u8 pnum;
-	int err;
+	struct mtd_info *mtd;
+	int err = 0;
 
-	if (ubi_initialized) {
-		/* If this is the partition that is already set, we're done */
-		if (strcmp(ubi_dev.part_name, part_name) == 0)
-			return 0;
+	/* If this partition is already set, we're done */
+	if (ubi && !strncmp(current_part_name, part_name, 80))
+		return 0;
 
-		err = ubi_detach();
-		if (err)
-			return err;
-	} else if (mtdparts_init() != 0) {
-		printf("Error initializing mtdparts!\n");
-		return 1;
-	}
+	ubi_detach();
 
-	/*
-	 * Search the mtd device number where this partition
-	 * is located
-	 */
-	if (find_dev_and_part(part_name, &dev, &pnum, &part)) {
+	mtd_probe_devices();
+	mtd = get_mtd_device_nm(part_name);
+	if (IS_ERR(mtd)) {
 		printf("Partition %s not found!\n", part_name);
 		return 1;
 	}
+	put_mtd_device(mtd);
 
-	if (get_mtd_info(dev->id->type, dev->id->num, &ubi_dev.mtd_info))
-		return 1;
-
-	ubi_dev.selected = 1;
-
-	strcpy(ubi_dev.part_name, part_name);
-
-	sprintf(buffer, "mtd=%d", pnum);
-	memset(&mtd_part, 0, sizeof(mtd_part));
-	mtd_part.name = buffer;
-	mtd_part.size = part->size;
-	mtd_part.offset = part->offset;
-	add_mtd_partitions(ubi_dev.mtd_info, &mtd_part, 1);
-
-	if (vid_header_offset)
-		sprintf(ubi_mtd_param_buffer, "mtd=%d,%s", pnum,
-				vid_header_offset);
-	else
-		strcpy(ubi_mtd_param_buffer, buffer);
-	err = ubi_mtd_param_parse(ubi_mtd_param_buffer, NULL);
-	if (!err) {
-		err = ubi_init();
-		if (!err) {
-			ubi_initialized = 1;
-			ubi = ubi_devices[0];
-
-			return 0;
-		}
+	err = ubi_dev_scan(mtd, vid_header_offset);
+	if (err) {
+		printf("UBI init error %d\n", err);
+		printf("Please check, if the correct MTD partition is used (size big enough?)\n");
+		return err;
 	}
 
-	del_mtd_partitions(ubi_dev.mtd_info);
+	ubi = ubi_devices[0];
+	strncpy(current_part_name, part_name, 80);
 
-	printf("UBI init error %d\n", err);
-	ubi_dev.selected = 0;
-
-	return err;
+	return 0;
 }
 
 static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
@@ -513,6 +509,7 @@ static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	int64_t size = 0;
 	ulong addr;
 	int ret;
+	bool skipcheck = false;
 
 	if (argc < 2)
 		return CMD_RET_USAGE;
@@ -523,23 +520,24 @@ static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 		return ubi_detach();
 	}
-
 	if (!strcmp(argv[1], "part") && (argc >= 2) && (argc <= 4)) {
 		/* Print current partition */
 		if (argc == 2) {
-			if (!ubi_dev.selected)
-				goto no_dev;
-			printf("UBI on %s, partition %s\n",
-			       ubi_dev.mtd_info->name, ubi_dev.part_name);
+			if (!ubi) {
+				printf("Error, no UBI device/partition selected!\n");
+				return 1;
+			}
+
+			printf("Device %d: %s, MTD partition %s\n",
+			       ubi->ubi_num, ubi->ubi_name, ubi->mtd->name);
 			return 0;
 		}
 
 		return set_ubi_part(argv[2], (argc > 3) ? argv[3] : NULL);
 	}
 
-	if (!ubi_dev.selected) {
-	no_dev:
-		printf("Error, no UBI device/partition selected!\n");
+	if ((strcmp(argv[1], "part") != 0) && !ubi) {
+		printf("Error, no UBI device selected!\n");
 		return 1;
 	}
 
@@ -558,9 +556,13 @@ static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		return 1;
 	}
 
-	if (!strncmp(argv[1], "create", 6) && (argc >= 3) && (argc <= 6)) {
+	if (!strncmp(argv[1], "create", 6) && (argc >= 3) && (argc <= 7)) {
 		int dynamic = 1;	/* default: dynamic volume */
 		int id = UBI_VOL_NUM_AUTO;
+
+		/* E.g., create volume with "skipcheck" bit set */
+		if (argc > 6)
+			skipcheck = strncmp(argv[6], "--skipcheck", 11) == 0;
 
 		/* Get id */
 		if (argc > 5)
@@ -574,7 +576,7 @@ static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 				printf("Incorrect type\n");
 				return 1;
 			}
-		}				
+		}
 
 		/* Get size */
 		if (argc > 3) {
@@ -583,17 +585,24 @@ static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 			argc--;
 		}
 		if (!size) {
-			/* Use maximum available size */
+		/* Use maximum available size */
 			size = ubi->avail_pebs * ubi->leb_size;
 			printf("No size specified -> Using max size (%lld)\n",
 			       size);
 		}
-
-		return ubi_create_vol(argv[2], size, dynamic, id);
+		return ubi_create_vol(argv[2], size, dynamic, id, skipcheck);
 	}
 
 	if (!strncmp(argv[1], "remove", 6) && (argc == 3))
-		return ubi_remove_vol(argv[2]);
+			return ubi_remove_vol(argv[2]);
+
+	if (strncmp(argv[1], "skipcheck", 9) == 0) {
+		/* E.g., change skip_check flag */
+		if (argc == 4) {
+			skipcheck = strncmp(argv[3], "on", 2) == 0;
+			return ubi_set_skip_check(argv[2], skipcheck);
+		}
+	}
 
 	if (!strncmp(argv[1], "write", 5) && (argc >= 5) && (argc <= 6)) {
 		addr = parse_loadaddr(argv[2], NULL);
@@ -606,7 +615,7 @@ static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 				full_size = simple_strtoul(argv[5], NULL, 16);
 				ret = ubi_volume_begin_write(argv[3],
-					 (void *)addr, size, full_size);
+						(void *)addr, size, full_size);
 			} else {
 				ret = ubi_volume_continue_write(argv[3],
 						(void *)addr, size);
@@ -638,13 +647,13 @@ static int do_ubi(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		}
 
 		return ret;
-	}
+		}
 
 	return CMD_RET_USAGE;
 }
 
 U_BOOT_CMD(
-	ubi, 6, 1, do_ubi,
+	ubi, 7, 1, do_ubi,
 	"ubi commands",
 	"part [part [offset]]\n"
 		" - Show or set current partition (with optional VID"
@@ -654,8 +663,8 @@ U_BOOT_CMD(
 	"ubi info [l[ayout]]"
 		" - Display volume and ubi layout information\n"
 	"ubi check volume"
-		" - check if volume name exists\n"
-	"ubi create[vol] volume [size [type [id]]]"
+		" - check if volumename exists\n"
+	"ubi create[vol] volume [size [type [id [--skipcheck]]]]\n"
 		" - create volume name with size ('-' for maximum"
 		" available size)\n"
 	"ubi write[vol] address volume size"
@@ -666,6 +675,7 @@ U_BOOT_CMD(
 		" - Read volume to address with size\n"
 	"ubi remove[vol] volume"
 		" - Remove volume\n"
+	"ubi skipcheck volume on/off - Set or clear skip_check flag in volume header\n"
 	"[Legends]\n"
 	" volume: character name\n"
 	" size: specified in bytes\n"

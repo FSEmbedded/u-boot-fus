@@ -1,5 +1,5 @@
 /*
-* Copyright 2019-2020 F&S Elektronik Systeme GmbH
+* Copyright 2019-2021 F&S Elektronik Systeme GmbH
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -80,7 +80,7 @@
 */
 #define CONFIG_USB_HOST_PWR
 
-#include "fsl-imx8mm.dtsi"
+#include "imx8mm.dtsi"
 
 / {
 	model = "PicoCoreMX8MM-DDR3L";
@@ -91,6 +91,7 @@
 		emmc = &usdhc3;
 		serial3 = &uart4;
 		spi2 = &ecspi2;
+        nand = &gpmi;
 	};
 
 	config {
@@ -151,8 +152,6 @@
 
 	regulators {
 		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <0>;
 
 		#ifdef CONFIG_USB_OTG_PWR
 		reg_usb_otg_pwr: regulator-usbotg1 {
@@ -180,55 +179,6 @@
 		};
 		#endif
 	};
-#ifdef CONFIG_PICOCOREMX8MX_UART_C
-	uart4: serial@30a60000 {
-		compatible = "fsl,imx8mm-uart",
-			     "fsl,imx6q-uart", "fsl,imx21-uart";
-		reg = <0x0 0x30a60000 0x0 0x10000>;
-		interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gpc>;
-		clocks = <&clk IMX8MM_CLK_UART4_ROOT>,
-			 <&clk IMX8MM_CLK_UART4_ROOT>;
-		clock-names = "ipg", "per";
-		status = "disabled";
-	};
-#endif
-
-#ifdef CONFIG_PICOCOREMX8MX_SPI_A
-	ecspi1: spi@30820000 {
-		compatible = "fsl,imx8mm-ecspi", "fsl,imx51-ecspi";
-		reg = <0x0 0x30820000 0x0 0x10000>;
-		interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8MM_CLK_ECSPI1_ROOT>,
-			 <&clk IMX8MM_CLK_ECSPI1_ROOT>;
-		clock-names = "ipg", "per";
-		status = "disabled";
-	};
-#endif
-#ifdef CONFIG_PICOCOREMX8MX_SPI_C
-	ecspi2: spi@30830000 {
-		compatible = "fsl,imx8mm-ecspi", "fsl,imx51-ecspi";
-		reg = <0x0 0x30830000 0x0 0x10000>;
-		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8MM_CLK_ECSPI2_ROOT>,
-			 <&clk IMX8MM_CLK_ECSPI2_ROOT>;
-		clock-names = "ipg", "per";
-		status = "disabled";
-	};
-#endif
-
-#ifdef CONFIG_PICOCOREMX8MX_SPI_B
-	ecspi3: spi@30840000 {
-		compatible = "fsl,imx8mm-ecspi", "fsl,imx51-ecspi";
-		reg = <0x0 0x30840000 0x0 0x10000>;
-		interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clk IMX8MM_CLK_ECSPI3_ROOT>,
-			 <&clk IMX8MM_CLK_ECSPI3_ROOT>;
-		clock-names = "ipg", "per";
-		status = "disabled";
-	};
-#endif
-
 
 	/* Internal I2C (bitbanging) */
 	i2c_gpio: i2c_gpio {
@@ -775,6 +725,14 @@
 	status = "okay";
 };
 
+&gpmi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpmi_nand_1>;
+	status = "okay";
+	nand-on-flash-bbt;
+	fsl,use-minimum-ecc;
+};
+
 &iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog_1>;
@@ -904,6 +862,26 @@
 			fsl,pins = <
 				MX8MM_IOMUXC_I2C1_SCL_I2C1_SCL		0x400001c3
 				MX8MM_IOMUXC_I2C1_SDA_I2C1_SDA		0x400001c3
+			>;
+		};
+
+		pinctrl_gpmi_nand_1: gpmi-nand-1 {
+			fsl,pins = <
+				MX8MM_IOMUXC_NAND_ALE_RAWNAND_ALE	0x00096
+				MX8MM_IOMUXC_NAND_CE0_B_RAWNAND_CE0_B	0x00096
+				MX8MM_IOMUXC_NAND_CLE_RAWNAND_CLE	0x00096
+				MX8MM_IOMUXC_NAND_DATA00_RAWNAND_DATA00	0x00096
+				MX8MM_IOMUXC_NAND_DATA01_RAWNAND_DATA01	0x00096
+				MX8MM_IOMUXC_NAND_DATA02_RAWNAND_DATA02	0x00096
+				MX8MM_IOMUXC_NAND_DATA03_RAWNAND_DATA03	0x00096
+				MX8MM_IOMUXC_NAND_DATA04_RAWNAND_DATA04	0x00096
+				MX8MM_IOMUXC_NAND_DATA05_RAWNAND_DATA05	0x00096
+				MX8MM_IOMUXC_NAND_DATA06_RAWNAND_DATA06	0x00096
+				MX8MM_IOMUXC_NAND_DATA07_RAWNAND_DATA07	0x00096
+				MX8MM_IOMUXC_NAND_RE_B_RAWNAND_RE_B	0x00096
+				MX8MM_IOMUXC_NAND_READY_B_RAWNAND_READY_B	0x00056
+				MX8MM_IOMUXC_NAND_WE_B_RAWNAND_WE_B	0x00096
+				MX8MM_IOMUXC_NAND_WP_B_RAWNAND_WP_B	0x00096
 			>;
 		};
 

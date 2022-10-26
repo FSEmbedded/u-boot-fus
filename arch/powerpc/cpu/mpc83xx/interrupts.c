@@ -1,14 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000-2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
  * Copyright 2004 Freescale Semiconductor, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <command.h>
+#include <irq_func.h>
 #include <mpc83xx.h>
 #include <asm/processor.h>
 
@@ -36,7 +36,7 @@ void interrupt_init_cpu (unsigned *decrementer_count)
  * Handle external interrupts
  */
 
-void external_interrupt (struct pt_regs *regs)
+void external_interrupt(struct pt_regs *regs)
 {
 }
 
@@ -46,12 +46,12 @@ void external_interrupt (struct pt_regs *regs)
  */
 
 void
-irq_install_handler (int irq, interrupt_handler_t * handler, void *arg)
+irq_install_handler(int irq, interrupt_handler_t * handler, void *arg)
 {
 }
 
 
-void irq_free_handler (int irq)
+void irq_free_handler(int irq)
 {
 }
 

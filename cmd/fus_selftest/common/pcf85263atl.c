@@ -90,7 +90,6 @@ static int pcf85263atl_rtc_get(struct udevice *dev, struct rtc_time *tm)
 		return ret;
 
 	if (regs[PCF85263_REG_RTC_SC - first] & PCF85263_REG_RTC_SC_OS) {
-		dev_warn(dev, "Oscillator stop detected, date/time is not reliable.\n");
 		return -EINVAL;
 	}
 

@@ -1,13 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000-2009
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <bootm.h>
 #include <command.h>
+#include <image.h>
+#include <irq_func.h>
 #include <lmb.h>
 #include <linux/compiler.h>
 
@@ -55,7 +56,7 @@ static int bootz_start(cmd_tbl_t *cmdtp, int flag, int argc,
 	if (bootm_find_images(flag, argc, argv))
 		return 1;
 
-#ifdef CONFIG_SECURE_BOOT
+#ifdef CONFIG_IMX_HAB
 	extern int authenticate_image(
 			uint32_t ddr_start, uint32_t raw_image_size);
 	if (authenticate_image(images->ep, zi_end - zi_start) != 0) {

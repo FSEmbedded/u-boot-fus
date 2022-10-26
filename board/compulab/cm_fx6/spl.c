@@ -1,14 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * SPL specific code for Compulab CM-FX6 board
  *
  * Copyright (C) 2014, Compulab Ltd - http://compulab.co.il/
  *
  * Author: Nikita Kiryanov <nikita@compulab.co.il>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <clock_legacy.h>
+#include <hang.h>
+#include <init.h>
 #include <spl.h>
 #include <asm/io.h>
 #include <asm/gpio.h>
@@ -17,10 +19,8 @@
 #include <asm/arch/sys_proto.h>
 #include <asm/arch/crm_regs.h>
 #include <asm/mach-imx/iomux-v3.h>
-#include <fsl_esdhc.h>
+#include <fsl_esdhc_imx.h>
 #include "common.h"
-
-DECLARE_GLOBAL_DATA_PTR;
 
 enum ddr_config {
 	DDR_16BIT_256MB,

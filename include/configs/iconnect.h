@@ -1,9 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2009-2012
  * Wojciech Dubowik <wojciech.dubowik@neratec.com>
  * Luka Perkov <luka@openwrt.org>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef _CONFIG_ICONNECT_H
@@ -29,7 +28,6 @@
 /*
  * Commands configuration
  */
-#define CONFIG_SYS_MVFS
 
 /*
  * mv-common.h should be defined after CMD configs since it used them
@@ -40,11 +38,6 @@
 /*
  * Environment variables configuration
  */
-#ifdef CONFIG_CMD_NAND
-#define CONFIG_ENV_SECT_SIZE	0x20000
-#endif
-#define CONFIG_ENV_SIZE		0x20000
-#define CONFIG_ENV_OFFSET	0x80000
 
 /*
  * Default environment variables
@@ -75,7 +68,5 @@
 /*
  * File system
  */
-#define CONFIG_MTD_DEVICE
-#define CONFIG_MTD_PARTITIONS
 
 #endif /* _CONFIG_ICONNECT_H */

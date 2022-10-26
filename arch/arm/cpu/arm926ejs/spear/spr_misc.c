@@ -1,13 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2009
  * Vipin Kumar, ST Micoelectronics, vipin.kumar@st.com.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <command.h>
+#include <cpu_func.h>
+#include <env.h>
 #include <i2c.h>
+#include <init.h>
 #include <net.h>
 #include <linux/mtd/st_smi.h>
 #include <asm/io.h>

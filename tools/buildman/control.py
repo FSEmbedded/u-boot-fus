@@ -1,6 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0+
 # Copyright (c) 2013 The Chromium OS Authors.
-#
-# SPDX-License-Identifier:	GPL-2.0+
 #
 
 import multiprocessing
@@ -31,7 +30,7 @@ def GetActionSummary(is_summary, commits, selected, options):
     """
     if commits:
         count = len(commits)
-        count = (count + options.step - 1) / options.step
+        count = (count + options.step - 1) // options.step
         commit_str = '%d commit%s' % (count, GetPlural(count))
     else:
         commit_str = 'current source'
@@ -42,7 +41,8 @@ def GetActionSummary(is_summary, commits, selected, options):
             GetPlural(options.threads), options.jobs, GetPlural(options.jobs))
     return str
 
-def ShowActions(series, why_selected, boards_selected, builder, options):
+def ShowActions(series, why_selected, boards_selected, builder, options,
+                board_warnings):
     """Display a list of actions that we would take, if not a dry run.
 
     Args:
@@ -56,30 +56,84 @@ def ShowActions(series, why_selected, boards_selected, builder, options):
                 value is Board object
         builder: The builder that will be used to build the commits
         options: Command line options object
+        board_warnings: List of warnings obtained from board selected
     """
     col = terminal.Color()
-    print 'Dry run, so not doing much. But I would do this:'
-    print
+    print('Dry run, so not doing much. But I would do this:')
+    print()
     if series:
         commits = series.commits
     else:
         commits = None
-    print GetActionSummary(False, commits, boards_selected,
-            options)
-    print 'Build directory: %s' % builder.base_dir
+    print(GetActionSummary(False, commits, boards_selected,
+            options))
+    print('Build directory: %s' % builder.base_dir)
     if commits:
         for upto in range(0, len(series.commits), options.step):
             commit = series.commits[upto]
-            print '   ', col.Color(col.YELLOW, commit.hash[:8], bright=False),
-            print commit.subject
-    print
+            print('   ', col.Color(col.YELLOW, commit.hash[:8], bright=False), end=' ')
+            print(commit.subject)
+    print()
     for arg in why_selected:
         if arg != 'all':
-            print arg, ': %d boards' % len(why_selected[arg])
+            print(arg, ': %d boards' % len(why_selected[arg]))
             if options.verbose:
-                print '   %s' % ' '.join(why_selected[arg])
-    print ('Total boards to build for each commit: %d\n' %
-            len(why_selected['all']))
+                print('   %s' % ' '.join(why_selected[arg]))
+    print(('Total boards to build for each commit: %d\n' %
+            len(why_selected['all'])))
+    if board_warnings:
+        for warning in board_warnings:
+            print(col.Color(col.YELLOW, warning))
+
+def CheckOutputDir(output_dir):
+    """Make sure that the output directory is not within the current directory
+
+    If we try to use an output directory which is within the current directory
+    (which is assumed to hold the U-Boot source) we may end up deleting the
+    U-Boot source code. Detect this and print an error in this case.
+
+    Args:
+        output_dir: Output directory path to check
+    """
+    path = os.path.realpath(output_dir)
+    cwd_path = os.path.realpath('.')
+    while True:
+        if os.path.realpath(path) == cwd_path:
+            Print("Cannot use output directory '%s' since it is within the current directory '%s'" %
+                  (path, cwd_path))
+            sys.exit(1)
+        parent = os.path.dirname(path)
+        if parent == path:
+            break
+        path = parent
+
+def ShowToolchainInfo(boards, toolchains, print_arch, print_prefix):
+    """Show information about a the tool chain used by one or more boards
+
+    The function checks that all boards use the same toolchain.
+
+    Args:
+        boards: Boards object containing selected boards
+        toolchains: Toolchains object containing available toolchains
+        print_arch: True to print ARCH value
+        print_prefix: True to print CROSS_COMPILE value
+
+    Return:
+        None on success, string error message otherwise
+    """
+    boards = boards.GetSelectedDict()
+    tc_set = set()
+    for brd in boards.values():
+        tc_set.add(toolchains.Select(brd.arch))
+    if len(tc_set) != 1:
+        return 'Supplied boards must share one toolchain'
+        return False
+    tc = tc_set.pop()
+    if print_arch:
+        print(tc.GetEnvArgs(toolchain.VAR_ARCH))
+    if print_prefix:
+        print(tc.GetEnvArgs(toolchain.VAR_CROSS_COMPILE))
+    return None
 
 def DoBuildman(options, args, toolchains=None, make_func=None, boards=None,
                clean_dir=False):
@@ -115,22 +169,22 @@ def DoBuildman(options, args, toolchains=None, make_func=None, boards=None,
 
     no_toolchains = toolchains is None
     if no_toolchains:
-        toolchains = toolchain.Toolchains()
+        toolchains = toolchain.Toolchains(options.override_toolchain)
 
     if options.fetch_arch:
         if options.fetch_arch == 'list':
             sorted_list = toolchains.ListArchs()
-            print col.Color(col.BLUE, 'Available architectures: %s\n' %
-                            ' '.join(sorted_list))
+            print(col.Color(col.BLUE, 'Available architectures: %s\n' %
+                            ' '.join(sorted_list)))
             return 0
         else:
             fetch_arch = options.fetch_arch
             if fetch_arch == 'all':
                 fetch_arch = ','.join(toolchains.ListArchs())
-                print col.Color(col.CYAN, '\nDownloading toolchains: %s' %
-                                fetch_arch)
+                print(col.Color(col.CYAN, '\nDownloading toolchains: %s' %
+                                fetch_arch))
             for arch in fetch_arch.split(','):
-                print
+                print()
                 ret = toolchains.FetchAndInstall(arch)
                 if ret:
                     return ret
@@ -138,10 +192,47 @@ def DoBuildman(options, args, toolchains=None, make_func=None, boards=None,
 
     if no_toolchains:
         toolchains.GetSettings()
-        toolchains.Scan(options.list_tool_chains)
+        toolchains.Scan(options.list_tool_chains and options.verbose)
     if options.list_tool_chains:
         toolchains.List()
-        print
+        print()
+        return 0
+
+    # Work out what subset of the boards we are building
+    if not boards:
+        if not os.path.exists(options.output_dir):
+            os.makedirs(options.output_dir)
+        board_file = os.path.join(options.output_dir, 'boards.cfg')
+        genboardscfg = os.path.join(options.git, 'tools/genboardscfg.py')
+        status = subprocess.call([genboardscfg, '-q', '-o', board_file])
+        if status != 0:
+            sys.exit("Failed to generate boards.cfg")
+
+        boards = board.Boards()
+        boards.ReadBoards(board_file)
+
+    exclude = []
+    if options.exclude:
+        for arg in options.exclude:
+            exclude += arg.split(',')
+
+    if options.boards:
+        requested_boards = []
+        for b in options.boards:
+            requested_boards += b.split(',')
+    else:
+        requested_boards = None
+    why_selected, board_warnings = boards.SelectBoards(args, exclude,
+                                                       requested_boards)
+    selected = boards.GetSelected()
+    if not len(selected):
+        sys.exit(col.Color(col.RED, 'No matching boards found'))
+
+    if options.print_arch or options.print_prefix:
+        err = ShowToolchainInfo(boards, toolchains, options.print_arch,
+                                options.print_prefix)
+        if err:
+            sys.exit(col.Color(col.RED, err))
         return 0
 
     # Work out how many commits to build. We want to build everything on the
@@ -165,34 +256,13 @@ def DoBuildman(options, args, toolchains=None, make_func=None, boards=None,
                 sys.exit(col.Color(col.RED, "Range '%s' has no commits" %
                                    options.branch))
             if msg:
-                print col.Color(col.YELLOW, msg)
+                print(col.Color(col.YELLOW, msg))
             count += 1   # Build upstream commit also
 
     if not count:
         str = ("No commits found to process in branch '%s': "
                "set branch's upstream or use -c flag" % options.branch)
         sys.exit(col.Color(col.RED, str))
-
-    # Work out what subset of the boards we are building
-    if not boards:
-        board_file = os.path.join(options.git, 'boards.cfg')
-        status = subprocess.call([os.path.join(options.git,
-                                                'tools/genboardscfg.py')])
-        if status != 0:
-                sys.exit("Failed to generate boards.cfg")
-
-        boards = board.Boards()
-        boards.ReadBoards(os.path.join(options.git, 'boards.cfg'))
-
-    exclude = []
-    if options.exclude:
-        for arg in options.exclude:
-            exclude += arg.split(',')
-
-    why_selected = boards.SelectBoards(args, exclude)
-    selected = boards.GetSelected()
-    if not len(selected):
-        sys.exit(col.Color(col.RED, 'No matching boards found'))
 
     # Read the metadata from the commits. First look at the upstream commit,
     # then the ones in the branch. We would like to do something like
@@ -234,7 +304,7 @@ def DoBuildman(options, args, toolchains=None, make_func=None, boards=None,
         options.threads = min(multiprocessing.cpu_count(), len(selected))
     if not options.jobs:
         options.jobs = max(1, (multiprocessing.cpu_count() +
-                len(selected) - 1) / len(selected))
+                len(selected) - 1) // len(selected))
 
     if not options.step:
         options.step = len(series.commits) - 1
@@ -252,9 +322,9 @@ def DoBuildman(options, args, toolchains=None, make_func=None, boards=None,
         # output directory itself rather than any subdirectory.
         if not options.no_subdirs:
             output_dir = os.path.join(options.output_dir, dirname)
-    if (clean_dir and output_dir != options.output_dir and
-            os.path.exists(output_dir)):
-        shutil.rmtree(output_dir)
+        if clean_dir and os.path.exists(output_dir):
+            shutil.rmtree(output_dir)
+    CheckOutputDir(output_dir)
     builder = Builder(toolchains, output_dir, options.git_dir,
             options.threads, options.jobs, gnu_make=gnu_make, checkout=True,
             show_unknown=options.show_unknown, step=options.step,
@@ -271,7 +341,8 @@ def DoBuildman(options, args, toolchains=None, make_func=None, boards=None,
 
     # For a dry run, just show our actions as a sanity check
     if options.dry_run:
-        ShowActions(series, why_selected, selected, builder, options)
+        ShowActions(series, why_selected, selected, builder, options,
+                    board_warnings)
     else:
         builder.force_build = options.force_build
         builder.force_build_failures = options.force_build_failures
@@ -298,7 +369,8 @@ def DoBuildman(options, args, toolchains=None, make_func=None, boards=None,
         builder.SetDisplayOptions(options.show_errors, options.show_sizes,
                                   options.show_detail, options.show_bloat,
                                   options.list_error_boards,
-                                  options.show_config)
+                                  options.show_config,
+                                  options.show_environment)
         if options.summary:
             builder.ShowSummary(commits, board_selected)
         else:

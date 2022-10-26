@@ -1,14 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2004, Psyent Corporation <www.psyent.com>
  * Scott McNutt <smcnutt@psyent.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <cpu.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <errno.h>
+#include <irq_func.h>
 #include <asm/cache.h>
 
 DECLARE_GLOBAL_DATA_PTR;

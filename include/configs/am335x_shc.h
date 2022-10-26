@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2016
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
@@ -6,8 +7,6 @@
  * am335x_evm.h
  *
  * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __CONFIG_AM335X_SHC_H
@@ -16,7 +15,6 @@
 #include <configs/ti_am335x_common.h>
 
 /* settings we don;t want on this board */
-#undef CONFIG_SPL_AM33XX_ENABLE_RTC32K_OSC
 #undef CONFIG_CMD_SPI
 
 #define CONFIG_CMD_CACHE
@@ -47,13 +45,8 @@
  * ENV at MMC Boot0 Partition - 0/Undefined=user, 1=boot0, 2=boot1,
  * 4..7=general0..3
  */
-#define CONFIG_ENV_SIZE				0x1000 /* 4 KB */
-#define CONFIG_ENV_OFFSET			0x7000 /* 28 kB */
 
 #define CONFIG_HSMMC2_8BIT
-
-#define CONFIG_ENV_OFFSET_REDUND    0x9000 /* 36 kB */
-#define CONFIG_ENV_SIZE_REDUND      CONFIG_ENV_SIZE
 
 #ifndef CONFIG_SHC_ICT
 /*
@@ -64,8 +57,6 @@
 # define CONFIG_BOOT_RETRY_TIME 30
 # define CONFIG_RESET_TO_RETRY
 #endif
-
-#define CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 
 #ifndef CONFIG_SPL_BUILD
 #define CONFIG_EXTRA_ENV_SETTINGS \
@@ -236,7 +227,6 @@
 #define CONFIG_SYS_NS16550_COM4		0x481a6000	/* UART3 */
 #define CONFIG_SYS_NS16550_COM5		0x481a8000	/* UART4 */
 #define CONFIG_SYS_NS16550_COM6		0x481aa000	/* UART5 */
-#define CONFIG_CONS_INDEX               1
 
 /* PMIC support */
 #define CONFIG_POWER_TPS65217
@@ -252,13 +242,10 @@
 #undef CONFIG_TIMER
 #endif
 
-#define CONFIG_DRIVER_TI_CPSW
-#define CONFIG_MII
 #define CONFIG_BOOTP_DEFAULT
 #define CONFIG_BOOTP_DNS2
 #define CONFIG_BOOTP_SEND_HOSTNAME
 #define CONFIG_NET_RETRY_COUNT         10
-#define CONFIG_PHY_ADDR			0
 #define CONFIG_PHY_SMSC
 
 /* I2C configuration */
@@ -266,6 +253,4 @@
 #define CONFIG_SYS_I2C_EEPROM_ADDR_LEN	2
 #define CONFIG_SYS_I2C_SPEED		400000
 #define CONFIG_SYS_I2C_SLAVE		1
-
-#define CONFIG_SHOW_BOOT_PROGRESS
 #endif	/* ! __CONFIG_AM335X_SHC_H */

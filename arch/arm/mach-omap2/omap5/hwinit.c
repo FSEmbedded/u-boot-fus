@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  *
  * Functions for omap5 based boards.
@@ -9,10 +10,9 @@
  *	Aneesh V	<aneesh@ti.com>
  *	Steve Sakoman	<steve@sakoman.com>
  *	Sricharan	<r.sricharan@ti.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <common.h>
+#include <cpu_func.h>
 #include <palmas.h>
 #include <asm/armv7.h>
 #include <asm/arch/cpu.h>
@@ -24,11 +24,9 @@
 #include <asm/emif.h>
 #include <asm/omap_common.h>
 
-DECLARE_GLOBAL_DATA_PTR;
-
 u32 *const omap_si_rev = (u32 *)OMAP_SRAM_SCRATCH_OMAP_REV;
 
-#ifndef CONFIG_DM_GPIO
+#if !CONFIG_IS_ENABLED(DM_GPIO)
 static struct gpio_bank gpio_bank_54xx[8] = {
 	{ (void *)OMAP54XX_GPIO1_BASE },
 	{ (void *)OMAP54XX_GPIO2_BASE },

@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2010-2015 Freescale Semiconductor, Inc.
  * Copyright 2018 NXP
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -52,17 +51,10 @@ void setup_gpmi_io_clk(u32 cfg)
 
 	setbits_le32(&imx_ccm->CCGR4, MXC_CCM_CCGR4_QSPI2_ENFC_MASK);
 #elif defined(CONFIG_MX6UL) || defined(CONFIG_MX6ULL)
-	/*
-	 * config gpmi and bch clock to 100 MHz
-	 * bch/gpmi select PLL2 PFD2 400M
-	 * 100M = 400M / 4
-	 */
-	clrbits_le32(&imx_ccm->cscmr1,
-			 MXC_CCM_CSCMR1_BCH_CLK_SEL |
-			 MXC_CCM_CSCMR1_GPMI_CLK_SEL);
-	clrsetbits_le32(&imx_ccm->cscdr1,
-			MXC_CCM_CSCDR1_BCH_PODF_MASK |
-			MXC_CCM_CSCDR1_GPMI_PODF_MASK,
+	clrsetbits_le32(&imx_ccm->cs2cdr,
+			MXC_CCM_CS2CDR_ENFC_CLK_PODF_MASK |
+			MXC_CCM_CS2CDR_ENFC_CLK_PRED_MASK |
+			MXC_CCM_CS2CDR_ENFC_CLK_SEL_MASK,
 			cfg);
 #else
 	clrbits_le32(&imx_ccm->CCGR2, MXC_CCM_CCGR2_IOMUX_IPT_CLK_IO_MASK);
@@ -289,8 +281,8 @@ u32 decode_pll(enum pll_clocks pll)
 		break;
 
 	default:
-		return 0;
-	}
+			return 0;
+		}
 
 	/* Check if PLL is enabled */
 	if (!(val & (1 << 13)))
@@ -304,7 +296,7 @@ u32 decode_pll(enum pll_clocks pll)
 	do_div(temp64, denom);
 
 	return (infreq * div + (u32)temp64) / post_div;
-}
+	}
 
 u32 mxc_get_pll_pfd(enum pll_clocks pll, int pfd_num)
 {
@@ -589,7 +581,7 @@ int freq_is_accurate(unsigned int freq_is, unsigned int freq_target)
 
 	accuracy = (freq_is * 100 + freq_target / 2) / freq_target;
 	return (accuracy >= 100 - TOLERANCE) && (accuracy <= 100 + TOLERANCE);
-}
+	}
 
 /* Power up PLL5; returns -1 if waiting for lock times out */
 int enable_video_pll(void)
@@ -625,7 +617,7 @@ void disable_video_pll(void)
 	writel(BM_ANADIG_PLL_VIDEO_ENABLE, &imx_ccm->analog_pll_video_clr);
 	writel(BM_ANADIG_PLL_VIDEO_BYPASS | BM_ANADIG_PLL_VIDEO_POWERDOWN,
 	       &imx_ccm->analog_pll_video_set);
-}
+	}
 
 /* Set PLL5 frequency; returns -1 if freqency is out of range */
 int setup_video_pll(u32 freq_khz)
@@ -663,8 +655,8 @@ int setup_video_pll(u32 freq_khz)
 			vid_div++;
 			if (vid_div == 2)
 				vid_div++;
+			}
 		}
-	}
 	divider = pre_div_rate / MXC_HCLK;
 	temp64 = (u64) (pre_div_rate - (divider * MXC_HCLK));
 	temp64 *= mfd;
@@ -684,7 +676,7 @@ int setup_video_pll(u32 freq_khz)
 	writel(BF_PMU_MISC2_VIDEO_DIV(vid_div), &imx_ccm->pmu_misc2_set);
 
 	return 0;
-}
+	}
 
 void enable_ldb_di_clk(int channel)
 {
@@ -696,7 +688,7 @@ void enable_ldb_di_clk(int channel)
 	else
 		ccgr3 |= MXC_CCM_CCGR3_LDB_DI0_MASK;
 	writel(ccgr3, &imx_ccm->CCGR3);
-}
+		}
 
 /* This function is CPU/graphics specfic, see clock-ipuv3.c/clock-mxsfb.c */
 extern void switch_ldb_di_clk_src(unsigned new_ldb_di_clk_src, unsigned ldb_di);
@@ -728,7 +720,7 @@ int set_lvds_clk(void *addr, unsigned int di, unsigned int ldb_di,
 		tmp_khz = (pll_base_clock * 18 + divider/2) / divider;
 		if (!freq_is_accurate(tmp_khz, freq_khz))
 			divider = 0;	/* Result exceeds requested accuracy */
-	}
+		}
 
 	if (divider) {
 		/* PLL2_PFDn is OK, set clock divider and ungate PFD */
@@ -746,7 +738,7 @@ int set_lvds_clk(void *addr, unsigned int di, unsigned int ldb_di,
 		if (ret) {
 			printf("Can not set display freq %ukHz\n", freq_khz);
 			return ret;	/* Not possible with PLL5 */
-		}
+	}
 		enable_video_pll();
 	}
 
@@ -977,7 +969,7 @@ u32 imx_get_fecclk(void)
 	return mxc_get_clock(MXC_IPG_CLK);
 }
 
-#if defined(CONFIG_SATA) || defined(CONFIG_PCIE_IMX)
+#if defined(CONFIG_SATA) || defined(CONFIG_IMX_AHCI) || defined(CONFIG_PCIE_IMX)
 static int enable_enet_pll(uint32_t en)
 {
 	struct mxc_ccm_reg *const imx_ccm
@@ -1004,7 +996,7 @@ static int enable_enet_pll(uint32_t en)
 }
 #endif
 
-#ifdef CONFIG_SATA
+#if defined(CONFIG_SATA) || defined(CONFIG_IMX_AHCI)
 static void ungate_sata_clock(void)
 {
 	struct mxc_ccm_reg *const imx_ccm =
@@ -1087,14 +1079,14 @@ int enable_pcie_clock(void)
 	clrbits_le32(&ccm_regs->cbcmr, MXC_CCM_CBCMR_PCIE_AXI_CLK_SEL);
 
 	if (!is_mx6sx()) {
-		/* Party time! Ungate the clock to the PCIe. */
-#ifdef CONFIG_SATA
-		ungate_sata_clock();
+	/* Party time! Ungate the clock to the PCIe. */
+#if defined(CONFIG_SATA) || defined(CONFIG_IMX_AHCI)
+	ungate_sata_clock();
 #endif
-		ungate_pcie_clock();
+	ungate_pcie_clock();
 
-		return enable_enet_pll(BM_ANADIG_PLL_ENET_ENABLE_SATA |
-				       BM_ANADIG_PLL_ENET_ENABLE_PCIE);
+	return enable_enet_pll(BM_ANADIG_PLL_ENET_ENABLE_SATA |
+			       BM_ANADIG_PLL_ENET_ENABLE_PCIE);
 	} else {
 		/* Party time! Ungate the clock to the PCIe. */
 		ungate_disp_axi_clock();
@@ -1105,7 +1097,7 @@ int enable_pcie_clock(void)
 }
 #endif
 
-#ifdef CONFIG_SECURE_BOOT
+#ifdef CONFIG_IMX_HAB
 void hab_caam_clock_enable(unsigned char enable)
 {
 	u32 reg;
@@ -1226,6 +1218,32 @@ unsigned int mxc_get_clock(enum mxc_clock clk)
 	return 0;
 }
 
+#ifndef CONFIG_MX6SX
+void enable_ipu_clock(void)
+{
+	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
+
+	setbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU1_IPU_MASK);
+
+	if (is_mx6dqp()) {
+		setbits_le32(&mxc_ccm->CCGR6, MXC_CCM_CCGR6_PRG_CLK0_MASK);
+		setbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU2_IPU_MASK);
+	}
+}
+
+void disable_ipu_clock(void)
+{
+	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
+
+	clrbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU1_IPU_MASK);
+
+	if (is_mx6dqp()) {
+		clrbits_le32(&mxc_ccm->CCGR6, MXC_CCM_CCGR6_PRG_CLK0_MASK);
+		clrbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU2_IPU_MASK);
+	}
+}
+#endif
+
 #ifndef CONFIG_SPL_BUILD
 static void show_freq(const char *name, u32 freq)
 {
@@ -1301,53 +1319,6 @@ int do_mx6_showclocks(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 	return 0;
 }
-
-#ifndef CONFIG_MX6SX
-static void pre_misc_setting(void)
-{
-	/* Bypass IPU1 QoS generator */
-	writel(0x00000002, 0x00bb048c);
-	/* Bypass IPU2 QoS generator */
-	writel(0x00000002, 0x00bb050c);
-	/* Bandwidth THR for of PRE0 */
-	writel(0x00000200, 0x00bb0690);
-	/* Bandwidth THR for of PRE1 */
-	writel(0x00000200, 0x00bb0710);
-	/* Bandwidth THR for of PRE2 */
-	writel(0x00000200, 0x00bb0790);
-	/* Bandwidth THR for of PRE3 */
-	writel(0x00000200, 0x00bb0810);
-	/* Saturation THR for of PRE0 */
-	writel(0x00000010, 0x00bb0694);
-	/* Saturation THR for of PRE1 */
-	writel(0x00000010, 0x00bb0714);
-	/* Saturation THR for of PRE2 */
-	writel(0x00000010, 0x00bb0794);
-	/* Saturation THR for of PRE */
-	writel(0x00000010, 0x00bb0814);
-}
-
-void enable_ipu_clock(void)
-{
-	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
-	int reg;
-	reg = readl(&mxc_ccm->CCGR3);
-	reg |= MXC_CCM_CCGR3_IPU1_IPU_MASK;
-	writel(reg, &mxc_ccm->CCGR3);
-
-	if (is_mx6dqp()) {
-		setbits_le32(&mxc_ccm->CCGR6, MXC_CCM_CCGR6_PRG_CLK0_MASK);
-		setbits_le32(&mxc_ccm->CCGR3, MXC_CCM_CCGR3_IPU2_IPU_MASK);
-
-		/*
-		 * Since CONFIG_VIDEO_IPUV3 is always set in mx6sabre_common.h and
-		 * this misc setting is a must for mx6qp, this position is ok
-		 * to do such settings.
-		 */
-		pre_misc_setting();
-	}
-}
-#endif
 
 #if defined(CONFIG_MX6Q) || defined(CONFIG_MX6D) || defined(CONFIG_MX6DL) || \
 	defined(CONFIG_MX6S)

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000-2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
@@ -7,11 +8,11 @@
  *
  * (C) Copyright 2003 Motorola Inc. (MPC85xx port)
  * Xianghua Xiao (X.Xiao@motorola.com)
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <irq_func.h>
+#include <time.h>
 #include <watchdog.h>
 #include <command.h>
 #include <asm/processor.h>

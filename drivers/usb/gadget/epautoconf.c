@@ -1,11 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * epautoconf.c -- endpoint autoconfiguration for usb gadget drivers
  *
  * Copyright (C) 2004 David Brownell
- *
- * SPDX-License-Identifier:	GPL-2.0+
- *
- * SPDX-License-Identifier:	GPL-2.0+
  *
  * Ported to U-Boot by: Thomas Smits <ts.smits@gmail.com> and
  *                      Remy Bohmer <linux@bohmer.net>
@@ -146,6 +143,7 @@ static int ep_matches(
 	/* MATCH!! */
 
 	/* report address */
+	desc->bEndpointAddress &= 0xF0;
 	if (isdigit(ep->name[2])) {
 		u8	num = simple_strtoul(&ep->name[2], NULL, 10);
 		desc->bEndpointAddress |= num;
@@ -171,8 +169,8 @@ static int ep_matches(
 		put_unaligned(cpu_to_le16(size), &desc->wMaxPacketSize);
 	}
 
-	if (gadget->ops->match_ep)
-		return gadget->ops->match_ep(gadget, ep, desc);
+	if (gadget->ops->ep_conf)
+		return gadget->ops->ep_conf(gadget, ep, desc);
 
 	return 1;
 }
@@ -290,6 +288,9 @@ struct usb_ep *usb_ep_autoconfig(
 			return ep;
 #endif
 	}
+
+	if (gadget->ops->match_ep)
+		ep = gadget->ops->match_ep(gadget, desc, NULL);
 
 	/* Second, look at endpoints until an unclaimed one looks usable */
 	list_for_each_entry(ep, &gadget->ep_list, ep_list) {

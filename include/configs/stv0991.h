@@ -1,26 +1,18 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2014, STMicroelectronics - All Rights Reserved
  * Author(s): Vikas Manocha, <vikas.manocha@st.com> for STMicroelectronics.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __CONFIG_STV0991_H
 #define __CONFIG_STV0991_H
-#define CONFIG_SYS_DCACHE_OFF
 #define CONFIG_SYS_EXCEPTION_VECTORS_HIGH
 
 /* ram memory-related information */
-#define CONFIG_NR_DRAM_BANKS			1
 #define PHYS_SDRAM_1				0x00000000
 #define CONFIG_SYS_SDRAM_BASE			PHYS_SDRAM_1
 #define PHYS_SDRAM_1_SIZE			0x00198000
 
-#define CONFIG_ENV_SIZE				0x10000
-#define CONFIG_ENV_SECT_SIZE			CONFIG_ENV_SIZE
-#define CONFIG_ENV_OFFSET			0x30000
-#define CONFIG_ENV_ADDR				\
-	(PHYS_SDRAM_1_SIZE - CONFIG_ENV_SIZE)
 #define CONFIG_SYS_MALLOC_LEN			(CONFIG_ENV_SIZE + 16 * 1024)
 
 /* user interface */
@@ -38,7 +30,6 @@
 
 /* GMAC related configs */
 
-#define CONFIG_MII
 #define CONFIG_DW_ALTDESCRIPTOR
 
 /* Command support defines */

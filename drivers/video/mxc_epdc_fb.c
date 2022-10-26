@@ -1,7 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2010-2016 Freescale Semiconductor, Inc. All Rights Reserved.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 /*
  * Based on STMP378X LCDIF
@@ -16,6 +15,7 @@
 #include <malloc.h>
 
 #include <mxc_epdc_fb.h>
+#include <cpu_func.h>
 #include <asm/arch/sys_proto.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -481,4 +481,6 @@ ulong calc_fbsize(void)
 	return panel_info.vl_row * panel_info.vl_col * 2 \
 		* NBITS(panel_info.vl_bpix) / 8;
 }
+
+
 

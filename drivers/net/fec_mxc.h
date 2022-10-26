@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2009 Ilya Yanok, Emcraft Systems Ltd <yanok@emcraft.com>
  * (C) Copyright 2008 Armadeus Systems, nc
@@ -10,13 +11,12 @@
  *
  * This file is based on mpc4200fec.h
  * (C) Copyright Motorola, Inc., 2000
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __FEC_MXC_H
 #define __FEC_MXC_H
 
+#include <clk.h>
 #include <asm-generic/gpio.h>
 
 /* Layout description of the FEC */
@@ -244,6 +244,9 @@ struct fec_priv {
 	int phy_id;
 	int (*mii_postcall)(int);
 #endif
+#ifdef CONFIG_DM_REGULATOR
+	struct udevice *phy_supply;
+#endif
 #if CONFIG_IS_ENABLED(DM_GPIO)
 	struct gpio_desc phy_reset_gpio;
 	uint32_t reset_delay;
@@ -252,9 +255,13 @@ struct fec_priv {
 #ifdef CONFIG_DM_ETH
 	u32 interface;
 #endif
+	struct clk ipg_clk;
+	struct clk ahb_clk;
+	struct clk clk_enet_out;
+	struct clk clk_ref;
+	struct clk clk_ptp;
+	u32 clk_rate;
 };
-
-void imx_get_mac_from_fuse(int dev_id, unsigned char *mac);
 
 /**
  * @brief Numbers of buffer descriptors for receiving

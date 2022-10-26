@@ -76,7 +76,7 @@
 #include "picocoremx8mm.dtsi"
 
 / {
-	model = "PicoCoreMX8MMr2";
+	model = "PicoCoreMX8MMr2-LPDDR4";
 };
 
 #ifdef CONFIG_PICOCOREMX8MM_ETH

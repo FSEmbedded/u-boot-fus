@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * sh.c -- a prototype Bourne shell grammar parser
  *      Intended to follow the original Thompson and Ritchie
@@ -70,15 +71,14 @@
  *      document how quoting rules not precisely followed for variable assignments
  *      maybe change map[] to use 2-bit entries
  *      (eventually) remove all the printf's
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #define __U_BOOT__
 #ifdef __U_BOOT__
+#include <common.h>         /* readline */
+#include <env.h>
 #include <malloc.h>         /* malloc, free, realloc*/
 #include <linux/ctype.h>    /* isalpha, isdigit */
-#include <common.h>        /* readline */
 #include <console.h>
 #include <bootretry.h>
 #include <cli.h>

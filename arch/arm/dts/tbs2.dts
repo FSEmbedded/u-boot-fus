@@ -46,7 +46,7 @@
  */
 #define CONFIG_TBS2_SD_B
 
-#include "fsl-imx8mm.dtsi"
+#include "imx8mm.dtsi"
 
 / {
 	model = "TBS2";
@@ -91,7 +91,7 @@
 	};
 #endif
 
-	pwm4: pwm@30690000 {
+	pwm4fus: pwm@30690000 {
 		compatible = "fus,test-pwm";
 		status = "disabled";
 	};
@@ -111,17 +111,6 @@
 		status = "disabled";
 	};
 
-	uart4: serial@30a60000 {
-		compatible = "fsl,imx8mm-uart",
-			     "fsl,imx6q-uart", "fsl,imx21-uart";
-		reg = <0x0 0x30a60000 0x0 0x10000>;
-		interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-parent = <&gpc>;
-		clocks = <&clk IMX8MM_CLK_UART4_ROOT>,
-			<&clk IMX8MM_CLK_UART4_ROOT>;
-		clock-names = "ipg", "per";
-		status = "disabled";
-	};
 };
 
 &gpio1 {
@@ -362,7 +351,7 @@ pmic: bd71837@4b {
 	port-name="uart4";
 };
 
-&pwm4 {
+&pwm4fus {
 	pinctrl-names = "pwmgpio";
 	pinctrl-0 = <&pinctrl_pwm4_gpio>;
 	gpio = <&gpio5 18 GPIO_ACTIVE_HIGH>;

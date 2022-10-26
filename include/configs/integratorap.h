@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2003
  * Texas Instruments.
@@ -8,8 +9,6 @@
  * ARM Ltd.
  * Philippe Robin, <philippe.robin@arm.com>
  * Configuration for Integrator AP board.
- *.
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __CONFIG_H
@@ -33,7 +32,6 @@
 /* Flash settings */
 #define CONFIG_SYS_FLASH_SIZE		0x02000000 /* 32 MiB */
 #define CONFIG_SYS_MAX_FLASH_SECT	128
-#define CONFIG_ENV_SIZE			32768
 
 /*-----------------------------------------------------------------------
  * PCI definitions

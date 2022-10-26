@@ -1,10 +1,6 @@
-/*
- * Copyright (C) 2014 Freescale Semiconductor, Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- */
+// SPDX-License-Identifier: GPL-2.0
+//
+// Copyright (C) 2014 Freescale Semiconductor, Inc.
 
 /dts-v1/;
 
@@ -13,14 +9,15 @@
 #include "imx6sx.dtsi"
 
 / {
-	model = "Freescale i.MX6 SoloX SDB Board";
+	model = "NXP i.MX6 SoloX SDB Board";
 	compatible = "fsl,imx6sx-sdb", "fsl,imx6sx";
 
 	chosen {
 		stdout-path = &uart1;
 	};
 
-	memory {
+	memory@80000000 {
+		device_type = "memory";
 		reg = <0x80000000 0x40000000>;
 	};
 
@@ -48,12 +45,14 @@
 			label = "Volume Up";
 			gpios = <&gpio1 18 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_VOLUMEUP>;
+			wakeup-source;
 		};
 
 		volume-down {
 			label = "Volume Down";
 			gpios = <&gpio1 19 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_VOLUMEDOWN>;
+			wakeup-source;
 		};
 	};
 
@@ -83,6 +82,7 @@
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3000000>;
 			gpio = <&gpio2 11 GPIO_ACTIVE_HIGH>;
+			off-on-delay-us = <20000>;
 			enable-active-high;
 		};
 
@@ -135,7 +135,7 @@
 			regulator-name = "peri_3v3";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
-			gpios = <&gpio4 16 GPIO_ACTIVE_HIGH>;
+			gpio = <&gpio4 16 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 			regulator-always-on;
 		};
@@ -249,8 +249,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet1>;
 	phy-supply = <&reg_enet_3v3>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&ethphy1>;
+	phy-reset-gpios = <&gpio2 7 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	mdio {
@@ -329,7 +330,7 @@
 	sda-gpios = <&gpio1 1 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
-	pmic: pfuze100@08 {
+	pmic: pfuze100@8 {
 		compatible = "fsl,pfuze200";
 		reg = <0x08>;
 
@@ -539,7 +540,7 @@
 	display = <&display0>;
 	status = "disabled";
 
-	display0: display {
+	display0: display@0 {
 		bits-per-pixel = <16>;
 		bus-width = <24>;
 
@@ -567,7 +568,7 @@
 &pcie {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie>;
-	reset-gpio = <&gpio2 0 0>;
+	reset-gpio = <&gpio2 0 GPIO_ACTIVE_LOW>;
 	status = "okay";
 };
 
@@ -575,7 +576,7 @@
 	display = <&display1>;
 	disp-dev = "ldb";
 	status = "okay";
-	display1: display {
+	display1: display@1 {
 		bits-per-pixel = <16>;
 		bus-width = <18>;
 	};
@@ -624,6 +625,12 @@
 	status = "okay";
 };
 
+&sai1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai1>;
+	status = "disabled";
+};
+
 &spdif {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_spdif>;
@@ -631,6 +638,13 @@
 };
 
 &ssi2 {
+	assigned-clocks = <&clks IMX6SX_CLK_PLL4>,
+			  <&clks IMX6SX_PLL4_BYPASS>,
+			  <&clks IMX6SX_CLK_SSI2_SEL>;
+	assigned-clock-parents = <&clks IMX6SX_CLK_OSC>,
+				 <&clks IMX6SX_CLK_PLL4>,
+				 <&clks IMX6SX_CLK_PLL4_AUDIO_DIV>;
+	assigned-clock-rates = <737280000>, <0>, <0>;
 	status = "okay";
 };
 
@@ -643,7 +657,7 @@
 &uart5 { /* for bluetooth */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart5>;
-	fsl,uart-has-rtscts;
+	uart-has-rtscts;
 	status = "okay";
 	/* for DTE mode, add below change */
 	/* fsl,dte-mode;*/
@@ -666,13 +680,21 @@
 	status = "okay";
 };
 
+&usbphy1 {
+	fsl,tx-d-cal = <106>;
+};
+
+&usbphy2 {
+	fsl,tx-d-cal = <106>;
+};
+
 &usdhc2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	non-removable;
 	no-1-8-v;
 	keep-power-in-suspend;
-	enable-sdio-wakeup;
+	wakeup-source;
 	status = "okay";
 };
 
@@ -685,7 +707,7 @@
 	cd-gpios = <&gpio2 10 GPIO_ACTIVE_LOW>;
 	wp-gpios = <&gpio2 15 GPIO_ACTIVE_HIGH>;
 	keep-power-in-suspend;
-	enable-sdio-wakeup;
+	wakeup-source;
 	vmmc-supply = <&vcc_sd3>;
 	status = "okay";
 };
@@ -701,7 +723,7 @@
 &wdog1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_wdog>;
-	fsl,wdog_b;
+	fsl,ext-reset-output;
 };
 
 &iomuxc {
@@ -778,6 +800,8 @@
 				MX6SX_PAD_RGMII1_RD3__ENET1_RX_DATA_3	0x3081
 				MX6SX_PAD_RGMII1_RX_CTL__ENET1_RX_EN	0x3081
 				MX6SX_PAD_ENET2_RX_CLK__ENET2_REF_CLK_25M	0x91
+				/* phy reset */
+				MX6SX_PAD_ENET2_CRS__GPIO2_IO_7		0x10b0
 			>;
 		};
 
@@ -968,16 +992,6 @@
 			>;
 		};
 
-		pinctrl_sai1: sai1grp {
-                        fsl,pins = <
-                                MX6SX_PAD_CSI_DATA00__SAI1_TX_BCLK     0x130b0
-                                MX6SX_PAD_CSI_DATA01__SAI1_TX_SYNC     0x130b0
-                                MX6SX_PAD_CSI_HSYNC__SAI1_TX_DATA_0    0x120b0
-                                MX6SX_PAD_CSI_VSYNC__SAI1_RX_DATA_0    0x130b0
-                                MX6SX_PAD_CSI_PIXCLK__AUDMUX_MCLK      0x130b0
-                        >;
-                };
-
 		pinctrl_spdif: spdifgrp {
 			fsl,pins = <
 				MX6SX_PAD_SD4_DATA4__SPDIF_OUT          0x1b0b0
@@ -987,6 +1001,16 @@
 		pinctrl_vcc_sd3: vccsd3grp {
 			fsl,pins = <
 				MX6SX_PAD_KEY_COL1__GPIO2_IO_11		0x17059
+			>;
+		};
+
+		pinctrl_sai1: sai1grp {
+			fsl,pins = <
+				MX6SX_PAD_CSI_DATA00__SAI1_TX_BCLK	0x130b0
+				MX6SX_PAD_CSI_DATA01__SAI1_TX_SYNC	0x130b0
+				MX6SX_PAD_CSI_HSYNC__SAI1_TX_DATA_0	0x120b0
+				MX6SX_PAD_CSI_VSYNC__SAI1_RX_DATA_0	0x130b0
+				MX6SX_PAD_CSI_PIXCLK__AUDMUX_MCLK	0x130b0
 			>;
 		};
 

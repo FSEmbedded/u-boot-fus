@@ -1,11 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Copyright 2018 NXP
  */
 
 #include <common.h>
+#include <env.h>
+#include <init.h>
 #include <malloc.h>
 #include <errno.h>
 #include <asm/io.h>
@@ -13,27 +13,22 @@
 #include <netdev.h>
 #include <asm/mach-imx/iomux-v3.h>
 #include <asm-generic/gpio.h>
-#include <fsl_esdhc.h>
+#include <fsl_esdhc_imx.h>
 #include <mmc.h>
 #include <asm/arch/imx8mq_pins.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/gpio.h>
 #include <asm/mach-imx/mxc_i2c.h>
 #include <asm/arch/clock.h>
-#include <asm/mach-imx/video.h>
-#include <asm/arch/video_common.h>
 #include <spl.h>
 #include <power/pmic.h>
 #include <power/pfuze100_pmic.h>
-#include <dm.h>
 #include "../common/tcpc.h"
 #include "../common/pfuze.h"
 #include <usb.h>
 #include <dwc3-uboot.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
-#define QSPI_PAD_CTRL	(PAD_CTL_DSE2 | PAD_CTL_HYS)
 
 #define UART_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_FSEL1)
 
@@ -42,27 +37,6 @@ DECLARE_GLOBAL_DATA_PTR;
 static iomux_v3_cfg_t const wdog_pads[] = {
 	IMX8MQ_PAD_GPIO1_IO02__WDOG1_WDOG_B | MUX_PAD_CTRL(WDOG_PAD_CTRL),
 };
-
-#ifdef CONFIG_FSL_QSPI
-static iomux_v3_cfg_t const qspi_pads[] = {
-	IMX8MQ_PAD_NAND_ALE__QSPI_A_SCLK | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-	IMX8MQ_PAD_NAND_CE0_B__QSPI_A_SS0_B | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-
-	IMX8MQ_PAD_NAND_DATA00__QSPI_A_DATA0 | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-	IMX8MQ_PAD_NAND_DATA01__QSPI_A_DATA1 | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-	IMX8MQ_PAD_NAND_DATA02__QSPI_A_DATA2 | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-	IMX8MQ_PAD_NAND_DATA03__QSPI_A_DATA3 | MUX_PAD_CTRL(QSPI_PAD_CTRL),
-};
-
-int board_qspi_init(void)
-{
-	imx_iomux_v3_setup_multiple_pads(qspi_pads, ARRAY_SIZE(qspi_pads));
-
-	set_clk_qspi();
-
-	return 0;
-}
-#endif
 
 static iomux_v3_cfg_t const uart_pads[] = {
 	IMX8MQ_PAD_UART1_RXD__UART1_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
@@ -74,7 +48,6 @@ int board_early_init_f(void)
 	struct wdog_regs *wdog = (struct wdog_regs *)WDOG1_BASE_ADDR;
 
 	imx_iomux_v3_setup_multiple_pads(wdog_pads, ARRAY_SIZE(wdog_pads));
-
 	set_wdog_reset(wdog);
 
 	imx_iomux_v3_setup_multiple_pads(uart_pads, ARRAY_SIZE(uart_pads));
@@ -82,62 +55,26 @@ int board_early_init_f(void)
 	return 0;
 }
 
-#ifdef CONFIG_BOARD_POSTCLK_INIT
-int board_postclk_init(void)
+#ifdef CONFIG_FSL_QSPI
+int board_qspi_init(void)
 {
-	/* TODO */
-	return 0;
-}
-#endif
+	set_clk_qspi();
 
-int dram_init(void)
-{
-	/* rom_pointer[1] contains the size of TEE occupies */
-	if (rom_pointer[1])
-		gd->ram_size = PHYS_SDRAM_SIZE - rom_pointer[1];
-	else
-		gd->ram_size = PHYS_SDRAM_SIZE;
-
-	return 0;
-}
-
-#ifdef CONFIG_OF_BOARD_SETUP
-int ft_board_setup(void *blob, bd_t *bd)
-{
 	return 0;
 }
 #endif
 
 #ifdef CONFIG_FEC_MXC
-#define FEC_RST_PAD IMX_GPIO_NR(1, 9)
-static iomux_v3_cfg_t const fec1_rst_pads[] = {
-	IMX8MQ_PAD_GPIO1_IO09__GPIO1_IO9 | MUX_PAD_CTRL(NO_PAD_CTRL),
-};
-
-static void setup_iomux_fec(void)
-{
-	imx_iomux_v3_setup_multiple_pads(fec1_rst_pads,
-					 ARRAY_SIZE(fec1_rst_pads));
-
-	gpio_request(IMX_GPIO_NR(1, 9), "fec1_rst");
-	gpio_direction_output(IMX_GPIO_NR(1, 9), 0);
-	udelay(500);
-	gpio_direction_output(IMX_GPIO_NR(1, 9), 1);
-}
-
 static int setup_fec(void)
 {
-	struct iomuxc_gpr_base_regs *const iomuxc_gpr_regs
-		= (struct iomuxc_gpr_base_regs *) IOMUXC_GPR_BASE_ADDR;
-
-	setup_iomux_fec();
+	struct iomuxc_gpr_base_regs *gpr =
+		(struct iomuxc_gpr_base_regs *)IOMUXC_GPR_BASE_ADDR;
 
 	/* Use 125M anatop REF_CLK1 for ENET1, not from external */
-	clrsetbits_le32(&iomuxc_gpr_regs->gpr[1],
-			IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_MASK, 0);
+	clrsetbits_le32(&gpr->gpr[1],
+		IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_MASK, 0);
 	return set_clk_enet(ENET_125MHZ);
 }
-
 
 int board_phy_config(struct phy_device *phydev)
 {
@@ -223,8 +160,7 @@ struct tcpc_port_config port_config = {
 	.op_snk_mv = 9000,
 };
 
-#define USB_TYPEC_SEL IMX_GPIO_NR(3, 15)
-
+struct gpio_desc type_sel_desc;
 static iomux_v3_cfg_t ss_mux_gpio[] = {
 	IMX8MQ_PAD_NAND_RE_B__GPIO3_IO15 | MUX_PAD_CTRL(NO_PAD_CTRL),
 };
@@ -232,9 +168,9 @@ static iomux_v3_cfg_t ss_mux_gpio[] = {
 void ss_mux_select(enum typec_cc_polarity pol)
 {
 	if (pol == TYPEC_POLARITY_CC1)
-		gpio_direction_output(USB_TYPEC_SEL, 1);
+		dm_gpio_set_value(&type_sel_desc, 1);
 	else
-		gpio_direction_output(USB_TYPEC_SEL, 0);
+		dm_gpio_set_value(&type_sel_desc, 0);
 }
 
 static int setup_typec(void)
@@ -242,7 +178,20 @@ static int setup_typec(void)
 	int ret;
 
 	imx_iomux_v3_setup_multiple_pads(ss_mux_gpio, ARRAY_SIZE(ss_mux_gpio));
-	gpio_request(USB_TYPEC_SEL, "typec_sel");
+
+	ret = dm_gpio_lookup_name("GPIO3_15", &type_sel_desc);
+	if (ret) {
+		printf("%s lookup GPIO3_15 failed ret = %d\n", __func__, ret);
+		return -ENODEV;
+	}
+
+	ret = dm_gpio_request(&type_sel_desc, "typec_sel");
+	if (ret) {
+		printf("%s request typec_sel failed ret = %d\n", __func__, ret);
+		return -ENODEV;
+	}
+
+	dm_gpio_set_dir_flags(&type_sel_desc, GPIOD_IS_OUT);
 
 	ret = tcpc_init(&port, port_config, &ss_mux_select);
 	if (ret) {
@@ -258,9 +207,9 @@ static int setup_typec(void)
 int board_usb_init(int index, enum usb_init_type init)
 {
 	int ret = 0;
-	imx8m_usb_power(index, true);
 
 	if (index == 0 && init == USB_INIT_DEVICE) {
+		imx8m_usb_power(index, true);
 #ifdef CONFIG_USB_TCPC
 		ret = tcpc_setup_ufp_mode(&port);
 #endif
@@ -281,13 +230,12 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 	int ret = 0;
 	if (index == 0 && init == USB_INIT_DEVICE) {
 		dwc3_uboot_exit(index);
+		imx8m_usb_power(index, false);
 	} else if (index == 0 && init == USB_INIT_HOST) {
 #ifdef CONFIG_USB_TCPC
 		ret = tcpc_disable_src_vbus(&port);
 #endif
 	}
-
-	imx8m_usb_power(index, false);
 
 	return ret;
 }
@@ -295,7 +243,9 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 
 int board_init(void)
 {
+#ifdef CONFIG_FSL_QSPI
 	board_qspi_init();
+#endif
 
 #ifdef CONFIG_FEC_MXC
 	setup_fec();
@@ -309,11 +259,6 @@ int board_init(void)
 	setup_typec();
 #endif
 	return 0;
-}
-
-int board_mmc_get_env_dev(int devno)
-{
-	return devno;
 }
 
 int board_late_init(void)
@@ -339,56 +284,9 @@ int is_recovery_key_pressing(void)
 #endif /*CONFIG_ANDROID_RECOVERY*/
 #endif /*CONFIG_FSL_FASTBOOT*/
 
-#if defined(CONFIG_VIDEO_IMXDCSS)
-
-struct display_info_t const displays[] = {{
-	.bus	= 0, /* Unused */
-	.addr	= 0, /* Unused */
-	.pixfmt	= GDF_32BIT_X888RGB,
-	.detect	= NULL,
-	.enable	= NULL,
-#ifndef CONFIG_VIDEO_IMXDCSS_1080P
-	.mode	= {
-		.name           = "HDMI", /* 720P60 */
-		.refresh        = 60,
-		.xres           = 1280,
-		.yres           = 720,
-		.pixclock       = 13468, /* 74250  kHz */
-		.left_margin    = 110,
-		.right_margin   = 220,
-		.upper_margin   = 5,
-		.lower_margin   = 20,
-		.hsync_len      = 40,
-		.vsync_len      = 5,
-		.sync           = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
-		.vmode          = FB_VMODE_NONINTERLACED
-	}
-#else
-	.mode	= {
-		.name           = "HDMI", /* 1080P60 */
-		.refresh        = 60,
-		.xres           = 1920,
-		.yres           = 1080,
-		.pixclock       = 6734, /* 148500 kHz */
-		.left_margin    = 148,
-		.right_margin   = 88,
-		.upper_margin   = 36,
-		.lower_margin   = 4,
-		.hsync_len      = 44,
-		.vsync_len      = 5,
-		.sync           = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
-		.vmode          = FB_VMODE_NONINTERLACED
-	}
-#endif
-} };
-size_t display_count = ARRAY_SIZE(displays);
-
-#endif /* CONFIG_VIDEO_IMXDCSS */
-
-/* return hard code board id for imx8m_ref */
-#if defined(CONFIG_ANDROID_THINGS_SUPPORT) && defined(CONFIG_ARCH_IMX8M)
-int get_imx8m_baseboard_id(void)
-{
-	return IMX8M_REF_3G;
+#ifdef CONFIG_ANDROID_SUPPORT
+bool is_power_key_pressed(void) {
+	return (bool)(!!(readl(SNVS_HPSR) & (0x1 << 6)));
 }
 #endif
+

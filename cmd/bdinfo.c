@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -10,6 +9,8 @@
  */
 #include <common.h>
 #include <command.h>
+#include <env.h>
+#include <vsprintf.h>
 #include <linux/compiler.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -17,7 +18,7 @@ DECLARE_GLOBAL_DATA_PTR;
 __maybe_unused
 static void print_num(const char *name, ulong value)
 {
-	printf("%-12s= 0x%08lX\n", name, value);
+	printf("%-12s= 0x%0*lx\n", name, 2 * (int)sizeof(value), value);
 }
 
 __maybe_unused
@@ -180,7 +181,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	print_bi_flash(bd);
 	print_num("sramstart",		bd->bi_sramstart);
 	print_num("sramsize",		bd->bi_sramsize);
-#if	defined(CONFIG_8xx) || defined(CONFIG_E500)
+#if	defined(CONFIG_MPC8xx) || defined(CONFIG_E500)
 	print_num("immr_base",		bd->bi_immr_base);
 #endif
 	print_num("bootflags",		bd->bi_bootflags);
@@ -322,14 +323,14 @@ static int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc,
 	print_eths();
 #endif
 	print_baudrate();
-#if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
+#if !(CONFIG_IS_ENABLED(SYS_ICACHE_OFF) && CONFIG_IS_ENABLED(SYS_DCACHE_OFF))
 	print_num("TLB addr", gd->arch.tlb_addr);
 #endif
 	print_num("relocaddr", gd->relocaddr);
 	print_num("reloc off", gd->reloc_off);
 	print_num("irq_sp", gd->irq_sp);	/* irq stack pointer */
 	print_num("sp start ", gd->start_addr_sp);
-#if defined(CONFIG_LCD) || defined(CONFIG_VIDEO)
+#if defined(CONFIG_LCD) || defined(CONFIG_VIDEO) || defined(CONFIG_DM_VIDEO)
 	print_num("FB base  ", gd->fb_base);
 #endif
 	/*
@@ -348,8 +349,11 @@ static int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc,
 	printf("Early malloc usage: %lx / %x\n", gd->malloc_ptr,
 	       CONFIG_VAL(SYS_MALLOC_F_LEN));
 #endif
+#if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
+	print_num("multi_dtb_fit", (ulong)gd->multi_dtb_fit);
+#endif
 	if (gd->fdt_blob)
-		printf("fdt_blob = %p\n", gd->fdt_blob);
+		print_num("fdt_blob", (ulong)gd->fdt_blob);
 
 	return 0;
 }
@@ -425,9 +429,10 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	bd_t *bd = gd->bd;
 
-	print_num("arch_number", bd->bi_arch_number);
 	print_bi_boot_params(bd);
 	print_bi_dram(bd);
+	print_num("relocaddr", gd->relocaddr);
+	print_num("reloc off", gd->reloc_off);
 	print_eth_ip_addr();
 	print_baudrate();
 

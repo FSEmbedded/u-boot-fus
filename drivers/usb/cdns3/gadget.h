@@ -1,8 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2016 Cadence Design Systems - http://www.cadence.com
- * Copyright 2018 NXP
- *
- * SPDX-License-Identifier:   GPL-2.0+
+ * Copyright 2019 NXP
  */
 #ifndef __DRIVERS_CDNS3_GADGET
 #define __DRIVERS_CDNS3_GADGET
@@ -12,6 +11,10 @@
 #if IS_ENABLED(CONFIG_USB_CDNS_MISC)
 #include "cdns_misc.h"
 #endif
+
+#include <clk.h>
+#include <dm.h>
+#include <generic-phy.h>
 
 #define gadget_to_usb_ss(g)  \
 	(container_of(g, struct usb_ss_dev, gadget))
@@ -31,14 +34,14 @@
 
 /* offset 0 */
 #define TRB_DATA_BUFFER_POINTER_MASK	0xFFFFFFFF
-#define TRB_SET_DATA_BUFFER_POINTER(p)	(p & TRB_DATA_BUFFER_POINTER_MASK)
+#define TRB_SET_DATA_BUFFER_POINTER(p)	((p) & TRB_DATA_BUFFER_POINTER_MASK)
 
 /* offset 4 */
 #define TRB_TRANSFER_LENGTH_MASK	0x1FFFF
-#define TRB_SET_TRANSFER_LENGTH(l)	(l & TRB_TRANSFER_LENGTH_MASK)
+#define TRB_SET_TRANSFER_LENGTH(l)	((l) & TRB_TRANSFER_LENGTH_MASK)
 
 #define TRB_BURST_LENGTH_MASK		0xFF
-#define TRB_SET_BURST_LENGTH(l)		((l & TRB_BURST_LENGTH_MASK) << 24)
+#define TRB_SET_BURST_LENGTH(l)		(((l) & TRB_BURST_LENGTH_MASK) << 24)
 
 /* offset 8 */
 #define TRB_SET_INT_ON_SHORT_PACKET	0x04
@@ -48,20 +51,15 @@
 #define TRB_TYPE_NORMAL			0x400
 
 #define TRB_STREAM_ID_MASK		0xFFFF
-#define TRB_SET_STREAM_ID(sid)		((sid & TRB_STREAM_ID_MASK) << 16)
+#define TRB_SET_STREAM_ID(sid)		(((sid) & TRB_STREAM_ID_MASK) << 16)
 
 /*-------------------------------------------------------------------------*/
 /* Driver numeric constants */
 
-
 #define DEVICE_ADDRESS_MAX		127
 
 /* Endpoint init values */
-#ifdef CONFIG_USB_CDNS3_GADGET_FORCE_HIGHSPEED
-#define ENDPOINT_MAX_PACKET_LIMIT	512
-#else
 #define ENDPOINT_MAX_PACKET_LIMIT	1024
-#endif
 
 #define ENDPOINT_MAX_STREAMS		15
 
@@ -104,8 +102,8 @@
  * @usb_ss: extended gadget object
  * @reg: register address
  */
-#define IS_REG_REQUIRING_ACTIVE_REF_CLOCK(usb_ss, reg)	(!reg || \
-	(reg >= &usb_ss->regs->ep_sel && reg <= &usb_ss->regs->ep_cmd))
+#define IS_REG_REQUIRING_ACTIVE_REF_CLOCK(usb_ss, reg)	(!(reg) || \
+	((reg) >= &(usb_ss)->regs->ep_sel && (reg) <= &(usb_ss)->regs->ep_cmd))
 
 /**
  * CAST_EP_REG_POS_TO_INDEX - Macro converts bit position of ep_ists register to
@@ -124,7 +122,7 @@
  * Remember that endpoint container doesn't contain default endpoint
  */
 #define CAST_EP_ADDR_TO_INDEX(ep_addr) \
-	(((ep_addr & 0x7F) - 1) + ((ep_addr & 0x80) ? 1 : 0))
+	((((ep_addr) & 0x7F) - 1) + (((ep_addr) & 0x80) ? 1 : 0))
 
 /**
  * CAST_EP_ADDR_TO_BIT_POS - Macro converts endpoint address to
@@ -134,11 +132,10 @@
  * Remember that endpoint container doesn't contain default endpoint
  */
 #define CAST_EP_ADDR_TO_BIT_POS(ep_addr) \
-	(((uint32_t)1 << (ep_addr & 0x7F))  << ((ep_addr & 0x80) ? 16 : 0))
-
+	(((u32)1 << ((ep_addr) & 0x7F))  << (((ep_addr) & 0x80) ? 16 : 0))
 
 #define CAST_INDEX_TO_EP_ADDR(index) \
-	((index / 2 + 1) | ((index % 2) ? 0x80 : 0x00))
+	(((index) / 2 + 1) | (((index) % 2) ? 0x80 : 0x00))
 
 /*-------------------------------------------------------------------------*/
 /* Used structs */
@@ -150,15 +147,6 @@ struct usb_ss_trb {
 };
 
 struct usb_ss_dev;
-
-struct usb_ep_caps {
-	unsigned type_control:1;
-	unsigned type_iso:1;
-	unsigned type_bulk:1;
-	unsigned type_int:1;
-	unsigned dir_in:1;
-	unsigned dir_out:1;
-};
 
 struct usb_ss_endpoint {
 	struct usb_ep endpoint;
@@ -173,6 +161,7 @@ struct usb_ss_endpoint {
 	int hw_pending_flag;
 	int stalled_flag;
 	int wedge_flag;
+	int hw_reset_flag;
 	void *cpu_addr;
 	dma_addr_t dma_addr;
 	u8					dir;
@@ -185,7 +174,7 @@ struct usb_ss_endpoint {
 };
 
 struct usb_ss_dev {
-	struct device dev;
+	struct udevice dev;
 	struct usbss_dev_register_block_type __iomem *regs;
 
 	struct usb_gadget gadget;
@@ -203,7 +192,7 @@ struct usb_ss_dev {
 	int hw_configured_flag;
 	int wake_up_flag;
 	u16 isoch_delay;
-	spinlock_t lock;
+	spinlock_t lock;	/* protection lock */
 
 	unsigned is_connected:1;
 	unsigned in_standby_mode:1;
@@ -211,9 +200,16 @@ struct usb_ss_dev {
 	u32 usb_ien;
 	u32 ep_ien;
 	int setup_pending;
-	struct device *sysdev;
+	struct udevice *sysdev;
 	bool start_gadget; /* The device mode is enabled */
 	struct list_head ep_match_list;
+};
+
+struct cdns3_generic_peripheral {
+	struct cdns3 cdns3;
+	struct usb_ss_dev usb_ss_dev;
+	struct clk_bulk clks;
+	struct phy phy;
 };
 
 #define OTG_STS_SELECTOR	0xF000		/* OTG status selector */

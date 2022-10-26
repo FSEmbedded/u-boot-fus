@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /**
  * core.h - DesignWare USB3 DRD Core Header
  *
@@ -10,8 +11,6 @@
  * to uboot.
  *
  * commit 460d098cb6 : usb: dwc3: make HIRD threshold configurable
- *
- * SPDX-License-Identifier:     GPL-2.0
  *
  */
 
@@ -74,6 +73,7 @@
 #define DWC3_GCTL		0xc110
 #define DWC3_GEVTEN		0xc114
 #define DWC3_GSTS		0xc118
+#define DWC3_GUCTL1		0xc11c
 #define DWC3_GSNPSID		0xc120
 #define DWC3_GGPIO		0xc124
 #define DWC3_GUID		0xc128
@@ -160,9 +160,20 @@
 #define DWC3_GCTL_GBLHIBERNATIONEN	(1 << 1)
 #define DWC3_GCTL_DSBLCLKGTNG		(1 << 0)
 
+/* Disable park mode for super speed */
+#define DWC3_GUCTL1_PARKMODE_DISABLE_SS BIT(17)
+
 /* Global USB2 PHY Configuration Register */
 #define DWC3_GUSB2PHYCFG_PHYSOFTRST	(1 << 31)
 #define DWC3_GUSB2PHYCFG_SUSPHY		(1 << 6)
+#define DWC3_GUSB2PHYCFG_PHYIF(n)	((n) << 3)
+#define DWC3_GUSB2PHYCFG_PHYIF_MASK	DWC3_GUSB2PHYCFG_PHYIF(1)
+#define DWC3_GUSB2PHYCFG_USBTRDTIM(n)	((n) << 10)
+#define DWC3_GUSB2PHYCFG_USBTRDTIM_MASK	DWC3_GUSB2PHYCFG_USBTRDTIM(0xf)
+#define USBTRDTIM_UTMI_8_BIT		9
+#define USBTRDTIM_UTMI_16_BIT		5
+#define UTMI_PHYIF_16_BIT		1
+#define UTMI_PHYIF_8_BIT		0
 
 /* Global USB3 PIPE Control Register */
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST	(1 << 31)
@@ -714,7 +725,11 @@ struct dwc3 {
 	/* device lock */
 	spinlock_t		lock;
 
+#if defined(__UBOOT__) && CONFIG_IS_ENABLED(DM_USB)
+	struct udevice		*dev;
+#else
 	struct device		*dev;
+#endif
 
 	struct platform_device	*xhci;
 	struct resource		xhci_resources[DWC3_XHCI_RESOURCES_NUM];
@@ -990,16 +1005,14 @@ struct dwc3_gadget_ep_cmd_params {
 
 /* prototypes */
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
+void dwc3_of_parse(struct dwc3 *dwc);
+int dwc3_init(struct dwc3 *dwc);
+void dwc3_remove(struct dwc3 *dwc);
 
-#ifdef CONFIG_USB_DWC3_HOST
-int dwc3_host_init(struct dwc3 *dwc);
-void dwc3_host_exit(struct dwc3 *dwc);
-#else
 static inline int dwc3_host_init(struct dwc3 *dwc)
 { return 0; }
 static inline void dwc3_host_exit(struct dwc3 *dwc)
 { }
-#endif
 
 #ifdef CONFIG_USB_DWC3_GADGET
 int dwc3_gadget_init(struct dwc3 *dwc);

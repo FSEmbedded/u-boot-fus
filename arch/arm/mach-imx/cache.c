@@ -1,11 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
- *
- * SPDX-License-Identifier:     GPL-2.0+
+ * Copyright 2015 Freescale Semiconductor, Inc.
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <asm/armv7.h>
 #include <asm/pl310.h>
 #include <asm/io.h>
@@ -13,7 +12,7 @@
 
 static void enable_ca7_smp(void)
 {
-	uint32_t val;
+	u32 val;
 
 	/* Read MIDR */
 	asm volatile ("mrc p15, 0, %0, c0, c0, 0\n\t" : "=r"(val));
@@ -39,7 +38,7 @@ static void enable_ca7_smp(void)
 	}
 }
 
-#ifndef CONFIG_SYS_DCACHE_OFF
+#if !CONFIG_IS_ENABLED(SYS_DCACHE_OFF)
 void enable_caches(void)
 {
 #if defined(CONFIG_SYS_ARM_CACHE_WRITETHROUGH)
@@ -67,7 +66,10 @@ void enable_caches(void)
 #else
 void enable_caches(void)
 {
-	/* Set ACTLR.SMP bit for Cortex-A7, even the caches are disabled by u-boot */
+	/*
+	 * Set ACTLR.SMP bit for Cortex-A7, even if the caches are
+	 * disabled by u-boot
+	 */
 	enable_ca7_smp();
 
 	puts("WARNING: Caches not enabled\n");

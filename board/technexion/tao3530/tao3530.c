@@ -1,10 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Maintainer :
  *      Tapani Utriainen <linuxfae@technexion.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <common.h>
+#include <malloc.h>
 #include <netdev.h>
 #include <twl4030.h>
 #include <asm/io.h>

@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2007 Semihalf
  *
  * Written by: Rafal Jaworowski <raj@semihalf.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  *
  * This is is a set of wrappers/stubs that allow to use certain routines from
  * U-Boot's lib in the standalone app. This way way we can re-use
@@ -11,6 +10,7 @@
  */
 
 #include <common.h>
+#include <hang.h>
 #include <linux/types.h>
 #include <api_public.h>
 
@@ -42,7 +42,7 @@ void *malloc (size_t len)
 	return NULL;
 }
 
-void hang (void)
+void hang(void)
 {
 	while (1) ;
 }

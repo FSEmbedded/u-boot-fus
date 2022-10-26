@@ -1,6 +1,7 @@
 #include <common.h>
 #include <console.h>
 #include "e1000.h"
+#include <malloc.h>
 #include <linux/compiler.h>
 
 /*-----------------------------------------------------------------------
@@ -76,11 +77,6 @@ static inline struct e1000_hw *e1000_hw_from_spi(struct spi_slave *spi)
 {
 	return container_of(spi, struct e1000_hw, spi);
 }
-
-/* Not sure why all of these are necessary */
-void spi_init_r(void) { /* Nothing to do */ }
-void spi_init_f(void) { /* Nothing to do */ }
-void spi_init(void)   { /* Nothing to do */ }
 
 struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 		unsigned int max_hz, unsigned int mode)

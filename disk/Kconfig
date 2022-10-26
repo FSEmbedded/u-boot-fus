@@ -4,6 +4,10 @@ menu "Partition Types"
 config PARTITIONS
 	bool "Enable Partition Labels (disklabels) support"
 	default y
+	select SPL_SPRINTF if SPL
+	select TPL_SPRINTF if TPL
+	select SPL_STRTO if SPL
+	select TPL_STRTO if TPL
 	help
 	  Partition Labels (disklabels) Supported:
 	  Zero or more of the following:
@@ -42,6 +46,7 @@ config DOS_PARTITION
 config SPL_DOS_PARTITION
 	bool "Enable MS Dos partition table for SPL"
 	depends on SPL && PARTITIONS
+	default n if ARCH_SUNXI
 	default y if DOS_PARTITION
 
 config ISO_PARTITION
@@ -53,7 +58,6 @@ config ISO_PARTITION
 config SPL_ISO_PARTITION
 	bool "Enable ISO partition table for SPL"
 	depends on SPL && PARTITIONS
-	default y if ISO_PARTITION
 
 config AMIGA_PARTITION
 	bool "Enable AMIGA partition table"
@@ -109,6 +113,7 @@ config EFI_PARTITION_ENTRIES_OFF
 config SPL_EFI_PARTITION
 	bool "Enable EFI GPT partition table for SPL"
 	depends on  SPL && PARTITIONS
+	default n if ARCH_SUNXI
 	default y if EFI_PARTITION
 
 config PARTITION_UUIDS
@@ -132,11 +137,5 @@ config PARTITION_TYPE_GUID
 	help
 	  Activate the configuration of GUID type
 	  for EFI partition
-
-config MTD_PARTITIONS
-	bool "Enable support for MTD partitions"
-	depends on PARTITIONS
-	help
-	  Activate MTD partitions on MTD devices.
 
 endmenu

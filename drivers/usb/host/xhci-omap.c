@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * OMAP USB HOST xHCI Controller
  *
@@ -5,8 +6,6 @@
  * Texas Instruments, <www.ti.com>
  *
  * Author: Dan Murphy <dmurphy@ti.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
@@ -20,11 +19,9 @@
 #include <linux/usb/dwc3.h>
 #include <linux/usb/xhci-omap.h>
 
-#include "xhci.h"
+#include <usb/xhci.h>
 
 /* Declare global data pointer */
-DECLARE_GLOBAL_DATA_PTR;
-
 static struct omap_xhci omap;
 
 static int omap_xhci_core_init(struct omap_xhci *omap)

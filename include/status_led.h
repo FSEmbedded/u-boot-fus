@@ -1,8 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2000-2004
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -44,8 +43,8 @@ extern void __led_set (led_id_t mask, int state);
 #endif /* CONFIG_LED_STATUS5 */
 
 void status_led_init(void);
-void status_led_tick (unsigned long timestamp);
-void status_led_set  (int led, int state);
+void status_led_tick(unsigned long timestamp);
+void status_led_set(int led, int state);
 
 /*****  MVS v1  **********************************************************/
 #if (defined(CONFIG_MVS) && CONFIG_MVS < 2)

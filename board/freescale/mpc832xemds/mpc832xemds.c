@@ -1,12 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2006 Freescale Semiconductor, Inc.
  *
  * Dave Liu <daveliu@freescale.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
+#include <fdt_support.h>
+#include <init.h>
 #include <ioports.h>
 #include <mpc83xx.h>
 #include <i2c.h>
@@ -99,7 +100,7 @@ int dram_init(void)
 		return -ENXIO;
 
 	/* DDR SDRAM - Main SODIMM */
-	im->sysconf.ddrlaw[0].bar = CONFIG_SYS_DDR_BASE & LAWBAR_BAR;
+	im->sysconf.ddrlaw[0].bar = CONFIG_SYS_SDRAM_BASE & LAWBAR_BAR;
 
 	msize = fixed_sdram();
 

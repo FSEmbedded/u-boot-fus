@@ -37,7 +37,7 @@
 #endif
 #include <usb.h>
 
-#include <environment.h>		/* enum env_operation */
+#include <env_internal.h>		/* enum env_operation */
 #include <serial.h>			/* get_serial_device() */
 #include "../common/fs_fdt_common.h"	/* fs_fdt_set_val(), ... */
 #include "../common/fs_board_common.h"	/* fs_board_*() */
@@ -54,7 +54,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BT_PICOCOREMX8MM 	0
 #define BT_PICOCOREMX8MX	1
 #define BT_PICOCOREMX8MMr2	2
-#define BT_TBS2 		3
+#define BT_TBS2 		    3
 
 /* Board features; these values can be resorted and redefined at will */
 #define FEAT_ETH_A	(1<<0)
@@ -341,15 +341,15 @@ int board_init(void)
 	return 0;
 }
 
-extern int mxs_nand_register(struct nand_chip *nand);
+#ifndef CONFIG_NAND_MXS_DT
+extern void mxs_nand_register(void);
 
-int board_nand_init(struct nand_chip *nand)
+void board_nand_init(void)
 {
 	if (fs_board_get_features() & FEAT_NAND)
-		return mxs_nand_register(nand);
-
-	return -ENODEV;
+		mxs_nand_register();
 }
+#endif
 
 /* Return the HW partition where U-Boot environment is on eMMC */
 unsigned int mmc_get_env_part(struct mmc *mmc)
@@ -384,7 +384,7 @@ static int setup_typec(void)
 	switch (fs_board_get_type())
 	{
 	case BT_PICOCOREMX8MM:
-	case BT_PICOCOREMX8MMr2:
+    case BT_PICOCOREMX8MMr2:
 		port_config.i2c_bus = 3;
 		break;
 	case BT_PICOCOREMX8MX:
@@ -884,33 +884,33 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		fs_fdt_enable(fdt, FDT_UART_C, 0);
 	}
 
-	/* Set linux,cma size depending on RAM size. Default is 320MB. */
-	offs = fs_fdt_path_offset(fdt, FDT_CMA);
-	if (fdt_get_property(fdt, offs, "no-uboot-override", NULL) == NULL) {
-		unsigned int dram_size = fs_board_get_cfg_info()->dram_size;
-		if ((dram_size == 1023) || (dram_size == 1024)) {
-			fdt32_t tmp[2];
-			tmp[0] = cpu_to_fdt32(0x0);
-			tmp[1] = cpu_to_fdt32(0x28000000);
-			fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
-		}
+	/*
+	 * Set linux,cma size depending on RAM size. Keep default (320MB) from
+	 * device tree if < 1GB, increase to 640MB otherwise.
+	 */
+	if (fs_board_get_cfg_info()->dram_size >= 1023)	{
+		fdt32_t tmp[2];
+
+		tmp[0] = cpu_to_fdt32(0x0);
+		tmp[1] = cpu_to_fdt32(0x28000000);
+
+		offs = fs_fdt_path_offset(fdt, FDT_CMA);
+		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
 	}
 
 	/* Set CPU temp grade */
 	get_cpu_temp_grade(&minc, &maxc);
 	/* Sanity check for get_cpu_temp_grade() */
 	if ((minc > -500) && maxc < 500) {
+		u32 tmp_val;
 
-		tmp_val[0]=cpu_to_fdt32((maxc-10)*1000);
-		offs = fs_fdt_path_offset(fdt, FDT_TEMP_ALERT);
-		if (fdt_get_property(fdt, offs, "no-uboot-override", NULL) == NULL) {
-			fs_fdt_set_val(fdt, offs, "temperature",tmp_val , sizeof(tmp_val), 1);
-		}
-		tmp_val[0]=cpu_to_fdt32(maxc*1000);
-		offs = fs_fdt_path_offset(fdt, FDT_TEMP_CRIT);
-		if (fdt_get_property(fdt, offs, "no-uboot-override", NULL) == NULL) {
-			fs_fdt_set_val(fdt, offs, "temperature", tmp_val, sizeof(tmp_val), 1);
-		}
+		tmp_val = (maxc - 10) * 1000;
+		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_ALERT);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+
+		tmp_val = maxc * 1000;
+		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_CRIT);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
 	}

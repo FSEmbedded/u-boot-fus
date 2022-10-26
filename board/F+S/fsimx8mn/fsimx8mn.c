@@ -37,7 +37,7 @@
 #include <imx_mipi_dsi_bridge.h>
 #include <mipi_dsi_panel.h>
 #include <asm/mach-imx/video.h>
-#include <environment.h>		/* enum env_operation */
+#include <env_internal.h>		/* enum env_operation */
 #include <serial.h>			/* get_serial_device() */
 #include "../common/fs_fdt_common.h"	/* fs_fdt_set_val(), ... */
 #include "../common/fs_board_common.h"	/* fs_board_*() */
@@ -305,15 +305,15 @@ int board_init(void)
 	return 0;
 }
 
-extern int mxs_nand_register(struct nand_chip *nand);
+#ifndef CONFIG_NAND_MXS_DT
+extern void mxs_nand_register(void);
 
-int board_nand_init(struct nand_chip *nand)
+void board_nand_init(void)
 {
 	if (fs_board_get_features() & FEAT_NAND)
-		return mxs_nand_register(nand);
-
-	return -ENODEV;
+		mxs_nand_register();
 }
+#endif
 
 #ifdef CONFIG_VIDEO_MXS
 /*
@@ -1413,16 +1413,18 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		fs_fdt_enable(fdt, FDT_UART_C, 0);
 	}
 
-	/* Set linux,cma size depending on RAM size. Default is 320MB. */
-	offs = fs_fdt_path_offset(fdt, FDT_CMA);
-	if (fdt_get_property(fdt, offs, "no-uboot-override", NULL) == NULL) {
-		unsigned int dram_size = fs_board_get_cfg_info()->dram_size;
-		if ((dram_size == 1023) || (dram_size == 1024)) {
-			fdt32_t tmp[2];
-			tmp[0] = cpu_to_fdt32(0x0);
-			tmp[1] = cpu_to_fdt32(0x28000000);
-			fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
-		}
+	/*
+	 * Set linux,cma size depending on RAM size. Keep default (320MB) from
+	 * device tree if < 1GB, increase to 640MB otherwise.
+	 */
+	if (fs_board_get_cfg_info()->dram_size >= 1023)	{
+		fdt32_t tmp[2];
+
+		tmp[0] = cpu_to_fdt32(0x0);
+		tmp[1] = cpu_to_fdt32(0x28000000);
+
+		offs = fs_fdt_path_offset(fdt, FDT_CMA);
+		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
 	}
 
 	return do_fdt_board_setup_common(fdt);

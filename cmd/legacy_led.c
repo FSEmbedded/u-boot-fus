@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2010
  * Jason Kridner <jkridner@beagleboard.org>
@@ -9,14 +10,15 @@
  * http://www.mail-archive.com/u-boot@lists.denx.de/msg06873.html
  * (C) Copyright 2008
  * Ulf Samuelsson <ulf.samuelsson@atmel.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <config.h>
 #include <command.h>
 #include <status_led.h>
+#ifdef CONFIG_CMD_BLINK
+#include <blink.h>
+#endif
 
 struct led_tbl_s {
 	char		*string;	/* String for use in the command */

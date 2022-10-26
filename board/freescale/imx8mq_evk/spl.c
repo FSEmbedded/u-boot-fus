@@ -1,33 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2017 NXP
+ * Copyright 2018 NXP
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
-#include <spl.h>
+#include <cpu_func.h>
+#include <hang.h>
 #include <asm/io.h>
 #include <errno.h>
 #include <asm/io.h>
-#include <asm/mach-imx/iomux-v3.h>
 #include <asm/arch/ddr.h>
 #include <asm/arch/imx8mq_pins.h>
 #include <asm/arch/sys_proto.h>
-#include <power/pmic.h>
-#include <power/pfuze100_pmic.h>
-#include "../common/pfuze.h"
 #include <asm/arch/clock.h>
+#include <asm/mach-imx/iomux-v3.h>
 #include <asm/mach-imx/gpio.h>
 #include <asm/mach-imx/mxc_i2c.h>
-#include <fsl_esdhc.h>
+#include <fsl_esdhc_imx.h>
 #include <mmc.h>
-#include <asm/arch/imx8m_ddr.h>
+#include <power/pmic.h>
+#include <power/pfuze100_pmic.h>
+#include <spl.h>
+#include "../common/pfuze.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
 extern struct dram_timing_info dram_timing_b0;
 
-void spl_dram_init(void)
+static void spl_dram_init(void)
 {
 	/* ddr init */
 	if ((get_cpu_rev() & 0xfff) == CHIP_REV_2_1)
@@ -38,7 +40,7 @@ void spl_dram_init(void)
 
 #define I2C_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_HYS | PAD_CTL_PUE)
 #define PC MUX_PAD_CTRL(I2C_PAD_CTRL)
-struct i2c_pads_info i2c_pad_info1 = {
+static struct i2c_pads_info i2c_pad_info1 = {
 	.scl = {
 		.i2c_mode = IMX8MQ_PAD_I2C1_SCL__I2C1_SCL | PC,
 		.gpio_mode = IMX8MQ_PAD_I2C1_SCL__GPIO5_IO14 | PC,
@@ -118,26 +120,27 @@ int board_mmc_init(bd_t *bis)
 	for (i = 0; i < CONFIG_SYS_FSL_USDHC_NUM; i++) {
 		switch (i) {
 		case 0:
-			usdhc_cfg[0].sdhc_clk = mxc_get_clock(USDHC1_CLK_ROOT);
-			imx_iomux_v3_setup_multiple_pads(
-				usdhc1_pads, ARRAY_SIZE(usdhc1_pads));
+			init_clk_usdhc(0);
+			usdhc_cfg[0].sdhc_clk = mxc_get_clock(MXC_ESDHC_CLK);
+			imx_iomux_v3_setup_multiple_pads(usdhc1_pads,
+							 ARRAY_SIZE(usdhc1_pads));
 			gpio_request(USDHC1_PWR_GPIO, "usdhc1_reset");
 			gpio_direction_output(USDHC1_PWR_GPIO, 0);
 			udelay(500);
 			gpio_direction_output(USDHC1_PWR_GPIO, 1);
 			break;
 		case 1:
-			usdhc_cfg[1].sdhc_clk = mxc_get_clock(USDHC2_CLK_ROOT);
-			imx_iomux_v3_setup_multiple_pads(
-				usdhc2_pads, ARRAY_SIZE(usdhc2_pads));
+			init_clk_usdhc(1);
+			usdhc_cfg[1].sdhc_clk = mxc_get_clock(MXC_ESDHC2_CLK);
+			imx_iomux_v3_setup_multiple_pads(usdhc2_pads,
+							 ARRAY_SIZE(usdhc2_pads));
 			gpio_request(USDHC2_PWR_GPIO, "usdhc2_reset");
 			gpio_direction_output(USDHC2_PWR_GPIO, 0);
 			udelay(500);
 			gpio_direction_output(USDHC2_PWR_GPIO, 1);
 			break;
 		default:
-			printf("Warning: you configured more USDHC controllers"
-				"(%d) than supported by the board\n", i + 1);
+			printf("Warning: you configured more USDHC controllers(%d) than supported by the board\n", i + 1);
 			return -EINVAL;
 		}
 
@@ -215,6 +218,21 @@ int board_fit_config_name_match(const char *name)
 }
 #endif
 
+#define GPR_PCIE_VREG_BYPASS	BIT(12)
+static void enable_pcie_vreg(bool enable)
+{
+	struct iomuxc_gpr_base_regs *gpr =
+		(struct iomuxc_gpr_base_regs *)IOMUXC_GPR_BASE_ADDR;
+
+	if (!enable) {
+		setbits_le32(&gpr->gpr[14], GPR_PCIE_VREG_BYPASS);
+		setbits_le32(&gpr->gpr[16], GPR_PCIE_VREG_BYPASS);
+	} else {
+		clrbits_le32(&gpr->gpr[14], GPR_PCIE_VREG_BYPASS);
+		clrbits_le32(&gpr->gpr[16], GPR_PCIE_VREG_BYPASS);
+	}
+}
+
 void board_init_f(ulong dummy)
 {
 	int ret;
@@ -222,9 +240,12 @@ void board_init_f(ulong dummy)
 	/* Clear the BSS. */
 	memset(__bss_start, 0, __bss_end - __bss_start);
 
+	/* PCIE_VPH connects to 3.3v on EVK, enable VREG to generate 1.8V to PHY */
+	enable_pcie_vreg(true);
+
 	arch_cpu_init();
 
-	init_uart_clk(0); /* Init UART0 clock */
+	init_uart_clk(0);
 
 	board_early_init_f();
 
@@ -249,4 +270,13 @@ void board_init_f(ulong dummy)
 	spl_dram_init();
 
 	board_init_r(NULL, 0);
+}
+
+int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	puts ("resetting ...\n");
+
+	reset_cpu(WDOG1_BASE_ADDR);
+
+	return 0;
 }

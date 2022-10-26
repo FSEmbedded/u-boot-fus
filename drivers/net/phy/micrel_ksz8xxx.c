@@ -1,21 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Micrel PHY drivers
- *
- * SPDX-License-Identifier:	GPL-2.0+
  *
  * Copyright 2010-2011 Freescale Semiconductor, Inc.
  * author Andy Fleming
  * (C) 2012 NetModule AG, David Andrey, added KSZ9031
  */
-#include <config.h>
 #include <common.h>
 #include <dm.h>
 #include <errno.h>
 #include <fdtdec.h>
 #include <micrel.h>
 #include <phy.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 static struct phy_driver KSZ804_driver = {
 	.name = "Micrel KSZ804",
@@ -28,6 +24,7 @@ static struct phy_driver KSZ804_driver = {
 };
 
 #define MII_KSZPHY_OMSO		0x16
+#define KSZPHY_OMSO_FACTORY_TEST BIT(15)
 #define KSZPHY_OMSO_B_CAST_OFF	(1 << 9)
 
 static int ksz_genconfig_bcastoff(struct phy_device *phydev)
@@ -168,11 +165,13 @@ static struct phy_driver ksz8895_driver = {
 	.shutdown = &genphy_shutdown,
 };
 
-/* Micrel used the exact same part number for the KSZ9021. */
+/* Micrel used the exact same model number for the KSZ9021,
+ * so the revision number is used to distinguish them.
+ */
 static struct phy_driver KS8721_driver = {
 	.name = "Micrel KS8721BL",
-	.uid = 0x221610,
-	.mask = 0xfffff0,
+	.uid = 0x221618,
+	.mask = 0xfffffc,
 	.features = PHY_BASIC_FEATURES,
 	.config = &genphy_config,
 	.startup = &genphy_startup,

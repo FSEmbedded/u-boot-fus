@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2008
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 
@@ -35,6 +34,7 @@ int cmd_ubifs_mount(const char *vol_name)
 		return 0;		/* Already mounted */
 	if (ubifs_mounted)
 		cmd_ubifs_umount();
+
 	ubifs_init();
 
 	ret = uboot_ubifs_mount(vol_name);
@@ -64,7 +64,7 @@ int ubifs_is_mounted(void)
 }
 
 static int do_ubifs_umount(cmd_tbl_t *cmdtp, int flag, int argc,
-			   char *const argv[])
+				char * const argv[])
 {
 	if (argc != 1)
 		return CMD_RET_USAGE;
@@ -103,7 +103,7 @@ static int do_ubifs_ls(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 }
 
 static int do_ubifs_load(cmd_tbl_t *cmdtp, int flag, int argc,
-			 char *const argv[])
+				char * const argv[])
 {
 	const char *filename;
 	int ret;
@@ -116,7 +116,7 @@ static int do_ubifs_load(cmd_tbl_t *cmdtp, int flag, int argc,
 	}
 
 	addr = (argc > 1) ? parse_loadaddr(argv[1], NULL) : get_loadaddr();
-	filename = (argc > 2) ? parse_bootfile(argv[2]) : get_bootfile();
+	filename = (argc > 2) ? env_parse_bootfile(argv[2]) : env_get_bootfile();
 	size = (argc > 3) ? simple_strtoul(argv[3], NULL, 16) : 0;
 
 	debug("Loading file '%s' to address 0x%08x (size %d)\n",

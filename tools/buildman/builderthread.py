@@ -1,12 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0+
 # Copyright (c) 2014 Google, Inc
-#
-# SPDX-License-Identifier:      GPL-2.0+
 #
 
 import errno
 import glob
 import os
 import shutil
+import sys
 import threading
 
 import command
@@ -27,6 +27,9 @@ def Mkdir(dirname, parents = False):
             os.mkdir(dirname)
     except OSError as err:
         if err.errno == errno.EEXIST:
+            if os.path.realpath('.') == os.path.realpath(dirname):
+                print("Cannot create the current working directory '%s'!" % dirname)
+                sys.exit(1)
             pass
         else:
             raise
@@ -153,7 +156,12 @@ class BuilderThread(threading.Thread):
         if result.already_done:
             # Get the return code from that build and use it
             with open(done_file, 'r') as fd:
-                result.return_code = int(fd.readline())
+                try:
+                    result.return_code = int(fd.readline())
+                except ValueError:
+                    # The file may be empty due to running out of disk space.
+                    # Try a rebuild
+                    result.return_code = RETURN_CODE_RETRY
 
             # Check the signal that the build needs to be retried
             if result.return_code == RETURN_CODE_RETRY:
@@ -221,6 +229,7 @@ class BuilderThread(threading.Thread):
                 config_args = ['%s_defconfig' % brd.target]
                 config_out = ''
                 args.extend(self.builder.toolchains.GetMakeArguments(brd))
+                args.extend(self.toolchain.MakeArgs())
 
                 # If we need to reconfigure, do that now
                 if do_config:
@@ -282,15 +291,13 @@ class BuilderThread(threading.Thread):
         outfile = os.path.join(build_dir, 'log')
         with open(outfile, 'w') as fd:
             if result.stdout:
-                # We don't want unicode characters in log files
-                fd.write(result.stdout.decode('UTF-8').encode('ASCII', 'replace'))
+                fd.write(result.stdout)
 
         errfile = self.builder.GetErrFile(result.commit_upto,
                 result.brd.target)
         if result.stderr:
             with open(errfile, 'w') as fd:
-                # We don't want unicode characters in log files
-                fd.write(result.stderr.decode('UTF-8').encode('ASCII', 'replace'))
+                fd.write(result.stderr)
         elif os.path.exists(errfile):
             os.remove(errfile)
 
@@ -305,14 +312,17 @@ class BuilderThread(threading.Thread):
                 else:
                     fd.write('%s' % result.return_code)
             with open(os.path.join(build_dir, 'toolchain'), 'w') as fd:
-                print >>fd, 'gcc', result.toolchain.gcc
-                print >>fd, 'path', result.toolchain.path
-                print >>fd, 'cross', result.toolchain.cross
-                print >>fd, 'arch', result.toolchain.arch
+                print('gcc', result.toolchain.gcc, file=fd)
+                print('path', result.toolchain.path, file=fd)
+                print('cross', result.toolchain.cross, file=fd)
+                print('arch', result.toolchain.arch, file=fd)
                 fd.write('%s' % result.return_code)
 
             # Write out the image and function size information and an objdump
             env = result.toolchain.MakeEnvironment(self.builder.full_path)
+            with open(os.path.join(build_dir, 'env'), 'w') as fd:
+                for var in sorted(env.keys()):
+                    print('%s="%s"' % (var, env[var]), file=fd)
             lines = []
             for fname in ['u-boot', 'spl/u-boot-spl']:
                 cmd = ['%snm' % self.toolchain.cross, '--size-sort', fname]
@@ -323,7 +333,7 @@ class BuilderThread(threading.Thread):
                     nm = self.builder.GetFuncSizesFile(result.commit_upto,
                                     result.brd.target, fname)
                     with open(nm, 'w') as fd:
-                        print >>fd, nm_result.stdout,
+                        print(nm_result.stdout, end=' ', file=fd)
 
                 cmd = ['%sobjdump' % self.toolchain.cross, '-h', fname]
                 dump_result = command.RunPipe([cmd], capture=True,
@@ -334,7 +344,7 @@ class BuilderThread(threading.Thread):
                     objdump = self.builder.GetObjdumpFile(result.commit_upto,
                                     result.brd.target, fname)
                     with open(objdump, 'w') as fd:
-                        print >>fd, dump_result.stdout,
+                        print(dump_result.stdout, end=' ', file=fd)
                     for line in dump_result.stdout.splitlines():
                         fields = line.split()
                         if len(fields) > 5 and fields[1] == '.rodata':
@@ -348,6 +358,16 @@ class BuilderThread(threading.Thread):
                     lines.append(size_result.stdout.splitlines()[1] + ' ' +
                                  rodata_size)
 
+            # Extract the environment from U-Boot and dump it out
+            cmd = ['%sobjcopy' % self.toolchain.cross, '-O', 'binary',
+                   '-j', '.rodata.default_environment',
+                   'env/built-in.o', 'uboot.env']
+            command.RunPipe([cmd], capture=True,
+                            capture_stderr=True, cwd=result.out_dir,
+                            raise_on_error=False, env=env)
+            ubootenv = os.path.join(result.out_dir, 'uboot.env')
+            self.CopyFiles(result.out_dir, build_dir, '', ['uboot.env'])
+
             # Write out the image sizes file. This is similar to the output
             # of binutil's 'size' utility, but it omits the header line and
             # adds an additional hex value at the end of each line for the
@@ -356,7 +376,7 @@ class BuilderThread(threading.Thread):
                 sizes = self.builder.GetSizesFile(result.commit_upto,
                                 result.brd.target)
                 with open(sizes, 'w') as fd:
-                    print >>fd, '\n'.join(lines)
+                    print('\n'.join(lines), file=fd)
 
         # Write out the configuration files, with a special case for SPL
         for dirname in ['', 'spl', 'tpl']:

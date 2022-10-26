@@ -1,7 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * (C) Copyright 2017 Rockchip Electronics Co., Ltd
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 
 #include <common.h>
@@ -9,16 +8,15 @@
 #include <clk-uclass.h>
 #include <dm.h>
 #include <errno.h>
+#include <malloc.h>
 #include <syscon.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/cru_rk3328.h>
-#include <asm/arch/hardware.h>
-#include <asm/arch/grf_rk3328.h>
+#include <asm/arch-rockchip/clock.h>
+#include <asm/arch-rockchip/cru_rk3328.h>
+#include <asm/arch-rockchip/hardware.h>
+#include <asm/arch-rockchip/grf_rk3328.h>
 #include <asm/io.h>
 #include <dm/lists.h>
 #include <dt-bindings/clock/rk3328-cru.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 struct pll_div {
 	u32 refdiv;
@@ -284,6 +282,8 @@ static void rkclk_init(struct rk3328_cru *cru)
 	u32 aclk_div;
 	u32 hclk_div;
 	u32 pclk_div;
+
+	rk3328_configure_cpu(cru, APLL_600_MHZ);
 
 	/* configure gpll cpll */
 	rkclk_set_pll(cru, CLK_GENERAL, &gpll_init_cfg);
@@ -767,7 +767,7 @@ static int rk3328_clk_ofdata_to_platdata(struct udevice *dev)
 {
 	struct rk3328_clk_priv *priv = dev_get_priv(dev);
 
-	priv->cru = (struct rk3328_cru *)devfdt_get_addr(dev);
+	priv->cru = dev_read_addr_ptr(dev);
 
 	return 0;
 }
@@ -792,7 +792,7 @@ static int rk3328_clk_bind(struct udevice *dev)
 		sys_child->priv = priv;
 	}
 
-#if CONFIG_IS_ENABLED(CONFIG_RESET_ROCKCHIP)
+#if CONFIG_IS_ENABLED(RESET_ROCKCHIP)
 	ret = offsetof(struct rk3328_cru, softrst_con[0]);
 	ret = rockchip_reset_bind(dev, ret, 12);
 	if (ret)

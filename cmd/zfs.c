@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  *
  * ZFS filesystem porting to Uboot by
@@ -5,14 +6,13 @@
  *
  * zfsfs support
  * made from existing GRUB Sources by Sun, GNU and others.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <part.h>
 #include <config.h>
 #include <command.h>
+#include <env.h>
 #include <image.h>
 #include <linux/ctype.h>
 #include <asm/byteorder.h>
@@ -40,7 +40,6 @@ static int do_zfs_load(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]
 	ulong addr = 0;
 	disk_partition_t info;
 	struct blk_desc *dev_desc;
-	char buf[12];
 	unsigned long count;
 	const char *addr_str;
 	struct zfs_file zfile;
@@ -50,7 +49,7 @@ static int do_zfs_load(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]
 		return CMD_RET_USAGE;
 
 	addr = (argc > 3) ? parse_loadaddr(argv[3], NULL) : get_loadaddr();
-	filename = (argc > 4) ? parse_bootfile(argv[4]) : get_bootfile();
+	filename = (argc > 4) ? env_parse_bootfile(argv[4]) : env_get_bootfile();
 	count = (argc > 5) ? simple_strtoul(argv[5], NULL, 16) : 0;
 	pos = (argc > 6) ? simple_strtoul(argv[6], NULL, 16) : 0;
 	set_fileaddr(addr);

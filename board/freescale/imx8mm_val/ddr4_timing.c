@@ -7,7 +7,6 @@
 #include <linux/kernel.h>
 #include <common.h>
 #include <asm/arch/ddr.h>
-#include <asm/arch/imx8m_ddr.h>
 
 struct dram_cfg_param ddr4_ddrc_cfg[] = {
 	{ DDRC_MSTR(0), 0x83040010 },

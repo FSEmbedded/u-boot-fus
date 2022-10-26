@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /**************************************************************************
 Intel Pro 1000 for ppcboot/das-u-boot
 Drivers are port from Intel's Linux driver e1000-4.3.15
@@ -9,7 +10,6 @@ tested on both gig copper and gig fiber boards
 
   Copyright(c) 1999 - 2002 Intel Corporation. All rights reserved.
 
- * SPDX-License-Identifier:	GPL-2.0+
 
   Contact Information:
   Linux NICS <linux.nics@intel.com>
@@ -30,8 +30,10 @@ tested on both gig copper and gig fiber boards
  */
 
 #include <common.h>
+#include <cpu_func.h>
 #include <dm.h>
 #include <errno.h>
+#include <malloc.h>
 #include <memalign.h>
 #include <pci.h>
 #include "e1000.h"

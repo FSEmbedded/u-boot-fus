@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000-2009
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -11,7 +10,7 @@
 #include <common.h>
 #include <bootm.h>
 #include <command.h>
-#include <environment.h>
+#include <env.h>
 #include <errno.h>
 #include <image.h>
 #include <malloc.h>
@@ -20,6 +19,7 @@
 #include <linux/ctype.h>
 #include <linux/err.h>
 #include <u-boot/zlib.h>
+#include <mapmem.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -122,6 +122,68 @@ int do_bootm(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		if ((*endp != 0) && (*endp != ':') && (*endp != '#'))
 			return do_bootm_subcommand(cmdtp, flag, argc, argv);
 	}
+
+#ifdef CONFIG_IMX_HAB
+	extern int authenticate_image(
+			uint32_t ddr_start, uint32_t raw_image_size);
+
+	ulong addr = get_loadaddr();
+#ifdef CONFIG_IMX_OPTEE
+	ulong tee_addr = 0;
+	int ret;
+	ulong zi_start, zi_end;
+
+	tee_addr = env_get_ulong("tee_addr", 16, tee_addr);
+	if (!tee_addr) {
+		printf("Not valid tee_addr, Please check\n");
+		return 1;
+	}
+
+	switch (genimg_get_format((const void *)tee_addr)) {
+	case IMAGE_FORMAT_LEGACY:
+		if (authenticate_image(tee_addr,
+		       image_get_image_size((image_header_t *)tee_addr)) != 0) {
+		       printf("Authenticate uImage Fail, Please check\n");
+		       return 1;
+		}
+		break;
+	default:
+		printf("Not valid image format for Authentication, Please check\n");
+		return 1;
+	};
+
+	ret = bootz_setup(addr, &zi_start, &zi_end);
+	if (ret != 0)
+		return 1;
+
+	if (authenticate_image(addr, zi_end - zi_start) != 0) {
+		printf("Authenticate zImage Fail, Please check\n");
+		return 1;
+	}
+
+#else
+
+	switch (genimg_get_format((const void *)addr)) {
+#if defined(CONFIG_LEGACY_IMAGE_FORMAT)
+	case IMAGE_FORMAT_LEGACY:
+		if (authenticate_image(addr,
+			image_get_image_size((image_header_t *)addr)) != 0) {
+			printf("Authenticate uImage Fail, Please check\n");
+			return 1;
+		}
+		break;
+#endif
+#ifdef CONFIG_ANDROID_BOOT_IMAGE
+	case IMAGE_FORMAT_ANDROID:
+		/* Do this authentication in boota command */
+		break;
+#endif
+	default:
+		printf("Not valid image format for Authentication, Please check\n");
+		return 1;
+	}
+#endif
+#endif
 
 	return do_bootm_states(cmdtp, flag, argc, argv, BOOTM_STATE_START |
 		BOOTM_STATE_FINDOS | BOOTM_STATE_FINDOTHER |
@@ -246,21 +308,23 @@ static int do_iminfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 static int image_info(ulong addr)
 {
-	void *hdr = (void *)addr;
+	void *hdr = (void *)map_sysmem(addr, 0);
 
 	printf("\n## Checking Image at %08lx ...\n", addr);
 
 	switch (genimg_get_format(hdr)) {
-#if defined(CONFIG_IMAGE_FORMAT_LEGACY)
+#if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 	case IMAGE_FORMAT_LEGACY:
 		puts("   Legacy image found\n");
 		if (!image_check_magic(hdr)) {
 			puts("   Bad Magic Number\n");
+			unmap_sysmem(hdr);
 			return 1;
 		}
 
 		if (!image_check_hcrc(hdr)) {
 			puts("   Bad Header Checksum\n");
+			unmap_sysmem(hdr);
 			return 1;
 		}
 
@@ -269,15 +333,18 @@ static int image_info(ulong addr)
 		puts("   Verifying Checksum ... ");
 		if (!image_check_dcrc(hdr)) {
 			puts("   Bad Data CRC\n");
+			unmap_sysmem(hdr);
 			return 1;
 		}
 		puts("OK\n");
+		unmap_sysmem(hdr);
 		return 0;
 #endif
 #if defined(CONFIG_ANDROID_BOOT_IMAGE)
 	case IMAGE_FORMAT_ANDROID:
 		puts("   Android image found\n");
 		android_print_contents(hdr);
+		unmap_sysmem(hdr);
 		return 0;
 #endif
 #if defined(CONFIG_FIT)
@@ -286,6 +353,7 @@ static int image_info(ulong addr)
 
 		if (!fit_check_format(hdr)) {
 			puts("Bad FIT image format!\n");
+			unmap_sysmem(hdr);
 			return 1;
 		}
 
@@ -293,9 +361,11 @@ static int image_info(ulong addr)
 
 		if (!fit_all_image_verify(hdr)) {
 			puts("Bad hash in FIT image!\n");
+			unmap_sysmem(hdr);
 			return 1;
 		}
 
+		unmap_sysmem(hdr);
 		return 0;
 #endif
 	default:
@@ -303,6 +373,7 @@ static int image_info(ulong addr)
 		break;
 	}
 
+	unmap_sysmem(hdr);
 	return 1;
 }
 
@@ -339,7 +410,7 @@ static int do_imls_nor(void)
 				goto next_sector;
 
 			switch (genimg_get_format(hdr)) {
-#if defined(CONFIG_IMAGE_FORMAT_LEGACY)
+#if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 			case IMAGE_FORMAT_LEGACY:
 				if (!image_check_hcrc(hdr))
 					goto next_sector;
@@ -487,7 +558,7 @@ static int do_imls_nand(void)
 			}
 
 			switch (genimg_get_format(buffer)) {
-#if defined(CONFIG_IMAGE_FORMAT_LEGACY)
+#if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 			case IMAGE_FORMAT_LEGACY:
 				header = (const image_header_t *)buffer;
 

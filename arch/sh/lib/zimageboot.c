@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2010
  *   Renesas Solutions Corp.
  *   Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -11,6 +10,7 @@
  */
 
 #include <common.h>
+#include <irq_func.h>
 #include <asm/io.h>
 #include <asm/zimage.h>
 

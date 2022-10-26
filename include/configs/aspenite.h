@@ -1,10 +1,9 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * (C) Copyright 2010
  * Marvell Semiconductor <www.marvell.com>
  * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
  * Contributor: Mahavir Jain <mjain@marvell.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #ifndef __CONFIG_ASPENITE_H
@@ -23,7 +22,6 @@
  * TBD: dcache to be used for this
  */
 #define CONFIG_SYS_INIT_SP_ADDR		(CONFIG_SYS_TEXT_BASE - 0x00200000)
-#define CONFIG_NR_DRAM_BANKS_MAX	2
 
 /*
  * Commands configuration
@@ -37,6 +35,5 @@
 /*
  * Environment variables configurations
  */
-#define CONFIG_ENV_SIZE	0x20000	/* 64k */
 
 #endif	/* __CONFIG_ASPENITE_H */

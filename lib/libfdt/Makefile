@@ -1,9 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0+
 #
 # (C) Copyright 2000-2007
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
-#
-# SPDX-License-Identifier:	GPL-2.0+
-#
 
 # Use upstream code.
 obj-y += \
@@ -24,4 +22,5 @@ obj-y += fdt_ro.o
 # U-Boot own file
 obj-y += fdt_region.o
 
-ccflags-y := -I$(srctree)/scripts/dtc/libfdt
+ccflags-y := -I$(srctree)/scripts/dtc/libfdt \
+	-DFDT_ASSUME_MASK=$(CONFIG_$(SPL_TPL_)OF_LIBFDT_ASSUME_MASK)

@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Keystone2: DDR3 initialization
  *
  * (C) Copyright 2012-2014
  *     Texas Instruments Incorporated, <www.ti.com>
- *
- * SPDX-License-Identifier:     GPL-2.0+
  */
 
+#include <cpu_func.h>
 #include <asm/io.h>
 #include <common.h>
 #include <asm/arch/msmc.h>

@@ -1,12 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2007
  * Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <command.h>
+#include <irq_func.h>
+#include <cpu_func.h>
 #include <netdev.h>
 #include <asm/processor.h>
 
@@ -30,7 +31,7 @@ int cleanup_before_linux (void)
 int do_reset (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	disable_interrupts();
-	reset_cpu (0);
+	reset_cpu(0);
 	return 0;
 }
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * f_sdp.c -- USB HID Serial Download Protocol
  *
@@ -13,13 +14,12 @@
  * SKIP_DCD_HEADER are only stubs.
  *
  * Parts of the implementation are based on f_dfu and f_thor.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <errno.h>
 #include <common.h>
 #include <console.h>
+#include <env.h>
 #include <malloc.h>
 
 #include <linux/usb/ch9.h>
@@ -101,8 +101,8 @@ struct f_sdp {
 	enum sdp_state			state;
 	enum sdp_state			next_state;
 	u32				dnl_address;
+	u32				dnl_bytes;
 	u32				dnl_bytes_remaining;
-	u32				last_dnl_file_bytes;
 	u32				jmp_address;
 	bool				always_send_status;
 	u32				error_status;
@@ -308,7 +308,7 @@ static void sdp_rx_command_complete(struct usb_ep *ep, struct usb_request *req)
 		sdp->state = SDP_STATE_RX_FILE_DATA;
 		sdp->dnl_address = cmd->addr ? be32_to_cpu(cmd->addr) : CONFIG_SDP_LOADADDR;
 		sdp->dnl_bytes_remaining = be32_to_cpu(cmd->cnt);
-		sdp->last_dnl_file_bytes = sdp->dnl_bytes_remaining;
+		sdp->dnl_bytes = sdp->dnl_bytes_remaining;
 		sdp->next_state = SDP_STATE_IDLE;
 
 		printf("Downloading file of size %d to 0x%08x... ",
@@ -394,6 +394,9 @@ static void sdp_rx_data_complete(struct usb_ep *ep, struct usb_request *req)
 	if (sdp->dnl_bytes_remaining)
 		return;
 
+#ifndef CONFIG_SPL_BUILD
+	env_set_hex("filesize", sdp->dnl_bytes);
+#endif
 	printf("done\n");
 
 	switch (sdp->state) {
@@ -586,7 +589,7 @@ static int sdp_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	if (gadget_is_dualspeed(gadget) && gadget->speed == USB_SPEED_HIGH)
 		result = usb_ep_enable(sdp->in_ep, &in_hs_desc);
 	else
-		result = usb_ep_enable(sdp->in_ep, &in_desc);
+	result = usb_ep_enable(sdp->in_ep, &in_desc);
 	if (result)
 		return result;
 	sdp->in_req = sdp_start_ep(sdp->in_ep);
@@ -774,11 +777,11 @@ static void sdp_handle_in_ep(void)
 
 #ifdef CONFIG_PARSE_CONTAINER
 			sdp_func->jmp_address = (u32)search_container_header((ulong)sdp_func->jmp_address,
-				sdp_func->last_dnl_file_bytes);
+				sdp_func->dnl_bytes);
 #else
 			if (IS_ENABLED(CONFIG_SPL_LOAD_FIT))
 				sdp_func->jmp_address = (u32)search_fit_header((ulong)sdp_func->jmp_address,
-					sdp_func->last_dnl_file_bytes);
+					sdp_func->dnl_bytes);
 #endif
 			if (sdp_func->jmp_address == 0) {
 				panic("Error in search header, failed to jump\n");
@@ -806,8 +809,8 @@ static void sdp_handle_in_ep(void)
 				sdp_load_image_parse_container(&spl_image,
 							     sdp_func->jmp_address);
 #else
-				/* In SPL, allow jumps to U-Boot images */
-				spl_parse_image_header(&spl_image,
+			/* In SPL, allow jumps to U-Boot images */
+			spl_parse_image_header(&spl_image,
 					(struct image_header *)(ulong)(sdp_func->jmp_address));
 #endif
 			}
@@ -817,7 +820,7 @@ static void sdp_handle_in_ep(void)
 			jump_to_image_no_args(&spl_image);
 #else
 			/* In U-Boot, allow jumps to scripts */
-			source(sdp_func->jmp_address, "script@1");
+			image_source_script(sdp_func->jmp_address, "script@1");
 #endif
 		}
 

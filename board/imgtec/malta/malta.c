@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2013 Gabor Juhos <juhosg@openwrt.org>
  * Copyright (C) 2013 Imagination Technologies
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 
 #include <common.h>
 #include <ide.h>
+#include <init.h>
 #include <netdev.h>
 #include <pci.h>
 #include <pci_gt64120.h>

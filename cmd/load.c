@@ -1,8 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * (C) Copyright 2000-2004
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 /*
@@ -11,11 +10,15 @@
 #include <common.h>
 #include <command.h>
 #include <console.h>
+#include <cpu_func.h>
+#include <env.h>
+#include <flash.h>
+#include <image.h>
 #include <s_record.h>
 #include <net.h>
 #include <exports.h>
+#include <serial.h>
 #include <xyzModem.h>
-#include <serial.h>			  /* serial_setbrg() */
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -970,7 +973,7 @@ static ulong load_serial_ymodem(ulong offset, int mode)
 				rc = flash_write((char *) ymodemBuf,
 						  store_addr, res);
 				if (rc != 0) {
-					flash_perror (rc);
+					flash_perror(rc);
 					return (~0);
 				}
 			} else

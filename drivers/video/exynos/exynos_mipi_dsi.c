@@ -1,15 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2012 Samsung Electronics
  *
  * Author: InKi Dae <inki.dae@samsung.com>
  * Author: Donghwa Lee <dh09.lee@samsung.com>
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <malloc.h>
 #include <fdtdec.h>
+#include <dm/devres.h>
 #include <linux/libfdt.h>
 #include <linux/compat.h>
 #include <linux/err.h>

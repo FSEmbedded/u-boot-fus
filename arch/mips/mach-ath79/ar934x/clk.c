@@ -1,10 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2016 Marek Vasut <marex@denx.de>
- *
- * SPDX-License-Identifier: GPL-2.0+
  */
 
 #include <common.h>
+#include <clock_legacy.h>
+#include <hang.h>
 #include <asm/io.h>
 #include <asm/addrspace.h>
 #include <asm/types.h>

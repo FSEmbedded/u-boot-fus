@@ -10,6 +10,7 @@
  */
 
 #include <common.h>
+#include <hang.h>
 #if !defined(CONFIG_PANIC_HANG)
 #include <command.h>
 #endif
@@ -37,9 +38,19 @@ void panic_str(const char *str)
 
 void panic(const char *fmt, ...)
 {
+#if CONFIG_IS_ENABLED(PRINTF)
 	va_list args;
 	va_start(args, fmt);
 	vprintf(fmt, args);
 	va_end(args);
+#endif
 	panic_finish();
+}
+
+void __assert_fail(const char *assertion, const char *file, unsigned int line,
+		   const char *function)
+{
+	/* This will not return */
+	panic("%s:%u: %s: Assertion `%s' failed.", file, line, function,
+	      assertion);
 }

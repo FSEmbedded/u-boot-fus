@@ -1,11 +1,10 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * pdu001.h
  *
  * Copyright (C) 2018 EETS GmbH - http://www.eets.ch/
  *
  * Copyright (C) 2011 Texas Instruments Incorporated - http://www.ti.com/
- *
- * SPDX-License-Identifier: GPL-2.0+
  */
 
 #ifndef __CONFIG_PDU001_H
@@ -13,14 +12,7 @@
 
 #include <configs/ti_am335x_common.h>
 
-/* No more need for I2C legacy compatibility for this board.
- * CONFIG_DM_I2C_COMPAT is defined in ti_armv7_common.h. See the comment there
- * for the right moment to delete the following line.
- */
-#undef CONFIG_DM_I2C_COMPAT
-
 /* Using 32K of volatile storage for environment */
-#define CONFIG_ENV_SIZE		0x4000
 
 #define MACH_TYPE_PDU001	5075
 #define CONFIG_MACH_TYPE	MACH_TYPE_PDU001

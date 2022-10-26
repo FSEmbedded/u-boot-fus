@@ -15,6 +15,7 @@
 
 #include <common.h>			/* types, get_board_name(), ... */
 #include <version.h>			/* version_string[] */
+#include <cli.h>			/* get_board_name() */
 #include <fdt_support.h>		/* do_fixup_by_path_u32(), ... */
 #include <asm/arch/sys_proto.h>		/* get_reset_cause() */
 #include "fs_fdt_common.h"		/* Own interface */
@@ -25,6 +26,10 @@ void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
 		    int len, int force)
 {
 	int err;
+
+	/* Keep value if "no-uboot-override" is set */
+	if (fdt_get_property(fdt, offs, "no-uboot-override", NULL) != NULL)
+		force = 0;
 
 	/* Warn if property already exists in device tree */
 	if (fdt_get_property(fdt, offs, name, NULL) != NULL) {
@@ -180,7 +185,9 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);
 	fs_fdt_set_getenv(fdt, offs, "platform", 0);
 	fs_fdt_set_getenv(fdt, offs, "arch", 1);
+#ifndef CONFIG_ARCH_IMX8
 	fs_fdt_set_string(fdt, offs, "reset_cause", get_reset_cause(), 1);
+#endif
 	fs_fdt_set_string(fdt, offs, "nboot_version",
 			  fs_board_get_nboot_version(), 1);
 	fs_fdt_set_string(fdt, offs, "u-boot_version", version_string, 1);

@@ -1,11 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2010-2011 Calxeda, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <ahci.h>
+#include <cpu_func.h>
+#include <env.h>
 #include <netdev.h>
 #include <scsi.h>
 

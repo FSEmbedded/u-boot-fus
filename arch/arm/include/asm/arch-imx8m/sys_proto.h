@@ -1,11 +1,10 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2017-2019 NXP
- *
- * SPDX-License-Identifier:	GPL-2.0+
+ * Copyright (C) 2017 NXP
  */
 
-#ifndef __ARCH_MX8M_SYS_PROTO_H
-#define __ARCH_MX8M_SYS_PROTO_H
+#ifndef __ARCH_IMX8M_SYS_PROTO_H
+#define __ARCH_IMX8M_SYS_PROTO_H
 
 #include <asm/mach-imx/sys_proto.h>
 
@@ -16,7 +15,4 @@ int imx8m_usb_power(int usb_id, bool on);
 extern unsigned long rom_pointer[];
 enum boot_device get_boot_device(void);
 bool is_usb_boot(void);
-#ifdef CONFIG_IMX8MQ
-bool check_dcss_fused(void);
-#endif
 #endif

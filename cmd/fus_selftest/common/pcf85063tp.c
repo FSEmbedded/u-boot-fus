@@ -60,7 +60,6 @@ static int pcf85063tp_rtc_get(struct udevice *dev, struct rtc_time *tm)
 
 	/* if the clock has lost its power it makes no sense to use its time */
 	if (regs[0] & PCF85063_REG_SC_OS) {
-		dev_warn(&client->dev, "Power loss detected, invalid time\n");
 		return -1;
 	}
 

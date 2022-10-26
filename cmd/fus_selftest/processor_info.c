@@ -14,7 +14,7 @@
 
 static int get_processorInfo_soc(struct cpuinfo *ci){
 
-#ifdef CONFIG_IMX8MM
+#if defined(CONFIG_IMX8MM) ||  defined (CONFIG_IMX8MP)
 	u32 cpurev = get_cpu_rev();
 	u32 max_freq;
 	int minc,maxc;

@@ -1,12 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2017, STMicroelectronics - All Rights Reserved
  * Author(s): Patrice Chotard, <patrice.chotard@st.com> for STMicroelectronics.
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <errno.h>
+#include <malloc.h>
 #include <wait_bit.h>
 #include <dm.h>
 #include <reset-uclass.h>
@@ -218,7 +218,7 @@ phys_addr_t sti_reset_get_regmap(const char *compatible)
 		return -ENODEV;
 	}
 
-	return regmap->base;
+	return regmap->ranges[0].start;
 }
 
 static int sti_reset_program_hw(struct reset_ctl *reset_ctl, int assert)
@@ -299,7 +299,7 @@ static int sti_reset_deassert(struct reset_ctl *reset_ctl)
 
 struct reset_ops sti_reset_ops = {
 	.request = sti_reset_request,
-	.free = sti_reset_free,
+	.rfree = sti_reset_free,
 	.rst_assert = sti_reset_assert,
 	.rst_deassert = sti_reset_deassert,
 };

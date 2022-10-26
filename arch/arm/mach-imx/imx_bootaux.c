@@ -1,13 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
  * Copyright (C) 2018 F&S Elektronik Systeme GmbH
- *
- * SPDX-License-Identifier:	GPL-2.0+
  */
 
 #include <common.h>
 #include <asm/io.h>
+#ifndef CONFIG_ARCH_MX7ULP
 #include <asm/arch/crm_regs.h>
+#else
+#include <asm/arch-mx7ulp/sys_proto.h>
+#endif
 #include <asm/mach-imx/sys_proto.h>
 #include <command.h>
 #include <imx_sip.h>
@@ -65,6 +68,9 @@ enum aux_state {
 	aux_undefined,
 };
 #ifndef CONFIG_IMX8
+static enum aux_state cur_state = aux_stopped;
+
+#ifndef CONFIG_ARCH_MX7ULP
 int arch_auxiliary_core_set_reset_address(ulong boot_private_data)
 {
 	u32 stack, pc;
@@ -83,6 +89,34 @@ int arch_auxiliary_core_set_reset_address(ulong boot_private_data)
 
 	return 0;
 }
+#else
+int arch_auxiliary_core_set_reset_address(ulong boot_private_data)
+{
+	u32 *dest_addr = (u32 *)boot_private_data;
+	u32 pc = 0, tag = 0;
+
+	if (boot_private_data != TCML_BASE)
+	{
+		printf("Address != 0x%x, abort!\n", TCML_BASE);
+		return 1;
+	}
+
+	/* Set GP register to tell the M4 rom the image entry */
+	/* We assume the M4 image has IVT head and padding which
+	 * should be same as the one programmed into QSPI flash
+	 */
+	tag = *(dest_addr + 1024);
+	if (tag != 0x402000d1 && tag !=0x412000d1)
+		return -1;
+
+	pc = *(dest_addr + 1025);
+
+	writel(pc, SIM0_RBASE + 0x70); /*GP7*/
+
+	return 0;
+}
+
+#endif
 
 void arch_auxiliary_core_set(u32 core_id, enum aux_state state)
 {
@@ -90,6 +124,12 @@ void arch_auxiliary_core_set(u32 core_id, enum aux_state state)
         /* TODO: Currently only start state */
         if (state == aux_off || state == aux_stopped)
 		call_imx_sip(IMX_SIP_SRC, IMX_SIP_SRC_M4_START, 0, 0, 0);
+#elif CONFIG_ARCH_MX7ULP
+	/* There is no way to switch between states. We are only able to
+	 * start images if there is no pc set and no image is located in
+	 * TCML.
+	 */
+	;
 #else
 	struct src *src_reg = (struct src *)SRC_BASE_ADDR;
 	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
@@ -131,6 +171,16 @@ enum aux_state arch_auxiliary_core_get(u32 core_id)
 		return aux_running;
         
         return aux_stopped; 
+#elif CONFIG_ARCH_MX7ULP
+	/* 7ULP always running, there is no possibility to shutdown any clock.
+	 * We assume if reset state is POR and the local variable cur_state is
+	 * set to aux_stopped we are in so called "stop" state.
+	 */
+	if (get_boot_mode() != SINGLE_BOOT || strcmp(get_reset_cause(), "POR")
+			|| cur_state != aux_stopped)
+		return aux_running;
+	else
+		return aux_stopped;
 #else
 	struct src *src_reg = (struct src *)SRC_BASE_ADDR;
 	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
@@ -167,13 +217,13 @@ enum aux_state arch_auxiliary_core_get(u32 core_id)
  * the reset vector at the head for the image, with SP and PC
  * as the first two words.
  *
- * Per the cortex-M reference manual, the reset vector of M4 needs
- * to exist at 0x0 (TCMUL). The PC and SP are the first two addresses
- * of that vector.  So to boot M4, the A core must build the M4's reset
+ * Per the cortex-M reference manual, the reset vector of M4/M7 needs
+ * to exist at 0x0 (TCMUL/IDTCM). The PC and SP are the first two addresses
+ * of that vector.  So to boot M4/M7, the A core must build the M4/M7's reset
  * vector with getting the PC and SP from image and filling them to
- * TCMUL. When M4 is kicked, it will load the PC and SP by itself.
- * The TCMUL is mapped to (M4_BOOTROM_BASE_ADDR) at A core side for
- * accessing the M4 TCMUL.
+ * TCMUL/IDTCM. When M4/M7 is kicked, it will load the PC and SP by itself.
+ * The TCMUL/IDTCM is mapped to (MCU_BOOTROM_BASE_ADDR) at A core side for
+ * accessing the M4/M7 TCMUL/IDTCM.
  */
 #ifndef CONFIG_IMX8
 static int do_bootaux(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
@@ -182,6 +232,13 @@ static int do_bootaux(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	ulong addr = 0;
 	int ret = 0;
 	enum aux_state state;
+
+#ifdef CONFIG_ARCH_MX7ULP
+	if (get_boot_mode() != SINGLE_BOOT) {
+		printf("Board not in single boot mode, abort!\n");
+		return CMD_RET_FAILURE;
+	}
+#endif
 
 	state = arch_auxiliary_core_get(0);
 	if (state == aux_undefined) {
@@ -211,12 +268,24 @@ static int do_bootaux(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 			state = aux_stopped;
 			arch_auxiliary_core_set(0, state);
 
+			if (arch_auxiliary_core_get(0) != aux_stopped) {
+#ifdef CONFIG_ARCH_MX7ULP
+				printf("## Auxiliary core is already up\n");
+				return CMD_RET_SUCCESS;
+#else
+				printf("Aux core still running, abort!\n");
+				return CMD_RET_FAILURE;
+#endif
+			}
+
 			ret = arch_auxiliary_core_set_reset_address(addr);
 			if (ret) {
 				printf("Bad address\n");
 				return CMD_RET_FAILURE;
 			}
+
 			state = aux_running;
+			cur_state = aux_running;
 		}
 		else {
 			printf("Command %s unknown or not allowed if auxiliary"
