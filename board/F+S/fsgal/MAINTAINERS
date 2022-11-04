@@ -1,0 +1,7 @@
+FSGAL1 BOARD
+M:	Claudio Senatore <senatore@fs-net.de>
+S:	Maintained
+F:	board/F+S/fsgal/
+F:	include/configs/fsgal.h
+F:	configs/fsgal_tfa_defconfig
+F:	configs/fsgal_tfa_SECURE_BOOT_defconfig

@@ -1583,6 +1583,18 @@ config TARGET_LS1028ARDB
 	  development platform that supports the QorIQ LS1028A
 	  Layerscape Architecture processor.
 
+config TARGET_FSGAL
+	bool "Support fsgal1"
+	select ARCH_LS1028A
+	select ARM64
+	select ARMV8_MULTIENTRY
+	select ARCH_SUPPORT_TFABOOT
+	select BOARD_LATE_INIT
+	help
+	  Support for F&S fsgal1 plattform
+	  The GAL1 was developed from customer specific requirements.
+	  It supports the QorIQ LS1028A Layerscape Architecture processor
+
 config TARGET_LS1088ARDB
 	bool "Support ls1088ardb"
 	select ARCH_LS1088A
@@ -2311,6 +2323,7 @@ source "board/vscom/baltos/Kconfig"
 source "board/phytium/durian/Kconfig"
 source "board/phytium/pomelo/Kconfig"
 source "board/xen/xenguest_arm64/Kconfig"
+source "board/F+S/fsgal/Kconfig"
 
 source "arch/arm/Kconfig.debug"
 
