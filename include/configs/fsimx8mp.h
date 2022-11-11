@@ -243,7 +243,7 @@
 #define CONFIG_SYS_DISCOVER_PHY
 
 #if defined(CONFIG_CMD_NET)
-#define CONFIG_ETHPRIME                 "eth1" /* Set qos to primary since we use its MDIO */
+#define CONFIG_ETHPRIME                 "eth0" /* Set qos to primary since we use its MDIO */
 #define FDT_SEQ_MACADDR_FROM_ENV
 
 #define CONFIG_FEC_XCV_TYPE             RGMII
@@ -403,6 +403,9 @@
 /* Initial environment variables */
 #define CONFIG_EXTRA_ENV_SETTINGS					\
 	FS_UPDATE_SUPPORT 						\
+	"bd_kernel=undef\0"						\
+	"bd_fdt=undef\0"							\
+	"bd_rootfs=undef\0"						\
 	"initrd_addr=0x43800000\0"					\
 	"initrd_high=0xffffffffffffffff\0"				\
 	"console=undef\0"						\

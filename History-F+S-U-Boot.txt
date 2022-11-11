@@ -1,6 +1,38 @@
 History of Changes for U-Boot on F&S Boards and Modules
 -------------------------------------------------------
 
+u-boot-2020.04-fsimx8mp-Y2022.11 (11.11.2022)
+-----------------------------------------------
+Supported boards: armStoneMX8MP, PicoCoreMX8MP, PicoCoreMX8MPr2
+
+- [fsimx8mp] Disable not used ethernet nodes in device tree
+- Improve phy shutdown for dwc_eth_qos driver
+- Improve primary eth interface for fsimx8mp
+- Add new environments for bootloader fs update in fsimx8mp.h
+- Improve ethernet aliases for fsimx8mp
+- Improve features support for fsimx8mp
+- Add nboot configuration for PicoCoreMX8MPr2-Fert1-5
+- Add support for picocoremx8mpr2
+- Rework device tree for picocoremx8mp
+- Add feature option for eth-phy-a and eth-phy-b
+- Improve nboot config for armStoneMX8MP-Fert2.100
+- Add nboot config for armStoneMX8MP-Fert0.100
+- Improve USB2 support for fsimx8mp
+- Improve nboot configuration for armStoneMX8MP-Fert4.100
+- Add config for armStoneMX8MP-FERT5.100
+- Fix FDT_TEMP entries for fsimx8mm/mp
+- Add no-uboot-override to fs_fdt_set_val()
+- Fix mmc_get_env_dev(), simplify board_mmc_get_env_dev()
+- Enable CONFIG_FASTBOOT_UUU_SUPPORT on fsimx8mm/mn/mp
+- Revert F&S changes in iomux.c and console.c
+- Remove usb host initialization in SPL for fsimx8mp
+- Enable FS mmc common functions for fsimx8mp
+- Improve device detection on typec connector for fsimx8mp
+- Fix env device for fsimx8mp
+- Fix new RAM timings for fsimx8mm
+
+
+
 u-boot-2018.03-fsimx8mm-Y2021.04.2 (15.09.2022)
 -----------------------------------------------
 Supported boards: PicoCoreMX8MM PicoCoreMX8MMr2 PicoCoreMX8MX
@@ -231,17 +263,6 @@ Supported boards: PicoCoreMX8MM
 - Add part command to uboot console
 - Add dynamic setting of cpu temp ranges for fsimx8mm
 - Add config for PCoreMX8MM-FERT13.130
-=========
-u-boot-2018.03-fsimx8mm-Y2021.04.1 (25.08.2022)
------------------------------------------------
-Supported boards: PicoCoreMX8MM PicoCoreMX8MMr2 PicoCoreMX8MX
-
-- Add Board-Configs for the PicoCoreMX8MMr2
-- Add rx delay support for RTL8211F
-- Improve phy realtek LED setup
-- Add PicoCoreMX8MMr2 support
-- Add N-boot History file for nboot-fsimx8mm-2021.04.1
->>>>>>>>> Temporary merge branch 2
 
 
 
@@ -334,7 +355,6 @@ Supported boards: PicoCoreMX8MM
 - Improve fsimx8mm linux fdt fixups
 - Remove setting ethaddr for WLAN on fsimx8mm
 - Change NBoot version to current one
-
 
 
 u-boot-2018.03-fsimx8mm-B2020.08 (11.08.2020)

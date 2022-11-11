@@ -36,11 +36,11 @@
 		have-audio;
 		have-eth-phy-a;
 		have-eth-phy-b;
-		//have-wlan;
+		have-wlan;
 		//have-mipi-dsi;
 		have-hdmi;
 		have-ext-rtc;
-		//have-security;
-		//have-eeprom;
+		have-security;
+		have-eeprom;
 	};
 };

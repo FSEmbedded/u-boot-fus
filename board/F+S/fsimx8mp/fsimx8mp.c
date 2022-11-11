@@ -43,7 +43,8 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 #define BT_PICOCOREMX8MP 	0
-#define BT_ARMSTONEMX8MP 	1
+#define BT_PICOCOREMX8MPr2 	1
+#define BT_ARMSTONEMX8MP 	2
 
 #define FEAT_ETH_A 	(1<<0)	/* 0: no LAN0,  1: has LAN0 */
 #define FEAT_ETH_B	(1<<1)	/* 0: no LAN1,  1: has LAN1 */
@@ -96,7 +97,20 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 1 (BT_ARMSTONEMX8MP) */
+	{	/* 1 (BT_PICOCOREMX8MPr2) */
+		.name = "PicoCoreMX8MPr2",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 2 (BT_ARMSTONEMX8MP) */
 		.name = "armStoneMX8MP",
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
@@ -153,6 +167,12 @@ static void fs_spl_setup_cfg_info(void)
 		features |= FEAT_AUDIO;
 	if (fdt_getprop(fdt, offs, "have-eth-phy", NULL)) {
 		features |= FEAT_ETH_A;
+		features |= FEAT_ETH_B;
+	}
+	if(fdt_getprop(fdt, offs, "have-eth-phy-a", NULL)){
+		features |= FEAT_ETH_A;
+	}
+	if(fdt_getprop(fdt, offs, "have-eth-phy-b", NULL)){
 		features |= FEAT_ETH_B;
 	}
 	if (fdt_getprop(fdt, offs, "have-wlan", NULL))
@@ -254,7 +274,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		fs_fdt_enable(fdt, "wlan-reset", 0);
 		/* no eeprom available */
 		fs_fdt_enable(fdt, "eeprom", 0);
-		/* no MIPI_CSI2 availble */
+		/* no MIPI_CSI2 available */
 		fs_fdt_enable(fdt, "mipi_csi_1", 0);
 		/* disable image sensing interface for MIPI_CSI2 */
 		fs_fdt_enable(fdt, "isi_1", 0);
@@ -270,16 +290,17 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	}
 #endif
 
-	/* Disable fec node if it is not availale */
+	/* Disable eqos node if it is not available */
 	if (!(features & FEAT_ETH_A)) {
 		fs_fdt_enable(fdt, "ethernet0", 0);
 	}
 
-	/* Disable eqos node if it is not availale */
+	/* Disable fec node if it is not available */
 	if (!(features & FEAT_ETH_B)) {
 		fs_fdt_enable(fdt, "ethernet1", 0);
 	}
 
+#if 0 // TODO:
 	/* Display A/B options */
 	/* -------------------------------------
 	 *                 |    0      |   1   |
@@ -288,13 +309,11 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	 * -------------------------------------
 	 * DISP_B (DSI_B): |   HDMI    | LVDS1 |
 	 * -------------------------------------
+	 *
+	 * in nboot configuration are display features inverted.
 	 * */
 
 	if (!(features & FEAT_DISP_A)) {
-		/* enable mipi_dsi1 */
-		fs_fdt_enable(fdt, "mipi_dsi", 1);
-		fs_fdt_enable(fdt, "lcdif1", 1);
-	}else{
 		/* disable mipi_dsi1 */
 		fs_fdt_enable(fdt, "mipi_dsi", 0);
 
@@ -309,21 +328,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 	}
 
 	if (!(features & FEAT_DISP_B)) {
-		/* enable HDMI */
-		fs_fdt_enable(fdt, "irqsteer_hdmi", 1);
-		fs_fdt_enable(fdt, "hdmimix_clk", 1);
-		fs_fdt_enable(fdt, "hdmimix_reset", 1);
-		fs_fdt_enable(fdt, "hdmi_pavi", 1);
-		fs_fdt_enable(fdt, "hdmi", 1);
-		fs_fdt_enable(fdt, "hdmiphy", 1);
-		fs_fdt_enable(fdt, "lcdif3", 1);
-		/* disable LVDS1 */
-		if(!(features & FEAT_DISP_A)) {
-			fs_fdt_enable(fdt, "ldb_phy", 0);
-			fs_fdt_enable(fdt, "ldb", 0);
-		}
-	}else{
-		/* disble HDMI */
+		/* disable HDMI */
 		fs_fdt_enable(fdt, "irqsteer_hdmi", 0);
 		fs_fdt_enable(fdt, "hdmimix_clk", 0);
 		fs_fdt_enable(fdt, "hdmimix_reset", 0);
@@ -331,12 +336,15 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		fs_fdt_enable(fdt, "hdmi", 0);
 		fs_fdt_enable(fdt, "hdmiphy", 0);
 		fs_fdt_enable(fdt, "lcdif3", 0);
+
 		/* enable LVDS1 */
 		fs_fdt_enable(fdt, "lcdif2", 1);
 		fs_fdt_enable(fdt, "ldb_phy", 1);
 		fs_fdt_enable(fdt, "ldb", 1);
 		fs_fdt_enable(fdt, FDT_LDB_LVDS1, 1);
+
 	}
+#endif
 
 	/* Disable SGTL5000 if it is not available */
 	if (!(features & FEAT_AUDIO)) {
@@ -356,11 +364,6 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		fs_fdt_enable(fdt, "rtcpcf85263", 0);
 		/* enable internal RTC */
 		fs_fdt_enable(fdt, "snvs_rtc", 1);
-	}else {
-		/* enable external RTC */
-		fs_fdt_enable(fdt, "rtcpcf85263", 1);
-		/* disable internal RTC */
-		fs_fdt_enable(fdt, "snvs_rtc", 0);
 	}
 
 	/* Set bdinfo entries */
@@ -389,7 +392,7 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		tmp_val = maxc * 1000;
 		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_CRIT);
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
-		offs = fs_fdt_path_offset(fdt, FDT_SOC_TEMP_ALERT);
+		offs = fs_fdt_path_offset(fdt, FDT_SOC_TEMP_CRIT);
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
@@ -417,14 +420,21 @@ static int do_fdt_board_setup_common(void *fdt)
 /* Do any board-specific modifications on U-Boot device tree before starting */
 int board_fix_fdt(void *fdt)
 {
-	/* TODO:
-	 * Call of the function changes board info structure values (RAM config)
-	 * in global data.
-	 * */
-#if 0
+	unsigned int features = fs_board_get_features();
+
 	/* Make some room in the FDT */
 	fdt_shrink_to_minimum(fdt, 8192);
-#endif
+
+	/* Disable eqos node if it is not available */
+	if (!(features & FEAT_ETH_A)) {
+		fs_fdt_enable(fdt, "ethernet0", 0);
+	}
+
+	/* Disable fec node if it is not available */
+	if (!(features & FEAT_ETH_B)) {
+		fs_fdt_enable(fdt, "ethernet1", 0);
+	}
+
 	return do_fdt_board_setup_common(fdt);
 }
 #endif
@@ -438,6 +448,7 @@ void fs_ethaddr_init(void)
 	switch (fs_board_get_type())
 	{
 	case BT_PICOCOREMX8MP:
+	case BT_PICOCOREMX8MPr2:
 	case BT_ARMSTONEMX8MP:
 		if (features2 & FEAT_ETH_A) {
 			fs_eth_set_ethaddr(eth_id++);
@@ -608,6 +619,7 @@ static int setup_typec(void)
 	switch(board_type) {
 	default:
 	case BT_PICOCOREMX8MP:
+	case BT_PICOCOREMX8MPr2:
 		port1_config.i2c_bus = 2; /* i2c3 */
 		break;
 	case BT_ARMSTONEMX8MP:
@@ -617,12 +629,10 @@ static int setup_typec(void)
 
 	ret = tcpc_init(&port1, port1_config, &ss_mux_select);
 	if (ret) {
-		printf("%s: tcpc port init failed, err=%d\n",
+		debug("%s: tcpc port init failed, err=%d\n",
 		       __func__, ret);
-	} else {
-		return ret;
+		port1.i2c_dev = NULL;
 	}
-
 	return ret;
 }
 #endif
@@ -724,25 +734,26 @@ int board_usb_init(int index, enum usb_init_type init)
 
 	if (index == 1 && init == USB_INIT_DEVICE) {
 #ifdef CONFIG_USB_TCPC
-		ret = tcpc_setup_ufp_mode(&port1);
-		if (ret)
-			return ret;
+		if(port1.i2c_dev)
+			tcpc_setup_ufp_mode(&port1);
 #endif
 		dwc3_nxp_usb_phy_init(&dwc3_device_data);
 		return dwc3_uboot_init(&dwc3_device_data);
 	} else if (index == 1 && init == USB_INIT_HOST) {
 #ifdef CONFIG_USB_TCPC
-		/*
-		 * first check upstream facing port (ufp)
-		 * for device
-		 * */
-		ret = tcpc_setup_ufp_mode(&port1);
-		if(ret)
+		if(port1.i2c_dev) {
 			/*
-			 * second check downstream facing port (dfp)
-			 * for usb host
+			 * first check upstream facing port (ufp)
+			 * for device
 			 * */
-			ret = tcpc_setup_dfp_mode(&port1);
+			ret = tcpc_setup_ufp_mode(&port1);
+			if(ret)
+				/*
+				 * second check downstream facing port (dfp)
+				 * for usb host
+				 * */
+				ret = tcpc_setup_dfp_mode(&port1);
+		}
 #endif
 		return ret;
 	} else if (index == 0 && init == USB_INIT_HOST) {
@@ -775,7 +786,8 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 		dwc3_uboot_exit(index);
 	} else if (index == 1 && init == USB_INIT_HOST) {
 #ifdef CONFIG_USB_TCPC
-		ret = tcpc_disable_src_vbus(&port1);
+		if(port1.i2c_dev)
+			ret = tcpc_disable_src_vbus(&port1);
 #endif
 	} else if (index == 0 && init == USB_INIT_HOST) {
 		/* Disable host power */
@@ -826,7 +838,6 @@ int board_init(void)
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[board_type]);
 
-
 #ifdef CONFIG_USB_TCPC
 	setup_typec();
 #endif
@@ -868,6 +879,7 @@ static iomux_v3_cfg_t const vlcd_on_pads[] = {
 
 int board_late_init(void)
 {
+#if 0
 	unsigned int board_type = fs_board_get_type();
 
 	switch(board_type) {
@@ -875,12 +887,16 @@ int board_late_init(void)
 	case BT_PICOCOREMX8MP:
 		env_set("platform", "picocoremx8mp");
 		break;
+	case BT_PICOCOREMX8MPr2:
+		env_set("platform", "picocoremx8mpr2");
+		break;
 	case BT_ARMSTONEMX8MP:
 		env_set("platform", "armstonemx8mp");
 		break;
 	}
 
 	env_set("sercon", "ttymxc1");
+#endif
 
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttymxc");
