@@ -119,6 +119,9 @@ int test_ethernet(char *szStrBuffer/*, char cmd*/)
 
 		/* Suppress message when no mdio is found */
 		mute_debug_port(1);
+		env_set("ethrotate", "no");
+		env_set("ethact", dev->name);
+		eth_init();
 		phy = mdio_phydev_for_ethname(dev->name);
 		mute_debug_port(0);
 
