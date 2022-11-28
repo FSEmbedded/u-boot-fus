@@ -1,0 +1,153 @@
+// SPDX-License-Identifier: GPL-2.0+ OR X11
+/*
+ * F&S Elektronik Systeme GmbH device tree source
+ *
+ * Copyright 2022 F&S Elektronik Systeme GmbH
+ *
+ */
+
+/dts-v1/;
+
+#include "fsl-ls1028a.dtsi"
+
+/ {
+    model = "F&S GAL1 Board";
+	compatible = "fus,gal1", "fsl,ls1028a";
+	aliases {
+		spi0 = &fspi;
+		eth0 = &enetc0;
+		eth1 = &enetc2;
+		eth2 = &mscc_felix_port0;
+		eth3 = &mscc_felix_port1;
+		eth4 = &mscc_felix_port2;
+		eth5 = &mscc_felix_port3;
+	};
+};
+
+&esdhc0 {
+	status = "okay";
+};
+
+&esdhc1 {
+	status = "okay";
+	mmc-hs200-1_8v;
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c4 {
+	status = "okay";
+	rtc@51 {
+		compatible = "nxp,pcf8563";
+		reg = <0x51>;
+	};
+};
+
+&serial0 {
+	/* serial0 -> UART1 */
+	status = "okay";
+};
+
+&usb1 {
+	/* intern USB */
+	status = "okay";
+};
+
+&usb2 {
+	/* M.2 */
+	status = "okay";
+};
+
+&enetc0 {
+	/* SFP Connector */
+	status = "okay";
+	phy-mode = "sgmii";
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&enetc1 {
+	/* internal Ethernet */
+	status = "okay";
+	phy-mode = "rgmii";
+	phy-handle = <&rdb_phy1>;
+};
+
+&enetc2 {
+	/* TSN-Switch */
+	status = "okay";
+};
+
+/* TSN-Switch */
+&mscc_felix {
+	status = "okay";
+};
+
+&mscc_felix_port0 {
+	label = "swp0";
+	phy-handle = <&sw_phy0>;
+	phy-mode = "qsgmii";
+	status = "okay";
+};
+
+&mscc_felix_port1 {
+	label = "swp1";
+	phy-handle = <&sw_phy1>;
+	phy-mode = "qsgmii";
+	status = "okay";
+};
+
+&mscc_felix_port2 {
+	label = "swp2";
+	phy-handle = <&sw_phy2>;
+	phy-mode = "qsgmii";
+	status = "okay";
+};
+
+&mscc_felix_port3 {
+	label = "swp3";
+	phy-handle = <&sw_phy3>;
+	phy-mode = "qsgmii";
+	status = "okay";
+};
+
+&mscc_felix_port4 {
+	ethernet = <&enetc2>;
+	status = "okay";
+};
+
+&mdio0 {
+	status = "okay";
+
+	rdb_phy1: phy@1 {
+		reg = <1>;
+	};
+
+	/* VSC8514 QSGMII PHY */
+	sw_phy0: phy@10 {
+		reg = <0x10>;
+	};
+
+	sw_phy1: phy@11 {
+		reg = <0x11>;
+	};
+
+	sw_phy2: phy@12 {
+		reg = <0x12>;
+	};
+
+	sw_phy3: phy@13 {
+		reg = <0x13>;
+	};
+};
+
+
+
