@@ -9,6 +9,7 @@
 /dts-v1/;
 
 #include "fsl-ls1028a.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
     model = "F&S GAL1 Board";
@@ -22,13 +23,27 @@
 		eth4 = &mscc_felix_port2;
 		eth5 = &mscc_felix_port3;
 	};
+
+	regulator {
+		reg_usb1: usb1_pwr {
+			compatible = "regulator-fixed";
+			regulator-name = "USB1_PWR";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio2 18 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+			regulator-always-on;
+		};
+	};
 };
 
 &esdhc0 {
+	is-sdcard;
 	status = "okay";
 };
 
 &esdhc1 {
+	is-emmc;
 	status = "okay";
 	mmc-hs200-1_8v;
 };
