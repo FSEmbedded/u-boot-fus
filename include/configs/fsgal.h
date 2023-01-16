@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright 2019, 2021 NXP
+ * Copyright (C) 2022 F&S Elektronik Systeme GmbH
+ *
  */
 
 #ifndef __FSGAL_H
@@ -20,11 +21,16 @@
 
 #define CONFIG_SYS_MONITOR_BASE CONFIG_SYS_TEXT_BASE
 
+/* SecureBoot Env additions */
+#define ESBC_SCRIPTHDR	"env exists secureboot && esbc_validate $scripthdraddr || esbc_halt;"
+#define SECUREBOOT_VALIDATE_IMAGE "env exists secureboot && esbc_validate $kernelheader_addr_r || esbc_halt;" \
+	"env exists secureboot && esbc_validate $fdtheader_addr_r || esbc_halt;"
+
 /* Initial environment variables */
 #ifndef SPL_NO_ENV
 #undef CONFIG_EXTRA_ENV_SETTINGS
 #define CONFIG_EXTRA_ENV_SETTINGS		\
-	"board=ls1028ardb\0"			\
+	"board=GAL1\0"			\
 	"hwconfig=fsl_ddr:bank_intlv=auto\0"	\
 	"ramdisk_addr=0x800000\0"		\
 	"ramdisk_size=0x2000000\0"		\
@@ -51,54 +57,73 @@
 	"console=ttyS0,115200\0"                \
 	"mtdparts=" CONFIG_MTDPARTS_DEFAULT "\0"	\
 	BOOTENV					\
-	"boot_scripts=ls1028ardb_boot.scr\0"    \
-	"boot_script_hdr=hdr_ls1028ardb_bs.out\0"	\
-	"scan_dev_for_boot_part="               \
-		"part list ${devtype} ${devnum} devplist; "   \
-		"env exists devplist || setenv devplist 1; "  \
-		"for distro_bootpart in ${devplist}; do "     \
-		  "if fstype ${devtype} "                  \
-			"${devnum}:${distro_bootpart} "      \
-			"bootfstype; then "                  \
-			"run scan_dev_for_boot; "            \
-		  "fi; "                                   \
-		"done\0"                                   \
-	"boot_a_script="				  \
-		"load ${devtype} ${devnum}:${distro_bootpart} "  \
-			"${scriptaddr} ${prefix}${script}; "    \
-		"env exists secureboot && load ${devtype} "     \
-			"${devnum}:${distro_bootpart} "		\
-			"${scripthdraddr} ${prefix}${boot_script_hdr} " \
-			"&& esbc_validate ${scripthdraddr};"    \
-		"source ${scriptaddr}\0"	  \
-	"xspi_bootcmd=echo Trying load from FlexSPI flash ...;" \
-		"sf probe 0:0 && sf read $load_addr " \
-		"$kernel_start $kernel_size ; env exists secureboot &&" \
-		"sf read $kernelheader_addr_r $kernelheader_start " \
-		"$kernelheader_size && esbc_validate ${kernelheader_addr_r}; "\
-		" bootm $load_addr#$board\0" \
-	"xspi_hdploadcmd=echo Trying load HDP firmware from FlexSPI...;" \
-		"sf probe 0:0 && sf read $load_addr 0x940000 0x30000 " \
-		"&& hdp load $load_addr 0x2000\0"			\
-	"sd_bootcmd=echo Trying load from SD ...;" \
-		"mmc dev 0;mmcinfo; mmc read $load_addr "		\
-		"$kernel_addr_sd $kernel_size_sd && "	\
-		"env exists secureboot && mmc read $kernelheader_addr_r " \
-		"$kernelhdr_addr_sd $kernelhdr_size_sd "		\
-		" && esbc_validate ${kernelheader_addr_r};"	\
-		"bootm $load_addr#$board\0"		\
-	"sd_hdploadcmd=echo Trying load HDP firmware from SD..;"	\
-		"mmc dev 0;mmcinfo;mmc read $load_addr 0x4a00 0x200 "	\
-		"&& hdp load $load_addr 0x2000\0"	\
-	"emmc_bootcmd=echo Trying load from EMMC ..;"	\
-		"mmc dev 1;mmcinfo; mmc read $load_addr "		\
-		"$kernel_addr_sd $kernel_size_sd && "	\
-		"env exists secureboot && mmc read $kernelheader_addr_r " \
-		"$kernelhdr_addr_sd $kernelhdr_size_sd "		\
-		" && esbc_validate ${kernelheader_addr_r};"	\
-		"bootm $load_addr#$board\0"			\
-	"emmc_hdploadcmd=echo Trying load HDP firmware from EMMC..;"      \
-		"mmc dev 1;mmcinfo;mmc read $load_addr 0x4a00 0x200 "	\
-		"&& hdp load $load_addr 0x2000\0"
+	"boot_scripts=fsgal_boot.scr\0"    \
+	"boot_script_hdr=hdr_bootscr.out\0" \
+	"kernel_image=Image\0" \
+	"dtb=fs-gal1.dtb\0" \
+	"boot_targets=mmc1 usb0 dhcp;\0 " \
+	\
+	"scan_dev_for_boot_part=" \
+		"part list ${devtype} ${devnum} devplist; " \
+		"env exists devplist || setenv devplist 1; " \
+		"for distro_bootpart in ${devplist}; do " \
+		  "if fstype ${devtype} " \
+			"${devnum}:${distro_bootpart} " \
+			"bootfstype; then " \
+			"run scan_dev_for_boot; " \
+		  "fi; " \
+		"done\0" \
+	\
+	"scan_dev_for_boot=" \
+	"echo Scanning ${devtype} " \
+		"${devnum}:${distro_bootpart}...; " \
+	"for prefix in ${boot_prefixes}; do " \
+		"run scan_dev_for_scripts; " \
+		"run scan_dev_for_images; " \
+		"run scan_dev_for_extlinux; " \
+	"done;" \
+	SCAN_DEV_FOR_EFI \
+	"\0" \
+	\
+	"boot_a_script=" \
+		"load ${devtype} ${devnum}:${distro_bootpart} " \
+			"${scriptaddr} ${prefix}${script}; " \
+		"env exists secureboot && load ${devtype} " \
+			"${devnum}:${distro_bootpart} " \
+			"${scripthdraddr} ${prefix}${boot_script_hdr};" \
+			ESBC_SCRIPTHDR \
+		"source ${scriptaddr};\0" \
+	\
+	"scan_dev_for_images=" \
+	"if test -e ${devtype} ${devnum}:${distro_bootpart} ${kernel_image}; then " \
+		"echo Kernel ${kernel_image} found; " \
+		"if test -e ${devtype} ${devnum}:${distro_bootpart} ${dtb}; then " \
+			"echo DeviceTree ${dtb} found; " \
+			"run boot_a_image; " \
+		"else " \
+			"echo ${dtb} not found!; " \
+		"fi; " \
+	"else " \
+		"echo ${kernel_image} not found!; " \
+	"fi;\0" \
+	\
+	"boot_a_image=echo Trying load from ${devtype} ${devnum}:${distro_bootpart} ...;" \
+		"env exists devpart_root || setenv devpart_root 2;" \
+		"part uuid $devtype $devnum:$devpart_root partuuidr;" \
+		"setenv bootargs "\
+			"console=ttyS0,115200 earlycon=uart8250,mmio,0x21c0500 " \
+			"root=PARTUUID=$partuuidr rw rootwait cma=64M " \
+			"iommu.passthrough=1 arm-smmu.disable_bypass=0 $othbootargs; " \
+		"load $devtype $devnum:$devpart_boot $kernel_addr_r $kernel_image; " \
+		"load $devtype $devnum:$devpart_boot $fdt_addr_r $dtb; " \
+		"env exists secureboot && " \
+			"echo Load CSF-Header ... && " \
+			"load $devtype $devnum:$devpart_boot " \
+				"$kernelheader_addr_r /secboot_hdrs/hdr_linux.out && " \
+			"load $devtype $devnum:$devpart_boot " \
+				"$fdtheader_addr_r /secboot_hdrs/hdr_dtb.out; " \
+		SECUREBOOT_VALIDATE_IMAGE \
+		"booti $kernel_addr_r - $fdt_addr_r;\0" 
+
 #endif
 #endif /* __FSGAL_H */
