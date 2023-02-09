@@ -241,7 +241,7 @@ int test_serial(char *szStrBuffer)
 		/* Clear reason-string */
 		szStrBuffer[0] = '\0';
 
-		if (test_gpio_dev(dev, &failmask))
+		if (test_gpio_dev(dev, NULL, &failmask))
 			gpio_exists = 1;
 
 		if (!fdt_get_property(fdt, node, "debug-port", NULL)) {

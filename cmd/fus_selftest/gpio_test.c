@@ -26,13 +26,15 @@
 
 static int size;
 static int set_size;
-char set_gpios_str[32];
-char in_gpios_str[32];
-char out_gpios_str[32];
-char set_pins_str[32];
-char in_pins_str[32];
-char out_pins_str[32];
-char pinctrl_str[32];
+char set_gpios_str[64];
+char in_gpios_str[64];
+char out_gpios_str[64];
+char set_pins_str[64];
+char in_pins_str[64];
+char out_pins_str[64];
+char pinctrl_str[64];
+
+char *dots = "......................";
 
 enum{
 	TEST_SD,
@@ -51,8 +53,10 @@ struct test_driver {
 
 // helper functions
 
-void set_gpios_default(void)
+void set_gpios_default(char *name)
 {
+
+	char *delimiter = "-";
 	strcpy(set_pins_str,"set-pins");
 	strcpy(in_pins_str,"in-pins");
 	strcpy(out_pins_str,"out-pins");
@@ -60,6 +64,25 @@ void set_gpios_default(void)
 	strcpy(in_gpios_str,"in-gpios");
 	strcpy(out_gpios_str,"out-gpios");
 	strcpy(pinctrl_str,"gpiotest");
+
+	if (name != NULL) {
+		strcat(set_gpios_str, delimiter);
+		strcat(in_gpios_str, delimiter);
+		strcat(out_gpios_str, delimiter);
+		strcat(set_pins_str, delimiter);
+		strcat(in_pins_str, delimiter);
+		strcat(out_pins_str, delimiter);
+		strcat(pinctrl_str, delimiter);
+
+		strcat(set_gpios_str, name);
+		strcat(in_gpios_str, name);
+		strcat(out_gpios_str, name);
+		strcat(set_pins_str, name);
+		strcat(in_pins_str, name);
+		strcat(out_pins_str, name);
+		strcat(pinctrl_str, name);
+	}
+
 }
 
 static int get_gpio_lists(struct udevice *dev, struct gpio_desc **in_gpios, struct gpio_desc **out_gpios)
@@ -186,7 +209,7 @@ static u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 	return failmask;
 }
 
-int test_gpio_dev(struct udevice *dev, u32 *failmask)
+int test_gpio_dev(struct udevice *dev, char *name, u32 *failmask)
 {
 	int i;
 	char variant[MAX_DESCR_LEN+1];
@@ -196,7 +219,7 @@ int test_gpio_dev(struct udevice *dev, u32 *failmask)
 	*failmask = 0;
 
 	/* Init gpio names */
-	set_gpios_default();
+	set_gpios_default(name);
 
 	/* Check special board variations (gpiotest-fert7) */
 	variant[0] = '-';
@@ -215,7 +238,7 @@ int test_gpio_dev(struct udevice *dev, u32 *failmask)
 	if (get_gpio_lists(dev, &in_gpios, &out_gpios)) {
 
 		/* If variant specific doesn't exist, try default gpios */
-		set_gpios_default();
+		set_gpios_default(name);
 
 		/* Get both GPIO-Lists (in-pins,in-gpios & out-pins,out-gpios) */
 		if (get_gpio_lists(dev, &in_gpios, &out_gpios))
@@ -258,13 +281,13 @@ int test_gpio_dev(struct udevice *dev, u32 *failmask)
 
 // main functions
 
-int test_gpio(int uclass, char *szStrBuffer)
+
+static int __test_gpio(int uclass, char *name, char *szStrBuffer)
 {
 	struct udevice *dev;
 	int port, gpio_exists, failed, first_pins, i;
 	const char *in_label, *out_label;
 	char *device_name;
-
 	/* Clear reason-string */
 	szStrBuffer[0] = '\0';
 
@@ -276,15 +299,19 @@ int test_gpio(int uclass, char *szStrBuffer)
 	first_pins = 1;
 
 	if (uclass == UCLASS_SPI)
-		device_name = "SPI.";
+		device_name = "SPI";
 	else if (uclass == UCLASS_I2C)
-		device_name = "I2C.";
+		device_name = "I2C";
 	else if (uclass == UCLASS_I2C_GENERIC)
-		device_name = "SAI.";
+		device_name = "SAI";
 	else if (uclass == UCLASS_MMC)
-		device_name = "SD..";
-	else if (uclass == UCLASS_GPIO)
-		device_name = "GPIO";
+		device_name = "SD";
+	else if (uclass == UCLASS_GPIO) {
+		if (name != NULL)
+			device_name = name;
+		else
+			device_name = "GPIO";
+	}
 	else
 		device_name = "UNKNOWN";
 
@@ -300,7 +327,7 @@ int test_gpio(int uclass, char *szStrBuffer)
 		}
 
 		/* If a size is returned, gpios exists */
-		if(test_gpio_dev(dev, &failmask))
+		if(test_gpio_dev(dev, name, &failmask))
 			gpio_exists = 1;
 
 		if (failmask)
@@ -326,7 +353,15 @@ int test_gpio(int uclass, char *szStrBuffer)
 	mute_debug_port(0);
 
 	if (gpio_exists) {
-		printf("%s..................", device_name);
+		if ( strlen(device_name)+3 < strlen(dots))
+		{
+			printf("%s%s%s", device_name, "-IO", &dots[strlen(device_name)+3]);
+		}
+		else
+		{
+			printf("Error, device name to long!");
+			return -1;
+		}
 		if (failed)
 			test_OkOrFail(-1, 1, szStrBuffer);
 		else
@@ -335,3 +370,14 @@ int test_gpio(int uclass, char *szStrBuffer)
 
 	return 0;
 }
+
+int test_gpio(int uclass, char *szStrBuffer)
+{
+	return __test_gpio(uclass, NULL, szStrBuffer);
+}
+
+int test_gpio_name( char *device_name, char *szStrBuffer)
+{
+	return __test_gpio(UCLASS_GPIO, device_name, szStrBuffer);
+}
+
