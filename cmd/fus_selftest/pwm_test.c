@@ -9,6 +9,7 @@
 #include <dm/pinctrl.h>
 #include <dm.h>
 #include <asm/gpio.h>
+#include <malloc.h>
 #include "selftest.h"
 #include "pwm_test.h"
 

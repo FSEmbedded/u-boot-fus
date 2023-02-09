@@ -12,6 +12,7 @@
 #include <net.h>
 #include <phy.h>
 #include <miiphy.h>
+#include <malloc.h>
 #include "ethernet_test.h"
 #include <asm/gpio.h>
 #include "serial_test.h" // mute_debug_port()

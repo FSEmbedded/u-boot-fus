@@ -13,6 +13,7 @@
 #include <asm/gpio.h>
 #include "relay_test.h"
 #include "selftest.h"
+#include <malloc.h>
 
 #include "serial_test.h" // mute_debug_port()
 

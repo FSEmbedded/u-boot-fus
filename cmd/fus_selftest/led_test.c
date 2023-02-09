@@ -11,6 +11,7 @@
 #include <dm.h>
 #include <dm/pinctrl.h>
 #include <asm/gpio.h>
+#include <malloc.h>
 #include "led_test.h"
 #include "selftest.h"
 
