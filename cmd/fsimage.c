@@ -48,36 +48,6 @@ static union local_buf local_buffer;
 
 /* ------------- Common helper function ------------------------------------ */
 
-/* Check if board configuration in OCRAM is OK and return the address */
-static void *fs_image_get_cfg_addr_check(bool with_fs_header)
-{
-	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr(true);
-	const char *type = "BOARD-CFG";
-
-	if (!fs_image_match(fsh, type, NULL)) {
-		printf("%s in OCRAM damaged\n", type);
-		return NULL;
-	}
-
-	if (!with_fs_header)
-		fsh++;
-
-	return fsh;
-}
-
-/* Return the BOARD-ID; id must have room for MAX_DESCR_LEN characters */
-static int fs_image_get_board_id(char *id)
-{
-	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr_check(true);
-
-	if (!fsh)
-		return -ENOENT;
-
-	memcpy(id, fsh->param.descr, MAX_DESCR_LEN);
-
-	return 0;
-}
-
 static bool fs_image_fits(struct img_info *img)
 {
 	if (img->size > img->si.size) {

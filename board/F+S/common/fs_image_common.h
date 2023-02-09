@@ -104,6 +104,11 @@ bool fs_image_match_board_id(struct fs_header_v1_0 *fsh, const char *type);
 /* Set the compare id that will used in fs_image_match_board_id() */
 void fs_image_set_board_id_compare(const char *id);
 
+/* Check if board configuration in OCRAM is OK and return the address */
+void *fs_image_get_cfg_addr_check(bool with_fs_header);
+
+/* Return the BOARD-ID; id must have room for MAX_DESCR_LEN characters */
+int fs_image_get_board_id(char *id);
 
 /* ------------- Stuff only for SPL ---------------------------------------- */
 

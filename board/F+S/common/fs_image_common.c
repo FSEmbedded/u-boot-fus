@@ -374,6 +374,36 @@ void fs_image_set_board_id_compare(const char *id)
 	fs_image_get_board_name_rev(id, &compare_bnr);
 }
 
+/* Check if board configuration in OCRAM is OK and return the address */
+void *fs_image_get_cfg_addr_check(bool with_fs_header)
+{
+	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr(true);
+	const char *type = "BOARD-CFG";
+
+	if (!fs_image_match(fsh, type, NULL)) {
+		printf("%s in OCRAM damaged\n", type);
+		return NULL;
+	}
+
+	if (!with_fs_header)
+		fsh++;
+
+	return fsh;
+}
+
+/* Return the BOARD-ID; id must have room for MAX_DESCR_LEN characters */
+int fs_image_get_board_id(char *id)
+{
+	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr_check(true);
+
+	if (!fsh)
+		return -ENOENT;
+
+	memcpy(id, fsh->param.descr, MAX_DESCR_LEN);
+
+	return 0;
+}
+
 
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
 
