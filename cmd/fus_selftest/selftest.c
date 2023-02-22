@@ -92,6 +92,38 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 {
 	int ret = CMD_RET_SUCCESS;
 
+
+
+
+#ifdef CONFIG_IMX8MP
+
+	printf("Uboot Selftest running...\n");
+
+	get_processorInfo();
+
+	ret = test_serial(szStrBuffer);
+
+	if (has_feature(FEAT_SEC_CHIP))
+		ret = test_sec(szStrBuffer);
+
+	ret = test_gpio_name("SPI", szStrBuffer);
+
+	ret = test_gpio(UCLASS_I2C, szStrBuffer);
+
+	ret = test_gpio(UCLASS_MMC, szStrBuffer);
+
+	ret = test_gpio_name("MISC", szStrBuffer);
+
+	if (!has_feature(FEAT_ETH_A))
+		ret = test_gpio_name("ETH", szStrBuffer);
+	if (!has_feature(FEAT_AUDIO))
+		ret = test_gpio_name("AUDIO", szStrBuffer);
+
+	ret = test_ram(szStrBuffer);
+
+	return ret;
+#else
+
 	printf("Selftest running...\n");
 
 	get_processorInfo();
@@ -99,7 +131,7 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	if (has_feature(FEAT_EXT_RTC))
 		ret = test_rtc_start();
 
-	//ret = test_display(szStrBuffer);
+	ret = test_display(szStrBuffer);
 #ifdef CONFIG_ENV_IS_IN_NAND
 	if (has_feature(FEAT_NAND))
 		ret = test_nand(szStrBuffer);
@@ -170,5 +202,5 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	}
 #endif
 	return ret;
-
+#endif
 }
