@@ -20,7 +20,16 @@
 #undef I2C_MUX_PCA_ADDR_PRI
 #undef I2C_MUX_CH_DEFAULT
 #undef DP_PWD_EN_DEFAULT_MASK
+#undef SD_BOOTCOMMAND
+#undef SD2_BOOTCOMMAND
 
+#define SD_BOOTCOMMAND	\
+	"run distro_bootcmd; " \
+	"env exists secureboot && esbc_halt;"
+
+#define SD2_BOOTCOMMAND	\
+	"run distro_bootcmd;" \
+	"env exists secureboot && esbc_halt;"
 
 #define CONFIG_SYS_CLK_FREQ		100000000
 #define CONFIG_DDR_CLK_FREQ		100000000
