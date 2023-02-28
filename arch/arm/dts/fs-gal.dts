@@ -12,16 +12,18 @@
 #include <dt-bindings/gpio/gpio.h>
 
 / {
-    model = "F&S GAL1 Board";
+    model = "F&S GAL Series";
 	compatible = "fus,gal1", "fsl,ls1028a";
 	aliases {
 		spi0 = &fspi;
 		eth0 = &enetc0;
-		eth1 = &enetc2;
-		eth2 = &mscc_felix_port0;
-		eth3 = &mscc_felix_port1;
-		eth4 = &mscc_felix_port2;
-		eth5 = &mscc_felix_port3;
+		eth1 = &enetc1;
+		eth2 = &enetc2;
+		eth3 = &mscc_felix_port0;
+		eth4 = &mscc_felix_port1;
+		eth5 = &mscc_felix_port2;
+		eth6 = &mscc_felix_port3;
+		eth7 = &enetc6;
 	};
 
 	regulator {
@@ -37,7 +39,7 @@
 	};
 };
 
-&esdhc0 {
+esdhc: &esdhc0 {
 	is-sdcard;
 	status = "okay";
 };
@@ -79,7 +81,7 @@
 	status = "okay";
 };
 
-&enetc0 {
+enetc_port0: &enetc0 {
 	/* SFP Connector */
 	status = "okay";
 	phy-mode = "sgmii";
@@ -89,20 +91,25 @@
 	};
 };
 
-&enetc1 {
+enetc_port1: &enetc1 {
 	/* internal Ethernet */
 	status = "okay";
 	phy-mode = "rgmii";
 	phy-handle = <&rdb_phy1>;
 };
 
-&enetc2 {
-	/* TSN-Switch */
+enetc_port2: &enetc2 {
+	/* TSN-Switch swp4 */
 	status = "okay";
 };
 
+enetc_port3: &enetc6 {
+	/* TSN-Switch swp5 */
+	status="disabled";
+};
+
 /* TSN-Switch */
-&mscc_felix {
+mscc_felix_ports: &mscc_felix {
 	status = "okay";
 };
 
@@ -136,6 +143,11 @@
 
 &mscc_felix_port4 {
 	ethernet = <&enetc2>;
+	status = "okay";
+};
+
+&mscc_felix_port5 {
+	ethernet = <&enetc6>;
 	status = "okay";
 };
 
