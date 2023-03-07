@@ -29,6 +29,10 @@
 #include <miiphy.h>
 #include "../drivers/net/fsl_enetc.h"
 
+#include "../fs_common/fs_eth_common.h"
+#include "../fs_common/fs_ls1028a_common.h"
+#include "../fs_common/fs_common.h"
+
 DECLARE_GLOBAL_DATA_PTR;
 
 int config_board_mux(void)
@@ -56,6 +60,11 @@ int board_init(void)
 #ifndef CONFIG_SYS_EARLY_PCI_INIT
 	pci_init();
 #endif
+	return 0;
+}
+
+int fsl_board_late_init(void){
+	fs_set_macaddrs();
 	return 0;
 }
 
@@ -131,6 +140,15 @@ int esdhc_status_fixup(void *blob, const char *compat)
 	return 0;
 }
 
+#ifdef CONFIG_OF_BOARD_FIXUP
+int board_fix_fdt(void *rw_fdt_blob)
+{
+	fs_fdt_board_setup(rw_fdt_blob);
+	fs_ubootfdt_board_setup(rw_fdt_blob);
+	return 0;
+}
+#endif
+
 #ifdef CONFIG_OF_BOARD_SETUP
 int ft_board_setup(void *blob, struct bd_info *bd)
 {
@@ -163,12 +181,108 @@ int ft_board_setup(void *blob, struct bd_info *bd)
 	fdt_fixup_enetc_mac(blob);
 #endif
 
+	fs_fdt_board_setup(blob);
+	fs_linuxfdt_board_setup(blob);
 	return 0;
 }
 #endif
 
 int checkboard(void)
 {
+	/*Print Board-Info*/
+	enum board_type btype = fs_get_board();
+	enum board_rev brev = fs_get_board_rev();
+	enum board_config bconfig = fs_get_board_config();
+	uint32_t features = fs_get_board_features();
+
+	puts("Board-Type: ");
+	switch(btype)
+	{
+		case GAL1:
+			puts("GAL1 ");
+			break;
+		case GAL2:
+			puts("GAL2 ");
+			break;
+		default:
+			puts("UNKNOWN ");
+	}
+
+	puts("Rev");
+	switch(brev)
+	{
+		case REV10:
+			puts("1.00 ");
+			break;
+		case REV11:
+			puts("1.10 ");
+			break;
+		case REV12:
+			puts("1.20 ");
+			break;
+		case REV13:
+			puts("1.30 ");
+			break;
+		default:
+			puts("UNKNOWN ");
+	}
+
+	puts("H");
+	switch(bconfig)
+	{
+		case H1:
+			puts("1\n");
+			break;
+		case H2:
+			puts("2\n");
+			break;
+		case H3:
+			puts("3\n");
+			break;
+		case H4:
+			puts("4\n");
+			break;
+		case H5:
+			puts("5\n");
+			break;
+		case H6:
+			puts("6\n");
+			break;
+		case H7:
+			puts("7\n");
+			break;
+		case H8:
+			puts("8\n");
+			break;
+		case H9:
+			puts("9\n");
+			break;
+		case H10:
+			puts("10\n");
+			break;
+		case H11:
+			puts("11\n");
+			break;
+		case H12:
+			puts("12\n");
+			break;
+		case H13:
+			puts("13\n");
+			break;
+		case H14:
+			puts("14\n");
+			break;
+		case H15:
+			puts("15\n");
+			break;
+		case H16:
+			puts("16\n");
+			break;
+		default:
+			puts("UNKNOWN\n");
+	}
+
+	/* Print Boot-SRC */
 #ifdef CONFIG_TFABOOT
 	enum boot_src src = get_boot_src();
 #endif
@@ -190,6 +304,30 @@ int checkboard(void)
 #ifdef CONFIG_TFABOOT
 	}
 #endif
+
+	if(btype == GAL1 || btype == GAL2)
+	{
+		puts("\nNetwork-Interfaces:\n");
+
+		if(features & FEAT_GAL_ETH_SFP)
+			puts("\t1x SFP\n");
+		if(features & FEAT_GAL_ETH_INTERN)
+			puts("\t1x Eth. intern\n");
+
+		int cnt=0;
+		if(features & FEAT_GAL_ETH_RJ45_1)
+			cnt++;
+		if(features & FEAT_GAL_ETH_RJ45_2)
+			cnt++;
+		if(features & FEAT_GAL_ETH_RJ45_3)
+			cnt++;
+		if(features & FEAT_GAL_ETH_RJ45_4)
+			cnt++;
+		
+		if(cnt)
+			printf("\t%dx RJ45\n\n",cnt);
+	}
+
 	return 0;
 }
 
