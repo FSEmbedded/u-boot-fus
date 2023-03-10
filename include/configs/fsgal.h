@@ -83,7 +83,7 @@
 	"boot_script_hdr=hdr_bootscr.out\0" \
 	"kernel_image=Image\0" \
 	"dtb=fs-gal1.dtb\0" \
-	"boot_targets=mmc1 usb0 dhcp;\0 " \
+	"boot_targets=mmc0 mmc1 usb0 usb1 dhcp;\0 " \
 	\
 	"scan_dev_for_boot_part=" \
 		"part list ${devtype} ${devnum} devplist; " \
