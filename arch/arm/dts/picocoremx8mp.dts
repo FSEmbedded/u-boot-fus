@@ -78,3 +78,15 @@
 		};
 	};
 };
+
+&gpio1 {
+	pinctrl-names = "gpiotest-MISC", "gpiotest-AUDIO", "gpiotest-SPI", "gpiotest-ETH";
+
+	pinctrl-3 = <&pinctrl_eqos_gpio>;
+	out-pins-ETH = "ETH_A_D1P", "ETH_A_D2P", "ETH_A_D3P", "ETH_A_D4P","ETH_B_D1P", "ETH_B_D2P", "ETH_B_D3P", "ETH_B_D4P";
+	out-gpios-ETH = <&gpio1 16 0>, <&gpio1 23 0>, <&gpio1 21 0>, <&gpio1 19 0>, <&gpio1 25 0>, <&gpio1 26 0>, <&gpio1 28 0>, <&gpio1 11 0>;
+	in-pins-ETH =  "ETH_A_N1P", "ETH_A_N2P", "ETH_A_N3P", "ETH_A_N4P","ETH_B_N1P", "ETH_B_N2P", "ETH_B_N3P", "ETH_B_N4P";
+	in-gpios-ETH = <&gpio1 17 0>, <&gpio1 22 0>, <&gpio1 20 0>, <&gpio1 18 0>, <&gpio1 24 0>, <&gpio1 27 0>, <&gpio1 29 0>, <&gpio1 4 0>;
+
+	status = "okay";
+};

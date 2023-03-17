@@ -504,7 +504,7 @@
 };
 
 &gpio1 {
-	pinctrl-names = "gpiotest-MISC", "gpiotest-ETH gpiotest-AUDIO gpiotest-SPI";
+	pinctrl-names = "gpiotest-MISC", "gpiotest-AUDIO", "gpiotest-SPI";
 
 	pinctrl-0 = <&pinctrl_gpio1>;
 	out-pins-MISC = "GPIO_J1_2", "BL_ON", "BL_PWM", "MPCIE_PERST", "GPIO_J1_54", "GPIO_J1_46", "GPIO_J2_75", "GPIO_J2_77", "GPIO_J2_65", "PWM", "GPIO_J3_15";
@@ -512,21 +512,13 @@
 	in-pins-MISC = "GPIO_J1_7", "VLCD_ON", "GPIO_J3_13", "MPCIE_WAKE", "GPIO_J1_52", "GPIO_J1_44", "GPIO_J2_73", "GPIO_J2_79", "GPIO_J2_67", "GPIO_J2_65","GPIO_J3_17";
 	in-gpios-MISC = <&gpio5 5 0>, <&gpio5 2 0>,<&gpio3 23 0>, <&gpio5 1 0>, <&gpio1 1 0>, <&gpio3 1 0>, <&gpio3 24 0>, <&gpio3 20 0>, <&gpio3 22 0>, <&gpio3 23 0>, <&gpio1 19 0>;
 
+	pinctrl-1 = <&pinctrl_audio_gpio>;
+	out-pins-AUDIO = "AUDIO_A_LOUT_L";
+	out-gpios-AUDIO= <&gpio4 25 0>;
+	in-pins-AUDIO=  "AUDIO_A_LIN_L";
+	in-gpios-AUDIO= <&gpio4 27 0>;
 
-	pinctrl-1 = <&pinctrl_eqos_gpio>;
-	out-pins-ETH = "ETH_A_D1P", "ETH_A_D2P", "ETH_A_D3P", "ETH_A_D4P","ETH_B_D1P", "ETH_B_D2P", "ETH_B_D3P", "ETH_B_D4P";
-	out-gpios-ETH = <&gpio1 16 0>, <&gpio1 23 0>, <&gpio1 21 0>, <&gpio1 19 0>, <&gpio1 25 0>, <&gpio1 26 0>, <&gpio1 28 0>, <&gpio1 11 0>;
-	in-pins-ETH =  "ETH_A_N1P", "ETH_A_N2P", "ETH_A_N3P", "ETH_A_N4P","ETH_B_N1P", "ETH_B_N2P", "ETH_B_N3P", "ETH_B_N4P";
-	in-gpios-ETH = <&gpio1 17 0>, <&gpio1 22 0>, <&gpio1 20 0>, <&gpio1 18 0>, <&gpio1 24 0>, <&gpio1 27 0>, <&gpio1 29 0>, <&gpio1 4 0>;
-
-
-	pinctrl-2 = <&pinctrl_audio_gpio>;
-	out-pins-AUDIO = "AUDIO_A_LOUT_L", "AUDIO_A_LOUT_L";
-	out-gpios-AUDIO= <&gpio4 25 0>, <&gpio4 26 0>;
-	in-pins-AUDIO=  "AUDIO_A_HP_L", "AUDIO_A_HP_R";
-	in-gpios-AUDIO= <&gpio4 27 0>, <&gpio4 23 0>;
-
-	pinctrl-3 = <&pinctrl_spi_gpio>;
+	pinctrl-2 = <&pinctrl_spi_gpio>;
 	out-pins-SPI = "SPI_A_MISO", "SPI_A_CS1","SPI_B_MOSI", "SPI_B_CS1","SPI_C_CS1", "SPI_C_MOSI";
 	out-gpios-SPI= <&gpio5 23 0>, <&gpio5 25 0>,<&gpio5 11 0>, <&gpio5 13 0>,<&gpio5 17 0>, <&gpio5 7 0>;
 	in-pins-SPI=  "SPI_A_MOSI", "SPI_A_SCK","SPI_B_MISO", "SPI_B_SCLK","SPI_C_MISO", "SPI_C_SCLK";
