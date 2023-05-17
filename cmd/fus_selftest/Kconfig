@@ -21,6 +21,7 @@ config XLCD_DRAW
 config XLCD_TEST
 	hex
 	default 0x0001
+
 config CMD_SELFTEST
 	bool "selftest"
 	default y
@@ -29,12 +30,19 @@ config CMD_SELFTEST
 	select DM_SERIAL
 	select DM_SPI
 	select DM_PWM
+	select MXC_SPI
+	help
+		Standard selftest for F&S boards. The argument of the command
+		is the display, that is used for the selftest.
+
+config CMD_SELFTEST_VIDEO
+	bool "selftest video"
+	default y if IMX8MM
 	select VIDEO
 	select IMX_SEC_MIPI_DSI
 	select NT35521
 	select CMD_LCD if VIDEO
 	select CMD_DRAW if VIDEO
-	select MXC_SPI
 	help
 		Standard selftest for F&S boards. The argument of the command
 		is the display, that is used for the selftest.

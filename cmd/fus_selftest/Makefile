@@ -31,7 +31,7 @@ obj-$(CONFIG_CMD_SELFTEST) += led_test.o
 obj-$(CONFIG_CMD_SELFTEST) += mnt_opt_test.o
 obj-$(CONFIG_CMD_SELFTEST) += gpio_test.o
 ifdef CONFIG_VIDEO
-obj-$(CONFIG_CMD_SELFTEST) += display_test.o
+obj-$(CONFIG_CMD_SELFTEST_VIDEO) += display_test.o
 endif
 obj-$(CONFIG_CMD_SELFTEST) += rtc_test.o
 obj-$(CONFIG_CMD_SELFTEST) += processor_info.o
@@ -41,9 +41,7 @@ obj-$(CONFIG_CMD_SELFTEST) += common/canfdspi/drv_spi.o
 obj-$(CONFIG_CMD_SELFTEST) += common/canfdspi/mcp251x.o
 obj-$(CONFIG_CMD_SELFTEST) += common/pcf85063tp.o
 obj-$(CONFIG_CMD_SELFTEST) += common/pcf85263atl.o
-obj-$(CONFIG_CMD_SELFTEST) += common/fus_sai.o
 obj-$(CONFIG_CMD_SELFTEST) += common/i2c_generic_probe.o
-obj-$(CONFIG_CMD_SELFTEST) += common/fsl_sgtl5000.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fsl_spi_dummy.o
 obj-$(CONFIG_CMD_SELFTEST) += common/fus_sdio.o
 obj-$(CONFIG_CMD_SELFTEST) += common/ksz9893r.o
@@ -57,6 +55,11 @@ obj-$(CONFIG_CMD_SELFTEST) += common/fus_gpio.o
 ifdef CONFIG_IMX8MM
 obj-$(CONFIG_CMD_SELFTEST) += imx8mm/audio_imx8mm.o
 obj-$(CONFIG_CMD_SELFTEST) += imx8mm/serial_imx8mm.o
+obj-$(CONFIG_CMD_SELFTEST) += common/fus_sai.o
+obj-$(CONFIG_CMD_SELFTEST) += common/fsl_sgtl5000.o
+endif
+ifdef CONFIG_IMX8MN
+obj-$(CONFIG_CMD_SELFTEST) += imx8mn/serial_imx8mn.o
 endif
 ifdef CONFIG_IMX8QXP
 obj-$(CONFIG_CMD_SELFTEST) += imx8x/ethernet_imx8x.o

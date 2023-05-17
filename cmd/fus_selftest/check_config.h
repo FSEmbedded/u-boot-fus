@@ -8,7 +8,7 @@
 #ifndef CMD_FUS_SELFTEST_CHECK_CONFIG_H_
 #define CMD_FUS_SELFTEST_CHECK_CONFIG_H_
 
-#ifdef CONFIG_IMX8MM
+#if defined(CONFIG_IMX8MM) || defined(CONFIG_IMX8MN)
 /* Board features; hast to be in sync with fsimx8mm.c */
 #define FEAT_ETH_A	(1<<0)
 #define FEAT_ETH_B	(1<<1)
