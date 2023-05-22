@@ -60,14 +60,13 @@ static inline uint32_t get_gal1_features(enum board_rev brev, enum board_config 
 
      /* default features for all revisions */
      features |= FEAT_GAL_ETH_SFP;
-     features |= FEAT_GAL_ETH_RJ45_1;
-     features |= FEAT_GAL_ETH_RJ45_2;
      features |= FEAT_GAL_RS485A;
      features |= FEAT_USB1;
      features |= FEAT_USB2;
      features |= FEAT_I2C1;
      features |= FEAT_I2C2;
      features |= FEAT_GAL_MMC;
+	features |= FEAT_GAL_SD;
      
      if(brev == REV10){
           /*default features for all Configs*/
@@ -98,6 +97,9 @@ static inline uint32_t get_gal2_features(enum board_rev brev, enum board_config 
 {
      /* default features for all revisions */
      uint32_t features = 0;
+
+     features |= FEAT_GAL_ETH_RJ45_1;
+	features |= FEAT_GAL_ETH_RJ45_4;
 
      if(brev == REV10){
           /*default features for all Configs*/
@@ -135,7 +137,8 @@ uint32_t fs_get_board_features()
      bconfig = fs_get_board_config();
      
      /*default features for all Board-Types*/
-     features = 0;
+     features |= FEAT_GAL_ETH_RJ45_2;
+	features |= FEAT_GAL_ETH_RJ45_3;
 
      switch(btype){
           case GAL1:
