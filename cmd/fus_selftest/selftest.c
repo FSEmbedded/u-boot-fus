@@ -130,8 +130,9 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	if (has_feature(FEAT_EXT_RTC))
 		ret = test_rtc_start();
-
+#ifdef CONFIG_IMX8MM
 	ret = test_display(szStrBuffer);
+#endif
 #ifdef CONFIG_ENV_IS_IN_NAND
 	if (has_feature(FEAT_NAND))
 		ret = test_nand(szStrBuffer);
@@ -156,16 +157,20 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 
 	if (has_feature(FEAT_EEPROM))
 		ret = test_eeprom(szStrBuffer);
-
+#ifndef CONFIG_IMX8MN
 	ret = test_USBHost(szStrBuffer);
-
+#endif
 	if (has_feature(FEAT_ETH_A) || has_feature(FEAT_ETH_B))
 		ret = test_ethernet(szStrBuffer);
 
 	ret = test_serial(szStrBuffer);
 
 	if (has_feature(FEAT_AUDIO))
+#ifdef CONFIG_IMX8MM
 		ret = test_audio(szStrBuffer);
+#else
+		printf("AUDIO test not implemented\n");
+#endif
 	else
 		ret = test_gpio(UCLASS_I2C_GENERIC, szStrBuffer);
 

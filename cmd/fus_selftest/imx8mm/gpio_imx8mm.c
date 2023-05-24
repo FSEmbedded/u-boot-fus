@@ -15,7 +15,6 @@ int skip_node(struct udevice *dev)
 	/* WLAN / mcp251x */
 	if (dev_read_bool(dev, "is-wlan")) {
 		if (has_feature(FEAT_WLAN)) {
-			port++;
 			return 1;
 		}
 	}
