@@ -507,11 +507,13 @@
 	pinctrl-names = "gpiotest-MISC", "gpiotest-AUDIO", "gpiotest-SPI";
 
 	pinctrl-0 = <&pinctrl_gpio1>;
-	out-pins-MISC = "GPIO_J1_2", "BL_ON", "BL_PWM", "MPCIE_PERST", "GPIO_J1_54", "GPIO_J1_46", "GPIO_J2_75", "GPIO_J2_77", "GPIO_J2_65", "PWM", "GPIO_J3_15";
-	out-gpios-MISC = <&gpio1 15 0>, <&gpio5 3 0>, <&gpio5 4 0>,  <&gpio4 30 0>, <&gpio3 14 0>, <&gpio3 0 0>, <&gpio4 2 0>, <&gpio3 19 0>, <&gpio4 20 0>, <&gpio1 10 0>, <&gpio1 18 0>;
-	in-pins-MISC = "GPIO_J1_7", "VLCD_ON", "GPIO_J3_13", "MPCIE_WAKE", "GPIO_J1_52", "GPIO_J1_44", "GPIO_J2_73", "GPIO_J2_79", "GPIO_J2_67", "GPIO_J2_65","GPIO_J3_17";
-	in-gpios-MISC = <&gpio5 5 0>, <&gpio5 2 0>,<&gpio3 23 0>, <&gpio5 1 0>, <&gpio1 1 0>, <&gpio3 1 0>, <&gpio3 24 0>, <&gpio3 20 0>, <&gpio3 22 0>, <&gpio3 23 0>, <&gpio1 19 0>;
-
+	out-pins-MISC = "GPIO_J1_2", "BL_ON", "MPCIE_PERST", "GPIO_J1_54", "GPIO_J1_46", "GPIO_J2_75", "GPIO_J2_77", "GPIO_J2_65", "PWM";
+	out-gpios-MISC = <&gpio1 15 0>, <&gpio5 3 0>,  <&gpio4 30 0>, <&gpio3 14 0>, <&gpio3 0 0>, <&gpio4 2 0>, <&gpio3 19 0>, <&gpio4 20 0>, <&gpio1 10 0> ;
+	in-pins-MISC = "GPIO_J1_7", "VLCD_ON", "MPCIE_WAKE", "GPIO_J1_52", "GPIO_J1_44", "GPIO_J2_73", "GPIO_J2_79", "GPIO_J2_67", "GPIO_J2_65";
+	in-gpios-MISC = <&gpio5 5 0>, <&gpio5 2 0>, <&gpio5 1 0>, <&gpio1 1 0>, <&gpio3 1 0>, <&gpio3 24 0>, <&gpio3 20 0>, <&gpio3 22 0>, <&gpio3 23 0>;
+	/* Not tested on J3 */
+	/*"GPIO_J3_15" <&gpio1 18 0> "GPIO_J3_17" <&gpio1 19 0> */
+	/*"BL_PWM", <&gpio5 4 0> "GPIO_J3_13"  ,<&gpio3 23 0> */
 	pinctrl-1 = <&pinctrl_audio_gpio>;
 	out-pins-AUDIO = "AUDIO_A_LOUT_L";
 	out-gpios-AUDIO= <&gpio4 25 0>;
