@@ -3,8 +3,8 @@
  * Copyright 2020 NXP
  */
 
-#ifndef __IMX8ULP_EVK_H
-#define __IMX8ULP_EVK_H
+#ifndef __FSIMX8ULP_H
+#define __FSIMX8ULP_H
 
 #include <linux/sizes.h>
 #include <asm/arch/imx-regs.h>
@@ -34,8 +34,13 @@
 
 /* ENET Config */
 #if defined(CONFIG_FEC_MXC)
-#define CONFIG_ETHPRIME                 "FEC"
+#define CONFIG_ETHPRIME                 "usb_ether"
 #define PHY_ANEG_TIMEOUT		20000
+
+#define CONFIG_NETMASK			255.255.255.0
+#define CONFIG_IPADDR			192.168.0.100
+#define CONFIG_SERVERIP			192.168.0.101
+#define CONFIG_GATEWAYIP		192.168.0.1
 
 #define CONFIG_FEC_XCV_TYPE		RMII
 #define CONFIG_FEC_MXC_PHYADDR		1
@@ -182,7 +187,7 @@
 
 #define CONFIG_SYS_SDRAM_BASE		0x80000000
 #define PHYS_SDRAM			0x80000000
-#define PHYS_SDRAM_SIZE			0x80000000 /* 2GB DDR */
+#define PHYS_SDRAM_SIZE			0x40000000 /* 1GB DDR */
 
 /* Monitor Command Prompt */
 #define CONFIG_SYS_CBSIZE		2048

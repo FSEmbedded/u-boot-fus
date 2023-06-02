@@ -93,7 +93,7 @@ int upower_pmic_i2c_write(u32 reg_addr, u32 reg_val)
 
 	ret = upwr_xcp_i2c_access(0x32, 1, 1, reg_addr, reg_val, NULL);
 	if (ret) {
-		printf("pmic i2c read failed ret %d\n", ret);
+		printf("pmic i2c write failed ret %d\n", ret);
 		return ret;
 	}
 
