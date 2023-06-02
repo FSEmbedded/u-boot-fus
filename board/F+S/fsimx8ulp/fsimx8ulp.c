@@ -48,6 +48,20 @@ static void setup_rtd_flexspi0(void)
 
 #endif
 
+#ifdef CONFIG_USB_ETHER
+#ifndef CONFIG_DM_ETH
+
+int board_eth_init(struct bd_info *bis)
+{
+	int rc = 0;
+
+	rc = usb_eth_initialize(bis);
+	return rc;
+}
+#endif
+#endif
+
+
 #if IS_ENABLED(CONFIG_FEC_MXC)
 #define ENET_CLK_PAD_CTRL	(PAD_CTL_PUS_UP | PAD_CTL_DSE | PAD_CTL_IBE_ENABLE)
 static iomux_cfg_t const enet_clk_pads[] = {
