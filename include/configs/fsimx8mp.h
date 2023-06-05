@@ -228,6 +228,8 @@
 #define CONFIG_POWER_I2C
 #define CONFIG_POWER_PCA9450
 
+#undef CONFIG_DM_PMIC
+
 #define CONFIG_SYS_I2C
 
 #endif
