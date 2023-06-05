@@ -34,16 +34,16 @@
 
 /* ENET Config */
 #if defined(CONFIG_FEC_MXC)
-#define CONFIG_ETHPRIME                 "usb_ether"
+#define CONFIG_ETHPRIME                 "FEC"
 #define PHY_ANEG_TIMEOUT		20000
 
 #define CONFIG_NETMASK			255.255.255.0
-#define CONFIG_IPADDR			192.168.0.100
+#define CONFIG_IPADDR			192.168.0.120
 #define CONFIG_SERVERIP			192.168.0.101
 #define CONFIG_GATEWAYIP		192.168.0.1
 
 #define CONFIG_FEC_XCV_TYPE		RMII
-#define CONFIG_FEC_MXC_PHYADDR		1
+#define CONFIG_FEC_MXC_PHYADDR		0
 
 #define IMX_FEC_BASE			0x29950000
 #endif
@@ -199,9 +199,5 @@
 #define WDOG_BASE_ADDR			WDG3_RBASE
 /* USB Configs */
 #define CONFIG_USB_MAX_CONTROLLER_COUNT 2
-
-#ifdef CONFIG_ANDROID_SUPPORT
-#include "imx8ulp_evk_android.h"
-#endif
 
 #endif

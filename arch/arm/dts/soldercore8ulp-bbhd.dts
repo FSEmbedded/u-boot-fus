@@ -46,6 +46,26 @@
 	clock-frequency = <50000000>;
 };
 
+&fec {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_enet>;
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_ENET_TS_SEL>;
+	assigned-clock-parents = <&clock_ext_ts>;
+	phy-mode = "rmii";
+	phy-handle = <&ethphy>;
+	status = "okay";
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethphy: ethernet-phy@0 {
+			reg = <0>;
+			micrel,led-mode = <1>;
+		};
+	};
+};
+
 
 &lpuart5 {
 	/* console */
@@ -135,21 +155,20 @@
 	// 	>;
 	// };
 
-	// pinctrl_enet: enetgrp {
-	// 	fsl,pins = <
-	// 		MX8ULP_PAD_PTE15__ENET0_MDC     0x43
-	// 		MX8ULP_PAD_PTE14__ENET0_MDIO    0x43
-	// 		MX8ULP_PAD_PTE17__ENET0_RXER    0x43
-	// 		MX8ULP_PAD_PTE18__ENET0_CRS_DV  0x43
-	// 		MX8ULP_PAD_PTF1__ENET0_RXD0     0x43
-	// 		MX8ULP_PAD_PTE20__ENET0_RXD1    0x43
-	// 		MX8ULP_PAD_PTE16__ENET0_TXEN    0x43
-	// 		MX8ULP_PAD_PTE23__ENET0_TXD0    0x43
-	// 		MX8ULP_PAD_PTE22__ENET0_TXD1    0x43
-	// 		MX8ULP_PAD_PTE19__ENET0_REFCLK  0x43
-	// 		MX8ULP_PAD_PTF10__ENET0_1588_CLKIN 0x43
-	// 	>;
-	// };
+	pinctrl_enet: enetgrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE15__ENET0_MDC     0x43
+			MX8ULP_PAD_PTE14__ENET0_MDIO    0x43
+			MX8ULP_PAD_PTE17__ENET0_RXER    0x43
+			MX8ULP_PAD_PTE18__ENET0_CRS_DV  0x43
+			MX8ULP_PAD_PTE21__ENET0_RXD0	0x43
+			MX8ULP_PAD_PTE20__ENET0_RXD1    0x43
+			MX8ULP_PAD_PTE16__ENET0_TXEN    0x43
+			MX8ULP_PAD_PTE23__ENET0_TXD0    0x43
+			MX8ULP_PAD_PTE22__ENET0_TXD1    0x43
+			MX8ULP_PAD_PTE19__ENET0_REFCLK  0x43
+		>;
+	};
 
 	// pinctrl_flexspi2_ptd: flexspi2ptdgrp {
 	// 	fsl,pins = <
