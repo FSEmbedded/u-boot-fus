@@ -37,10 +37,12 @@
 #define CONFIG_ETHPRIME                 "FEC"
 #define PHY_ANEG_TIMEOUT		20000
 
-#define CONFIG_NETMASK			255.255.255.0
-#define CONFIG_IPADDR			192.168.0.120
-#define CONFIG_SERVERIP			192.168.0.101
-#define CONFIG_GATEWAYIP		192.168.0.1
+//#define CONFIG_NETMASK		255.255.255.0
+//#define CONFIG_IPADDR			192.168.0.120
+//#define CONFIG_GATEWAYIP		192.168.0.1
+
+#define TEMP_ETH_ADDR  "00:05:51:42:42:42"
+#define CONFIG_SERVERIP			10.0.0.200
 
 #define CONFIG_FEC_XCV_TYPE		RMII
 #define CONFIG_FEC_MXC_PHYADDR		0
@@ -69,6 +71,7 @@
 	"jh_mmcboot=setenv jh_clk clk_ignore_unused mem=896MB; run loadimage; run mmcboot\0 " \
 	"jh_netboot=setenv jh_clk clk_ignore_unused mem=896MB; run netboot\0 "
 
+
 #define CONFIG_MFG_ENV_SETTINGS \
 	CONFIG_MFG_ENV_SETTINGS_DEFAULT \
 	"initrd_addr=0x83800000\0" \
@@ -76,17 +79,39 @@
 	"emmc_dev=0\0"\
 	"sd_dev=2\0"
 
+// ToDo:   In the fsimx8ulp_defconfig file, the 'bsp_bootcmd' has been modified to 'fs_bootcmd' for specific reasons.
+// CONFIG_BOOTCOMMAND="run distro_bootcmd;run bsp_bootcmd"
+#define FSNET_ENV \
+	"fs_bootcmd=run loadimage;" \
+		"run loadfdt; " \
+		"run set_bootargs;" \
+		"run boot_os;\0" \
+	".kernel_mmc=setenv loadimage fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${image}\0" \
+	".kernel_tftp=setenv loadimage tftpboot ${image};\0" \
+	".fdt_mmc=setenv loadfdt fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr_r} ${fdtfile}\0" \
+	".fdt_tftp=setenv loadfdt tftpboot ${fdt_addr_r} ${fdtfile}\0" \
+	".set_rootfs_nfs=setenv rootfs root=/dev/nfs nfsroot=${serverip}:/rootfs,v3,tcp\0" \
+	".set_rootfs_mmc=setenv rootfs root=${mmcroot}\0" \
+	"rootfs=root=" CONFIG_MMCROOT " rootwait rw\0" \
+	".network_dhcp=setenv network ip=dhcp;\0" \
+	".network_off=setenv network;\0" \
+	".network_on=setenv network ip=${ipaddr}:${serverip}:${gatewayip}:${netmask}:${hostname}:${netdev}\0" \
+	"automaticdhcp=setenv autoload no; dhcp\0" \
+	"ethaddr=" TEMP_ETH_ADDR "\0"\
+	"set_bootargs=setenv bootargs ${console} ${network}  ${rootfs};\0"
+
 /* Initial environment variables */
 #define CONFIG_EXTRA_ENV_SETTINGS		\
 	CONFIG_MFG_ENV_SETTINGS \
 	BOOTENV \
 	JAILHOUSE_ENV \
 	AHAB_ENV \
+	FSNET_ENV \
 	"scriptaddr=0x83500000\0" \
 	"kernel_addr_r=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
 	"image=Image\0" \
 	"splashimage=0x90000000\0" \
-	"console=ttyLP1,115200 earlycon\0" \
+	"console=console=ttyLP1,115200 earlycon\0" \
 	"fdtoverlay_addr_r=0x83040000\0"			\
 	"fdt_addr_r=0x83000000\0"			\
 	"fdt_addr=0x83000000\0"			\
@@ -174,7 +199,7 @@
 				   "fi; " \
 				"fi; " \
 		   "fi; " \
-	   "fi;"
+	   "fi;" \
 
 /* Link Definitions */
 
