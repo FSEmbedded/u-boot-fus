@@ -18,6 +18,9 @@
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"
+#ifdef CONFIG_CMD_SELFTEST
+#include "fs_dram_test.h"
+#endif
 #include <fuse.h>			/* fuse_read() */
 #include <update.h>			/* enum update_action */
 
@@ -34,6 +37,11 @@ static char fs_sys_prompt[32];
 
 /* Store a pointer to the current board info */
 static const struct fs_board_info *current_bi;
+
+#ifdef CONFIG_CMD_SELFTEST
+/* Store DRAM test result for bdinfo */
+static char dram_result[64] = "FAILED (Not run)";
+#endif
 
 /* ------------- Functions using fs_nboot_args ----------------------------- */
 
@@ -340,6 +348,11 @@ void fs_board_late_init_common(const char *serial_name)
 #endif
 	char var_name[20];
 
+#ifdef CONFIG_CMD_SELFTEST
+	/* Save dram_result for bdinfo */
+	fs_test_ram(dram_result);
+#endif
+
 	/* Set sercon variable if not already set */
 	envvar = env_get("sercon");
 	if (!envvar || !strcmp(envvar, "undef")) {
@@ -536,6 +549,14 @@ char *get_sys_prompt(void)
 {
 	return fs_sys_prompt;
 }
+
+#ifdef CONFIG_CMD_SELFTEST
+/* Return dram_result for bdinfo */
+char *get_dram_result(void)
+{
+	return dram_result;
+}
+#endif
 
 #endif /* ! CONFIG_SPL_BUILD */
 

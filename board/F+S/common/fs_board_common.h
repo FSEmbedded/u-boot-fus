@@ -131,4 +131,9 @@ void fs_board_late_init_common(const char *serial_name);
 /* Get the boot device that is programmed in the fuses. */
 enum boot_device fs_board_get_boot_dev_from_fuses(void);
 
+#ifdef CONFIG_CMD_SELFTEST
+/* Get dram_result for bdinfo */
+char * get_dram_result(void);
+#endif
+
 #endif /* !__FS_BOARD_COMMON_H__ */
