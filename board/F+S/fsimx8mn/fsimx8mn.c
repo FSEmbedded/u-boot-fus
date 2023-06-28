@@ -1427,6 +1427,20 @@ int ft_board_setup(void *fdt, bd_t *bd)
 		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
 	}
 
+#ifdef CONFIG_CMD_SELFTEST
+	if (!(features & FEAT_CAN)){
+			fs_fdt_enable(fdt, "spi1", 0);
+	}
+
+	if (!(features & FEAT_LVDS)){
+			fs_fdt_enable(fdt, "test_lvds", 0);
+	}
+
+	if (!(features & FEAT_MIPI_DSI)){
+			fs_fdt_enable(fdt, "test_mipi", 0);
+	}
+#endif
+
 	return do_fdt_board_setup_common(fdt);
 }
 

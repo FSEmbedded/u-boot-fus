@@ -443,7 +443,7 @@ static int ehci_usb_probe(struct udevice *dev)
 		ret = ehci_usb_phy_mode(dev);
 		if (ret)
 			return ret;
-		if (priv->init_type != type)
+		if (priv->init_type != type && type!=USB_INIT_UNKNOWN)
 			return -ENODEV;
 	}
 	plat->init_type = priv->init_type;
