@@ -55,6 +55,18 @@ esdhc: &esdhc0 {
 		compatible = "nxp,pcf8563";
 		reg = <0x51>;
 	};
+
+	gpio4: pca6524@22 {
+		/* extern GPIO controller */
+		compatible = "nxp,pcal6524";
+		reg  = <0x22>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <6 IRQ_TYPE_NONE>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
 };
 
 &serial0 {
