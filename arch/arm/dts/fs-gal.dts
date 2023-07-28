@@ -56,12 +56,12 @@ esdhc: &esdhc0 {
 		reg = <0x51>;
 	};
 
-	gpio4: pca6524@22 {
+	gpio3: pca6524@22 {
 		/* extern GPIO controller */
 		compatible = "nxp,pcal6524";
 		reg  = <0x22>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <6 IRQ_TYPE_NONE>;
+		interrupt-parent = <&gpio0>;
+		interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
 		gpio-controller;
 		#gpio-cells = <2>;
 		interrupt-controller;
@@ -160,6 +160,9 @@ mscc_felix_ports: &mscc_felix {
 
 	rdb_phy1: phy@1 {
 		reg = <1>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <20 IRQ_TYPE_EDGE_RISING>;
+		reset-gpios = <&gpio3 19 GPIO_ACTIVE_HIGH>;
 	};
 
 	/* VSC8514 QSGMII PHY */
