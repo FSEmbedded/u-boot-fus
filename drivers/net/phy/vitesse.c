@@ -59,6 +59,10 @@
 #define MIIM_VSC8514_18G_QSGMII		0x80e0
 #define MIIM_VSC8514_18G_CMDSTAT	0x8000
 
+/* Vitesse VSC8514 LED conf. registers */
+#define MIIM_VSC8514_LED_MODE		0x1D
+#define MIIM_VSC8514_LED_BEHAVIOR	0x1E
+
 /* Vitesse VSC8664 Control/Status Register */
 #define MIIM_VSC8664_SERDES_AND_SIGDET	0x13
 #define MIIM_VSC8664_ADDITIONAL_DEV	0x16
@@ -262,6 +266,13 @@ static int vsc8514_config(struct phy_device *phydev)
 	phy_write(phydev, MDIO_DEVAD_NONE, PHY_EXT_PAGE_ACCESS, 0);
 
 	genphy_config_aneg(phydev);
+
+	/*Configure Phy-LED Modes*/
+	val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_LED_MODE);
+	val &= 0xF0F0;
+	// LED0 => tx activity; LED2 => link established
+	val |= 0x080a;
+	phy_write(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_LED_MODE, val);
 
 	return 0;
 }
