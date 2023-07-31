@@ -24,14 +24,17 @@
 #endif
 #include <fsl_immap.h>
 #include <netdev.h>
-
 #include <fdtdec.h>
 #include <miiphy.h>
-#include "../drivers/net/fsl_enetc.h"
+#include <linux/delay.h>
 
+#include "../drivers/net/fsl_enetc.h"
 #include "../fs_common/fs_eth_common.h"
 #include "../fs_common/fs_ls1028a_common.h"
 #include "../fs_common/fs_common.h"
+
+#define GPIO_RGMII_RESET_NAME "gpio@22_19"
+#define GPIO_QSGMII_RESET_NAME "gpio@22_21"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -60,6 +63,24 @@ int board_init(void)
 #ifndef CONFIG_SYS_EARLY_PCI_INIT
 	pci_init();
 #endif
+
+	/* Set GPIO Reset-Pins for Eth.-PHYs */
+	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
+
+	/* Realtek Phy needs some extra help to read the correct PHYAD[2:0] values.
+	 *
+	 * When the board is powered up, phy starts and after 12.5ms it gets a
+	 * reset signal from a pull-up to 1v8. This leads to a misbehaviour of
+	 * the phy after clearing the reset, where it can't read its configured 
+	 * MDIO address.
+	 * 
+	 * Long story short, the power sequence of the PHY must not receive a reset signal within 100ms.
+	 */
+	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
+	udelay(100000); //100ms for Power Sequence needed
+	fs_set_gpio(GPIO_RGMII_RESET_NAME, 1);
+	udelay(10000);  //10ms
+	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
 	return 0;
 }
 
