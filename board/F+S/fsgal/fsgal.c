@@ -33,8 +33,13 @@
 #include "../fs_common/fs_ls1028a_common.h"
 #include "../fs_common/fs_common.h"
 
+/* GPIO-NAMES */
 #define GPIO_RGMII_RESET_NAME "gpio@22_19"
 #define GPIO_QSGMII_RESET_NAME "gpio@22_21"
+#define GPIO_PCIe1_PWR_EN "gpio@22_11"
+#define GPIO_PCIe2_PWR_EN "gpio@22_14"
+#define GPIO_PCIe_CLK_EN "gpio@22_2"
+#define GPIO_PCIe_SIM_SW "gpio@22_3"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -63,8 +68,18 @@ int board_init(void)
 #ifndef CONFIG_SYS_EARLY_PCI_INIT
 	pci_init();
 #endif
+	fs_set_gpio(GPIO_PCIe_CLK_EN, 0);
+	fs_set_gpio(GPIO_PCIe1_PWR_EN, 1);
+
+	/*	Set mPCIe (right) -> right SIM
+	 *	and M.2 (left) -> left SIM
+	 */
+	fs_set_gpio(GPIO_PCIe_SIM_SW, 0);
+
+	fs_set_gpio(GPIO_PCIe2_PWR_EN, 1);
 
 	/* Set GPIO Reset-Pins for Eth.-PHYs */
+
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
 
 	/* Realtek Phy needs some extra help to read the correct PHYAD[2:0] values.
@@ -74,13 +89,17 @@ int board_init(void)
 	 * the phy after clearing the reset, where it can't read its configured 
 	 * MDIO address.
 	 * 
-	 * Long story short, the power sequence of the PHY must not receive a reset signal within 100ms.
+	 * Long story short, the power sequence of the PHY must not receive a
+	 * reset signal within 100ms.
 	 */
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
 	udelay(100000); //100ms for Power Sequence needed
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 1);
 	udelay(10000);  //10ms
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
+	udelay(100000); //100ms
+
+
 	return 0;
 }
 
