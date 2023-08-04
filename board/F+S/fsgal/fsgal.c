@@ -40,6 +40,7 @@
 #define GPIO_PCIe2_PWR_EN "gpio@22_14"
 #define GPIO_PCIe_CLK_EN "gpio@22_2"
 #define GPIO_PCIe_SIM_SW "gpio@22_3"
+#define GPIO_USB_VBUS_EN "MPC@0232000018"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -77,9 +78,9 @@ int board_init(void)
 	fs_set_gpio(GPIO_PCIe_SIM_SW, 0);
 
 	fs_set_gpio(GPIO_PCIe2_PWR_EN, 1);
+	fs_set_gpio(GPIO_USB_VBUS_EN, 1);
 
 	/* Set GPIO Reset-Pins for Eth.-PHYs */
-
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
 
 	/* Realtek Phy needs some extra help to read the correct PHYAD[2:0] values.
