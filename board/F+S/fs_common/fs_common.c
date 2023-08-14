@@ -27,8 +27,7 @@ int fs_set_gpio(const char *gpio_name, int output){
         return ret;
     }
 
-    gpio.flags |= GPIOD_IS_OUT;
-    ret = dm_gpio_set_dir(&gpio);
+    ret = dm_gpio_set_dir_flags(&gpio, GPIOD_IS_OUT);
     if(ret < 0)
     {
         printf("GPIO: '%s' set as output failed: %d\n", gpio_name, ret);

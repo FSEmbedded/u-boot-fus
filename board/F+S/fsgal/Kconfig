@@ -12,15 +12,9 @@ config SYS_SOC
 config SYS_CONFIG_NAME
 	default "fsgal"
 
-config EMMC_BOOT
-	bool "Support for booting from EMMC"
-	default n
-
-config SYS_TEXT_BASE
+config TEXT_BASE
 	default 0x96000000 if SD_BOOT || EMMC_BOOT
 	default 0x82000000 if TFABOOT
 	default 0x20100000
-
-source "board/freescale/common/Kconfig"
 
 endif

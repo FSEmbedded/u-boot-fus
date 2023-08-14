@@ -24,12 +24,12 @@
 #undef SD2_BOOTCOMMAND
 
 #define SD_BOOTCOMMAND	\
-	"run distro_bootcmd; " \
-	"env exists secureboot && esbc_halt;"
+"run distro_bootcmd; " \
+"env exists secureboot && esbc_halt;"
 
 #define SD2_BOOTCOMMAND	\
-	"run distro_bootcmd;" \
-	"env exists secureboot && esbc_halt;"
+"run distro_bootcmd;" \
+"env exists secureboot && esbc_halt;"
 
 #define CONFIG_SYS_CLK_FREQ		100000000
 #define CONFIG_DDR_CLK_FREQ		100000000
@@ -50,8 +50,8 @@
 
 /* Initial environment variables */
 #ifndef SPL_NO_ENV
-#undef CONFIG_EXTRA_ENV_SETTINGS
-#define CONFIG_EXTRA_ENV_SETTINGS		\
+#undef CFG_EXTRA_ENV_SETTINGS
+#define CFG_EXTRA_ENV_SETTINGS \
 	"board=GAL1\0"			\
 	"hwconfig=fsl_ddr:bank_intlv=auto\0"	\
 	"ramdisk_addr=0x800000\0"		\
@@ -83,7 +83,6 @@
 	"boot_script_hdr=hdr_bootscr.out\0" \
 	"kernel_image=Image\0" \
 	"dtb=fs-gal1.dtb\0" \
-	"boot_targets=mmc0 mmc1 usb0 usb1 dhcp;\0 " \
 	\
 	"scan_dev_for_boot_part=" \
 		"part list ${devtype} ${devnum} devplist; " \

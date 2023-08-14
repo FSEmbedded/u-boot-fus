@@ -15,15 +15,30 @@
     model = "F&S GAL Series";
 	compatible = "fus,gal1", "fsl,ls1028a";
 	aliases {
+		crypto = &crypto;
+		serial0 = &duart0;
+		serial1 = &duart1;
+		mmc0 = &esdhc;
+		mmc1 = &esdhc1;
+		rtc1 = &ftm_alarm0;
 		spi0 = &fspi;
-		eth0 = &enetc0;
-		eth1 = &enetc1;
-		eth2 = &enetc2;
+		eth0 = &enetc_port0;
+		eth1 = &enetc_port1;
+		eth2 = &enetc_port2;
 		eth3 = &mscc_felix_port0;
 		eth4 = &mscc_felix_port1;
 		eth5 = &mscc_felix_port2;
 		eth6 = &mscc_felix_port3;
-		eth7 = &enetc6;
+		eth7 = &enetc_port3;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x4000000>;
 	};
 
 	regulator {
@@ -32,14 +47,15 @@
 			regulator-name = "USB1_PWR";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio2 18 GPIO_ACTIVE_HIGH>;
+			gpio = <&gpio3 18 GPIO_ACTIVE_HIGH>;
 			enable-active-high;
 			regulator-always-on;
 		};
 	};
 };
 
-esdhc: &esdhc0 {
+
+&esdhc {
 	is-sdcard;
 	status = "okay";
 };
@@ -58,11 +74,11 @@ esdhc: &esdhc0 {
 		reg = <0x51>;
 	};
 
-	gpio3: pca6524@22 {
+	gpio4: pca6524@22 {
 		/* extern GPIO controller */
 		compatible = "nxp,pcal6524";
 		reg  = <0x22>;
-		interrupt-parent = <&gpio0>;
+		interrupt-parent = <&gpio2>;
 		interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -71,22 +87,22 @@ esdhc: &esdhc0 {
 	};
 };
 
-&serial0 {
+&duart0 {
 	/* serial0 -> UART1 */
 	status = "okay";
 };
 
-&usb1 {
+&usb0 {
 	/* intern USB */
 	status = "okay";
 };
 
-&usb2 {
+&usb1 {
 	/* M.2 */
 	status = "okay";
 };
 
-enetc_port0: &enetc0 {
+&enetc_port0 {
 	/* SFP Connector */
 	status = "okay";
 	phy-mode = "sgmii";
@@ -96,19 +112,19 @@ enetc_port0: &enetc0 {
 	};
 };
 
-enetc_port1: &enetc1 {
+&enetc_port1 {
 	/* internal Ethernet */
 	status = "okay";
 	phy-mode = "rgmii";
-	phy-handle = <&rdb_phy1>;
+	phy-handle = <&rgmii_phy1>;
 };
 
-enetc_port2: &enetc2 {
+&enetc_port2 {
 	/* TSN-Switch swp4 */
 	status = "okay";
 };
 
-enetc_port3: &enetc6 {
+&enetc_port3 {
 	/* TSN-Switch swp5 */
 	status="disabled";
 };
@@ -147,24 +163,24 @@ mscc_felix_ports: &mscc_felix {
 };
 
 &mscc_felix_port4 {
-	ethernet = <&enetc2>;
+	ethernet = <&enetc_port2>;
 	status = "okay";
 };
 
 &mscc_felix_port5 {
-	ethernet = <&enetc6>;
+	ethernet = <&enetc_port3>;
 	/* Enable it to use Control Port for TSN-Switch */
 	status = "disable";
 };
 
-&mdio0 {
+&enetc_mdio_pf3 {
 	status = "okay";
 
-	rdb_phy1: phy@1 {
+	rgmii_phy1: phy@1 {
 		reg = <1>;
-		interrupt-parent = <&gpio3>;
+		interrupt-parent = <&gpio4>;
 		interrupts = <20 IRQ_TYPE_EDGE_RISING>;
-		reset-gpios = <&gpio3 19 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;
 	};
 
 	/* VSC8514 QSGMII PHY */

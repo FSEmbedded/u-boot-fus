@@ -226,7 +226,7 @@ void fs_fdt_board_setup(void *blob)
                          fdt_strerror(ret));
 		}
 
-		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix_ports",0);
+		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix",0);
 		if(ret) {
 			printf("ERROR: Failed to disable TSN-Switch: \n");
 		}
@@ -291,17 +291,17 @@ void fs_fdt_board_setup(void *blob)
 
      /* Setup UART */
      if (features & FEAT_LPUART1) {
-          ret = fs_fdt_enable_node_by_label(blob, "lpuart1", 1);
+          ret = fs_fdt_enable_node_by_label(blob, "lpuart0", 1);
           if(ret) {
-               printf("ERROR: Failed to enable lpuart1: %s",
+               printf("ERROR: Failed to enable lpuart0: %s",
                          fdt_strerror(ret));
           }
      }
 
      if (features & FEAT_LPUART3) {
-          ret = fs_fdt_enable_node_by_label(blob, "lpuart3", 1);
+          ret = fs_fdt_enable_node_by_label(blob, "lpuart2", 1);
           if(ret) {
-               printf("ERROR: Failed to enable lpuart3: %s",
+               printf("ERROR: Failed to enable lpuart2: %s",
                          fdt_strerror(ret));
           }
      }
@@ -310,7 +310,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C1){
           ret = fs_fdt_enable_node_by_label(blob, "i2c0",1);
           if(ret){
-               printf("ERROR: Failed to enable I2C1: %s",
+               printf("ERROR: Failed to enable i2c0: %s",
                          fdt_strerror(ret));
           }
      }
@@ -318,7 +318,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C2){
           ret = fs_fdt_enable_node_by_label(blob, "i2c1",1);
           if(ret){
-               printf("ERROR: Failed to enable I2C2: %s",
+               printf("ERROR: Failed to enable i2c1: %s",
                          fdt_strerror(ret));
           }
      }
@@ -326,7 +326,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C3){
           ret = fs_fdt_enable_node_by_label(blob, "i2c2",1);
           if(ret){
-               printf("ERROR: Failed to enable I2C3: %s",
+               printf("ERROR: Failed to enable i2c2: %s",
                          fdt_strerror(ret));
           }
      }
@@ -334,7 +334,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C4){
           ret = fs_fdt_enable_node_by_label(blob, "i2c3",1);
           if(ret){
-               printf("ERROR: Failed to enable I2C4: %s",
+               printf("ERROR: Failed to enable i2c3: %s",
                          fdt_strerror(ret));
           }
      }
@@ -342,7 +342,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C5){
           ret = fs_fdt_enable_node_by_label(blob, "i2c4", 1);
           if(ret){
-               printf("ERROR: Failed to enable I2C5: %s",
+               printf("ERROR: Failed to enable i2c4: %s",
                          fdt_strerror(ret));
           }
      }
@@ -350,7 +350,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C6){
           ret = fs_fdt_enable_node_by_label(blob, "i2c5", 1);
           if(ret){
-               printf("ERROR: Failed to enable I2C6: %s",
+               printf("ERROR: Failed to enable i2c5: %s",
                          fdt_strerror(ret));
           }
      }
@@ -359,7 +359,7 @@ void fs_fdt_board_setup(void *blob)
      if (!(features & FEAT_GAL_SD)){
           ret = fs_fdt_enable_node_by_label(blob, "esdhc",0);
           if(ret){
-               printf("ERROR: Failed to disable esdhc0: %s",
+               printf("ERROR: Failed to disable esdhc: %s",
                          fdt_strerror(ret));
           }
      }

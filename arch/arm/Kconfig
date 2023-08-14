@@ -1590,6 +1590,7 @@ config TARGET_FSGAL
 	select ARMV8_MULTIENTRY
 	select ARCH_SUPPORT_TFABOOT
 	select BOARD_LATE_INIT
+	select GPIO_EXTRA_HEADER
 	help
 	  Support for F&S fsgal1 plattform
 	  The GAL1 was developed from customer specific requirements.
