@@ -69,17 +69,17 @@ int board_init(void)
 #endif
 	fs_set_gpio(GPIO_PCIe_CLK_EN, 0);
 	fs_set_gpio(GPIO_PCIe1_PWR_EN, 1);
+	fs_set_gpio(GPIO_PCIe2_PWR_EN, 1);
+	fs_set_gpio(GPIO_USB_VBUS_EN, 1);
 
 	/*	Set mPCIe (right) -> right SIM
 	 *	and M.2 (left) -> left SIM
 	 */
 	fs_set_gpio(GPIO_PCIe_SIM_SW, 0);
 
-	fs_set_gpio(GPIO_PCIe2_PWR_EN, 1);
-	fs_set_gpio(GPIO_USB_VBUS_EN, 1);
 
 	/* Set GPIO Reset-Pins for Eth.-PHYs */
-	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
+	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 1);
 
 	/* Realtek Phy needs some extra help to read the correct PHYAD[2:0] values.
 	 *
@@ -96,7 +96,8 @@ int board_init(void)
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 1);
 	udelay(10000);  //10ms
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
-	udelay(100000); //100ms
+	
+	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
 
 
 	return 0;
