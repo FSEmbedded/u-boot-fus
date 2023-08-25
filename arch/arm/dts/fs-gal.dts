@@ -52,6 +52,11 @@
 			regulator-always-on;
 		};
 	};
+
+	esdhc1_pwrseq: emmc_pwrseq {
+		compatible = "mmc-pwrseq-emmc";
+		reset-gpios = <&gpio4 1 (GPIO_ACTIVE_LOW|GPIO_OPEN_DRAIN)>;
+	};
 };
 
 
@@ -64,6 +69,7 @@
 	is-emmc;
 	status = "okay";
 	mmc-hs200-1_8v;
+	mmc-pwrseq = <&esdhc1_pwrseq>;
 };
 
 &i2c0 {
