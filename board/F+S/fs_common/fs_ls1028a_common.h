@@ -38,10 +38,10 @@
 
 /* Define feature alias */
 // Alias for GAL Boards
-#define FEAT_GAL_ETH_SFP           FEAT_ETH_ENETC0
+#define FEAT_GAL_ETH_SFP           (FEAT_ETH_ENETC0 | FEAT_I2C2)
 #define FEAT_GAL_ETH_INTERN        FEAT_ETH_ENETC1
 #define FEAT_GAL_ETH_INTERN_BASET  FEAT_ETH_ENETC1
-#define FEAT_GAL_ETH_INTERN_BASEX  (FEAT_ETH_ENETC1 & FEAT_I2C5)
+#define FEAT_GAL_ETH_INTERN_BASEX  (FEAT_ETH_ENETC1 | FEAT_I2C5)
 #define FEAT_GAL_ETH_RJ45_1        FEAT_ETH_SWP1
 #define FEAT_GAL_ETH_RJ45_2        FEAT_ETH_SWP2
 #define FEAT_GAL_ETH_RJ45_3        FEAT_ETH_SWP3
@@ -65,22 +65,22 @@ enum board_rev {
 };
 
 enum board_config {
-    H1,
-    H2,
-    H3,
-    H4,
-    H5,
-    H6,
-    H7,
-    H8,
-    H9,
-    H10,
-    H11,
-    H12,
-    H13,
-    H14,
-    H15,
-    H16,
+    FERT1,
+    FERT2,
+    FERT3,
+    FERT4,
+    FERT5,
+    FERT6,
+    FERT7,
+    FERT8,
+    FERT9,
+    FERT10,
+    FERT11,
+    FERT12,
+    FERT13,
+    FERT14,
+    FERT15,
+    FERT16,
 };
 
 /**

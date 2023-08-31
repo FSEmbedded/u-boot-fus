@@ -59,21 +59,17 @@
 	};
 };
 
-
-&esdhc {
-	is-sdcard;
-	status = "okay";
-};
-
 &esdhc1 {
+	/* Enabled in U-Boot */
+    status = "disabled";
 	is-emmc;
-	status = "okay";
 	mmc-hs200-1_8v;
 	mmc-pwrseq = <&esdhc1_pwrseq>;
 };
 
 &i2c0 {
-	status = "okay";
+	/* Enabled in U-Boot */
+    status = "disabled";
 	
 	rtc@51 {
 		compatible = "nxp,pcf8563";
@@ -95,16 +91,6 @@
 
 &duart0 {
 	/* serial0 -> UART1 */
-	status = "okay";
-};
-
-&usb0 {
-	/* intern USB */
-	status = "okay";
-};
-
-&usb1 {
-	/* M.2 */
 	status = "okay";
 };
 
@@ -205,8 +191,4 @@ mscc_felix_ports: &mscc_felix {
 	sw_phy3: phy@13 {
 		reg = <0x13>;
 	};
-};
-
-&lpuart0 {
-	status = "okay";
 };

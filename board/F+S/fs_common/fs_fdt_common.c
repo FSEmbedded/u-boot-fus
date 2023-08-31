@@ -65,3 +65,15 @@ int fs_fdt_enable_node_by_label(void* blob, const char* label, bool value)
 
      return fs_fdt_enable_node_by_path(blob, path, value);
 }
+
+int fs_fdt_setprop_by_label(void* blob, const char* label, const char* property){
+	const char* path;
+    int ofnode;
+
+    path = fs_fdt_get_label(blob, label);
+    ofnode = fdt_path_offset((const void*)blob,path);
+    if(ofnode < 0)
+        return ofnode;
+
+    return fdt_setprop(blob, ofnode, property, NULL, 0);
+}

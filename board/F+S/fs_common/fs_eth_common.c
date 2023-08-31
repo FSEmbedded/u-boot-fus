@@ -135,14 +135,5 @@ void fs_set_macaddrs(){
 
 int fs_add_mac_prop(void *blob, const char* label)
 {
-    const char* path;
-    int ofnode, ret;
-               
-    path = fs_fdt_get_label(blob, label);
-    ofnode = fdt_path_offset((const void*)blob,path);
-    if(ofnode < 0)
-        return ofnode;
-
-    ret = fdt_setprop(blob, ofnode, "fused_mac", NULL, 0);
-    return ret;
+    return fs_fdt_setprop_by_label(blob, label, "fused_mac");
 }

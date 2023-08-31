@@ -53,4 +53,13 @@ int fs_fdt_enable_node_by_label(void* blob, const char* label, bool value);
  */
 int fs_fdt_enable_node_by_path(void* blob, const char* path, bool value);
 
+
+/**
+ * @brief set property without value in Device-Tree Node with given label
+ * @param blob pointer to the device tree blob
+ * @param label path to look up
+ * @property property-string to set
+*/
+int fs_fdt_setprop_by_label(void* blob, const char* label, const char* property);
+
 #endif //__FS_FDT_COMMON__

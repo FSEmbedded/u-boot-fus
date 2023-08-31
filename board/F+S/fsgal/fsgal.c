@@ -270,52 +270,52 @@ int checkboard(void)
 	puts("H");
 	switch(bconfig)
 	{
-		case H1:
+		case FERT1:
 			puts("1\n");
 			break;
-		case H2:
+		case FERT2:
 			puts("2\n");
 			break;
-		case H3:
+		case FERT3:
 			puts("3\n");
 			break;
-		case H4:
+		case FERT4:
 			puts("4\n");
 			break;
-		case H5:
+		case FERT5:
 			puts("5\n");
 			break;
-		case H6:
+		case FERT6:
 			puts("6\n");
 			break;
-		case H7:
+		case FERT7:
 			puts("7\n");
 			break;
-		case H8:
+		case FERT8:
 			puts("8\n");
 			break;
-		case H9:
+		case FERT9:
 			puts("9\n");
 			break;
-		case H10:
+		case FERT10:
 			puts("10\n");
 			break;
-		case H11:
+		case FERT11:
 			puts("11\n");
 			break;
-		case H12:
+		case FERT12:
 			puts("12\n");
 			break;
-		case H13:
+		case FERT13:
 			puts("13\n");
 			break;
-		case H14:
+		case FERT14:
 			puts("14\n");
 			break;
-		case H15:
+		case FERT15:
 			puts("15\n");
 			break;
-		case H16:
+		case FERT16:
 			puts("16\n");
 			break;
 		default:

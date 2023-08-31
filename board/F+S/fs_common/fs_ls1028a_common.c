@@ -64,7 +64,6 @@ static inline uint32_t get_gal1_features(enum board_rev brev, enum board_config 
      features |= FEAT_USB1;
      features |= FEAT_USB2;
      features |= FEAT_I2C1;
-     features |= FEAT_I2C2;
      features |= FEAT_GAL_MMC;
 	features |= FEAT_GAL_SD;
      
@@ -73,15 +72,16 @@ static inline uint32_t get_gal1_features(enum board_rev brev, enum board_config 
           features |= 0;
 
           switch(bconfig){
-               case H1:
+               case FERT1:
                     features |= FEAT_GAL_RS232;
                     features |= FEAT_GAL_ETH_INTERN_BASET;
                     break;
-               case H2:
+               case FERT2:
                     features |= FEAT_GAL_RS485B;
                     features |= FEAT_GAL_ETH_INTERN_BASEX;
+                    features |= FEAT_I2C6;
                     break;
-               case H3:
+               case FERT3:
                     features |= FEAT_GAL_RS485B;
                     features |= FEAT_GAL_ETH_INTERN_BASEX;
                     break;
@@ -106,10 +106,10 @@ static inline uint32_t get_gal2_features(enum board_rev brev, enum board_config 
           features |= 0;
 
           switch(bconfig){
-               case H1:
+               case FERT1:
                     features |= 0;
                     break;
-               case H2:
+               case FERT2:
                     features |= 0;
                     break;
                default:
@@ -293,7 +293,24 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_LPUART1) {
           ret = fs_fdt_enable_node_by_label(blob, "lpuart0", 1);
           if(ret) {
-               printf("ERROR: Failed to enable lpuart0: %s",
+               printf("ERROR: Failed to enable &lpuart0: %s\n",
+                         fdt_strerror(ret));
+          }
+
+          if (fs_get_board() == GAL1 || fs_get_board() == GAL2){
+               ret = fs_fdt_setprop_by_label(blob, "lpuart0",
+                              "linux,rs485-enabled-at-boot-time");
+               if(ret < 0){
+                    printf("ERROR: Failed to set RS485 mode in &lpuart0%s\n",
+                         fdt_strerror(ret));
+               }
+          }
+     }
+
+     if (features & FEAT_LPUART2){
+          ret = fs_fdt_enable_node_by_label(blob, "lpuart1", 1);
+          if(ret) {
+               printf("ERROR: Failed to enable &lpuart1: %s\n",
                          fdt_strerror(ret));
           }
      }
@@ -301,7 +318,42 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_LPUART3) {
           ret = fs_fdt_enable_node_by_label(blob, "lpuart2", 1);
           if(ret) {
-               printf("ERROR: Failed to enable lpuart2: %s",
+               printf("ERROR: Failed to enable &lpuart2: %s\n",
+                         fdt_strerror(ret));
+          }
+
+          if ((fs_get_board() == GAL1 || fs_get_board() == GAL2)
+                     && fs_get_board_config() != FERT1)
+          {
+               ret = fs_fdt_setprop_by_label(blob, "lpuart2",
+                     "linux,rs485-enabled-at-boot-time");
+               if(ret < 0){
+                    printf("ERROR: Failed to set RS485 mode in &lpuart2%s\n",
+                         fdt_strerror(ret));
+               }
+          }
+     }
+
+     if (features & FEAT_LPUART4) {
+          ret = fs_fdt_enable_node_by_label(blob, "lpuart3", 1);
+          if(ret) {
+               printf("ERROR: Failed to enable &lpuart3: %s\n",
+                         fdt_strerror(ret));
+          }
+     }
+
+     if (features & FEAT_LPUART5) {
+          ret = fs_fdt_enable_node_by_label(blob, "lpuart4", 1);
+          if(ret) {
+               printf("ERROR: Failed to enable &lpuart4: %s\n",
+                         fdt_strerror(ret));
+          }
+     }
+
+     if (features & FEAT_LPUART6) {
+          ret = fs_fdt_enable_node_by_label(blob, "lpuart5", 1);
+          if(ret) {
+               printf("ERROR: Failed to enable &lpuart5: %s\n",
                          fdt_strerror(ret));
           }
      }
@@ -310,7 +362,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C1){
           ret = fs_fdt_enable_node_by_label(blob, "i2c0",1);
           if(ret){
-               printf("ERROR: Failed to enable i2c0: %s",
+               printf("ERROR: Failed to enable &i2c0: %s\n",
                          fdt_strerror(ret));
           }
      }
@@ -318,7 +370,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C2){
           ret = fs_fdt_enable_node_by_label(blob, "i2c1",1);
           if(ret){
-               printf("ERROR: Failed to enable i2c1: %s",
+               printf("ERROR: Failed to enable &i2c1: %s\n",
                          fdt_strerror(ret));
           }
      }
@@ -326,7 +378,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C3){
           ret = fs_fdt_enable_node_by_label(blob, "i2c2",1);
           if(ret){
-               printf("ERROR: Failed to enable i2c2: %s",
+               printf("ERROR: Failed to enable &i2c2: %s\n",
                          fdt_strerror(ret));
           }
      }
@@ -334,7 +386,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C4){
           ret = fs_fdt_enable_node_by_label(blob, "i2c3",1);
           if(ret){
-               printf("ERROR: Failed to enable i2c3: %s",
+               printf("ERROR: Failed to enable &i2c3: %s\n",
                          fdt_strerror(ret));
           }
      }
@@ -342,7 +394,7 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C5){
           ret = fs_fdt_enable_node_by_label(blob, "i2c4", 1);
           if(ret){
-               printf("ERROR: Failed to enable i2c4: %s",
+               printf("ERROR: Failed to enable &i2c4: %s\n",
                          fdt_strerror(ret));
           }
      }
@@ -350,33 +402,78 @@ void fs_fdt_board_setup(void *blob)
      if (features & FEAT_I2C6){
           ret = fs_fdt_enable_node_by_label(blob, "i2c5", 1);
           if(ret){
-               printf("ERROR: Failed to enable i2c5: %s",
+               printf("ERROR: Failed to enable &i2c5: %s\n",
                          fdt_strerror(ret));
           }
      }
 
-     /* Setup MMC */
-     if (!(features & FEAT_GAL_SD)){
-          ret = fs_fdt_enable_node_by_label(blob, "esdhc",0);
+     /* Setup USB */
+     if (features & FEAT_USB1){
+          ret = fs_fdt_enable_node_by_label(blob, "usb0", 1);
           if(ret){
-               printf("ERROR: Failed to disable esdhc: %s",
+               printf("ERROR: Failed to enable &usb0: %s\n",
                          fdt_strerror(ret));
           }
      }
 
-     if (!(features & FEAT_GAL_MMC)){
-          ret = fs_fdt_enable_node_by_label(blob, "esdhc1",0);
+     if (features & FEAT_USB2){
+          ret = fs_fdt_enable_node_by_label(blob, "usb1", 1);
           if(ret){
-               printf("ERROR: Failed to disable esdhc1: %s",
+               printf("ERROR: Failed to enable &usb1: %s\n",
                          fdt_strerror(ret));
           }
      }
+
+     /* Setup ESDHC */
+     if (features & FEAT_ESDHC0){
+          ret = fs_fdt_enable_node_by_label(blob, "esdhc",1);
+          if(ret){
+               printf("ERROR: Failed to enable &esdhc: %s\n",
+                         fdt_strerror(ret));
+          }
+     }
+
+     if (features & FEAT_ESDHC1){
+          ret = fs_fdt_enable_node_by_label(blob, "esdhc1",1);
+          if(ret){
+               printf("ERROR: Failed to enable &esdhc1: %s\n",
+                         fdt_strerror(ret));
+          }
+     }
+
 }
 
 void fs_linuxfdt_board_setup(void *blob){
+     int ret = 0;
 
+     /* On GAL-Boards the SD-Adapter is not supposed to be used
+      * in Linux. The SD-Adapter should only be used for 
+      * Board-Bringup in U-Boot.
+      */
+     if(fs_get_board() == GAL1 || fs_get_board() == GAL2){
+
+          ret = fs_fdt_enable_node_by_label(blob, "esdhc",0);
+          if(ret){
+               printf("ERROR: Failed to disable &esdhc: %s\n",
+               fdt_strerror(ret));
+          }else{
+               log_debug("disable &esdhc in Linux FDT\n");
+          }
+
+     }
 }
 
 void fs_ubootfdt_board_setup(void *blob){
-
+     int ret = 0;
+     
+     /* On GAL-Boards the SD-Adapter can be always used in U-Boot.
+      * This provides the opportunity for a emergency bringup.
+      */
+     if(fs_get_board() == GAL1 || fs_get_board() == GAL2){
+          ret = fs_fdt_enable_node_by_label(blob, "esdhc",1);
+          if(ret){
+               printf("ERROR: Failed to enable &esdhc: %s\n",
+                    fdt_strerror(ret));
+          }
+     }
 }
