@@ -94,6 +94,14 @@
 	status = "okay";
 };
 
+&usb0 {
+    dr_mode = "host";
+};
+
+&usb1{
+    dr_mode = "host";
+};
+
 &enetc_port0 {
 	/* SFP Connector */
 	status = "okay";
