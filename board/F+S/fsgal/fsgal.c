@@ -36,12 +36,14 @@
 #include "../fs_common/fs_common.h"
 
 /* GPIO-NAMES */
-#define GPIO_RGMII_RESET_NAME "gpio@22_19"
-#define GPIO_QSGMII_RESET_NAME "gpio@22_21"
-#define GPIO_PCIe1_PWR_EN "gpio@22_11"
-#define GPIO_PCIe2_PWR_EN "gpio@22_14"
 #define GPIO_PCIe_CLK_EN "gpio@22_2"
 #define GPIO_PCIe_SIM_SW "gpio@22_3"
+#define GPIO_PCIe1_PWR_EN "gpio@22_11"
+#define GPIO_PCIe1_RST_B "gpio@22_12"
+#define GPIO_PCIe2_PWR_EN "gpio@22_14"
+#define GPIO_PCIe2_RST_B "gpio@22_15"
+#define GPIO_RGMII_RESET_NAME "gpio@22_19"
+#define GPIO_QSGMII_RESET_NAME "gpio@22_21"
 #define GPIO_USB_VBUS_EN "MPC@0232000018"
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -76,7 +78,10 @@ int board_init(void)
 	 *	and M.2 (left) -> left SIM
 	 */
 	fs_set_gpio(GPIO_PCIe_SIM_SW, 0);
-
+	
+	/* Linux will clear reset for PCIe before pci init */
+	fs_set_gpio(GPIO_PCIe1_RST_B, 0);
+	fs_set_gpio(GPIO_PCIe2_RST_B, 0);
 
 	/* Set GPIO Reset-Pins for Eth.-PHYs */
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 1);
@@ -96,9 +101,7 @@ int board_init(void)
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 1);
 	udelay(10000);  //10ms
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
-	
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
-
 
 	return 0;
 }
