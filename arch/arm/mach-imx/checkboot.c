@@ -177,6 +177,9 @@ u32 getImageLength(u32 addr)
  */
 int check_flash_partition(u32 addr, OPTIONS eOption, loff_t off, loff_t length)
 {
+	//CONFIG_CMD_MTDPARTS is selected by CMD_UBI, we use CONFIG_CMD_MTDPARTS
+	//because the missing function for the eMMC build comes from mtdparts.
+	#ifdef CONFIG_CMD_MTDPARTS
 	struct mtd_device *dev;
 	struct part_info *part;
 	static const char *names[] = {SECURE_PARTITIONS};
@@ -201,6 +204,7 @@ int check_flash_partition(u32 addr, OPTIONS eOption, loff_t off, loff_t length)
 			}
 		}
 	}
+	#endif
 	return 0;
 }
 
