@@ -60,30 +60,34 @@ u32 get_lpuart_clk(void)
 }
 #endif
 
-int board_init(void)
-{
-#ifdef CONFIG_FSL_LS_PPA
-	ppa_init();
-#endif
+static void clear_pci_perst(void){
+	fs_set_gpio(GPIO_PCIe1_RST_B, 1);
+	fs_set_gpio(GPIO_PCIe2_RST_B, 1);
+}
 
-#ifndef CONFIG_SYS_EARLY_PCI_INIT
-	pci_init();
-#endif
-	fs_set_gpio(GPIO_PCIe_CLK_EN, 0);
-	fs_set_gpio(GPIO_PCIe1_PWR_EN, 1);
-	fs_set_gpio(GPIO_PCIe2_PWR_EN, 1);
-	fs_set_gpio(GPIO_USB_VBUS_EN, 1);
+static void set_pci_perst(void){
+	fs_set_gpio(GPIO_PCIe1_RST_B, 0);
+	fs_set_gpio(GPIO_PCIe2_RST_B, 0);
+}
+
+static void prepare_pci(void){
+	set_pci_perst();
 
 	/*	Set mPCIe (right) -> right SIM
 	 *	and M.2 (left) -> left SIM
 	 */
 	fs_set_gpio(GPIO_PCIe_SIM_SW, 0);
-	
-	/* Linux will clear reset for PCIe before pci init */
-	fs_set_gpio(GPIO_PCIe1_RST_B, 0);
-	fs_set_gpio(GPIO_PCIe2_RST_B, 0);
 
-	/* Set GPIO Reset-Pins for Eth.-PHYs */
+	/* Enable PCIe Power */
+	fs_set_gpio(GPIO_PCIe1_PWR_EN, 1);
+	fs_set_gpio(GPIO_PCIe2_PWR_EN, 1);
+	
+	/* Enable clock */
+	fs_set_gpio(GPIO_PCIe_CLK_EN, 0);
+}
+
+/* Set GPIO Reset-Pins for Eth.-PHYs */
+static void prepare_eth(void){
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 1);
 
 	/* Realtek Phy needs some extra help to read the correct PHYAD[2:0] values.
@@ -102,6 +106,30 @@ int board_init(void)
 	udelay(10000);  //10ms
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
+}
+
+static void prepare_usb(void){
+	fs_set_gpio(GPIO_USB_VBUS_EN, 1);
+}
+
+
+int board_init(void)
+{
+#ifdef CONFIG_FSL_LS_PPA
+	ppa_init();
+#endif
+
+	prepare_pci();
+	prepare_eth();
+	prepare_usb();
+
+#ifndef CONFIG_SYS_EARLY_PCI_INIT
+	clear_pci_perst();
+	
+	/* some devices needs some time after reset clear */
+	udelay(12500);
+	pci_init();
+#endif
 
 	return 0;
 }

@@ -205,3 +205,11 @@ mscc_felix_ports: &mscc_felix {
 		reg = <0x13>;
 	};
 };
+
+&pcie1 {
+	status = "okay";
+};
+
+&pcie2 {
+	status = "okay";
+};
