@@ -71,7 +71,6 @@
 	"jh_mmcboot=setenv jh_clk clk_ignore_unused mem=896MB; run loadimage; run mmcboot\0 " \
 	"jh_netboot=setenv jh_clk clk_ignore_unused mem=896MB; run netboot\0 "
 
-
 #define CONFIG_MFG_ENV_SETTINGS \
 	CONFIG_MFG_ENV_SETTINGS_DEFAULT \
 	"initrd_addr=0x83800000\0" \
@@ -90,15 +89,16 @@
 	".kernel_tftp=setenv loadimage tftpboot ${image};\0" \
 	".fdt_mmc=setenv loadfdt fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr_r} ${fdtfile}\0" \
 	".fdt_tftp=setenv loadfdt tftpboot ${fdt_addr_r} ${fdtfile}\0" \
-	".set_rootfs_nfs=setenv rootfs root=/dev/nfs nfsroot=${serverip}:/rootfs,v3,tcp\0" \
-	".set_rootfs_mmc=setenv rootfs root=${mmcroot}\0" \
-	"rootfs=root=" CONFIG_MMCROOT " rootwait rw\0" \
+	".set_rootfs_nfs=setenv rootfs /dev/nfs nfsroot=${serverip}:${nfsroot},v3,tcp\0" \
+	".set_rootfs_mmc=setenv rootfs ${mmcroot}\0" \
+	"rootfs=" CONFIG_MMCROOT " rootwait rw\0" \
 	".network_dhcp=setenv network ip=dhcp;\0" \
 	".network_off=setenv network;\0" \
 	".network_on=setenv network ip=${ipaddr}:${serverip}:${gatewayip}:${netmask}:${hostname}:${netdev}\0" \
 	"automaticdhcp=setenv autoload no; dhcp\0" \
-	"ethaddr=" TEMP_ETH_ADDR "\0"\
-	"set_bootargs=setenv bootargs ${console} ${network}  ${rootfs};\0"
+	"ethaddr=" TEMP_ETH_ADDR "\0" \
+	"nfsroot=/rootfs\0" \
+	"set_bootargs=setenv bootargs console=${console} ${network}  root=${rootfs};\0"
 
 /* Initial environment variables */
 #define CONFIG_EXTRA_ENV_SETTINGS		\
@@ -111,7 +111,7 @@
 	"kernel_addr_r=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
 	"image=Image\0" \
 	"splashimage=0x90000000\0" \
-	"console=console=ttyLP1,115200 earlycon\0" \
+	"console=ttyLP1,115200 earlycon\0" \
 	"fdtoverlay_addr_r=0x83040000\0"			\
 	"fdt_addr_r=0x83000000\0"			\
 	"fdt_addr=0x83000000\0"			\
