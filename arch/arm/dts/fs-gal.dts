@@ -80,7 +80,7 @@
 		/* extern GPIO controller */
 		compatible = "nxp,pcal6524";
 		reg  = <0x22>;
-		interrupt-parent = <&gpio2>;
+		interrupt-parent = <&gpio1>;
 		interrupts = <6 IRQ_TYPE_EDGE_FALLING>;
 		gpio-controller;
 		#gpio-cells = <2>;
@@ -183,8 +183,8 @@ mscc_felix_ports: &mscc_felix {
 
 	rgmii_phy1: phy@1 {
 		reg = <1>;
-		interrupt-parent = <&gpio4>;
-		interrupts = <20 IRQ_TYPE_EDGE_RISING>;
+        interrupt-parent = <&gpio4>;
+        interrupts = <20 IRQ_TYPE_EDGE_RISING>;
 		reset-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;
 	};
 
