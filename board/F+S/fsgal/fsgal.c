@@ -127,7 +127,7 @@ int board_init(void)
 	clear_pci_perst();
 	
 	/* some devices needs some time after reset clear */
-	udelay(12500);
+	udelay(50000);
 	pci_init();
 #endif
 
