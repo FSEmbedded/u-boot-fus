@@ -9,6 +9,8 @@
 
 #include <asm/io.h>
 #include <fdt_support.h>
+#include <asm/arch-fsl-layerscape/soc.h>
+
 #include "fs_ls1028a_common.h"
 #include "fs_eth_common.h"
 #include "fs_common.h"
@@ -63,9 +65,6 @@ static inline uint32_t get_gal1_features(enum board_rev brev, enum board_config 
      features |= FEAT_GAL_RS485A;
      features |= FEAT_USB1;
      features |= FEAT_USB2;
-     features |= FEAT_I2C1;
-     features |= FEAT_GAL_MMC;
-	features |= FEAT_GAL_SD;
      
      if(brev == REV10){
           /*default features for all Configs*/
@@ -139,6 +138,8 @@ uint32_t fs_get_board_features()
      /*default features for all Board-Types*/
      features |= FEAT_GAL_ETH_RJ45_2;
 	features |= FEAT_GAL_ETH_RJ45_3;
+     features |= FEAT_I2C1;
+     features |= FEAT_GAL_MMC;
 
      switch(btype){
           case GAL1:
@@ -425,14 +426,6 @@ void fs_fdt_board_setup(void *blob)
      }
 
      /* Setup ESDHC */
-     if (features & FEAT_ESDHC0){
-          ret = fs_fdt_enable_node_by_label(blob, "esdhc",1);
-          if(ret){
-               printf("ERROR: Failed to enable &esdhc: %s\n",
-                         fdt_strerror(ret));
-          }
-     }
-
      if (features & FEAT_ESDHC1){
           ret = fs_fdt_enable_node_by_label(blob, "esdhc1",1);
           if(ret){
@@ -444,36 +437,39 @@ void fs_fdt_board_setup(void *blob)
 }
 
 void fs_linuxfdt_board_setup(void *blob){
-     int ret = 0;
+     uint32_t features;
+	int ret = 0;
+
+     features = fs_get_board_features();
 
      /* On GAL-Boards the SD-Adapter is not supposed to be used
       * in Linux. The SD-Adapter should only be used for 
       * Board-Bringup in U-Boot.
       */
-     if(fs_get_board() == GAL1 || fs_get_board() == GAL2){
+     if(!(features & FEAT_ESDHC0)){
 
           ret = fs_fdt_enable_node_by_label(blob, "esdhc",0);
           if(ret){
                printf("ERROR: Failed to disable &esdhc: %s\n",
                fdt_strerror(ret));
-          }else{
-               log_debug("disable &esdhc in Linux FDT\n");
           }
-
      }
 }
 
 void fs_ubootfdt_board_setup(void *blob){
+     uint32_t features;
      int ret = 0;
+
+     features = fs_get_board_features();
      
      /* On GAL-Boards the SD-Adapter can be always used in U-Boot.
       * This provides the opportunity for a emergency bringup.
       */
-     if(fs_get_board() == GAL1 || fs_get_board() == GAL2){
+     if (get_boot_src() == BOOT_SOURCE_SD_MMC || features & FEAT_ESDHC0){
           ret = fs_fdt_enable_node_by_label(blob, "esdhc",1);
           if(ret){
                printf("ERROR: Failed to enable &esdhc: %s\n",
-                    fdt_strerror(ret));
+                         fdt_strerror(ret));
           }
      }
 }
