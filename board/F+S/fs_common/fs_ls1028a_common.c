@@ -68,7 +68,7 @@ static inline uint32_t get_gal1_features(enum board_rev brev, enum board_config 
      
      if(brev == REV10){
           /*default features for all Configs*/
-          features |= 0;
+          features |= FEAT_I2C_TEMP;
 
           switch(bconfig){
                case FERT1:
@@ -297,14 +297,14 @@ void fs_fdt_board_setup(void *blob)
                printf("ERROR: Failed to enable &lpuart0: %s\n",
                          fdt_strerror(ret));
           }
+     }
 
-          if (fs_get_board() == GAL1 || fs_get_board() == GAL2){
-               ret = fs_fdt_setprop_by_label(blob, "lpuart0",
-                              "linux,rs485-enabled-at-boot-time");
-               if(ret < 0){
-                    printf("ERROR: Failed to set RS485 mode in &lpuart0%s\n",
-                         fdt_strerror(ret));
-               }
+     if (features & FEAT_LPUART1_RS485){
+          ret = fs_fdt_setprop_by_label(blob, "lpuart0",
+                         "linux,rs485-enabled-at-boot-time");
+          if(ret < 0){
+               printf("ERROR: Failed to set RS485 mode in &lpuart0%s\n",
+                    fdt_strerror(ret));
           }
      }
 
@@ -322,16 +322,14 @@ void fs_fdt_board_setup(void *blob)
                printf("ERROR: Failed to enable &lpuart2: %s\n",
                          fdt_strerror(ret));
           }
+     }
 
-          if ((fs_get_board() == GAL1 || fs_get_board() == GAL2)
-                     && fs_get_board_config() != FERT1)
-          {
-               ret = fs_fdt_setprop_by_label(blob, "lpuart2",
-                     "linux,rs485-enabled-at-boot-time");
-               if(ret < 0){
-                    printf("ERROR: Failed to set RS485 mode in &lpuart2%s\n",
-                         fdt_strerror(ret));
-               }
+     if (features & FEAT_LPUART3_RS485){
+          ret = fs_fdt_setprop_by_label(blob, "lpuart2",
+                    "linux,rs485-enabled-at-boot-time");
+          if(ret < 0){
+               printf("ERROR: Failed to set RS485 mode in &lpuart2%s\n",
+                    fdt_strerror(ret));
           }
      }
 
@@ -451,6 +449,14 @@ void fs_linuxfdt_board_setup(void *blob){
           ret = fs_fdt_enable_node_by_label(blob, "esdhc",0);
           if(ret){
                printf("ERROR: Failed to disable &esdhc: %s\n",
+               fdt_strerror(ret));
+          }
+     }
+
+     if(features & FEAT_I2C_TEMP){
+          ret = fs_fdt_enable_node_by_label(blob, "temp-sensor",1);
+          if(ret){
+               printf("ERROR: Failed to enable &temp-sensor %s\n",
                fdt_strerror(ret));
           }
      }

@@ -35,6 +35,9 @@
 #define FEAT_I2C6        BIT(19)
 #define FEAT_ESDHC0      BIT(20)   /* 0: no ESDHCx; 1: use ESDHCx */
 #define FEAT_ESDHC1      BIT(21)
+#define FEAT_I2C_TEMP    BIT(22)   /* 0: no on Board Temp Sensor; 1: on Board Temp Sensor */
+#define FEAT_LPUART1_RS485  BIT(23)
+#define FEAT_LPUART3_RS485  BIT(24)
 
 /* Define feature alias */
 // Alias for GAL Boards
@@ -46,8 +49,8 @@
 #define FEAT_GAL_ETH_RJ45_2        FEAT_ETH_SWP2
 #define FEAT_GAL_ETH_RJ45_3        FEAT_ETH_SWP3
 #define FEAT_GAL_ETH_RJ45_4        FEAT_ETH_SWP4
-#define FEAT_GAL_RS485A            FEAT_LPUART1
-#define FEAT_GAL_RS485B            FEAT_LPUART3
+#define FEAT_GAL_RS485A            (FEAT_LPUART1 | FEAT_LPUART1_RS485)
+#define FEAT_GAL_RS485B            (FEAT_LPUART3 | FEAT_LPUART3_RS485)
 #define FEAT_GAL_RS232             FEAT_LPUART3
 #define FEAT_GAL_MMC               FEAT_ESDHC1
 #define FEAT_GAL_SD                FEAT_ESDHC0
