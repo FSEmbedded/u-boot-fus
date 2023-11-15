@@ -88,6 +88,28 @@ static inline uint32_t get_gal1_features(enum board_rev brev, enum board_config 
                     break;
           }
      }
+
+     if(brev == REV11){
+          /*default features for all Configs*/
+          features |= 0;
+          
+          switch(bconfig){
+               case FERT1:
+                    features |= FEAT_GAL_ETH_INTERN_BASET;
+                    features |= FEAT_GAL_RS485B;
+                    break;
+               case FERT2:
+                    features |= FEAT_GAL_ETH_INTERN_BASEX;
+                    features |= FEAT_GAL_RS485B;
+                    break;
+               case FERT3:
+                    features |= FEAT_GAL_ETH_INTERN_BASEX;
+                    features |= FEAT_GAL_RS232;
+                    break;
+               default:
+                    break;
+          }
+     }
      
      return features;
 }
