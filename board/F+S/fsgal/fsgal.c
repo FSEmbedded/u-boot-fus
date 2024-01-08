@@ -112,6 +112,12 @@ static void prepare_usb(void){
 	fs_set_gpio(GPIO_USB_VBUS_EN, 1);
 }
 
+static void prepare_rtc(void){
+	struct udevice *dev;
+	uint8_t buf[1] = { 0x2 };
+	i2c_get_chip_for_busnum(0, 0x51, 1, &dev);
+	dm_i2c_write(dev, 0x25, buf, 1);
+}
 
 int board_init(void)
 {
@@ -122,6 +128,7 @@ int board_init(void)
 	prepare_pci();
 	prepare_eth();
 	prepare_usb();
+	prepare_rtc();
 
 #ifndef CONFIG_SYS_EARLY_PCI_INIT
 	clear_pci_perst();
