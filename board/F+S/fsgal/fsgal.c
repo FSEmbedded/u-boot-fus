@@ -101,9 +101,9 @@ static void prepare_eth(void){
 	 * reset signal within 100ms.
 	 */
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
-	udelay(100000); //100ms for Power Sequence needed
+	udelay(150000); // min 100ms for Power Sequence needed
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 1);
-	udelay(10000);  //10ms
+	udelay(20000);  // min 10ms for reset needed
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
 }
