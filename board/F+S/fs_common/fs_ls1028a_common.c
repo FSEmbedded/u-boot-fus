@@ -191,32 +191,15 @@ void fs_fdt_board_setup(void *blob)
 
      /* Setup Network Interfaces */
 	if(!(features & FEAT_ETH_ENETC0)){
-		ret = fs_fdt_enable_node_by_label(blob, "enetc_port0",0);
-		if(ret){
-			printf("ERROR: Failed to disable eth0: %s\n",
-                         fdt_strerror(ret));
-		}
+		fs_fdt_enable_node_by_label(blob, "enetc_port0",0);
 	}else{
-          ret = fs_add_mac_prop(blob, "enetc_port0");
-		if(ret){
-			printf("ERROR: Failed to add MAC-property on eth0: %s\n",
-                         fdt_strerror(ret));
-		}
+          fs_add_mac_prop(blob, "enetc_port0");
      }
 
 	if(!(features & FEAT_ETH_ENETC1)){
-
-		ret = fs_fdt_enable_node_by_label(blob, "enetc_port1",0);
-		if(ret) {
-			printf("ERROR: Failed to disable eth1: %s\n",
-                         fdt_strerror(ret));
-		}
+		fs_fdt_enable_node_by_label(blob, "enetc_port1",0);
 	}else{
-          ret = fs_add_mac_prop(blob, "enetc_port1");
-		if(ret){
-			printf("ERROR: Failed to add MAC-property on eth1: %s\n",
-                         fdt_strerror(ret));
-		}
+          fs_add_mac_prop(blob, "enetc_port1");
      }
 
      /* Disable TSN-Switch, when it is not used */
@@ -225,239 +208,118 @@ void fs_fdt_board_setup(void *blob)
 		!(features & FEAT_ETH_SWP3) &&
 		!(features & FEAT_ETH_SWP4))
 	{
-		ret = fs_fdt_enable_node_by_label(blob, "enetc_port2", 0);
-		if(ret) {
-			printf("ERROR: Failed to disable eth2: %s\n",
-                         fdt_strerror(ret));
-		}
-
-		ret = fs_fdt_enable_node_by_label(blob, "enetc_port3", 0);
-		if(ret) {
-			printf("ERROR: Failed to disable eth7: %s\n",
-                         fdt_strerror(ret));
-		}
-		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix_port4", 0);
-		if(ret) {
-			printf("ERROR: Failed to disable TSN-Switch Port 4: %s\n",
-                         fdt_strerror(ret));
-		}
-
-		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix_port5",0);
-		if(ret) {
-			printf("ERROR: Failed to disable TSN-Switch Port 5: %s\n",
-                         fdt_strerror(ret));
-		}
-
-		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix",0);
-		if(ret) {
-			printf("ERROR: Failed to disable TSN-Switch: \n");
-		}
+		fs_fdt_enable_node_by_label(blob, "enetc_port2", 0);
+		fs_fdt_enable_node_by_label(blob, "enetc_port3", 0);
+		fs_fdt_enable_node_by_label(blob, "mscc_felix_port4", 0);
+		fs_fdt_enable_node_by_label(blob, "mscc_felix_port5",0);
+		fs_fdt_enable_node_by_label(blob, "mscc_felix",0);
 	}
 
 	if(!(features & FEAT_ETH_SWP1)){
-		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix_port0",0);
-		if(ret) {
-			printf("ERROR: Failed to disable eth3: %s\n",
-                         fdt_strerror(ret));
-		}
+	     fs_fdt_enable_node_by_label(blob, "mscc_felix_port0",0);
+
 	}else{
-          ret = fs_add_mac_prop(blob, "mscc_felix_port0");
-		if(ret){
-			printf("ERROR: Failed to add MAC-property on eth3: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_add_mac_prop(blob, "mscc_felix_port0");
      }
 
 	if(!(features & FEAT_ETH_SWP2)){
 
-		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix_port1",0);
-		if(ret) {
-			printf("ERROR: Failed to disable eth4: %s\n",
-                         fdt_strerror(ret));
-		}
+	     fs_fdt_enable_node_by_label(blob, "mscc_felix_port1",0);
+
 	}else{
-          ret = fs_add_mac_prop(blob, "mscc_felix_port1");
-		if(ret){
-			printf("ERROR: Failed to add MAC-property on eth4: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_add_mac_prop(blob, "mscc_felix_port1");
      }
 
 	if(!(features & FEAT_ETH_SWP3)){
-		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix_port2",0);
-		if(ret) {
-			printf("ERROR: Failed to disable eth5: %s\n",
-                         fdt_strerror(ret));
-		}
+		fs_fdt_enable_node_by_label(blob, "mscc_felix_port2",0);
 	}else{
-          ret = fs_add_mac_prop(blob, "mscc_felix_port2");
-		if(ret){
-			printf("ERROR: Failed to add MAC-property on eth5: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_add_mac_prop(blob, "mscc_felix_port2");
      }
 
 	if(!(features & FEAT_ETH_SWP4)){
-		ret = fs_fdt_enable_node_by_label(blob, "mscc_felix_port3",0);
-		if(ret) {
-			printf("ERROR: Failed to disable eth6: %s\n",
-                         fdt_strerror(ret));
-		}
+		fs_fdt_enable_node_by_label(blob, "mscc_felix_port3",0);
 	}else{
-          ret = fs_add_mac_prop(blob, "mscc_felix_port3");
-		if(ret){
-			printf("ERROR: Failed to add MAC-property on eth6: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_add_mac_prop(blob, "mscc_felix_port3");
      }
 
      /* Setup UART */
      if (features & FEAT_LPUART1) {
-          ret = fs_fdt_enable_node_by_label(blob, "lpuart0", 1);
-          if(ret) {
-               printf("ERROR: Failed to enable &lpuart0: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "lpuart0", 1);
      }
 
      if (features & FEAT_LPUART1_RS485){
-          ret = fs_fdt_setprop_by_label(blob, "lpuart0",
+          fs_fdt_setprop_by_label(blob, "lpuart0",
                          "linux,rs485-enabled-at-boot-time");
-          if(ret < 0){
-               printf("ERROR: Failed to set RS485 mode in &lpuart0%s\n",
-                    fdt_strerror(ret));
-          }
      }
 
      if (features & FEAT_LPUART2){
-          ret = fs_fdt_enable_node_by_label(blob, "lpuart1", 1);
-          if(ret) {
-               printf("ERROR: Failed to enable &lpuart1: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "lpuart1", 1);
      }
 
      if (features & FEAT_LPUART3) {
-          ret = fs_fdt_enable_node_by_label(blob, "lpuart2", 1);
-          if(ret) {
-               printf("ERROR: Failed to enable &lpuart2: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "lpuart2", 1);
      }
 
      if (features & FEAT_LPUART3_RS485){
-          ret = fs_fdt_setprop_by_label(blob, "lpuart2",
+          fs_fdt_setprop_by_label(blob, "lpuart2",
                     "linux,rs485-enabled-at-boot-time");
-          if(ret < 0){
-               printf("ERROR: Failed to set RS485 mode in &lpuart2%s\n",
-                    fdt_strerror(ret));
-          }
      }
 
      if (features & FEAT_LPUART4) {
-          ret = fs_fdt_enable_node_by_label(blob, "lpuart3", 1);
-          if(ret) {
-               printf("ERROR: Failed to enable &lpuart3: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "lpuart3", 1);
      }
 
      if (features & FEAT_LPUART5) {
-          ret = fs_fdt_enable_node_by_label(blob, "lpuart4", 1);
-          if(ret) {
-               printf("ERROR: Failed to enable &lpuart4: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "lpuart4", 1);
      }
 
      if (features & FEAT_LPUART6) {
-          ret = fs_fdt_enable_node_by_label(blob, "lpuart5", 1);
-          if(ret) {
-               printf("ERROR: Failed to enable &lpuart5: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "lpuart5", 1);
      }
 
      /* Setup I2C */
      if (features & FEAT_I2C1){
-          ret = fs_fdt_enable_node_by_label(blob, "i2c0",1);
-          if(ret){
-               printf("ERROR: Failed to enable &i2c0: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "i2c0",1);
      }
 
      if (features & FEAT_I2C2){
-          ret = fs_fdt_enable_node_by_label(blob, "i2c1",1);
-          if(ret){
-               printf("ERROR: Failed to enable &i2c1: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "i2c1",1);
      }
 
      if (features & FEAT_I2C3){
-          ret = fs_fdt_enable_node_by_label(blob, "i2c2",1);
-          if(ret){
-               printf("ERROR: Failed to enable &i2c2: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "i2c2",1);
      }
 
      if (features & FEAT_I2C4){
-          ret = fs_fdt_enable_node_by_label(blob, "i2c3",1);
-          if(ret){
-               printf("ERROR: Failed to enable &i2c3: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "i2c3",1);
      }
 
      if (features & FEAT_I2C5){
-          ret = fs_fdt_enable_node_by_label(blob, "i2c4", 1);
-          if(ret){
-               printf("ERROR: Failed to enable &i2c4: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "i2c4", 1);
      }
 
      if (features & FEAT_I2C6){
-          ret = fs_fdt_enable_node_by_label(blob, "i2c5", 1);
-          if(ret){
-               printf("ERROR: Failed to enable &i2c5: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "i2c5", 1);
      }
 
      /* Setup USB */
      if (features & FEAT_USB1){
-          ret = fs_fdt_enable_node_by_label(blob, "usb0", 1);
-          if(ret){
-               printf("ERROR: Failed to enable &usb0: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "usb0", 1);
      }
 
      if (features & FEAT_USB2){
-          ret = fs_fdt_enable_node_by_label(blob, "usb1", 1);
-          if(ret){
-               printf("ERROR: Failed to enable &usb1: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "usb1", 1);
      }
 
      /* Setup ESDHC */
      if (features & FEAT_ESDHC1){
-          ret = fs_fdt_enable_node_by_label(blob, "esdhc1",1);
-          if(ret){
-               printf("ERROR: Failed to enable &esdhc1: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "esdhc1",1);
      }
 
 }
 
 void fs_linuxfdt_board_setup(void *blob){
      uint32_t features;
-	int ret = 0;
 
      features = fs_get_board_features();
 
@@ -466,26 +328,16 @@ void fs_linuxfdt_board_setup(void *blob){
       * Board-Bringup in U-Boot.
       */
      if(!(features & FEAT_ESDHC0)){
-
-          ret = fs_fdt_enable_node_by_label(blob, "esdhc",0);
-          if(ret){
-               printf("ERROR: Failed to disable &esdhc: %s\n",
-               fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "esdhc",0);
      }
 
      if(features & FEAT_I2C_TEMP){
-          ret = fs_fdt_enable_node_by_label(blob, "temp-sensor",1);
-          if(ret){
-               printf("ERROR: Failed to enable &temp-sensor %s\n",
-               fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "temp-sensor",1);
      }
 }
 
 void fs_ubootfdt_board_setup(void *blob){
      uint32_t features;
-     int ret = 0;
 
      features = fs_get_board_features();
      
@@ -493,10 +345,6 @@ void fs_ubootfdt_board_setup(void *blob){
       * This provides the opportunity for a emergency bringup.
       */
      if (get_boot_src() == BOOT_SOURCE_SD_MMC || features & FEAT_ESDHC0){
-          ret = fs_fdt_enable_node_by_label(blob, "esdhc",1);
-          if(ret){
-               printf("ERROR: Failed to enable &esdhc: %s\n",
-                         fdt_strerror(ret));
-          }
+          fs_fdt_enable_node_by_label(blob, "esdhc",1);
      }
 }

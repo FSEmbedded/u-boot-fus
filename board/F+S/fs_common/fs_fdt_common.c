@@ -35,8 +35,10 @@ int fs_fdt_enable_node_by_path(void* blob, const char* path, bool value)
      int offset, ret, len;
 
      offset = fdt_path_offset((const void*)blob,path);
-	if (offset < 0)
+	if (offset < 0){
+		printf("ofnode for %s not found!\n", path);
 		return offset;
+	}
 
 	/* Do not change if status already exists and has this value */
 	val = fdt_getprop(blob, offset, "status", &len);
@@ -71,9 +73,15 @@ int fs_fdt_setprop_by_label(void* blob, const char* label, const char* property)
     int ofnode;
 
     path = fs_fdt_get_label(blob, label);
+	if (path == NULL){
+		printf("Path for %s not found!\n", label);
+	    return -FDT_ERR_NOTFOUND;
+	}
     ofnode = fdt_path_offset((const void*)blob,path);
-    if(ofnode < 0)
+    if(ofnode < 0){
+		printf("ofnode for %s not found!\n", label);
         return ofnode;
+	}
 
     return fdt_setprop(blob, ofnode, property, NULL, 0);
 }
