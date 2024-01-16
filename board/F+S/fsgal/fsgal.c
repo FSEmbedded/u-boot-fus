@@ -34,6 +34,7 @@
 #include "../fs_common/fs_eth_common.h"
 #include "../fs_common/fs_ls1028a_common.h"
 #include "../fs_common/fs_common.h"
+#include "../fs_common/fs_fdt_common.h"
 
 /* GPIO-NAMES */
 #define GPIO_PCIe_CLK_EN "gpio@22_2"
@@ -230,6 +231,10 @@ int board_fix_fdt(void *rw_fdt_blob)
 #ifdef CONFIG_OF_BOARD_SETUP
 int ft_board_setup(void *blob, struct bd_info *bd)
 {
+	enum board_type btype;
+	enum board_rev brev;
+	enum board_config bconf;
+
 	u64 base[CONFIG_NR_DRAM_BANKS];
 	u64 size[CONFIG_NR_DRAM_BANKS];
 
@@ -261,6 +266,17 @@ int ft_board_setup(void *blob, struct bd_info *bd)
 
 	fs_fdt_board_setup(blob);
 	fs_linuxfdt_board_setup(blob);
+
+	btype = fs_get_board();
+	brev = fs_get_board_rev();
+	bconf = fs_get_board_config();
+
+	if(btype == GAL1 &&
+		brev == REV11 &&
+		bconf == FERT3){
+			fs_fdt_enable_node_by_label(blob, "sfp_int", 1);
+		}
+
 	return 0;
 }
 #endif
