@@ -1156,4 +1156,3 @@ struct dram_timing_info2 dram_timing = {
 	.phy_f2_cfg_num = ARRAY_SIZE(ddr_phy_f2_cfg),
 	.fsp_table = { 96, 192, 1056 },
 };
-

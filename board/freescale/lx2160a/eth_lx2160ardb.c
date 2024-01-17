@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2018-2021 NXP
+ * Copyright 2018-2022 NXP
  *
  */
 
@@ -54,7 +54,7 @@ int setup_eth_rev_c(u32 srds_p)
 		break;
 	case 18:
 		for (i = WRIOP1_DPMAC7; i <= WRIOP1_DPMAC10; i++)
-			wriop_init_dpmac_enet_if(i, PHY_INTERFACE_MODE_XFI);
+			wriop_init_dpmac_enet_if(i, PHY_INTERFACE_MODE_XGMII);
 		break;
 	default:
 		printf("SerDes1 protocol 0x%x is not supported on LX2160ARDB\n",

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  */
 
 #include <common.h>
@@ -106,17 +106,14 @@ int arch_cpu_init_dm(void)
 int arch_misc_init(void)
 {
 #if !defined(CONFIG_ANDROID_SUPPORT) && !defined(CONFIG_ANDROID_AUTO_SUPPORT)
-	struct udevice *dev;
-	int node, ret;
+	if (IS_ENABLED(CONFIG_FSL_CAAM)) {
+		struct udevice *dev;
+		int ret;
 
-	node = fdt_node_offset_by_compatible(gd->fdt_blob, -1, "fsl,sec-v4.0");
-
-	ret = uclass_get_device_by_of_offset(UCLASS_MISC, node, &dev);
-	if (ret) {
-		printf("could not get caam jr device %d\n", ret);
-		return 0;
+		ret = uclass_get_device_by_driver(UCLASS_MISC, DM_DRIVER_GET(caam_jr), &dev);
+		if (ret)
+			printf("Failed to initialize caam_jr: %d\n", ret);
 	}
-	device_probe(dev);
 #endif
 
 	return 0;
@@ -393,7 +390,7 @@ bool is_usb_boot(void)
 	return get_boot_device() == USB_BOOT;
 }
 
-#ifdef CONFIG_SERIAL_TAG
+#if defined(CONFIG_SERIAL_TAG) || defined(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)
 #define FUSE_UNIQUE_ID_WORD0 16
 #define FUSE_UNIQUE_ID_WORD1 17
 void get_board_serial(struct tag_serialnr *serialnr)
@@ -422,7 +419,7 @@ void get_board_serial(struct tag_serialnr *serialnr)
 	serialnr->low = val1;
 	serialnr->high = val2;
 }
-#endif /*CONFIG_SERIAL_TAG*/
+#endif /*CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG*/
 
 __weak int board_mmc_get_env_dev(int devno)
 {
@@ -1151,6 +1148,7 @@ static int usb_port_auto_check(void)
 	u32 usb2_data;
 	struct power_domain pd;
 	struct power_domain phy_pd;
+	struct ehci_mx6_phy_data phy_data;
 
 	if (!power_domain_lookup_name("conn_usb0", &pd)) {
 		ret = power_domain_on(&pd);
@@ -1169,8 +1167,12 @@ static int usb_port_auto_check(void)
 			return -1;
 		}
 
+		phy_data.phy_addr = (void __iomem *)(ulong)USB_PHY0_BASE_ADDR;
+		phy_data.misc_addr = (void __iomem *)(ulong)(USB_BASE_ADDR + 0x200);
+		phy_data.anatop_addr = NULL;
+
 		enable_usboh3_clk(1);
-		usb2_data = ci_udc_check_bus_active(USB_BASE_ADDR, USB_PHY0_BASE_ADDR, 0);
+		usb2_data = ci_udc_check_bus_active(USB_BASE_ADDR, &phy_data, 0);
 
 		ret = power_domain_off(&phy_pd);
 		if (ret) {

@@ -337,7 +337,7 @@
 		reg = <0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "spi-flash";
+		compatible = "jedec,spi-nor";
 		spi-max-frequency = <29000000>;
 		spi-nor,ddr-quad-read-dummy = <8>;
 	};
@@ -365,10 +365,6 @@
 	fsl,magic-packet;
 	status = "okay";
 
-	phy-reset-gpios = <&pca6416_a 2 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <10>;
-	phy-reset-post-delay = <150>;
-
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -386,6 +382,7 @@
 	pinctrl-0 = <&pinctrl_gpmi_nand_1>;
 	status = "okay";
 	nand-on-flash-bbt;
+	fsl,use-minimum-ecc;
 };
 
 &pcieb{

@@ -18,7 +18,7 @@
 #include <asm/arch/sys_proto.h>
 #include <asm/setup.h>
 #include <env.h>
-#include <lz4.h>
+#include <u-boot/lz4.h>
 #include <linux/delay.h>
 #include "../lib/avb/fsl/utils.h"
 
@@ -1023,7 +1023,7 @@ int do_boota(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[]) {
 		uint32_t bootconfig_size;
 		if (append_runtime_bootconfig(bootconfig_start +
 						vendor_boot_hdr_v4->bootconfig_size,
-						&bootconfig_size) < 0) {
+						&bootconfig_size, (void *)(ulong)fdt_addr) < 0) {
 			printf("boota: append runtime bootconfig failed!\n");
 			goto fail;
 		}

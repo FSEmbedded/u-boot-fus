@@ -383,7 +383,6 @@ u32 cgc2_nic_get_rate(enum cgc_clk clk)
 	return rate;
 }
 
-
 u32 decode_pll(enum cgc_clk pll)
 {
 	u32 reg, infreq, mult;

@@ -34,13 +34,13 @@
 #include <fsl_qe.h>
 #endif
 #include <fsl_validate.h>
-#include <dm/uclass.h>
+
 
 DECLARE_GLOBAL_DATA_PTR;
 
 #define VERSION_MASK		0x00FF
 #define BANK_MASK		0x0001
-#define CONFIG_RESET		0x1
+#define CFG_RESET		0x1
 #define INIT_RESET		0x1
 
 #define CPLD_SET_MUX_SERDES	0x20
@@ -282,7 +282,7 @@ static void convert_serdes_mux(int type, int need_reset)
 
 	if (need_reset == 1) {
 		printf("Reset board to enable configuration\n");
-		cpld_data->system_rst = CONFIG_RESET;
+		cpld_data->system_rst = CFG_RESET;
 	}
 }
 
@@ -530,13 +530,6 @@ int board_init(void)
 #if defined(CONFIG_SPL_BUILD)
 void spl_board_init(void)
 {
-	struct udevice *dev;
-	int ret;
-
-	ret = uclass_get_device_by_driver(UCLASS_MISC, DM_DRIVER_GET(caam_jr), &dev);
-	if (ret)
-		printf("Failed to initialize %s: %d\n", dev->name, ret);
-
 	ls102xa_smmu_stream_id_init();
 }
 #endif
@@ -615,7 +608,7 @@ static void convert_flash_bank(char bank)
 	cpld_data->vbank = bank;
 
 	printf("Reset board to enable configuration.\n");
-	cpld_data->system_rst = CONFIG_RESET;
+	cpld_data->system_rst = CFG_RESET;
 }
 
 static int flash_bank_cmd(struct cmd_tbl *cmdtp, int flag, int argc,
@@ -647,7 +640,7 @@ static int cpld_reset_cmd(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc > 2)
 		return CMD_RET_USAGE;
 	if ((argc == 1) || (strcmp(argv[1], "conf") == 0))
-		cpld_data->system_rst = CONFIG_RESET;
+		cpld_data->system_rst = CFG_RESET;
 	else if (strcmp(argv[1], "init") == 0)
 		cpld_data->global_rst = INIT_RESET;
 	else

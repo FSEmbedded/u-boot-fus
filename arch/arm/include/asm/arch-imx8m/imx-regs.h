@@ -230,7 +230,6 @@
 #define CONFIG_SYS_FSL_JR0_ADDR         (CONFIG_SYS_FSL_SEC_ADDR + \
 					 CONFIG_SYS_FSL_JR0_OFFSET)
 #define CONFIG_SYS_FSL_MAX_NUM_OF_SEC   1
-
 #if !defined(__ASSEMBLY__)
 #include <asm/types.h>
 #include <linux/bitops.h>
