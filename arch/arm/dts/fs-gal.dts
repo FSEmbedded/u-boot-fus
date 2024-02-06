@@ -59,12 +59,20 @@
 	};
 };
 
+&esdhc {
+	/* Enabled in U-Boot */
+	status="disabled";
+	no-1-8-v;
+};
+
 &esdhc1 {
 	/* Enabled in U-Boot */
     status = "disabled";
 	is-emmc;
 	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
 	mmc-pwrseq = <&esdhc1_pwrseq>;
+	bus-width = <8>;
 };
 
 &i2c0 {

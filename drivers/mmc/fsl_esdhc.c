@@ -831,10 +831,8 @@ static void fsl_esdhc_get_cfg_common(struct fsl_esdhc_priv *priv,
 
 	cfg->name = "FSL_SDHC";
 
-#if 0
 	if (caps & HOSTCAPBLT_HSS)
 		cfg->host_caps |= MMC_MODE_HS_52MHz | MMC_MODE_HS;
-#endif
 
 	cfg->f_min = 400000;
 	cfg->f_max = min(priv->sdhc_clk, (u32)200000000);
