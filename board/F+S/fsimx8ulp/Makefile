@@ -4,11 +4,8 @@ obj-y   += fsimx8ulp.o
 
 ifdef CONFIG_SPL_BUILD
 obj-y += spl.o
-ifdef CONFIG_IMX8ULP_ND_MODE
-obj-$(CONFIG_TARGET_FSIMX8ULP) += lpddr4_timing_266.o
-else
-obj-$(CONFIG_TARGET_FSIMX8ULP) += lpddr4_timing.o
-endif
+obj-$(CONFIG_SOLDERCORE8ULP_LPDDR4_FORESEE_1GByte) += lpddr4_FL4C2001G-D9_timing.o
+obj-$(CONFIG_PICOCOREMX8ULP_LPDDR4_NANYA_2GBYTE) += lpddr4_NT6AN512T32AV-J2I_timing.o
 else
 obj-y				+= ../../freescale/common/mmc.o
-endif
+endif #CONFIG_SPL_BUILD
