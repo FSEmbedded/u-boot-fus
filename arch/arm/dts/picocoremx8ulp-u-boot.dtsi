@@ -6,7 +6,4 @@
  * published by the Free Software Foundation.
  */
 
- 
-#define CONFIG_SOLDERCORE8ULP_MIPI_DSI_UBOOT
-
 #include "fsimx8ulp-ubootinc.dtsi"
