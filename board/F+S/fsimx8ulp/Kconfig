@@ -9,13 +9,19 @@ config SYS_VENDOR
 config SYS_CONFIG_NAME
 	default "fsimx8ulp"
 
+config PICOCOREMX8ULP
+	bool "Board is PicoCoreMX8ULP"
+
+config SOLDERCORE8ULP
+	bool "Board is SolderCore8ULP"
+
 config PICOCOREMX8ULP_LPDDR4_NANYA_2GBYTE
 	bool "Use DRAM Timings for NANYA 2GByte Dies"
-	depends on TARGET_FSIMX8ULP
+	depends on PICOCOREMX8ULP && !SOLDERCORE8ULP
 
-config SOLDERCORE8ULP_LPDDR4_FORESEE_1GByte
+config SOLDERCORE8ULP_LPDDR4_FORESEE_1GBYTE
 	bool "Use DRAM Timings for FORSEE, SAMSUNG, Micron 1GByte Dies"
-	depends on TARGET_FSIMX8ULP && !PICOCOREMX8ULP_LPDDR4_NANYA_2GBYTE
+	depends on SOLDERCORE8ULP && !PICOCOREMX8ULP
 
 source "board/freescale/common/Kconfig"
  

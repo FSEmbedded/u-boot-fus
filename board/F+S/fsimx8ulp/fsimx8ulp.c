@@ -22,6 +22,7 @@
 #include <i2c.h>
 #include <power-domain.h>
 #include <dt-bindings/power/imx8ulp-power.h>
+#include <fdt_support.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -181,3 +182,21 @@ void board_quiesce_devices(void)
 	}
 #endif
 }
+
+#if  defined(CONFIG_OF_BOARD_SETUP)
+static int fdt_fixpu_memory_node(void *blob)
+{
+	u64 base[CONFIG_NR_DRAM_BANKS];
+	u64 size[CONFIG_NR_DRAM_BANKS];
+	
+	base[0] = gd->bd->bi_dram[0].start;
+	size[0] = gd->bd->bi_dram[0].size;
+
+	return fdt_fixup_memory_banks(blob, base, size, 1);
+}
+
+int ft_board_setup(void *blob, struct bd_info *bd)
+{
+	return fdt_fixpu_memory_node(blob);
+}
+#endif
