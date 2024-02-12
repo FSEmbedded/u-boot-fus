@@ -20,5 +20,3 @@
 	model = "F&S SolderCore8ULP";
 	compatible = "fus,soldercore8ulp", "fus,fsimx8ulp", "fsl,imx8ulp";
 };
-
-

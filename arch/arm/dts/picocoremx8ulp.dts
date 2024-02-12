@@ -8,19 +8,48 @@
 
 /dts-v1/;
 
-#define CONFIG_PICOCOREMX8ULP_EMMC
+/* Network*/
 #define CONFIG_PICOCOREMX8ULP_ETH_A
+
+/* WLAN/BLUETOOTH */
+#define CONFIG_PICOCOREMX8ULP_WLAN
+#define CONFIG_PICOCOREMX8ULP_WLAN_MARVELL_DRV
+
+/* USB */
+#define CONFIG_PICOCOREMX8ULP_USB_HOST
+#define CONFIG_PICOCOREMX8ULP_USB_OTG
+
+/* I2C */
 #define CONFIG_PICOCOREMX8ULP_I2C_A
 #define CONFIG_PICOCOREMX8ULP_I2C_B
 #define CONFIG_PICOCOREMX8ULP_I2C_INT
-#define CONFIG_PICOCOREMX8ULP_SD_A
-#define CONFIG_PICOCOREMX8ULP_SD_A_CD
-#define CONFIG_PICOCOREMX8ULP_SD_A_WP
-#define CONFIG_PICOCOREMX8ULP_SPI_A
+
+/* EEPROM */
+#define CONFIG_PICOCOREMX8ULP_EEPROM
+
+/* AUDIO */
+#define CONFIG_PICOCOREMX8ULP_AUDIO
+
+/* External RTC - default not mounted */
+#define CONFIG_PICOCOREMX8ULP_EXT_RTC
+
+/*
+ * SD_A - External SD port with Card Detect (CD) and Write Protect (WP)
+ * On picocoremx8ulp SKIT: external port is Micro-SD card slot with CD but without WP
+ */
+// #define CONFIG_PICOCOREMX8ULP_SD_A
+// #define CONFIG_PICOCOREMX8ULP_SD_A_CD
+// #define CONFIG_PICOCOREMX8ULP_SD_A_WP
+
+/* UART */
 #define CONFIG_PICOCOREMX8ULP_UART_A
 #define CONFIG_PICOCOREMX8ULP_UART_C
-#define CONFIG_PICOCOREMX8ULP_USB_HOST
-#define CONFIG_PICOCOREMX8ULP_USB_OTG
+
+/* EMMC */
+#define CONFIG_PICOCOREMX8ULP_EMMC
+
+/*SPI*/
+#define CONFIG_PICOCOREMX8ULP_SPI_A
 
 #include "fsimx8ulp.dtsi"
 
@@ -28,3 +57,13 @@
 	model = "F&S PicoCoreMX8ULP";
 	compatible = "fus,picocoremx8ulp", "fus,fsimx8ulp", "fsl,imx8ulp";
 };
+
+#if defined(CONFIG_PICOCOREMX8ULP_EEPROM)
+&lpi2c7 {
+    eeprom: eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+		pagesize = <8>;
+	};
+};
+#endif /* CONFIG_PICOCOREMX8ULP_EEPROM */

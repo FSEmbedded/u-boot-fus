@@ -5,7 +5,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
- 
+
 /dts-v1/;
 
 #include "imx8ulp.dtsi"
@@ -24,12 +24,10 @@
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0 0x10000000>; //256MB
+			size = <0 0x10000000>; /* 256MB */
 			linux,cma-default;
 		};
-
 	};
-
 	reg_5v: regulator-5v {
 		compatible = "regulator-fixed";
 		regulator-name = "5V";
@@ -37,50 +35,36 @@
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
-
-#if defined(CONFIG_PICOCOREMX8ULP_SD_A)
-    reg_usdhc2_vmmc: regulator_usdhc2_vmmc {
-		compatible = "regulator-fixed";
-		regulator-name = "USDHC2_VMMC";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-always-on;
-    };
-
-    usdhc2_pwrseq: usdhc2_pwrseq {
-		compatible = "mmc-pwrseq-simple";
-        pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_usdhc2_rst>;
-		reset-gpios = <&gpiof 0 GPIO_ACTIVE_LOW>;
-	};
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_USB_HOST)
-    reg_usb2: regulator_usb2 {
-        compatible = "regulator-gpio";
-        pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_usb2pwr>;
-        regulator-name = "USB-PWR";
-        regulator-min-microvolt = <0>;
-		regulator-max-microvolt = <5000000>;
-        regulator-type = "voltage";
-		gpios = <&gpiod 3 GPIO_ACTIVE_HIGH>;
-		states = <5000000 0x1 0 0x0>;
-        
-        regulator-always-on;
-    };
-#endif
 };
 
+/* Ethernet decleration */
 #if defined(CONFIG_PICOCOREMX8ULP_ETH_A) || defined(CONFIG_SOLDERCORE8ULP_ETH_ADP)
-&clock_ext_ts {
-	/* External ts clock is 50MHZ from PHY on EVK board. */
-	clock-frequency = <50000000>;
+/ {
+	clock_ext_rmii: clock-ext-rmii {
+		compatible = "fixed-clock";
+		clock-frequency = <50000000>;
+		clock-output-names = "ext_rmii_clk";
+		#clock-cells = <0>;
+	};
+
+	clock_ext_ts: clock-ext-ts {
+		compatible = "fixed-clock";
+		/*  */
+		clock-frequency = <50000000>;
+		clock-output-names = "ext_ts_clk";
+		#clock-cells = <0>;
+	};
 };
 
 &fec {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_enet>, <&pinctrl_enet_rst>;
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_enet>;
+	pinctrl-1 = <&pinctrl_enet>;
+	clocks = <&cgc1 IMX8ULP_CLK_XBAR_DIVBUS>,
+		 <&pcc4 IMX8ULP_CLK_ENET>,
+		 <&cgc1 IMX8ULP_CLK_ENET_TS_SEL>,
+		 <&clock_ext_rmii>;
+	clock-names = "ipg", "ahb", "ptp", "enet_clk_ref";
 	assigned-clocks = <&cgc1 IMX8ULP_CLK_ENET_TS_SEL>;
 	assigned-clock-parents = <&clock_ext_ts>;
 	phy-mode = "rmii";
@@ -91,39 +75,88 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		ethphy: ethernet-phy {
+		ethphy: ethernet-phy@0 {
             // use broadcast addr,
-            // since only on phy can be used.
+            // since only on phy is in use.
 			reg = <0>;
+			pinctrl-names = "default", "sleep";
+            pinctrl-0 = <&pinctrl_ethphy>;
+	        pinctrl-1 = <&pinctrl_ethphy>;
 		};
 	};
 };
-#endif
 
 #if defined(CONFIG_PICOCOREMX8ULP_ETH_A)
-&fec {
-	phy-reset-gpios = <&gpiof 31 GPIO_ACTIVE_LOW>;
+&ethphy {
+	interrupt-parent = <&gpioe>;
+	interrupts = <2 IRQ_TYPE_EDGE_FALLING>;
+    reset-gpios = <&gpiof 31 GPIO_ACTIVE_LOW>;
 };
 #elif defined(CONFIG_SOLDERCORE8ULP_ETH_ADP)
-&fec {
-	phy-reset-gpios = <&gpioe 3 GPIO_ACTIVE_LOW>;
+&ethphy {
+    reset-gpios = <&gpioe 3 GPIO_ACTIVE_LOW>;
 };
 #endif
 
+&iomuxc1 {
+	pinctrl_enet: enetgrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE15__ENET0_MDC     0x43
+			MX8ULP_PAD_PTE14__ENET0_MDIO    0x43
+			MX8ULP_PAD_PTE17__ENET0_RXER    0x43
+			MX8ULP_PAD_PTE18__ENET0_CRS_DV  0x43
+			MX8ULP_PAD_PTE21__ENET0_RXD0	0x43
+			MX8ULP_PAD_PTE20__ENET0_RXD1    0x43
+			MX8ULP_PAD_PTE16__ENET0_TXEN    0x43
+			MX8ULP_PAD_PTE23__ENET0_TXD0    0x43
+			MX8ULP_PAD_PTE22__ENET0_TXD1    0x43
+			MX8ULP_PAD_PTE19__ENET0_REFCLK  0x42 //PHYAD2
+		>;
+	};
+
+#if defined(CONFIG_PICOCOREMX8ULP_ETH_A)
+    pinctrl_ethphy: ethphygrp {
+        fsl,pins = <
+            MX8ULP_PAD_PTE2__PTE2           0x3  //INT
+            MX8ULP_PAD_PTF31__PTF31         0x3  //RST  
+        >;
+    };
+
+#elif defined(CONFIG_SOLDERCORE8ULP_ETH_ADP)
+    pinctrl_ethphy: ethphygrp {
+        fsl,pins = <
+            MX8ULP_PAD_PTE3__PTE3         0x3	//RST
+        >;
+    };
+#endif
+};
+#endif
+
+/* SPI decleration */
 #if defined(CONFIG_PICOCOREMX8ULP_SPI_A)
 &lpspi4 {
     pinctrl-names = "default";
     pinctrl-0 = <&pinctrl_lpspi4>;
     status = "okay";
 };
+
+&iomuxc1 {
+	pinctrl_lpspi4: lpspi4grp {
+        fsl,pins = <
+            MX8ULP_PAD_PTF8__LPSPI4_SIN     0x42
+            MX8ULP_PAD_PTF9__LPSPI4_SOUT    0x42
+            MX8ULP_PAD_PTF10__LPSPI4_SCK    0x42
+            MX8ULP_PAD_PTF11__LPSPI4_PCS0   0x42
+        >;
+    };
+};
 #endif
 
-// #ifdef CONFIG_PICOCOREMX8ULP_SPI_B
-// #endif
+/* SPI_B and SPI_C is controlled by M33 */
 
-// #ifdef CONFIG_PICOCOREMX8ULP_SPI_C
-// #endif
-
+/* UART decleration */
+/* lpuart5 */
+#if defined(CONFIG_PICOCOREMX8ULP_UART_A) || defined(CONFIG_SOLDERCORE8ULP_UART)
 &lpuart5 {
 	/* console */
 	pinctrl-names = "default", "sleep";
@@ -132,6 +165,28 @@
 	status = "okay";
 };
 
+&iomuxc1 {
+#if defined(CONFIG_PICOCOREMX8ULP_UART_A)
+	pinctrl_lpuart5: lpuart5grp {
+		fsl,pins = <
+            MX8ULP_PAD_PTE4__LPUART5_CTS_B  0x3
+            MX8ULP_PAD_PTE5__LPUART5_RTS_B  0x3
+			MX8ULP_PAD_PTE6__LPUART5_TX     0x3
+			MX8ULP_PAD_PTE7__LPUART5_RX 	0x3
+		>;
+	};
+#elif defined(CONFIG_SOLDERCORE8ULP_UART)
+	pinctrl_lpuart5: lpuart5grp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE6__LPUART5_TX     0x3
+			MX8ULP_PAD_PTE7__LPUART5_RX 	0x3
+		>;
+	};
+#endif
+};
+#endif
+
+/* lpuart6 */
 #if defined(CONFIG_PICOCOREMX8ULP_UART_C)
 &lpuart6 {
 	pinctrl-names = "default", "sleep";
@@ -139,8 +194,19 @@
 	pinctrl-1 = <&pinctrl_lpuart6>;
 	status = "okay";
 };
+
+&iomuxc1 {
+	pinctrl_lpuart6: lpuart6grp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE10__LPUART6_TX    0x3
+			MX8ULP_PAD_PTE11__LPUART6_RX    0x3
+		>;
+	};
+};
 #endif
 
+/* I2C decleration */
+/* lpi2c4 */
 #if defined(CONFIG_PICOCOREMX8ULP_I2C_INT)
 &lpi2c4 {
     #address-cells = <1>;
@@ -149,16 +215,40 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c4>;
 	status = "okay";
-
-    //CODEC
-    //RTC
 };
 
-&{/aliases} {
-	i2c4 = &lpi2c4;
+&iomuxc1 {
+    pinctrl_lpi2c4: lpi2c4grp {
+        fsl,pins = <
+            MX8ULP_PAD_PTE0__LPI2C4_SCL	0x20
+			MX8ULP_PAD_PTE1__LPI2C4_SDA	0x20
+        >;
+    };
 };
 #endif
 
+/* lpi2c6 */
+#if defined(CONFIG_PICOCOREMX8ULP_I2C_B)
+&lpi2c6 {
+    #address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c6>;
+	status = "okay";
+};
+
+&iomuxc1 {
+    pinctrl_lpi2c6: lpi2c6grp {
+        fsl,pins = <
+            MX8ULP_PAD_PTE8__LPI2C6_SCL	0x20
+			MX8ULP_PAD_PTE9__LPI2C6_SDA	0x20
+        >;
+    };
+};
+#endif
+
+/* lpi2c7 */
 #if defined(CONFIG_PICOCOREMX8ULP_I2C_A) || defined(CONFIG_SOLDERCORE8ULP_EPDC)
 &lpi2c7 {
     #address-cells = <1>;
@@ -169,28 +259,28 @@
 	status = "okay";
 };
 
-&{/aliases} {
-	i2c7 = &lpi2c7;
+&iomuxc1 {
+#if defined(CONFIG_PICOCOREMX8ULP_I2C_A)
+    pinctrl_lpi2c7: lpi2c7grp {
+        fsl,pins = <
+            MX8ULP_PAD_PTE12__LPI2C7_SCL	0x20
+			MX8ULP_PAD_PTE13__LPI2C7_SDA	0x20
+        >;
+    };
+#elif defined(CONFIG_SOLDERCORE8ULP_EPDC)
+    pinctrl_lpi2c7: lpi2c7grp {
+        fsl,pins = <
+			MX8ULP_PAD_PTF4__LPI2C7_SCL	0x20
+			MX8ULP_PAD_PTF5__LPI2C7_SDA	0x20
+        >;
+    };
+#endif
 };
 #endif
 
-#if defined(CONFIG_PICOCOREMX8ULP_I2C_B)
-&lpi2c6 {
-    #address-cells = <1>;
-	#size-cells = <0>;
-	clock-frequency = <100000>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpi2c6>;
-	status = "okay";
-
-    // TOUCH I2C
-};
-
-&{/aliases} {
-	i2c6 = &lpi2c6;
-};
-#endif
-
+/* USDHC decleration */
+/* usdhc0 */
+#if defined(CONFIG_PICOCOREMX8ULP_EMMC) || defined(CONFIG_SOLDERCORE8ULP_EMMC)
 &usdhc0 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
 	pinctrl-0 = <&pinctrl_usdhc0>;
@@ -206,12 +296,10 @@
 &usdhc0 {
     mmc-hs400-1_8v;
 };
-
 #elif defined(CONFIG_SOLDERCORE8ULP_MMC_HS200)
 &usdhc0 {
     mmc-hs200-1_8v;
 };
-
 #else
 &usdhc0 {
     cap-mmc-highspeed;
@@ -219,6 +307,141 @@
 };
 #endif
 
+&iomuxc1 {
+#if defined(CONFIG_PICOCOREMX8ULP_EMMC)
+	pinctrl_usdhc0: usdhc0grp {
+		fsl,pins = <
+            MX8ULP_PAD_PTD0__SDHC0_RESET_B  0x3
+			MX8ULP_PAD_PTD1__SDHC0_CMD	    0x3
+			MX8ULP_PAD_PTD2__SDHC0_CLK	    0x10002
+			MX8ULP_PAD_PTD10__SDHC0_D0	    0x3
+			MX8ULP_PAD_PTD9__SDHC0_D1	    0x3
+			MX8ULP_PAD_PTD8__SDHC0_D2	    0x3
+			MX8ULP_PAD_PTD7__SDHC0_D3	    0x3
+			MX8ULP_PAD_PTD6__SDHC0_D4	    0x3
+			MX8ULP_PAD_PTD5__SDHC0_D5	    0x3
+			MX8ULP_PAD_PTD4__SDHC0_D6	    0x3
+			MX8ULP_PAD_PTD3__SDHC0_D7	    0x3
+		>;
+	};
+#elif defined(CONFIG_SOLDERCORE8ULP_EMMC)
+	pinctrl_usdhc0: usdhc0grp {
+		fsl,pins = <
+            MX8ULP_PAD_PTD11__SDHC0_DQS     0x10002
+			MX8ULP_PAD_PTD1__SDHC0_CMD	    0x3
+			MX8ULP_PAD_PTD2__SDHC0_CLK	    0x10002
+			MX8ULP_PAD_PTD10__SDHC0_D0	    0x3
+			MX8ULP_PAD_PTD9__SDHC0_D1	    0x3
+			MX8ULP_PAD_PTD8__SDHC0_D2	    0x3
+			MX8ULP_PAD_PTD7__SDHC0_D3	    0x3
+			MX8ULP_PAD_PTD6__SDHC0_D4	    0x3
+			MX8ULP_PAD_PTD5__SDHC0_D5	    0x3
+			MX8ULP_PAD_PTD4__SDHC0_D6	    0x3
+			MX8ULP_PAD_PTD3__SDHC0_D7	    0x3
+		>;
+	};
+#endif
+};
+#endif
+
+/* usdhc1 */
+#if defined(CONFIG_PICOCOREMX8ULP_SD_A) || defined(CONFIG_PICOCOREMX8ULP_WLAN)
+#if defined(CONFIG_PICOCOREMX8ULP_WLAN)
+/ {
+    reg_usdhc1_vmmc: regulator_usdhc1_wlan {
+		compatible = "regulator-fixed";
+		regulator-name = "WLAN_RESET";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		/* currently not supported */
+		// gpio = <&rpmsg_gpiob 12 GPIO_ACTIVE_LOW>;
+		off-on-delay-us = <1000>;
+		enable-active-high;
+    };
+};
+#else
+/ {
+    reg_usdhc1_vmmc: regulator_usdhc1_vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "USDHC2_VMMC";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+    };
+};
+#endif
+
+#if !defined(CONFIG_PICOCOREMX8ULP_MIPI_DSI)
+/* PTF0 is shared with MIPI_DSI and SD_A */
+/ {
+    usdhc1_pwrseq: usdhc1_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+        pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_usdhc1_rst>;
+		reset-gpios = <&gpiof 0 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&usdhc1 {
+	mmc-pwrseq = <&usdhc1_pwrseq>;
+};
+#endif
+
+&usdhc1 {
+	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
+	pinctrl-0 = <&pinctrl_usdhc1>;
+	pinctrl-1 = <&pinctrl_usdhc1>;
+	pinctrl-2 = <&pinctrl_usdhc1>;
+	pinctrl-3 = <&pinctrl_usdhc1>;
+	bus-width = <4>;
+    vmmc-supply = <&reg_usdhc1_vmmc>;
+	//TODO:
+    status = "okay";
+};
+
+#if defined(CONFIG_PICOCOREMX8ULP_SD_A_CD)
+&usdhc1 {
+	cd-gpios = <&gpiof 2 GPIO_ACTIVE_LOW>;
+};
+#else
+&usdhc1 {
+	non-removable;
+};
+#endif
+
+#if defined(CONFIG_PICOCOREMX8ULP_SD_A_WP) && !defined(CONFIG_PICOCOREMX8ULP_MIPI_DSI)
+/* PTF1 is shared with MIPI_DSI and SD_A*/
+&usdhc1 {
+	wp-gpios = <&gpiof 1 GPIO_ACTIVE_HIGH>;
+};
+#endif
+
+&iomuxc1 {
+	pinctrl_usdhc1: usdhc1grp {
+		fsl,pins = <
+			MX8ULP_PAD_PTD21__SDHC1_D0	0x3
+			MX8ULP_PAD_PTD20__SDHC1_D1	0x3
+			MX8ULP_PAD_PTD19__SDHC1_D2	0x3
+			MX8ULP_PAD_PTD18__SDHC1_D3	0x3
+			MX8ULP_PAD_PTD22__SDHC1_CLK	0x10002
+			MX8ULP_PAD_PTD23__SDHC1_CMD	0x3
+#if !defined(CONFIG_PICOCOREMX8ULP_MIPI_DSI)
+			MX8ULP_PAD_PTF1__PTF1       0x2     //GPIO_WP
+#endif
+			MX8ULP_PAD_PTF2__PTF2       0x2     //GPIO_CD
+		>;
+	};
+
+    pinctrl_usdhc1_rst: usdhc1rstgrp {
+		fsl,pins = <
+        	MX8ULP_PAD_PTF0__PTF0		0x2
+        >;
+    };
+};
+#endif
+
+/* USB decleration */
+#if defined(CONFIG_PICOCOREMX8ULP_USB_OTG) || defined(CONFIG_SOLDERCORE8ULP_USB0)
 &usbotg1 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_otgid1>;
@@ -239,27 +462,62 @@
 	status = "okay";
 };
 
+&iomuxc1 {
+#if defined(CONFIG_PICOCOREMX8ULP_USB_OTG)
+	pinctrl_otgid1: usb1grp {
+		fsl,pins = <
+            MX8ULP_PAD_PTD13__USB0_PWR  0x2
+			MX8ULP_PAD_PTD12__USB0_ID	0x10003
+		>;
+	};
+
+#elif defined(CONFIG_SOLDERCORE8ULP_USB0)
+	pinctrl_otgid1: usb1grp {
+		fsl,pins = <
+			MX8ULP_PAD_PTD12__USB0_ID	0x10003
+			MX8ULP_PAD_PTD14__USB0_OC	0x10003
+		>;
+	};
+
+#endif
+};
+#endif /* PICOCOREMX8ULP_USB_OTG; SOLDERCORE8ULP_USB0 */
+
+#if defined(CONFIG_SOLDERCORE8ULP_USB1) || defined(CONFIG_PICOCOREMX8ULP_USB_HOST)
 &usbotg2 {
-	hnp-disable;
-	srp-disable;
-	adp-disable;
-	over-current-active-low;
 	status = "okay";
 };
 
 #if defined(CONFIG_PICOCOREMX8ULP_USB_HOST)
+/ {
+	reg_usb2: regulator_usb2 {
+		compatible = "regulator-fixed";
+       	regulator-name = "usb-host";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_usb2pwr>;
+       	regulator-min-microvolt = <3300000>;
+       	regulator-max-microvolt = <3300000>;
+       	gpio = <&gpiod 11 GPIO_ACTIVE_HIGH>;
+       	enable-active-high;
+	};
+};
+
 &usbotg2 {
+	vbus-supply = <&reg_usb2>;
 	dr_mode = "host";
 };
 
 #elif defined(CONFIG_SOLDERCORE8ULP_USB1)
 &usbotg2 {
-    pinctrl-names = "default", "sleep";
+	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_otgid2>;
 	pinctrl-1 = <&pinctrl_otgid2>;
-    dr_mode = "otg";
+	dr_mode = "otg";
+	hnp-disable;
+	srp-disable;
+	adp-disable;
+	over-current-active-low;
 };
-
 #endif
 
 &usbphy2 {
@@ -270,184 +528,11 @@
 	status = "okay";
 };
 
-#if defined(CONFIG_PICOCOREMX8ULP_SD_A)
-&usdhc2 {
-	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
-	pinctrl-0 = <&pinctrl_usdhc2>;
-	pinctrl-1 = <&pinctrl_usdhc2>;
-	pinctrl-2 = <&pinctrl_usdhc2>;
-	pinctrl-3 = <&pinctrl_usdhc2>;
-	bus-width = <4>;
-    vmmc-supply = <&reg_usdhc2_vmmc>;
-    status = "okay";
-};
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_SD_A_CD)
-&usdhc2 {
-	cd-gpios = <&gpiof 2 GPIO_ACTIVE_LOW>;
-};
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_SD_A_WP)
-&usdhc2 {
-	cd-gpios = <&gpiof 1 GPIO_ACTIVE_HIGH>;
-};
-#endif
-
 &iomuxc1 {
-	pinctrl_dsi: dsigrp {
-		fsl,pins = <
-			MX8ULP_PAD_PTF8__PTF8		0x3
-		>;
-	};
-
-#if defined(CONFIG_PICOCOREMX8ULP_ETH_A) || defined(CONFIG_SOLDERCORE8ULP_ETH_ADP)
-	pinctrl_enet: enetgrp {
-		fsl,pins = <
-			MX8ULP_PAD_PTE15__ENET0_MDC     0x43
-			MX8ULP_PAD_PTE14__ENET0_MDIO    0x43
-			MX8ULP_PAD_PTE17__ENET0_RXER    0x43
-			MX8ULP_PAD_PTE18__ENET0_CRS_DV  0x43
-			MX8ULP_PAD_PTE21__ENET0_RXD0	0x43
-			MX8ULP_PAD_PTE20__ENET0_RXD1    0x43
-			MX8ULP_PAD_PTE16__ENET0_TXEN    0x43
-			MX8ULP_PAD_PTE23__ENET0_TXD0    0x43
-			MX8ULP_PAD_PTE22__ENET0_TXD1    0x43
-			MX8ULP_PAD_PTE19__ENET0_REFCLK  0x43
-		>;
-	};
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_ETH_A)
-    pinctrl_enet_rst: enetrstgrp {
-        fsl,pins = <
-            MX8ULP_PAD_PTE3__PTE3           0x3
-        >;
-    };
-
-#elif defined(CONFIG_SOLDERCORE8ULP_ETH_ADP)
-    pinctrl_enet_rst: enetrstgrp {
-        fsl,pins = <
-            MX8ULP_PAD_PTF31__PTF31         0x3
-        >;
-    };
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_SPI_A)
-    pinctrl_lpspi4: lpspi4grp {
-        fsl,pins = <
-            MX8ULP_PAD_PTF8__LPSPI4_SIN     0x42
-            MX8ULP_PAD_PTF9__LPSPI4_SOUT    0x42
-            MX8ULP_PAD_PTF10__LPSPI4_SCK    0x42
-            MX8ULP_PAD_PTF11__LPSPI4_PCS0   0x42
-        >;
-    };
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_UART_A)
-	pinctrl_lpuart5: lpuart5grp {
-		fsl,pins = <
-            MX8ULP_PAD_PTE4__LPUART5_CTS_B  0x3
-            MX8ULP_PAD_PTE5__LPUART5_RTS_B  0x3
-			MX8ULP_PAD_PTE6__LPUART5_TX     0x3
-			MX8ULP_PAD_PTE7__LPUART5_RX 	0x3
-		>;
-	};
-#elif defined(CONFIG_SOLDERCORE8ULP_UART)
-	pinctrl_lpuart5: lpuart5grp {
-		fsl,pins = <
-			MX8ULP_PAD_PTE6__LPUART5_TX     0x3
-			MX8ULP_PAD_PTE7__LPUART5_RX 	0x3
-		>;
-	};
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_UART_C)
-	pinctrl_lpuart6: lpuart6grp {
-		fsl,pins = <
-			MX8ULP_PAD_PTE10__LPUART6_TX     0x3
-			MX8ULP_PAD_PTE11__LPUART6_RX 	0x3
-		>;
-	};
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_I2C_INT)
-    pinctrl_lpi2c4: lpi2c4grp {
-        fsl,pins = <
-            MX8ULP_PAD_PTE0__LPI2C4_SCL	0x20
-			MX8ULP_PAD_PTE1__LPI2C4_SDA	0x20
-        >;
-    };
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_I2C_A)
-    pinctrl_lpi2c7: lpi2c7grp {
-        fsl,pins = <
-            MX8ULP_PAD_PTE12__LPI2C7_SCL	0x20
-			MX8ULP_PAD_PTE13__LPI2C7_SDA	0x20
-        >;
-    };
-#elif defined(CONFIG_SOLDERCORE8ULP_EPDC)
-    pinctrl_lpi2c7: lpi2c7grp {
-        fsl,pins = <
-			MX8ULP_PAD_PTF4__LPI2C7_SCL	0x20
-			MX8ULP_PAD_PTF5__LPI2C7_SDA	0x20
-        >;
-    };
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_I2C_B)
-    pinctrl_lpi2c6: lpi2c6grp {
-        fsl,pins = <
-            MX8ULP_PAD_PTE8__LPI2C6_SCL	0x20
-			MX8ULP_PAD_PTE9__LPI2C6_SDA	0x20
-        >;
-    };
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_EMMC) || defined(CONFIG_SOLDERCORE8ULP_EMMC)
-	pinctrl_usdhc0: usdhc0grp {
-		fsl,pins = <
-#if defined(CONFIG_PICOCOREMX8ULP_EMMC)
-            MX8ULP_PAD_PTD0__SDHC0_RESET_B  0x3
-#elif defined(CONFIG_SOLDERCORE8ULP_EMMC)
-            MX8ULP_PAD_PTD11__SDHC0_DQS     0x10002
-#endif
-			MX8ULP_PAD_PTD1__SDHC0_CMD	    0x3
-			MX8ULP_PAD_PTD2__SDHC0_CLK	    0x10002
-			MX8ULP_PAD_PTD10__SDHC0_D0	    0x3
-			MX8ULP_PAD_PTD9__SDHC0_D1	    0x3
-			MX8ULP_PAD_PTD8__SDHC0_D2	    0x3
-			MX8ULP_PAD_PTD7__SDHC0_D3	    0x3
-			MX8ULP_PAD_PTD6__SDHC0_D4	    0x3
-			MX8ULP_PAD_PTD5__SDHC0_D5	    0x3
-			MX8ULP_PAD_PTD4__SDHC0_D6	    0x3
-			MX8ULP_PAD_PTD3__SDHC0_D7	    0x3
-		>;
-	};
-#endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_USB_OTG)
-	pinctrl_otgid1: usb1grp {
-		fsl,pins = <
-            MX8ULP_PAD_PTD13__USB0_PWR  0x2
-			MX8ULP_PAD_PTF2__USB0_ID	0x10003
-		>;
-	};
-#elif defined(CONFIG_SOLDERCORE8ULP_USB0)
-	pinctrl_otgid1: usb1grp {
-		fsl,pins = <
-			MX8ULP_PAD_PTD12__USB0_ID	0x10003
-			MX8ULP_PAD_PTD14__USB0_OC	0x10003
-		>;
-	};
-#endif
-
 #if defined(CONFIG_PICOCOREMX8ULP_USB_HOST)
 	pinctrl_usb2pwr: usb2pwrgrp {
 		fsl,pins = <
-			MX8ULP_PAD_PTD11__PTD11     0x3
+			MX8ULP_PAD_PTD11__PTD11     0x2
 		>;
 	};
 #elif defined(CONFIG_SOLDERCORE8ULP_USB1)
@@ -458,25 +543,5 @@
 		>;
 	};
 #endif
-
-#if defined(CONFIG_PICOCOREMX8ULP_SD_A)
-	pinctrl_usdhc2: usdhc2grp {
-		fsl,pins = <
-			MX8ULP_PAD_PTD21__SDHC1_D0	0x3
-			MX8ULP_PAD_PTD20__SDHC1_D1	0x3
-			MX8ULP_PAD_PTD19__SDHC1_D2	0x3
-			MX8ULP_PAD_PTD18__SDHC1_D3	0x3
-			MX8ULP_PAD_PTD22__SDHC1_CLK	0x10002
-			MX8ULP_PAD_PTD23__SDHC1_CMD	0x3
-            MX8ULP_PAD_PTF1__PTF1       0x2     //GPIO_WP
-            MX8ULP_PAD_PTF2__PTF2       0x2     //GPIO_CD
-		>;
-	};
-
-    pinctrl_usdhc2_rst: usdhc2rstgrp {
-		fsl,pins = <
-        	MX8ULP_PAD_PTF0__PTF0		0x2
-        >;
-    };
-#endif
 };
+#endif /* SOLDERCORE8ULP_USB1 || PICOCOREMX8ULP_USB_HOST */
