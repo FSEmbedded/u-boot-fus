@@ -41,19 +41,9 @@ int board_eth_init(struct bd_info *bis)
 
 
 #if IS_ENABLED(CONFIG_FEC_MXC)
-#define ENET_CLK_PAD_CTRL	(PAD_CTL_PUS_UP | PAD_CTL_DSE | PAD_CTL_IBE_ENABLE)
-static iomux_cfg_t const enet_clk_pads[] = {
-	IMX8ULP_PAD_PTE19__ENET0_REFCLK | MUX_PAD_CTRL(ENET_CLK_PAD_CTRL),
-};
 
 static int setup_fec(void)
 {
-	/*
-	 * Since ref clock and timestamp clock are from external,
-	 * set the iomux prior the clock enablement
-	 */
-	imx8ulp_iomux_setup_multiple_pads(enet_clk_pads, ARRAY_SIZE(enet_clk_pads));
-
 	/* Select enet time stamp clock: 001 - External Timestamp Clock */
 	cgc1_enet_stamp_sel(1);
 
@@ -74,7 +64,6 @@ int board_phy_config(struct phy_device *phydev)
 
 int board_init(void)
 {
-
 #if defined(CONFIG_FEC_MXC)
 	setup_fec();
 #endif
@@ -107,52 +96,6 @@ int board_late_init(void)
 
 	return 0;
 }
-
-#ifdef CONFIG_FSL_FASTBOOT
-#ifdef CONFIG_ANDROID_RECOVERY
-#ifdef TARGET_FSIMX8ULP
-static iomux_cfg_t const recovery_pad[] = {
-	IMX8ULP_PAD_PTF7__PTF7 | MUX_PAD_CTRL(PAD_CTL_IBE_ENABLE),
-};
-#endif
-int is_recovery_key_pressing(void)
-{
-#ifdef TARGET_FSIMX8ULP
-	int ret;
-	struct gpio_desc desc;
-
-	imx8ulp_iomux_setup_multiple_pads(recovery_pad, ARRAY_SIZE(recovery_pad));
-
-	ret = dm_gpio_lookup_name("GPIO3_7", &desc);
-	if (ret) {
-		printf("%s lookup GPIO3_7 failed ret = %d\n", __func__, ret);
-		return 0;
-	}
-
-	ret = dm_gpio_request(&desc, "recovery");
-	if (ret) {
-		printf("%s request recovery pad failed ret = %d\n", __func__, ret);
-		return 0;
-	}
-
-	dm_gpio_set_dir_flags(&desc, GPIOD_IS_IN);
-
-	ret = dm_gpio_get_value(&desc);
-	if (ret < 0) {
-                printf("%s error in retrieving GPIO value ret = %d\n", __func__, ret);
-                return 0;
-        }
-
-	dm_gpio_free(desc.dev, &desc);
-
-	return !ret;
-#else
-	return 0;
-#endif
-}
-#endif /*CONFIG_ANDROID_RECOVERY*/
-#endif /*CONFIG_FSL_FASTBOOT*/
-
 
 void board_quiesce_devices(void)
 {
