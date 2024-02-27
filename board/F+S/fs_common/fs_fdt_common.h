@@ -55,11 +55,29 @@ int fs_fdt_enable_node_by_path(void* blob, const char* path, bool value);
 
 
 /**
- * @brief set property without value in Device-Tree Node with given label
+ * @brief set property with value in Device-Tree Node with given label
  * @param blob pointer to the device tree blob
- * @param label path to look up
- * @property property-string to set
+ * @param label label to look up
+ * @param property property-string to set
+ * @param value property value
+ * @param len propery len
 */
-int fs_fdt_setprop_by_label(void* blob, const char* label, const char* property);
+int fs_fdt_setprop_by_label(void *blob, const char* label, const char* property, const void *value, int len);
 
+/**
+ * @brief set property with value in Device-Tree Node with given label
+ * @param blob pointer to the device tree blob
+ * @param path path to look up
+ * @param property property-string to set
+ * @param value property value
+ * @param len propery len
+*/
+int fs_fdt_setprop_by_path(void *blob, const char *path, const char *property, const void *value, int len);
+
+/**
+ * @brief find ofnode of a given path
+ * @param blob pointer to the device tree blob
+ * @param path path to look up
+*/
+int fs_fdt_get_ofnode_by_path(const void *blob, const char *path);
 #endif //__FS_FDT_COMMON__

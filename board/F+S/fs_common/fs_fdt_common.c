@@ -13,14 +13,30 @@
 const char *fs_fdt_get_label_namelen(const void *fdt,
 				  const char *name, int namelen)
 {
-	int aliasoffset;
+	int ofnode;
+	const void *prop;
 
-	aliasoffset = fdt_path_offset(fdt, "/__symbols__");
-	if (aliasoffset < 0){
+	ofnode = fs_fdt_get_ofnode_by_path(fdt, "/__symbols__");
+	if (ofnode < 0){
 		return NULL;
 	}
 
-	return fdt_getprop_namelen(fdt, aliasoffset, name, namelen, NULL);
+	prop = fdt_getprop_namelen(fdt, ofnode, name, namelen, NULL);
+	if (prop == NULL){
+		printf("WARNING: Symbol %s: %s\n", name,
+				fdt_strerror(-FDT_ERR_NOTFOUND));
+	}
+	return prop;
+}
+
+int fs_fdt_get_ofnode_by_path(const void *blob, const char *path){
+	int ofnode;
+
+	ofnode = fdt_path_offset(blob, path);
+	if (ofnode < 0){
+		printf("ofnode for %s not found!: %s\n", path, fdt_strerror(ofnode));
+	}
+	return ofnode;
 }
 
 const char *fs_fdt_get_label(const void *fdt, const char *name)
@@ -30,26 +46,25 @@ const char *fs_fdt_get_label(const void *fdt, const char *name)
 
 int fs_fdt_enable_node_by_path(void* blob, const char* path, bool value)
 {
-     char *str = value ? "okay" : "disabled";
-     const void * val;
-     int offset, ret, len;
+	char *str = value ? "okay" : "disabled";
+	const void * val;
+	int ofnode, ret, len;
 
-     offset = fdt_path_offset((const void*)blob,path);
-	if (offset < 0){
-		printf("ofnode for %s not found!\n", path);
-		return offset;
+	ofnode = fs_fdt_get_ofnode_by_path((const void*)blob,path);
+	if (ofnode < 0){
+		return ofnode;
 	}
 
 	/* Do not change if status already exists and has this value */
-	val = fdt_getprop(blob, offset, "status", &len);
+	val = fdt_getprop(blob, ofnode, "status", &len);
 	if (val && len && !strcmp(val, str))
 		return 0;
 
 	/* Now, set new value */
-	ret = fdt_setprop_string(blob, offset, "status", str);
+	ret = fdt_setprop_string(blob, ofnode, "status", str);
 	if (ret) {
-		printf("## Can not set status of node %s: err=%s\n",
-		       path, fdt_strerror(ret));
+		printf("Can not set status of node %s: %s\n",
+			  path, fdt_strerror(ret));
 		return ret;
 	}
 
@@ -58,30 +73,33 @@ int fs_fdt_enable_node_by_path(void* blob, const char* path, bool value)
 
 int fs_fdt_enable_node_by_label(void* blob, const char* label, bool value)
 {
-     const char * path;
-     path = fs_fdt_get_label(blob,label);
-     if (path == NULL){
-		printf("Path for %s not found!\n", label);
-        return -FDT_ERR_NOTFOUND;
-	 }
+	const char * path;
+	path = fs_fdt_get_label(blob,label);
+	if (path == NULL){
+		return -FDT_ERR_NOTFOUND;
+	}
 
-     return fs_fdt_enable_node_by_path(blob, path, value);
+	return fs_fdt_enable_node_by_path(blob, path, value);
 }
 
-int fs_fdt_setprop_by_label(void* blob, const char* label, const char* property){
+int fs_fdt_setprop_by_label(void* blob, const char* label, const char* property, const void *value, int len){
 	const char* path;
-    int ofnode;
 
     path = fs_fdt_get_label(blob, label);
 	if (path == NULL){
-		printf("Path for %s not found!\n", label);
 	    return -FDT_ERR_NOTFOUND;
 	}
-    ofnode = fdt_path_offset((const void*)blob,path);
-    if(ofnode < 0){
-		printf("ofnode for %s not found!\n", label);
-        return ofnode;
+
+	return fs_fdt_setprop_by_path(blob, path, property, value, len);
+}
+
+int fs_fdt_setprop_by_path(void *blob, const char *path, const char *property, const void *value, int len){
+	int ofnode;
+
+	ofnode = fdt_path_offset(blob, path);
+	if(ofnode < 0){
+		return ofnode;
 	}
 
-    return fdt_setprop(blob, ofnode, property, NULL, 0);
+	return fdt_setprop(blob, ofnode, property, value, len);
 }
