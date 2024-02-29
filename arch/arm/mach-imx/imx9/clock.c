@@ -611,6 +611,12 @@ void init_uart_clk(u32 index)
 		ccm_clk_root_cfg(LPUART1_CLK_ROOT, OSC_24M_CLK, 1);
 		ccm_lpcg_on(CCGR_URT1, true);
 		break;
+	case LPUART2_CLK_ROOT:
+		/* 24M */
+		ccm_lpcg_on(CCGR_URT2, false);
+		ccm_clk_root_cfg(LPUART2_CLK_ROOT, OSC_24M_CLK, 1);
+		ccm_lpcg_on(CCGR_URT2, true);
+		break;
 	default:
 		break;
 	}
