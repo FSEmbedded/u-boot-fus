@@ -1,0 +1,71 @@
+if TARGET_FSIMX93
+
+config ETHADDR_BASE
+	string
+	default "00:05:51:07:55:83"
+
+config FS_NBOOT_ARGS
+	bool
+
+config FS_BOARD_CFG
+	bool
+
+config FS_BOARD_COMMON
+	bool
+	default y
+
+config FS_BOARD_MODE_RO
+	bool "Load rootfs read-only (F&S)"
+	default y
+	help
+	  F&S boards usually start the rootfs in read-only mode to
+	  avoid any data loss when the power fails or when the board is
+	  simply switched off without a proper shutdown procedure. If
+	  you want a writable rootfs instead, say N here. But be warned,
+	  this may be dangerous for your data!
+
+config FS_FDT_COMMON
+	bool
+	default y
+
+config FS_MMC_COMMON
+	bool
+	default n if TARGET_FSIMX93
+
+config FS_ETH_COMMON
+	bool
+	default n if TARGET_FSIMX93
+
+config FS_USB_COMMON
+	bool
+	default y if TARGET_FSIMX93
+
+config FS_USB_PWR_USBNC
+	bool "Use USB PWR function from host controller"
+	depends on FS_USB_COMMON
+	default y
+	help
+	  The VBUS power for a USB host port can either be switched
+	  automatically in hardware by the dedicated USB controller
+	  function or manually by setting the pad as a GPIO. If you
+	  say N, the code will use the GPIO variant, if you say Y,
+	  the dedicated controller function will be used where possible.
+
+config FS_SPL_MEMTEST_COMMON
+	bool "Activate memory test in SPL"
+	depends on TARGET_FSIMX93
+	select SPL_CACHE_SUPPORT
+	select LIB_RAND
+	select SPL_ALLOC_BD
+	default n
+	help
+        Run a DRAM test in SPL. The board will have to be resettet after
+        the test.
+
+config USB_TCPC
+	bool "USB Typec port controller simple driver"
+	default n if TARGET_FSIMX93
+	help
+	  Enable USB type-c port controller (TCPC) driver
+
+endif
