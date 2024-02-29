@@ -355,8 +355,8 @@
 				compatible = "fsl,imx93-lpuart", "fsl,imx8ulp-lpuart", "fsl,imx7ulp-lpuart";
 				reg = <0x44390000 0x1000>;
 				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX93_CLK_LPUART2_GATE>;
-				clock-names = "ipg";
+				clocks = <&clk IMX93_CLK_LPUART2_GATE>, <&clk IMX93_CLK_LPUART2_GATE>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 
