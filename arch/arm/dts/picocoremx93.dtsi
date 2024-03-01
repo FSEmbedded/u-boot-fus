@@ -10,9 +10,11 @@
 
 #include <dt-bindings/usb/pd.h>
 #include <dt-bindings/pwm/pwm.h>
+#ifdef CONFIG_PICOCOREMX93_EXT_RTC
 #include <dt-bindings/rtc/nxp,pcf85263.h>
-#include "../freescale/imx93.dtsi"
-#include <fsversion.h>
+#endif
+#include "imx93.dtsi"
+//#include <fsversion.h>
 
 &ele_mu {
 	memory-region = <&ele_reserved>;
@@ -45,7 +47,7 @@
 	/* -------------------- BOARD INFO -------------------- */
 	bdinfo: bdinfo {
 		compatible = "bdinfo";
-		dts_version = FS_LINUX_VERSION;
+		//dts_version = FS_LINUX_VERSION;
 	};
 
 	reserved-memory {
@@ -165,12 +167,12 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
-
+#ifdef CONFIG_PICOCOREMX93_SD_B
 	usdhc3_pwrseq: usdhc3_pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&gpio4 29 GPIO_ACTIVE_LOW>;
 	};
-
+#endif /* CONFIG_PICOCOREMX93_SD_B */
 #ifdef CONFIG_PICOCOREMX93_SGTL5000_AUDIO
 	/* SGTL5000 analog voltage */
 	reg_sgtl5000_vdda: sgtl5000_vdda {
@@ -793,6 +795,7 @@
 };
 #endif /* CONFIG_PICOCOREMX93_SD_A */
 
+#ifdef CONFIG_PICOCOREMX93_SD_B
 &usdhc3 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc3>, <&pinctrl_usdhc3_wlan>;
@@ -824,6 +827,7 @@
 		interrupt-names = "host-wake";
 	};
 };
+#endif /* CONFIG_PICOCOREMX93_SD_B */
 
 #ifdef CONFIG_PICOCOREMX93_ADC
 &adc1 {

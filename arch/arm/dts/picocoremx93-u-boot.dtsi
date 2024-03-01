@@ -36,6 +36,13 @@
 		chipidea,usb = <&usbotg2>;
 		status = "okay";
 	};
+
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+	};
 };
 
 &{/soc@0} {
@@ -57,6 +64,137 @@
 };
 
 &iomuxc {
+	u-boot,dm-spl;
+};
+
+&reg_usdhc2_vmmc {
+	u-boot,off-on-delay-us = <20000>;
+	u-boot,dm-spl;
+};
+
+&pinctrl_reg_usdhc2_vmmc {
+	u-boot,dm-spl;
+};
+
+&pinctrl_uart2 {
+	u-boot,dm-spl;
+};
+
+&pinctrl_usdhc1 {
+	u-boot,dm-spl;
+};
+
+&pinctrl_usdhc2_gpio {
+	u-boot,dm-spl;
+};
+
+&pinctrl_usdhc2 {
+	u-boot,dm-spl;
+};
+
+&gpio1 {
+	u-boot,dm-spl;
+};
+
+&gpio2 {
+	u-boot,dm-spl;
+};
+
+&gpio3 {
+	u-boot,dm-spl;
+};
+
+&gpio4 {
+	u-boot,dm-spl;
+};
+
+&lpuart2 {
+	u-boot,dm-spl;
+};
+
+&usdhc1 {
+	u-boot,dm-spl;
+};
+
+&usdhc2 {
+	u-boot,dm-spl;
+	fsl,signal-voltage-switch-extra-delay-ms = <8>;
+};
+
+&lpi2c1 {
+	u-boot,dm-spl;
+};
+
+&lpi2c2 {
+	u-boot,dm-spl;
+};
+
+&lpi2c3 {
+	u-boot,dm-spl;
+};
+
+&{/soc@0/bus@44000000/i2c@44350000/pmic@25} {
+	u-boot,dm-spl;
+};
+
+&{/soc@0/bus@44000000/i2c@44350000/pmic@25/regulators} {
+	u-boot,dm-spl;
+};
+
+&pinctrl_lpi2c1 {
+	u-boot,dm-spl;
+};
+
+&pinctrl_lpi2c2 {
+	u-boot,dm-spl;
+};
+
+&fec {
+	/* phy-reset-gpios = <&pcal6524 16 GPIO_ACTIVE_LOW>; */
+	phy-reset-duration = <15>;
+	phy-reset-post-delay = <100>;
+};
+
+&ethphy1 {
+	/*reset-gpios = <&pcal6524 15 GPIO_ACTIVE_LOW>; */
+	reset-assert-us = <15000>;
+	reset-deassert-us = <100000>;
+};
+
+&usbotg1 {
+	status = "okay";
+};
+
+&usbotg2 {
+	status = "okay";
+};
+
+
+&s4muap {
+	u-boot,dm-spl;
+	status = "okay";
+};
+
+&clk {
+	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
+	/delete-property/ assigned-clocks;
+	/delete-property/ assigned-clock-rates;
+	/delete-property/ assigned-clock-parents;
+};
+
+&osc_32k {
+	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
+};
+
+&osc_24m {
+	u-boot,dm-pre-reloc;
+	u-boot,dm-spl;
+};
+
+&clk_ext1 {
+	u-boot,dm-pre-reloc;
 	u-boot,dm-spl;
 };
 
