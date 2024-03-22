@@ -266,7 +266,8 @@ int ft_board_setup(void *blob, struct bd_info *bd)
 	fs_linuxfdt_board_setup(blob);
 
 	features = fs_get_board_features();
-	if(features & FEAT_GAL_ETH_INTERN_BASEX){
+	if( (features & FEAT_GAL_ETH_INTERN_BASEX) ==
+			FEAT_GAL_ETH_INTERN_BASEX){
 		fs_fdt_enable_node_by_label(blob, "sfp_int", 1);
 	}
 	return 0;
