@@ -28,7 +28,7 @@
 #include <asm/setup.h>
 #include <asm/bootm.h>
 #include <asm/arch-imx/cpu.h>
-#include <asm/mach-imx/s400_api.h>
+#include <asm/mach-imx/ele_api.h>
 #include <asm/mach-imx/optee.h>
 #include <linux/delay.h>
 #include <fuse.h>
@@ -36,56 +36,11 @@
 #include <thermal.h>
 #include <imx_sip.h>
 #include <linux/arm-smccc.h>
+#include <asm/arch/ddr.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
 struct rom_api *g_rom_api = (struct rom_api *)0x1980;
-
-enum boot_device get_boot_device(void)
-{
-	volatile gd_t *pgd = gd;
-	int ret;
-	u32 boot;
-	u16 boot_type;
-	u8 boot_instance;
-	enum boot_device boot_dev = SD1_BOOT;
-
-	ret = g_rom_api->query_boot_infor(QUERY_BT_DEV, &boot,
-					  ((uintptr_t)&boot) ^ QUERY_BT_DEV);
-	set_gd(pgd);
-
-	if (ret != ROM_API_OKAY) {
-		puts("ROMAPI: failure at query_boot_info\n");
-		return -1;
-	}
-
-	boot_type = boot >> 16;
-	boot_instance = (boot >> 8) & 0xff;
-
-	switch (boot_type) {
-	case BT_DEV_TYPE_SD:
-		boot_dev = boot_instance + SD1_BOOT;
-		break;
-	case BT_DEV_TYPE_MMC:
-		boot_dev = boot_instance + MMC1_BOOT;
-		break;
-	case BT_DEV_TYPE_NAND:
-		boot_dev = NAND_BOOT;
-		break;
-	case BT_DEV_TYPE_FLEXSPINOR:
-		boot_dev = QSPI_BOOT;
-		break;
-	case BT_DEV_TYPE_USB:
-		boot_dev = boot_instance + USB_BOOT;
-		break;
-	default:
-		break;
-	}
-
-	debug("boot dev %d\n", boot_dev);
-
-	return boot_dev;
-}
 
 bool is_usb_boot(void)
 {
@@ -113,15 +68,12 @@ __weak int board_mmc_get_env_dev(int devno)
 
 int mmc_get_env_dev(void)
 {
-	volatile gd_t *pgd = gd;
 	int ret;
 	u32 boot;
 	u16 boot_type;
 	u8 boot_instance;
 
-	ret = g_rom_api->query_boot_infor(QUERY_BT_DEV, &boot,
-					  ((uintptr_t)&boot) ^ QUERY_BT_DEV);
-	set_gd(pgd);
+	ret = rom_api_query_boot_infor(QUERY_BT_DEV, &boot);
 
 	if (ret != ROM_API_OKAY) {
 		puts("ROMAPI: failure at query_boot_info\n");
@@ -134,11 +86,10 @@ int mmc_get_env_dev(void)
 	debug("boot_type %d, instance %d\n", boot_type, boot_instance);
 
 	/* If not boot from sd/mmc, use default value */
-	if ((boot_type != BOOT_TYPE_SD) && (boot_type != BOOT_TYPE_MMC))
+	if (boot_type != BOOT_TYPE_SD && boot_type != BOOT_TYPE_MMC)
 		return env_get_ulong("mmcdev", 10, CONFIG_SYS_MMC_ENV_DEV);
 
 	return board_mmc_get_env_dev(boot_instance);
-
 }
 #endif
 
@@ -160,7 +111,12 @@ int board_usb_gadget_port_auto(void)
 u32 get_cpu_speed_grade_hz(void)
 {
 	u32 speed, max_speed;
-	u32 val = readl((ulong)FSB_BASE_ADDR + 0x8000 + (19 << 2));
+	int ret;
+	u32 val;
+	ret = fuse_read(2, 3, &val);
+	if (ret)
+		val = 0; /* If read fuse failed, return as blank fuse */
+
 	val >>= 6;
 	val &= 0xf;
 
@@ -179,7 +135,11 @@ u32 get_cpu_speed_grade_hz(void)
 
 u32 get_cpu_temp_grade(int *minc, int *maxc)
 {
-	u32 val = readl((ulong)FSB_BASE_ADDR + 0x8000 + (19 << 2));
+	int ret;
+	u32 val;
+	ret = fuse_read(2, 3, &val);
+	if (ret)
+		val = 0; /* If read fuse failed, return as blank fuse */
 
 	val >>= 4;
 	val &= 0x3;
@@ -208,7 +168,7 @@ u32 get_cpu_temp_grade(int *minc, int *maxc)
 	return val;
 }
 
-static void set_cpu_info(struct sentinel_get_info_data *info)
+static void set_cpu_info(struct ele_get_info_data *info)
 {
 	gd->arch.soc_rev = info->soc;
 	gd->arch.lifecycle = info->lc;
@@ -217,12 +177,42 @@ static void set_cpu_info(struct sentinel_get_info_data *info)
 
 static u32 get_cpu_variant_type(u32 type)
 {
-	/* word 19 */
-	u32 val = readl((ulong)FSB_BASE_ADDR + 0x8000 + (19 << 2));
-	u32 val2 = readl((ulong)FSB_BASE_ADDR + 0x8000 + (20 << 2));
+	u32 val, val2;
+	int ret;
+	ret = fuse_read(2, 3, &val);
+	if (ret)
+		val = 0; /* If read fuse failed, return as blank fuse */
+
+	ret = fuse_read(2, 4, &val2);
+	if (ret)
+		val2 = 0; /* If read fuse failed, return as blank fuse */
+
 	bool npu_disable = !!(val & BIT(13));
 	bool core1_disable = !!(val & BIT(15));
 	u32 pack_9x9_fused = BIT(4) | BIT(5) | BIT(17) | BIT(19) | BIT(24);
+	u32 phantom_fused = BIT(10) | BIT(17) | BIT(19) | BIT(24);
+	u32 phantom_9x9_fused = BIT(4) | BIT(5);
+	u32 can_fused = BIT(28) | BIT(29) | BIT(30) | BIT(31);
+	bool enet2_disable = !!(val2 & BIT(6));
+
+	/* For iMX91P */
+	if (((val2 & phantom_fused) == phantom_fused)
+		&& npu_disable && core1_disable) {
+		type = MXC_CPU_IMX91P3;
+
+		if ((val2 & phantom_9x9_fused) == phantom_9x9_fused) {
+			type = MXC_CPU_IMX91P1;
+
+			if ((val & can_fused) == can_fused && enet2_disable)
+				type = MXC_CPU_IMX91P0;
+		}
+
+		return type;
+	}
+
+	/* Low performance 93 part */
+	if (((val >> 6) & 0x3F) == 0xE && npu_disable)
+		return core1_disable ? MXC_CPU_IMX9301 : MXC_CPU_IMX9302;
 
 	if ((val2 & pack_9x9_fused) == pack_9x9_fused)
 		type = MXC_CPU_IMX9322;
@@ -240,6 +230,7 @@ static u32 get_cpu_variant_type(u32 type)
 u32 get_cpu_rev(void)
 {
 	u32 rev = (gd->arch.soc_rev >> 24) - 0xa0;
+
 	return (get_cpu_variant_type(MXC_CPU_IMX93) << 12) |
 		(CHIP_REV_1_0 + rev);
 }
@@ -272,15 +263,9 @@ static void disable_wdog(void __iomem *wdog_base)
 
 void init_wdog(void)
 {
-	u32 src_val;
-
 	disable_wdog((void __iomem *)WDG3_BASE_ADDR);
 	disable_wdog((void __iomem *)WDG4_BASE_ADDR);
 	disable_wdog((void __iomem *)WDG5_BASE_ADDR);
-
-	src_val = readl(0x54460018); /* reset mask */
-	src_val &= ~0x1c;
-	writel(src_val, 0x54460018);
 }
 
 static struct mm_region imx93_mem_map[] = {
@@ -328,7 +313,11 @@ static struct mm_region imx93_mem_map[] = {
 		.phys = 0x80000000UL,
 		.size = PHYS_SDRAM_SIZE,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
+#ifdef CONFIG_IMX_TRUSTY_OS
+			 PTE_BLOCK_INNER_SHARE
+#else
 			 PTE_BLOCK_OUTER_SHARE
+#endif
 	}, {
 		/* empty entrie to split table entry 5 if needed when TEEs are used */
 		0,
@@ -345,7 +334,7 @@ static unsigned int imx9_find_dram_entry_in_mem_map(void)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(imx93_mem_map); i++)
-		if (imx93_mem_map[i].phys == CONFIG_SYS_SDRAM_BASE)
+		if (imx93_mem_map[i].phys == CFG_SYS_SDRAM_BASE)
 			return i;
 
 	hang();	/* Entry not found, this must never happen. */
@@ -382,16 +371,28 @@ void enable_caches(void)
 	dcache_enable();
 }
 
-__weak int board_phys_sdram_size(phys_size_t *size)
-{
+__weak int board_phys_sdram_size(phys_size_t *size){
+
+	phys_size_t start, end;
+	phys_size_t val;
+
 	if (!size)
 		return -EINVAL;
 
-	*size = PHYS_SDRAM_SIZE;
+	val = readl(REG_DDR_CS0_BNDS);
+	start = (val >> 16) << 24;
+	end   = (val & 0xFFFF);
+	end   = end ? end + 1 : 0;
+	end   = end << 24;
+	*size = end - start;
 
-#ifdef PHYS_SDRAM_2_SIZE
-	*size += PHYS_SDRAM_2_SIZE;
-#endif
+	val = readl(REG_DDR_CS1_BNDS);
+	start = (val >> 16) << 24;
+	end   = (val & 0xFFFF);
+	end   = end ? end + 1 : 0;
+	end   = end << 24;
+	*size += end - start;
+
 	return 0;
 }
 
@@ -525,12 +526,21 @@ void imx_get_mac_from_fuse(int dev_id, unsigned char *mac)
 		if (ret)
 			goto err;
 
-		mac[0] = val[1] >> 24;
-		mac[1] = val[1] >> 16;
-		mac[2] = val[0] >> 24;
-		mac[3] = val[0] >> 16;
-		mac[4] = val[0] >> 8;
-		mac[5] = val[0];
+		if (is_soc_rev(CHIP_REV_1_0)) {
+			mac[0] = val[1] >> 24;
+			mac[1] = val[1] >> 16;
+			mac[2] = val[0] >> 24;
+			mac[3] = val[0] >> 16;
+			mac[4] = val[0] >> 8;
+			mac[5] = val[0];
+		} else {
+			mac[0] = val[0] >> 24;
+			mac[1] = val[0] >> 16;
+			mac[2] = val[0] >> 8;
+			mac[3] = val[0];
+			mac[4] = val[1] >> 24;
+			mac[5] = val[1] >> 16;
+		}
 	}
 
 	debug("%s: MAC%d: %02x.%02x.%02x.%02x.%02x.%02x\n",
@@ -560,6 +570,16 @@ const char *get_imx_type(u32 imxtype)
 		return "93(12)";/* iMX93 9x9 Dual core without NPU */
 	case MXC_CPU_IMX9311:
 		return "93(11)";/* iMX93 9x9 Single core without NPU */
+	case MXC_CPU_IMX9302:
+		return "93(02)";/* iMX93 900Mhz Low performance Dual core without NPU */
+	case MXC_CPU_IMX9301:
+		return "93(01)";/* iMX93 900Mhz Low performance Single core without NPU */
+	case MXC_CPU_IMX91P3:
+		return "91P(31)";/* iMX91P 11x11 Full feature */
+	case MXC_CPU_IMX91P1:
+		return "91P(11)";/* iMX91P 9x9 Reduced feature */
+	case MXC_CPU_IMX91P0:
+		return "91P(01)";/* iMX91P 9x9 Specific feature */
 	default:
 		return "??";
 	}
@@ -694,8 +714,8 @@ void build_info(void)
 		} else {
 			printf("  - ELE firmware version %u.%u.%u-%x",
 			       (fw_version & (0x00ff0000)) >> 16,
-			       (fw_version & (0x0000ff00)) >> 8,
-			       (fw_version & (0x000000ff)), sha1);
+			       (fw_version & (0x0000fff0)) >> 4,
+			       (fw_version & (0x0000000f)), sha1);
 			((fw_version & (0x80000000)) >> 31) == 1 ? puts("-dirty\n") : puts("\n");
 		}
 	} else {
@@ -733,6 +753,35 @@ static int delete_fdt_nodes(void *blob, const char *const nodes_path[], int size
 	}
 
 	return 0;
+}
+
+static int disable_eqos_nodes(void *blob)
+{
+	static const char * const nodes_path_eqos[] = {
+		"/soc@0/bus@42800000/ethernet@428a0000"
+	};
+
+	return delete_fdt_nodes(blob, nodes_path_eqos, ARRAY_SIZE(nodes_path_eqos));
+}
+
+static int disable_flexcan_nodes(void *blob)
+{
+	static const char * const nodes_path_flexcan[] = {
+		"/soc@0/bus@44000000/can@443a0000",
+		"/soc@0/bus@42000000/can@425b0000"
+	};
+
+	return delete_fdt_nodes(blob, nodes_path_flexcan, ARRAY_SIZE(nodes_path_flexcan));
+}
+
+static int disable_parallel_display_nodes(void *blob)
+{
+	static const char * const nodes_path_display[] = {
+		"/soc@0/system-controller@4ac10000/dpi",
+		"/soc@0/lcd-controller@4ae30000"
+	};
+
+	return delete_fdt_nodes(blob, nodes_path_display, ARRAY_SIZE(nodes_path_display));
 }
 
 static int disable_npu_nodes(void *blob)
@@ -869,12 +918,41 @@ static int low_drive_freq_update(void *blob)
 	return 0;
 }
 
+static int disable_lpm(void *blob)
+{
+	int rc;
+	char path[64];
+	static const char *compat_lpm = "nxp,imx93-lpm";
+
+	int offset = fdt_node_offset_by_compatible(blob, -1, compat_lpm);
+
+	if (offset < 0) {
+		printf("node with compatible \"%s\" not found\n", compat_lpm);
+		return 0;
+	}
+
+	rc = fdt_get_path(blob, offset, path, sizeof(path));
+	if (rc) {
+		printf("Fail to get lpm node path, err=%s\n", fdt_strerror(rc));
+		return -ENOENT;
+	}
+
+	rc = fdt_del_node(blob, offset);
+	if (rc < 0)
+		printf("Unable to delete lpm node %s, err=%s\n",
+		       path, fdt_strerror(rc));
+	else
+		printf("Delete node %s\n", path);
+
+	return 0;
+}
+
 #ifdef CONFIG_OF_BOARD_FIXUP
 #ifndef CONFIG_SPL_BUILD
 int board_fix_fdt(void *fdt)
 {
 	/* Update u-boot dtb clocks for low drive mode */
-	if (IS_ENABLED(CONFIG_IMX9_LOW_DRIVE_MODE)){
+	if (is_voltage_mode(VOLT_LOW_DRIVE)){
 		int nodeoff;
 		int i;
 
@@ -892,6 +970,31 @@ int board_fix_fdt(void *fdt)
 		}
 	}
 
+	if (is_imx91p0()) {
+		int i = 0;
+		int nodeoff, ret;
+		const char *status = "disabled";
+		static const char * const nodes[] = {
+			"/soc@0/bus@42800000/ethernet@428a0000",
+			"/soc@0/system-controller@4ac10000/dpi",
+			"/soc@0/lcd-controller@4ae30000"
+		};
+
+		for (i = 0; i < ARRAY_SIZE(nodes); i++) {
+			nodeoff = fdt_path_offset(fdt, nodes[i]);
+			if (nodeoff > 0) {
+set_status:
+				ret = fdt_setprop(fdt, nodeoff, "status", status,
+						  strlen(status) + 1);
+				if (ret == -FDT_ERR_NOSPACE) {
+					ret = fdt_increase_size(fdt, 512);
+					if (!ret)
+						goto set_status;
+				}
+			}
+		}
+	}
+
 	return 0;
 }
 #endif
@@ -899,23 +1002,32 @@ int board_fix_fdt(void *fdt)
 
 int ft_system_setup(void *blob, struct bd_info *bd)
 {
-	if (is_imx9351() || is_imx9331() || is_imx9321() || is_imx9311())
+	if (is_imx9351() || is_imx9331() || is_imx9321() || is_imx9311() || is_imx9301())
 		disable_cpu_nodes(blob, 1);
 
-	if (is_imx9332() || is_imx9331() || is_imx9312() || is_imx9311())
+	if (is_imx9332() || is_imx9331() || is_imx9312() || is_imx9311() || is_imx9302() ||
+	    is_imx9301())
 		disable_npu_nodes(blob);
 
-	if (IS_ENABLED(CONFIG_IMX9_LOW_DRIVE_MODE))
+	if (is_imx91p0()) {
+		disable_eqos_nodes(blob);
+		disable_flexcan_nodes(blob);
+		disable_parallel_display_nodes(blob);
+	}
+
+	if (is_voltage_mode(VOLT_LOW_DRIVE)) {
 		low_drive_freq_update(blob);
+		disable_lpm(blob);
+	}
 
 	return ft_add_optee_node(blob, bd);
 }
 
-#if defined(CONFIG_SERIAL_TAG) || defined(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)
+#if defined(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)
 void get_board_serial(struct tag_serialnr *serialnr)
 {
 	printf("UID: 0x%x 0x%x 0x%x 0x%x\n",
-		gd->arch.uid[0], gd->arch.uid[1], gd->arch.uid[2], gd->arch.uid[3]);
+	       gd->arch.uid[0], gd->arch.uid[1], gd->arch.uid[2], gd->arch.uid[3]);
 
 	serialnr->low = gd->arch.uid[0];
 	serialnr->high = gd->arch.uid[3];
@@ -928,7 +1040,7 @@ int arch_cpu_init(void)
 		/* Disable wdog */
 		init_wdog();
 
-		clock_init();
+		clock_init_early();
 
 		trdc_early_init();
 
@@ -939,18 +1051,21 @@ int arch_cpu_init(void)
 	return 0;
 }
 
-int arch_cpu_init_dm(void)
+int imx9_probe_mu(void *ctx, struct event *event)
 {
 	struct udevice *devp;
 	int node, ret;
 	u32 res;
-	struct sentinel_get_info_data info;
+	struct ele_get_info_data info;
 
 	node = fdt_node_offset_by_compatible(gd->fdt_blob, -1, "fsl,imx93-mu-s4");
 
 	ret = uclass_get_device_by_of_offset(UCLASS_MISC, node, &devp);
 	if (ret)
 		return ret;
+
+	if (gd->flags & GD_FLG_RELOC)
+		return 0;
 
 	ret = ahab_get_info(&info, &res);
 	if (ret)
@@ -960,24 +1075,7 @@ int arch_cpu_init_dm(void)
 
 	return 0;
 }
-
-#ifdef CONFIG_ARCH_EARLY_INIT_R
-int arch_early_init_r(void)
-{
-	struct udevice *devp;
-	int node, ret;
-
-	node = fdt_node_offset_by_compatible(gd->fdt_blob, -1, "fsl,imx93-mu-s4");
-
-	ret = uclass_get_device_by_of_offset(UCLASS_MISC, node, &devp);
-	if (ret) {
-		printf("could not get S400 mu %d\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
-#endif
+EVENT_SPY(EVT_DM_POST_INIT, imx9_probe_mu);
 
 int timer_init(void)
 {
@@ -1007,18 +1105,19 @@ enum env_location env_get_location(enum env_operation op, int prio)
 		return env_loc;
 
 	switch (dev) {
-#ifdef CONFIG_ENV_IS_IN_SPI_FLASH
+#if defined(CONFIG_ENV_IS_IN_SPI_FLASH)
 	case QSPI_BOOT:
 		env_loc = ENVL_SPI_FLASH;
 		break;
 #endif
-#ifdef CONFIG_ENV_IS_IN_MMC
+#if defined(CONFIG_ENV_IS_IN_MMC)
 	case SD1_BOOT:
 	case SD2_BOOT:
 	case SD3_BOOT:
 	case MMC1_BOOT:
 	case MMC2_BOOT:
 	case MMC3_BOOT:
+	case FLEXSPI_NAND_BOOT:
 		env_loc =  ENVL_MMC;
 		break;
 #endif
@@ -1032,7 +1131,7 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	return env_loc;
 }
 
-int mix_power_init(enum mix_power_domain pd)
+static int mix_power_init(enum mix_power_domain pd)
 {
 	enum src_mix_slice_id mix_id;
 	enum src_mem_slice_id mem_id;
@@ -1068,7 +1167,8 @@ int mix_power_init(enum mix_power_domain pd)
 	}
 
 	mix_regs = (struct src_mix_slice_regs *)(ulong)(SRC_IPS_BASE_ADDR + 0x400 * (mix_id + 1));
-	mem_regs = (struct src_mem_slice_regs *)(ulong)(SRC_IPS_BASE_ADDR + 0x3800 + 0x400 * mem_id);
+	mem_regs =
+		(struct src_mem_slice_regs *)(ulong)(SRC_IPS_BASE_ADDR + 0x3800 + 0x400 * mem_id);
 	global_regs = (struct src_general_regs *)(ulong)SRC_GLOBAL_RBASE;
 
 	/* Allow NS to set it */
@@ -1093,9 +1193,8 @@ int mix_power_init(enum mix_power_domain pd)
 
 		/* Since PSW_STAT is 1, can't be used for power off status (SW_CTRL BIT31 set)) */
 		/* Check the MEM STAT change to ensure SSAR is completed */
-		while (!(val & SRC_MIX_SLICE_FUNC_STAT_MEM_STAT)) {
+		while (!(val & SRC_MIX_SLICE_FUNC_STAT_MEM_STAT))
 			val = readl(&mix_regs->func_stat);
-		}
 
 		/* wait few ipg clock cycles to ensure FSM done and power off status is correct */
 		/* About 5 cycles at 24Mhz, 1us is enough  */
@@ -1104,17 +1203,15 @@ int mix_power_init(enum mix_power_domain pd)
 		/*  The mix is default power on, Do mix power cycle */
 		setbits_le32(&mix_regs->slice_sw_ctrl, BIT(31));
 		val = readl(&mix_regs->func_stat);
-		while (!(val & SRC_MIX_SLICE_FUNC_STAT_PSW_STAT)) {
+		while (!(val & SRC_MIX_SLICE_FUNC_STAT_PSW_STAT))
 			val = readl(&mix_regs->func_stat);
-		}
 	}
 
 	/* power on */
 	clrbits_le32(&mix_regs->slice_sw_ctrl, BIT(31));
 	val = readl(&mix_regs->func_stat);
-	while (val & SRC_MIX_SLICE_FUNC_STAT_ISO_STAT) {
+	while (val & SRC_MIX_SLICE_FUNC_STAT_ISO_STAT)
 		val = readl(&mix_regs->func_stat);
-	}
 
 	return 0;
 }
@@ -1139,7 +1236,7 @@ bool m33_is_rom_kicked(void)
 	struct blk_ctrl_s_aonmix_regs *s_regs =
 			(struct blk_ctrl_s_aonmix_regs *)BLK_CTRL_S_ANOMIX_BASE_ADDR;
 
-	if (!(readl(&s_regs->m33_cfg) & BCTRL_S_ANOMIX_M33_CPU_WAIT_MASK))
+	if (!(readl(&s_regs->m33_cfg) & BIT(2)))
 		return true;
 
 	return false;
@@ -1153,10 +1250,10 @@ int m33_prepare(void)
 		(struct src_general_regs *)(ulong)SRC_GLOBAL_RBASE;
 	struct blk_ctrl_s_aonmix_regs *s_regs =
 			(struct blk_ctrl_s_aonmix_regs *)BLK_CTRL_S_ANOMIX_BASE_ADDR;
-	u32 val;
+	u32 val, i;
 
-	/* Allow NS to set it */
-	setbits_le32(&mix_regs->authen_ctrl, BIT(9));
+	if (is_imx91p3() || is_imx91p1() || is_imx91p0())
+		return -ENODEV;
 
 	if (m33_is_rom_kicked())
 		return -EPERM;
@@ -1166,12 +1263,10 @@ int m33_prepare(void)
 
 	/* Check the reset released in M33 MIX func stat */
 	val = readl(&mix_regs->func_stat);
-	while (!(val & SRC_MIX_SLICE_FUNC_STAT_RST_STAT)) {
+	while (!(val & SRC_MIX_SLICE_FUNC_STAT_RST_STAT))
 		val = readl(&mix_regs->func_stat);
-	}
 
-	/* Because CPUWAIT is default set, so M33 won't run, Clear it when kick M33 */
-	/* Release Sentinel TROUT */
+	/* Release ELE TROUT */
 	ahab_release_m33_trout();
 
 	/* Mask WDOG1 IRQ from A55, we use it for M33 reset */
@@ -1180,11 +1275,42 @@ int m33_prepare(void)
 	/* Turn on WDOG1 clock */
 	ccm_lpcg_on(CCGR_WDG1, 1);
 
-	/* Set sentinel LP handshake for M33 reset */
+	/* Set ELE LP handshake for M33 reset */
 	setbits_le32(&s_regs->lp_handshake[0], BIT(6));
+
+	/* OSCCA enabled, need to reconfigure TRDC for TCM access, otherwise ECC init will raise error */
+	val = readl(BLK_CTRL_NS_ANOMIX_BASE_ADDR + 0x28);
+	if (val & BIT(0)) {
+		trdc_mbc_set_control(0x44270000, 1, 0, 0x6600);
+
+		for (i = 0; i < 32; i++)
+			trdc_mbc_blk_config(0x44270000, 1, 3, 0, i, true, 0);
+
+		for (i = 0; i < 32; i++)
+			trdc_mbc_blk_config(0x44270000, 1, 3, 1, i, true, 0);
+	}
 
 	/* Clear M33 TCM for ECC */
 	memset((void *)(ulong)0x201e0000, 0, 0x40000);
 
 	return 0;
+}
+
+enum imx9_soc_voltage_mode soc_target_voltage_mode(void)
+{
+	u32 speed = get_cpu_speed_grade_hz();
+	enum imx9_soc_voltage_mode voltage = VOLT_OVER_DRIVE;
+
+	if (is_imx93()) {
+		if (speed == 1700000000)
+			voltage = VOLT_OVER_DRIVE;
+		else if (speed == 1400000000)
+			voltage = VOLT_NOMINAL_DRIVE;
+		else if (speed == 900000000 || speed == 800000000)
+			voltage = VOLT_LOW_DRIVE;
+		else
+			printf("Unexpected A55 freq %u, default to OD\n", speed);
+	}
+
+	return voltage;
 }

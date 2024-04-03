@@ -22,7 +22,5 @@ config PICOCOREMX8ULP_LPDDR4_NANYA_2GBYTE
 config SOLDERCORE8ULP_LPDDR4_FORESEE_1GBYTE
 	bool "Use DRAM Timings for FORSEE, SAMSUNG, Micron 1GByte Dies"
 	depends on SOLDERCORE8ULP && !PICOCOREMX8ULP
-
-source "board/freescale/common/Kconfig"
  
 endif

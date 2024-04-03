@@ -7,6 +7,13 @@
  */
 
 / {
+	mu@27020000 {
+		compatible = "fsl,imx8ulp-mu";
+		reg = <0 0x27020000 0 0x10000>;
+		status = "okay";
+		u-boot,dm-spl;
+	};
+
 #if defined(CONFIG_PICOCOREMX8ULP_USB_OTG) || defined(CONFIG_SOLDERCORE8ULP_USB0)
 	usbg1: usbg1 {
 		compatible = "fsl,imx27-usb-gadget";
@@ -41,7 +48,7 @@ dsi_host: dsi-host {
 #endif
 };
 
-&{/soc@0} {
+&soc {
 	u-boot,dm-spl;
 };
 
@@ -71,10 +78,6 @@ dsi_host: dsi-host {
 };
 
 &pinctrl_lpuart5 {
-	u-boot,dm-spl;
-};
-
-&s400_mu {
 	u-boot,dm-spl;
 };
 
