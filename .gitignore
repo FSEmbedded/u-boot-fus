@@ -60,6 +60,13 @@ fit-dtb.blob*
 /spl/
 /tpl/
 /defconfig
+/tools/boot/bootm.c
+/tools/boot/fdt_region.c
+/tools/boot/image-cipher.c
+/tools/boot/image-fit-sig.c
+/tools/boot/image-fit.c
+/tools/boot/image-host.c
+/tools/boot/image.c
 
 #
 # Generated include files

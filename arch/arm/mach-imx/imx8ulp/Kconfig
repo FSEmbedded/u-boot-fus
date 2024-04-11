@@ -70,9 +70,20 @@ config TARGET_IMX8ULP_WATCH
 	select ARCH_MISC_INIT
 	select SPL_CRYPTO if SPL
 
+config TARGET_FSIMX8ULP
+	bool "fsimx8ulp"
+	select IMX8ULP
+	select SUPPORT_SPL
+	select IMX8ULP_DRAM
+	select FSL_CAAM
+	select FSL_BLOB
+	select ARCH_MISC_INIT
+	select SPL_CRYPTO if SPL
+
 endchoice
 
 source "board/freescale/imx8ulp_evk/Kconfig"
 source "board/freescale/imx8ulp_watch/Kconfig"
+source "board/F+S/fsimx8ulp/Kconfig"
 
 endif

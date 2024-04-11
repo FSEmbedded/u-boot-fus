@@ -1,0 +1,6 @@
+fsimx8ulp Boards
+M:	Claudio Senatore <senatore@fs-net.de>
+S:	Maintained
+F:	board/F+S/fsimx8ulp/fsimx8ulp.c
+F:  board/F+S/fsimx8ulp/lpddr4_FL4C2001G-D9_timing.c
+F:  board/F+S/fsimx8ulp/lpddr4_NT6AN512T32AV-J2I_timing.c
