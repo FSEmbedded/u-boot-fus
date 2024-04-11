@@ -39,6 +39,7 @@
 #include <asm/arch/ddr.h>
 #include <power/pmic.h>
 #include <power/pca9450.h>
+#include <power/regulator.h>
 #include <asm/arch/trdc.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -164,6 +165,8 @@ void board_init_f(ulong dummy)
 
 	spl_early_init();
 
+	regulators_enable_boot_on(false);
+	
 	preloader_console_init();
 
 	ret = imx9_probe_mu(NULL, NULL);
