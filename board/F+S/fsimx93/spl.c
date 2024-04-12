@@ -132,16 +132,28 @@ int power_init_board(void)
 		pmic_reg_write(dev, PCA9450_BUCK3OUT_DVS0, buck_val + 0x4);
 	}
 
-	if (IS_ENABLED(CONFIG_IMX93_EVK_LPDDR4)) {
-		/* Set VDDQ to 1.1V from buck2 */
-		pmic_reg_write(dev, PCA9450_BUCK2OUT_DVS0, 0x28);
-	}
-
 	/* set standby voltage to 0.65v */
 	if (val & PCA9450_REG_PWRCTRL_TOFF_DEB)
 		pmic_reg_write(dev, PCA9450_BUCK1OUT_DVS1, 0x0);
 	else
 		pmic_reg_write(dev, PCA9450_BUCK1OUT_DVS1, 0x4);
+
+	/*
+	 * The Following Configuration is for FS-OSM-SF-MX93 and
+	 * PicoCoreMX93
+	 * 
+	 * TODO: READ Board variant and do specific configuration
+	 */
+
+	/* Set VDDQ to 1.1V from buck6 */
+	pmic_reg_write(dev, PCA9450_BUCK6OUT, 0x14);
+
+	/* enable buck6 during PMIC_ON_REQ = H */
+	pmic_reg_write(dev, PCA9450_BUCK6CTRL, 0x09);
+
+	/* disable buck2 */
+	/* TODO: read board variant in case the buck is used for lpddr4x */
+	pmic_reg_write(dev, PCA9450_BUCK2CTRL, 0x08);
 
 	/* I2C_LT_EN*/
 	pmic_reg_write(dev, 0xa, 0x3);

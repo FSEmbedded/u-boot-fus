@@ -381,10 +381,10 @@ osm_gpio_a01: &gpio3 {
 
 /* I2C declerations */
 i2c_int: &lpi2c2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_lpi2c2>;
 	#address-cells = <1>;
 	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c2>;
 	status = "okay";
 
 	pmic@25 {
@@ -409,8 +409,9 @@ i2c_int: &lpi2c2 {
 				regulator-name = "BUCK2";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <2187500>;
-				regulator-boot-on;
-				regulator-always-on;
+				/* set properties in BL when needed */
+				// regulator-boot-on;
+				// regulator-always-on;
 				regulator-ramp-delay = <3125>;
 			};
 

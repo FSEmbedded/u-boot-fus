@@ -467,8 +467,9 @@
 				regulator-name = "BUCK2";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <2187500>;
-				regulator-boot-on;
-				regulator-always-on;
+				/* set properties in BL when needed */
+				// regulator-boot-on;
+				// regulator-always-on;
 				regulator-ramp-delay = <3125>;
 			};
 
