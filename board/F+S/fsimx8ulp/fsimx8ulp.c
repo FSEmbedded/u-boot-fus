@@ -127,19 +127,9 @@ void board_quiesce_devices(void)
 }
 
 #if  defined(CONFIG_OF_BOARD_SETUP)
-static int fdt_fixpu_memory_node(void *blob)
+int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 {
-	u64 base[CONFIG_NR_DRAM_BANKS];
-	u64 size[CONFIG_NR_DRAM_BANKS];
-	
-	base[0] = gd->bd->bi_dram[0].start;
-	size[0] = gd->bd->bi_dram[0].size;
-
-	return fdt_fixup_memory_banks(blob, base, size, 1);
-}
-
-int ft_board_setup(void *blob, struct bd_info *bd)
-{
-	return fdt_fixpu_memory_node(blob);
+	return fdt_fixup_memory(fdt_blob,
+			CFG_SYS_SDRAM_BASE, gd->bd->bi_dram[0].size);
 }
 #endif

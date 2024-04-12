@@ -70,6 +70,14 @@ int board_early_init_f(void)
 	return 0;
 }
 
+#if defined(CONFIG_OF_BOARD_SETUP)
+int	ft_board_setup(void *fdt_blob, struct bd_info *bd)
+{
+	return fdt_fixup_memory(fdt_blob,
+			CFG_SYS_SDRAM_BASE, gd->bd->bi_dram[0].size);
+}
+#endif
+
 static int setup_fec(void)
 {
 	return set_clk_enet(ENET_125MHZ);
