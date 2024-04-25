@@ -71,42 +71,42 @@ static inline uint32_t get_gal1_features(enum board_rev brev, enum board_config 
 		features |= FEAT_I2C_TEMP;
 
 		switch(bconfig){
-	case FERT1:
-		features |= FEAT_GAL_RS232;
-		features |= FEAT_GAL_ETH_INTERN_BASET;
-		break;
-	case FERT2:
-		features |= FEAT_GAL_RS485B;
-		features |= FEAT_GAL_ETH_INTERN_BASEX;
-		features |= FEAT_I2C6;
-		break;
-	case FERT3:
-		features |= FEAT_GAL_RS485B;
-		features |= FEAT_GAL_ETH_INTERN_BASEX;
-		break;
-	default:
-		break;
+			case FERT1:
+				features |= FEAT_GAL_RS232;
+				features |= FEAT_GAL_ETH_INTERN_BASET;
+				break;
+			case FERT2:
+				features |= FEAT_GAL_RS485B;
+				features |= FEAT_GAL_ETH_INTERN_BASEX;
+				features |= FEAT_I2C6;
+				break;
+			case FERT3:
+				features |= FEAT_GAL_RS485B;
+				features |= FEAT_GAL_ETH_INTERN_BASEX;
+				break;
+			default:
+				break;
 		}
 	}
 
-	if(brev == REV11){
+	if(brev >= REV11 && brev <= REV12){
 		/*default features for all Configs*/
 		features |= 0;
 
 		switch(bconfig){
-	case FERT1:
-		features |= FEAT_GAL_ETH_INTERN_BASET;
-		features |= FEAT_GAL_RS485B;
-		break;
-	case FERT2:
-		features |= FEAT_GAL_RS485B;
-		break;
-	case FERT3:
-		features |= FEAT_GAL_ETH_INTERN_BASEX;
-		features |= FEAT_GAL_RS232;
-		break;
-	default:
-		break;
+			case FERT1:
+				features |= FEAT_GAL_ETH_INTERN_BASET;
+				features |= FEAT_GAL_RS485B;
+				break;
+			case FERT2:
+				features |= FEAT_GAL_RS485B;
+				break;
+			case FERT3:
+				features |= FEAT_GAL_ETH_INTERN_BASEX;
+				features |= FEAT_GAL_RS232;
+				break;
+			default:
+				break;
 		}
 	}
 
@@ -126,16 +126,15 @@ static inline uint32_t get_gal2_features(enum board_rev brev, enum board_config 
 		features |= 0;
 
 		switch(bconfig){
-	case FERT1:
-		features |= 0;
-		break;
-	case FERT2:
-		features |= 0;
-		break;
-	default:
-		break;
+			case FERT1:
+				features |= 0;
+				break;
+			case FERT2:
+				features |= 0;
+				break;
+			default:
+				break;
 		}
-
 	}
 
 	return features;
@@ -164,11 +163,11 @@ uint32_t fs_get_board_features()
 
 	switch(btype){
 		case GAL1:
-	features |= get_gal1_features(brev, bconfig);
-	break;
+			features |= get_gal1_features(brev, bconfig);
+			break;
 		case GAL2:
-	features |= get_gal2_features(brev, bconfig);
-	break;
+			features |= get_gal2_features(brev, bconfig);
+		break;
 	}
 
 	return features;
