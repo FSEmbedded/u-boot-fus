@@ -19,6 +19,7 @@ static uint8_t fuse_version;
 static uint16_t sw_version;
 static uint32_t custom_partition;
 static uint32_t scfw_flags;
+static option_hash_t hashtype;
 
 int imx8image_check_params(struct image_tool_params *params)
 {
@@ -40,19 +41,20 @@ static int imx8image_check_image_types(uint8_t type)
 }
 
 static table_entry_t imx8image_cmds[] = {
-	{CMD_BOOT_FROM,         "BOOT_FROM",            "boot command",	      },
-	{CMD_FUSE_VERSION,      "FUSE_VERSION",         "fuse version",	      },
-	{CMD_SW_VERSION,        "SW_VERSION",           "sw version",	      },
-	{CMD_MSG_BLOCK,         "MSG_BLOCK",            "msg block",	      },
-	{CMD_FILEOFF,           "FILEOFF",              "fileoff",	      },
-	{CMD_FLAG,              "FLAG",                 "flag",	      },
-	{CMD_APPEND,            "APPEND",               "append a container", },
-	{CMD_PARTITION,         "PARTITION",            "new partition",      },
-	{CMD_SOC_TYPE,          "SOC_TYPE",             "soc type",           },
-	{CMD_CONTAINER,         "CONTAINER",            "new container",      },
-	{CMD_IMAGE,             "IMAGE",                "new image",          },
-	{CMD_DATA,              "DATA",                 "new data",           },
-	{-1,                    "",                     "",	              },
+	{CMD_BOOT_FROM,         "BOOT_FROM",            "boot command",		},
+	{CMD_FUSE_VERSION,      "FUSE_VERSION",         "fuse version",		},
+	{CMD_SW_VERSION,        "SW_VERSION",           "sw version",		},
+	{CMD_MSG_BLOCK,         "MSG_BLOCK",            "msg block",		},
+	{CMD_FILEOFF,           "FILEOFF",              "fileoff",		},
+	{CMD_FLAG,              "FLAG",                 "flag",			},
+	{CMD_APPEND,            "APPEND",               "append a container",	},
+	{CMD_PARTITION,         "PARTITION",            "new partition",	},
+	{CMD_SOC_TYPE,          "SOC_TYPE",             "soc type",		},
+	{CMD_CONTAINER,         "CONTAINER",            "new container",	},
+	{CMD_IMAGE,             "IMAGE",                "new image",		},
+	{CMD_DATA,              "DATA",                 "new data",		},
+	{CMD_HASH,		"SHA_HASH",		"sha hash type",	},
+	{-1,                    "",                     "",			},
 };
 
 static table_entry_t imx8image_core_entries[] = {
@@ -137,6 +139,8 @@ static void parse_cfg_cmd(image_t *param_stack, int32_t cmd, char *token,
 			exit(EXIT_FAILURE);
 		}
 		break;
+	case CMD_HASH:
+		hashtype = strtol(token, NULL, 0);
 	default:
 		break;
 	}
@@ -546,7 +550,7 @@ static void set_image_array_entry(flash_header_v3_t *container,
 	img->offset = offset;  /* Is re-adjusted later */
 	img->size = size;
 
-	set_image_hash(img, tmp_filename, IMAGE_HASH_ALGO_DEFAULT);
+	set_image_hash(img, tmp_filename, hashtype);
 
 	switch (type) {
 	case SECO:
@@ -1019,9 +1023,19 @@ int imx8image_copy_image(int outfd, struct image_tool_params *mparams)
 		exit(EXIT_FAILURE);
 	}
 
+	switch(hashtype){
+		case SHA256:
+		case SHA384:
+		case SHA512:
+			break;
+		default:
+			hashtype = SHA384;
+	}
+	
 	fprintf(stdout, "CONTAINER Sector size:\t%08x\n", sector_size);
 	fprintf(stdout, "CONTAINER FUSE VERSION:\t0x%02x\n", fuse_version);
 	fprintf(stdout, "CONTAINER SW VERSION:\t0x%04x\n", sw_version);
+	fprintf(stdout, "CONTAINER HASH_TYPE: SHA%d\n", hashtype);
 
 	build_container(soc, sector_size, emmc_fastboot,
 			img_sp, false, fuse_version, sw_version, outfd);
