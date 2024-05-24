@@ -9,4 +9,17 @@ config SYS_VENDOR
 config SYS_CONFIG_NAME
 	default "fsimx93"
 
+config FUS_BOOTCNTR_CONFIG
+	string "config file"
+	default "boot_cntr.cfg"
+	help
+	 Configuration file to create Boot Container.
+	 Images like U-Boot SPL, ELE_FW, M33_images are part of BOOTCNTR
+
+config FUS_UBOOTCNTR_CONFIG
+	string "config file"
+	default "bl31-bl33.cfg"
+	help
+	 Configuration file to create a Container with all BL3x Images
+
 endif
