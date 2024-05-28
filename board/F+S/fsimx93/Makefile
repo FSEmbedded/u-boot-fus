@@ -16,7 +16,7 @@ obj-y += fsimx93.o
 
 ifdef CONFIG_SPL_BUILD
 obj-y += spl.o
-obj-$(CONFIG_TARGET_FSIMX93) += lpddr4_pc_MT53D512M16D1_timing.o
+# obj-$(CONFIG_TARGET_FSIMX93) += lpddr4_pc_MT53D512M16D1_timing.o
 endif
 
 ### UBOOT-INFO CREATION ###
@@ -27,7 +27,7 @@ IMAGE_TYPE := imx8image
 
 UBOOTCNTR_CFG = $(CONFIG_FUS_UBOOTCNTR_CONFIG:"%"=%)
 
-MKIMAGEFLAGS_uboot-info.cntr.tmp = -n $(filter-out $(PLUGIN).cntr $< $(PHONY),$^) \
+MKIMAGEFLAGS_uboot-info.cntr.tmp = -n ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG) \
 	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
 
 CNTR_LOG = uboot-info.cntr.log
@@ -52,6 +52,8 @@ INFO_FS_OPT = -t U-BOOT-INFO -d ${BOARD} $^
 quiet_cmd_addfsheader = FSIMG   $@
 cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
 
+.INTERMEDIATE: uboot-index.fs.tmp uboot-info.cntr.tmp uboot-info-header.fsh
+
 $(IMGS_FSH): ${CNTR_IMGS}
 	$(call cmd,addfsheader,$(IMGS_FS_OPT))
 
@@ -62,12 +64,12 @@ uboot-info.cntr.tmp: uboot-index.fs.tmp ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG)
 	$(call if_changed,mkimage)
 
-uboot-header.fsh: uboot-info.cntr.tmp
+uboot-info-header.fsh: uboot-info.cntr.tmp
 	$(eval index_offset := $(shell grep DATA ${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+'))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
 	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER > $@
 
-uboot-info.fs: uboot-header.fsh uboot-info.cntr.tmp
+uboot-info.fs: uboot-info-header.fsh uboot-info.cntr.tmp
 	$(call cmd,addfsheader,$(INFO_FS_OPT))
 
 ### END: UBOOT-INFO CREATION ###

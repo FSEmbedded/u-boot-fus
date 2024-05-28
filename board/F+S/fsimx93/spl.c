@@ -44,6 +44,8 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+struct dram_timing_info dram_timing;
+
 int spl_board_boot_device(enum boot_device boot_dev_spl)
 {
 #ifdef CONFIG_SPL_BOOTROM_SUPPORT

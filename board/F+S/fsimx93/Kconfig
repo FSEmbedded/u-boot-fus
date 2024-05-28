@@ -22,4 +22,16 @@ config FUS_UBOOTCNTR_CONFIG
 	help
 	 Configuration file to create a Container with all BL3x Images
 
+config SPL_FUS_DRAM_TIMING_ADDR
+	hex "DRAM Timing Address"
+	default 0x204E0000
+	help
+	 Base address for a FSHDR + DDR Timing struct
+
+config SPL_FUS_DRAM_FW_ADDR
+	hex "DRAM FW Address"
+	default 0x204C0000
+	help
+	 Base address for a FSHDR + DDR Firmware file.
+	 DDR FW should be copied to _end of SPL.
 endif
