@@ -41,7 +41,8 @@ NBOOT_VERSION = 2024.05
 # revisions .130, .120 and .100. Boards with revision .121 or .120 in their
 # BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
-	PCoreMX93-FERT1.fs
+	PCoreMX93-FERT1.fs \
+	OSMSFMX93-FERT1.fs
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
@@ -50,13 +51,24 @@ RT_LPDDR4 := \
 	
 RT_LPDDR4X :=
 
+DDR_FW_VERSION = v202201
+
+# List of provided firmware files from NXP
+NXP_LPDDR4 = \
+	lpddr4_imem_1d_${DDR_FW_VERSION}.bin \
+	lpddr4_dmem_1d_${DDR_FW_VERSION}.bin \
+	lpddr4_imem_2d_${DDR_FW_VERSION}.bin \
+	lpddr4_dmem_2d_${DDR_FW_VERSION}.bin
+
+NXP_LPDDR4X = 
+
 # List of DRAM-INFO (TYPES) for DRAM-SETTINGS Container; only add those that have timings
 DRAM_TYPES :=
 ifneq ($(RT_LPDDR4),)
 DRAM_TYPES += lpddr4_type.fs
 endif
 ifneq ($(RT_LPDDR4X),)
-DRAM_TYPES += lpddr4_type.fs
+DRAM_TYPES += lpddr4x_type.fs
 endif
 
 # Prepend the DDR Training Firmware as an additional file before the timings
@@ -67,8 +79,9 @@ RT_LPDDR4X := lpddr4x_fw.fs $(RT_LPDDR4X)
 EXTRA_FILES = addfsheader.sh.fs fsimage.sh.fs
 
 # List of files to add to NBOOT Image
-NBOOT_FILES = $(BOARD)_boot-info.fs \
-	board-id \
+NBOOT_FILES = \
+	$(BOARD)_boot-info.fs \
+	$(BOARD)_board-id.fsh \
 	$(BOARD)_board-info.fs \
 	$(BOARD)_dram-infos.fs \
 	$(BOARD)_extra.fs
@@ -87,18 +100,6 @@ OBJ_DRAM_TYPES = $(addprefix $(NBOOT_PATH)/, $(DRAM_TYPES))
 OBJ_EXTRA_FILES = $(addprefix $(NBOOT_PATH)/, $(EXTRA_FILES))
 OBJ_NBOOT_FILES = $(addprefix $(NBOOT_PATH)/, $(NBOOT_FILES))
 OBJ_NBOOT = $(addprefix $(NBOOT_PATH)/, $(NBOOT))
-
-
-DDR_FW_VERSION = v202201
-
-# List of provided firmware files from NXP
-NXP_LPDDR4 = \
-	lpddr4_imem_1d_${DDR_FW_VERSION}.bin \
-	lpddr4_dmem_1d_${DDR_FW_VERSION}.bin \
-	lpddr4_imem_2d_${DDR_FW_VERSION}.bin \
-	lpddr4_dmem_2d_${DDR_FW_VERSION}.bin
-
-NXP_LPDDR4X = 
 
 # Add path for NXP firmware images
 NXP_PATH = board/F+S/NXP-Firmware
@@ -163,7 +164,6 @@ $(NBOOT_PATH)/%_timing.fs: $(NBOOT_PATH)/.%_timing.bin.tmp
 
 $(NBOOT_PATH)/lpddr4_fw.fs: $(NBOOT_PATH)/.lpddr4_fw.tmp
 $(NBOOT_PATH)/lpddr4x_fw.fs: $(NBOOT_PATH)/.lpddr4x_fw.tmp
-
 $(NBOOT_PATH)/%_fw.fs: $(NBOOT_PATH)/.%_fw.tmp
 	$(call cmd,fsimg,-w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_FW_ADDR) + 0x40))) -t DRAM-FW -d $(*F) $< > $@ )
 
@@ -178,7 +178,6 @@ MKIMAGEFLAGS_lpddr4x_type.cntr = -n ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG) 
 
 $(NBOOT_PATH)/lpddr4_type.cntr:  MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4_$(CNTR_LOG)
 $(NBOOT_PATH)/lpddr4x_type.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4x_$(CNTR_LOG)
-
 $(NBOOT_PATH)/lpddr4_type.cntr: $(OBJ_RT_LPDDR4) 
 $(NBOOT_PATH)/lpddr4x_type.cntr: $(OBJ_RT_LPDDR4X)
 
@@ -186,62 +185,44 @@ $(NBOOT_PATH)/lpddr4_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4_
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG)
 	$(call if_changed,mkimage)
 
-$(NBOOT_PATH)/lpddr4x_type.cntr: $(NBOOT_PATH)/.lpddr4x_fw.tmp ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG)
+$(NBOOT_PATH)/lpddr4x_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG)
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG)
 	$(call if_changed,mkimage)
-
-$(NBOOT_PATH)/lpddr4_type.fsh: $(NBOOT_PATH)/lpddr4_type.cntr
-$(NBOOT_PATH)/lpddr4x_type.fsh: $(NBOOT_PATH)/lpddr4x_type.cntr
 
 $(NBOOT_PATH)/%_type.fsh: $(NBOOT_PATH)/%_type.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4_${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
 	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER > $@
 
-$(NBOOT_PATH)/lpddr4_type.fs: $(NBOOT_PATH)/lpddr4_type.fsh $(NBOOT_PATH)/lpddr4_type.cntr
-$(NBOOT_PATH)/lpddr4x_type.fs: $(NBOOT_PATH)/lpddr4x_type.fsh $(NBOOT_PATH)/lpddr4x_type.cntr
-
-$(NBOOT_PATH)/%_type.fs:
+$(NBOOT_PATH)/%_type.fs: $(NBOOT_PATH)/%_type.fsh $(NBOOT_PATH)/%_type.cntr
 	$(call cmd,fsimg,-w -a 0x400 -t DRAM-INFO $^)
 
-%_dram-infos.fs: $(OBJ_DRAM_TYPES)
+$(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 	$(Q)cat $(OBJ_DRAM_TYPES) > $@
 
 ### END: DDR SPECIFIC TARGETS ###
 
-# %_spl.fs: FORCE
-# 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_ATF_ADDR) -t SPL -d $(*F))
+### BOARD-CFG SPECIFIC TARGETS ###
+### END: BOARD-CFG SPECIFIC TARGETS ###
 
-# Prepend some macros with varying content to BOARD-CFG .dts
-$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts FORCE
-	@echo "/* Macros with varying content */" > $@
-	@echo "#define NBOOT_VERSION \"$(NBOOT_VERSION)\"" >> $@
-	@echo "#define BOARD_CFG_NAME \"$(*F)\"" >> $@
-	@echo "#define CONFIG_SPL_BUILD" >> $@
-	@cat $< >> $@
+### BOOT-INFO SPECIFIC TARGETS ###
+### END: BOOT-INFO SPECIFIC TARGETS ###
 
-$(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp $(NBOOT_PATH)/nboot-info.dtsi FORCE
-	$(call cmd,dtco)
-
-$(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp FORCE
-	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F))
-
-%_board_info.fs: $(OBJ_BOARD_CONFIGS) FORCE
-	$(call cmd,fsimg,-s -t BOARD-INFO -d $(*F))
+### NBOOT TARGETS ###
 
 $(NBOOT_PATH)/addfsheader.sh.fs: $(srctree)/scripts/addfsheader.sh
 $(NBOOT_PATH)/fsimage.sh.fs: $(srctree)/scripts/fsimage.sh
 %.sh.fs:
-	$(call cmd,fsimg,-t BASH-SCRIPT -d $(*F))
+	$(call cmd,fsimg,-t BASH-SCRIPT -d $(*F) $^)
 
 %_extra.fs: $(OBJ_EXTRA_FILES)
-	$(call cmd,fsimg,-t EXTRA -d $(*F))
+	$(call cmd,fsimg,-t EXTRA -d $(*F) $^)
 
-### NBOOT TARGETS ###
+$(NBOOT_PATH)/$(BOARD)_board-id.fsh:
+	${Q}dd if=/dev/null bs=1 count=1 status=none | $(srctree)/scripts/addfsheader.sh -j -t BOARD-ID -d DUMMY-ID > $@
 
-nboot-$(BOARD)-$(NBOOT_VERSION).fs: $(NBOOT_PATH)/$(BOARD)_dram-infos.fs FORCE #$(OBJ_NBOOT_FILES) FORCE
-	touch $@
-	# $(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SYS_LOAD_ADDR) -t NBOOT -d $(BOARD))
+nboot-$(BOARD)-$(NBOOT_VERSION).fs: $(OBJ_NBOOT_FILES) FORCE
+	$(Q)cat $(OBJ_NBOOT_FILES) > $@
 
 PHONY += nboot
 nboot: nboot-$(BOARD)-$(NBOOT_VERSION).fs FORCE
