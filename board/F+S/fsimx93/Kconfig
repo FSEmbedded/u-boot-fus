@@ -34,4 +34,11 @@ config SPL_FUS_DRAM_FW_ADDR
 	help
 	 Base address for a FSHDR + DDR Firmware file.
 	 DDR FW should be copied to _end of SPL.
-endif
+
+config FUS_BOARDCFG_ADDR
+	hex "BOARD-CFG Address"
+	default 0x20498000
+	help
+		Base address for FSHDR + BOARD-CFG fdt.
+
+endif # TARGET_FSIMX93

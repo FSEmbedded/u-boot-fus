@@ -203,6 +203,43 @@ $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 ### END: DDR SPECIFIC TARGETS ###
 
 ### BOARD-CFG SPECIFIC TARGETS ###
+
+# Prepend some macros with varying content to BOARD-CFG .dts
+$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts FORCE
+	@echo "/* Macros with varying content */" > $@
+	@echo "#define NBOOT_VERSION \"$(NBOOT_VERSION)\"" >> $@
+	@echo "#define BOARD_CFG_NAME \"$(*F)\"" >> $@
+	@echo "#define CONFIG_SPL_BUILD" >> $@
+	@cat $< >> $@
+
+$(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp $(obj)/nboot-info.dtsi FORCE
+ifneq ($(KBUILD_SRC),)
+	$(Q)cp $(obj)/*.dtsi $(NBOOT_PATH)/
+endif
+	$(call cmd,dtco)
+
+$(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp FORCE
+	$(call cmd,fsimg,-w -a 0x400 -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
+
+BOARDINFO_CFG = board-info.cfg
+
+MKIMAGEFLAGS_board-info.cntr = -n ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG) \
+	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
+
+$(NBOOT_PATH)/board-info.cntr: $(OBJ_BOARD_CONFIGS)
+$(NBOOT_PATH)/board-info.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/board-info_$(CNTR_LOG)
+$(NBOOT_PATH)/board-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG)
+	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG)
+	$(call if_changed,mkimage)
+
+$(NBOOT_PATH)/board-info.fsh: $(NBOOT_PATH)/board-info.cntr
+	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/board-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
+	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
+	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER > $@
+
+$(NBOOT_PATH)/%_board-info.fs: $(NBOOT_PATH)/board-info.fsh $(NBOOT_PATH)/board-info.cntr
+	$(call cmd,fsimg,-w -a 0x400 -t BOARD-INFO -d $(BOARD) $^)
+
 ### END: BOARD-CFG SPECIFIC TARGETS ###
 
 ### BOOT-INFO SPECIFIC TARGETS ###

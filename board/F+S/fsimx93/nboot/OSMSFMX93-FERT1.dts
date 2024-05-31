@@ -1,0 +1,45 @@
+/*
+ * Copyright (C) 2024 F&S Elektronik Systeme GmbH
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "nboot-info.dtsi"
+
+/ {
+	board-cfg {
+		board-name = "FS-OSM-SF-MX93";
+
+		dram-type = "lpddr4";
+		dram-timing = "lpddr4_pc_1g3733m1ch1cs";
+		dram-size = <0x400>;		/* In MiB */
+		dram-chips = <1>;
+
+		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
+
+		boot-dev = "MMC1";
+
+		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
+		fuse-bankword = <0x00030000>;
+		fuse-mask =     <0x20000002>;
+		fuse-value =    <0x20000002>;
+
+		/* Common board features */
+		//have-nand;
+		have-emmc;
+		have-audio;
+		have-eth-phy;
+		have-wlan;
+		have-mipi-dsi;
+		have-ext-rtc;
+		have-eeprom;
+
+        OSMSFMX93-FERT1.100 {
+            board-rev = <100>;
+        };
+	};
+};
