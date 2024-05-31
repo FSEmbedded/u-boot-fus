@@ -490,10 +490,10 @@ static void set_image_hash(boot_img_t *img, char *filename, uint32_t hash_type)
 	if (img->size == 0)
 		sprintf(sha_command, "sha%dsum /dev/null", hash_type);
 	else
-		sprintf(sha_command, "dd if=/dev/zero of=tmp_pad bs=%d count=1;\
-			dd if=\'%s\' of=tmp_pad conv=notrunc;\
-			sha%dsum tmp_pad; rm -f tmp_pad",
-			img->size, filename, hash_type);
+		sprintf(sha_command, "dd if=/dev/zero of=tmp_pad bs=%d count=1 status=none;\
+			dd if=\'%s\' of=\'%s.tmp\' status=none conv=notrunc;\
+			sha%dsum \'%s.tmp\'; rm -f tmp_pad",
+			img->size, filename, filename, hash_type, filename);
 
 	switch (hash_type) {
 	case HASH_TYPE_SHA_256:
@@ -922,6 +922,7 @@ static int build_container(soc_type_t soc, uint32_t sector_size,
 			 * nothing to do here, the container is appended
 			 * in the output
 			 */
+			fprintf(stdout, "APPEND CONTAINER: %s\n", img_sp->filename);
 			break;
 		case FLAG:
 			/*
