@@ -243,6 +243,47 @@ $(NBOOT_PATH)/%_board-info.fs: $(NBOOT_PATH)/board-info.fsh $(NBOOT_PATH)/board-
 ### END: BOARD-CFG SPECIFIC TARGETS ###
 
 ### BOOT-INFO SPECIFIC TARGETS ###
+
+BOOTINFO_CFG = boot-info.cfg
+
+BOOTCNTR_IMGS = $(shell grep IMAGE $(srctree)/board/$(BOARDDIR)/$(BOOTINFO_CFG) | cut -f 3 )
+BOOTIMGS_FSH = $(shell echo ${BOOTCNTR_IMGS} | sed -e 's/\.bin/.fsh/g')
+
+BOOTINDEX_FS_OPT = -w -a 0x400 -i -t INDEX $^
+BOOTIMGS_FS_OPT = -a 0x400 -j -t $(call map_boottype,$@) -d $(BOARD) $<
+
+define map_boottype
+$(if $(findstring m33_image.bin,$(1)),CORTEX-M,\
+$(if $(findstring u-boot-spl.fsh,$(1)),SPL,\
+$(shell basename $(1) | cut -d '.' -f 1 | tr a-z A-Z)))
+endef
+
+$(BOOTIMGS_FSH): ${BOOTCNTR_IMGS}
+	$(call cmd,fsimg,$(BOOTIMGS_FS_OPT))
+
+$(NBOOT_PATH)/boot-index.fs: $(BOOTIMGS_FSH)
+	$(call cmd,fsimg,$(BOOTINDEX_FS_OPT))
+
+MKIMAGEFLAGS_boot-info.cntr = -n ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_CFG) \
+	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
+
+$(NBOOT_PATH)/boot-info.cntr: $(NBOOT_PATH)/boot-index.fs
+$(NBOOT_PATH)/boot-info.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/boot-info_$(CNTR_LOG)
+$(NBOOT_PATH)/boot-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_CFG)
+	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_CFG)
+	$(call if_changed,mkimage)
+	dd if=/dev/zero bs=832 count=1 >> $@
+
+$(NBOOT_PATH)/boot-info.fsh: $(NBOOT_PATH)/boot-info.cntr
+	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/boot-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
+	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
+	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER+ELE > $@
+
+# Do not align the binary. The correct Padding is done in boot-info.cntr
+# The Padding recuires BOARD-ID.fs directly after boot-info.fs
+$(NBOOT_PATH)/%_boot-info.fs: $(NBOOT_PATH)/boot-info.fsh $(NBOOT_PATH)/boot-info.cntr
+	$(call cmd,fsimg,-w -t BOOT-INFO -d $(BOARD) $^)
+
 ### END: BOOT-INFO SPECIFIC TARGETS ###
 
 ### NBOOT TARGETS ###
