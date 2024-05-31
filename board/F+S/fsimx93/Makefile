@@ -20,20 +20,16 @@ obj-y += spl.o
 endif
 
 ### UBOOT-INFO CREATION ###
-
-ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
 CNTR_DEPFILES := $(srctree)/tools/imx_cntr_image.sh
 IMAGE_TYPE := imx8image
 
 UBOOTCNTR_CFG = $(CONFIG_FUS_UBOOTCNTR_CONFIG:"%"=%)
 
-MKIMAGEFLAGS_uboot-info.cntr.tmp = -n ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG) \
+MKIMAGEFLAGS_uboot-info.cntr = -n ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG) \
 	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
 
-CNTR_LOG = uboot-info.cntr.log
-uboot-info.cntr.tmp:  MKIMAGEOUTPUT = $(CNTR_LOG)
-
-endif #CONFIG_SPL_LOAD_IMX_CONTAINER
+CNTR_LOG = board/$(BOARDDIR)/uboot-info.cntr.log
+board/$(BOARDDIR)/uboot-info.cntr:  MKIMAGEOUTPUT = $(CNTR_LOG)
 
 CNTR_IMGS = $(shell grep IMAGE $(srctree)/board/$(BOARDDIR)/$(UBOOTCNTR_CFG) | cut -f 3 )
 IMGS_FSH = $(shell echo ${CNTR_IMGS} | sed -e 's/\.bin/.fsh/g')
@@ -52,24 +48,22 @@ INFO_FS_OPT = -t U-BOOT-INFO -d ${BOARD} $^
 quiet_cmd_addfsheader = FSIMG   $@
 cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
 
-.INTERMEDIATE: uboot-index.fs.tmp uboot-info.cntr.tmp uboot-info-header.fsh
-
 $(IMGS_FSH): ${CNTR_IMGS}
 	$(call cmd,addfsheader,$(IMGS_FS_OPT))
 
-uboot-index.fs.tmp: $(IMGS_FSH)
+board/$(BOARDDIR)/uboot-index.fs: $(IMGS_FSH)
 	$(call cmd,addfsheader,$(INDEX_FS_OPT))
 
-uboot-info.cntr.tmp: uboot-index.fs.tmp ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG)
+board/$(BOARDDIR)/uboot-info.cntr: board/$(BOARDDIR)/uboot-index.fs ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG)
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG)
 	$(call if_changed,mkimage)
 
-uboot-info-header.fsh: uboot-info.cntr.tmp
+board/$(BOARDDIR)/uboot-info.fsh: board/$(BOARDDIR)/uboot-info.cntr
 	$(eval index_offset := $(shell grep DATA ${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+'))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
 	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER > $@
 
-uboot-info.fs: uboot-info-header.fsh uboot-info.cntr.tmp
+uboot-info.fs: board/$(BOARDDIR)/uboot-info.fsh board/$(BOARDDIR)/uboot-info.cntr
 	$(call cmd,addfsheader,$(INFO_FS_OPT))
 
 ### END: UBOOT-INFO CREATION ###
