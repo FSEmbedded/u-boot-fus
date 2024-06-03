@@ -63,10 +63,12 @@
 # #define FSH_FLAGS_DESCR 0x8000	/* Description descr is present */
 # #define FSH_FLAGS_CRC32 0x4000	/* CRC32 of image in type[12..15] */
 # #define FSH_FLAGS_SECURE 0x2000	/* CRC32 of header in type[12..15] */
+# #define FSH_FLAGS_INDEX 0x1000	/* Image contains an index */
 
 FSH_FLAGS_DESCR=0x8000
 FSH_FLAGS_CRC32=0x4000
 FSH_FLAGS_SECURE=0x2000
+FSH_FLAGS_INDEX=0x1000
 
 # Possible fields in show command
 fields="offset magic size os padsize type descr typedescr flags crc32 version"
@@ -168,8 +170,10 @@ get_header_info()
     # Read the first 4 bytes (or less) of the header and use as magic number
     if [ $1 -lt 4 ]; then
 	head=$(head -c $1 | xxd -l $1 -c $1 -p)
+	globaloffs=$((globaloffs + $1))
     else
 	head=$(head -c 4 | xxd -l 4 -c 4 -p)
+	globaloffs=$((globaloffs + 4))
     fi
     headersize=$((${#head} / 2))
     magic="$(get_string $head)...."
@@ -187,6 +191,7 @@ get_header_info()
 
     # Read the next 12 bytes; return error if not enough data available
     head=$head$(head -c 12 | xxd -l 12 -c 12 -p)
+    globaloffs=$((globaloffs + 12))
     headersize=$((${#head} / 2))
     if [ $headersize -lt 16 ]; then
 #	echo "Size $headersize instead of 16" >&2
@@ -212,6 +217,7 @@ get_header_info()
 
     # Read 48 more bytes; return error if not enough data available
     head=$head$(head -c 48 | xxd -l 48 -c 48 -p)
+    globaloffs=$((globaloffs + 48))
     headersize=$((${#head} / 2))
     if [ $headersize -lt 64 ]; then
 #	echo "Size $headersize instead of 64" >&2
@@ -224,7 +230,7 @@ get_header_info()
     padsize=$((0x${head:28:2}))
     type=$(get_string ${head:32:32})
     flags=$((0x$(reverse ${head:24:4})))
-    if [ $(($flags & (FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE))) -ne 0 ]; then
+    if [ $((flags & (FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE))) -ne 0 ]; then
 	crc32=$(reverse ${head:56:8})
     fi
 
@@ -260,11 +266,13 @@ do_crc32()
 	echo -n $head_temp | xxd -r -p > $secu_temp
 	if [[ $(($flags & FSH_FLAGS_CRC32)) -ne 0 ]]; then
 	    head -c $size >> $secu_temp
+	    globaloffs=$((globaloffs + size))
 	fi
 	computed=$(crc32 "$secu_temp")
 	rm "$secu_temp"
     else
 	computed=$(head -c $size | crc32 /dev/stdin)
+	globaloffs=$((globaloffs + size))
     fi
 
     if [[ $crc32 = $computed ]]; then
@@ -291,6 +299,7 @@ do_info()
     if [ $vers = "00" ]; then
 	return
     fi
+    printf "padsize     0x%02x\n" $padsize
     printf "type:       '%s'\n" $type
     printf "descr:      '%s'\n" $descr
     printf "flags:      0x%04x" $flags
@@ -354,8 +363,11 @@ do_show()
 # Extract an image
 do_xtract()
 {
-    # In a non-F&S image, reinsert the header part that was already read 
-    if [ "${magic:0:2}" != "FS" ]; then
+    if [ $offset -gt $globaloffs ]; then
+	# Skip to real file in case of indexed image
+	head -c $((offset - globaloffs)) > /dev/null
+    elif [ "${magic:0:2}" != "FS" ]; then
+	# In a non-F&S image, reinsert the header part that was already read 
 	echo $head | xxd -r -p
 	size=$(($size - $headersize))
     fi
@@ -372,7 +384,7 @@ do_justheader()
     echo $head | xxd -r -p
 }
 
-# Execute the command in $cmd on the current image at offset $1
+# Execute the command in $cmd on the current image at offset $1, indendation $2
 handle_command()
 {
     offset=$1
@@ -392,6 +404,11 @@ handle_command()
 	else
 	    fl=${fl}-
 	fi
+	if [ $(($flags & $FSH_FLAGS_INDEX)) -ne 0 ]; then
+	    fl=${fl}I
+	else
+	    fl=${fl}-
+	fi
 	printf "%2d: $wx $wx %s %s\n" $index $offset $size $fl "${bl:0:$2}$typedescr"
     elif [ "$sel" = "$type" ] || [ "$sel" = "$typedescr" ] || [ $selnum -eq $index ]; then
 	do_$cmd
@@ -401,45 +418,68 @@ handle_command()
     index=$(($index + 1))
 }
 
-# Parse the F&S image with header at offset in $1 and image size in $2
+# Parse the F&S image; $1: image size, $2: indendation
 parse_image()
 {
-    local offs=$1 remaining=$2
-    local savedsize savedoffs found
+    local remaining=$1
+    local savedsize savedoffs found imgoffs
 
 #    echo "in: offs=$offs remaining=$remaining" >&2
 
-    handle_command $offs $3
+    handle_command $((globaloffs - headersize)) $2
 
-    offs=$(($offs + $headersize))
     found=0
+    if [ $(($flags & $FSH_FLAGS_INDEX)) -ne 0 ]; then
+	# An index image consists of headers only, the real images (i.e. the
+	# content of each image) follow the index image, one per header
+	imgoffs=$((globaloffs + size));
 
-    while [ $remaining -gt 0 ]; do
-	if get_header_info $remaining; then
-	    savedsize=$(($size + $headersize))
-#	    if [ $found -eq 0 ]; then
-#		printf "    $wx ----  Starting sub-image list\n" $offs
-#		savedoffs=$offs
-#	    fi
-	    found=1
-	    parse_image $offs $size $(($3 + 1))
-	    offs=$(($offs + $savedsize))
-	    remaining=$(($remaining - $savedsize))
-	else
-	    if [ $found -eq 1 ]; then
-		handle_command $offs
+	while [ $remaining -gt 0 ]; do
+	    if get_header_info $remaining; then
+		# Handle the headers in the index image
+		handle_command $imgoffs $2
+		imgoffs=$((imgoffs + size))
+		remaining=$((remaining - headersize))
+	    else
+		# Skip remaining part of index image
+		remaining=$((remaining - headersize))
+		head -c $remaining > /dev/null
+		globaloffs=$((globaloffs + remaining))
+		remaining=0
 	    fi
-	    # We have already read $headersize bytes, skip the remaining image
-	    head -c $(($remaining - $headersize)) > /dev/null
-	    offs=$(($offs + $remaining))
-	    remaining=0
-	fi
+	done
 
-#	if [ $remaining -eq 0 ] && [ $found -eq 1 ]; then
-#	    printf "    $wx ----  Ending sub-image list from offset $wx\n" $offs $savedoffs
-#	fi
-#	echo "offs=$offs remaining=$remaining" >&2
-    done
+	# Skip the real images
+	head -c $((imgoffs - globaloffs)) > /dev/null
+	globaloffs=$imgoffs
+    else
+	while [ $remaining -gt 0 ]; do
+	    if get_header_info $remaining; then
+		remaining=$((remaining - headersize))
+#		if [ $found -eq 0 ]; then
+#		    printf "    $wx ----  Starting sub-image list\n" $offs
+#		    savedoffs=$globaloffs
+#		fi
+		found=1
+		offs=$globaloffs
+		parse_image $size $(($2 + 1))
+		remaining=$((remaining - (globaloffs - offs)))
+	    else
+		remaining=$((remaining - headersize))
+		if [ $found -eq 1 ]; then
+		    handle_command $((globaloffs - headersize)) $(($2 + 1))
+		fi
+		# We have already read $headersize bytes, skip remaining image
+		head -c $remaining > /dev/null
+		globaloffs=$((globaloffs + $remaining))
+		remaining=0
+	    fi
+#	    if [ $remaining -eq 0 ] && [ $found -eq 1 ]; then
+#		printf "    $wx ----  Ending sub-image list from offset $wx\n" $globaloffs $savedoffs
+#	    fi
+#	    echo "globaloffs=$globaloffs remaining=$remaining" >&2
+	done
+    fi
 }
 
 # Main part of the script
@@ -527,6 +567,8 @@ if [ -n "$outfile" ]; then
     exec > $outfile
 fi
 
+# Start reading the image
+globaloffs=0
 if ! get_header_info 64; then
     echo "File has no valid F&S header" >&2
     exit 1;
@@ -540,12 +582,20 @@ wx="%0${#width}x"
 ws="%-${#width}s"
 
 if [[ $cmd = "list" ]]; then
-    printf " #  $ws $ws flg type (description)\n" offset size
-    printf "%s\n" "-------------------------------------------------------------------------------"
+    printf " #  $ws $ws flag type (description)\n" offset size
 fi
 
-# Handle the image
-parse_image 0 $size 0
+# Handle each of possibly several concatenated F&S images
+while true; do
+    if [[ $cmd = "list" ]]; then
+	printf "%s\n" "-------------------------------------------------------------------------------"
+    fi
+
+    parse_image $size 0
+    if ! get_header_info 64; then
+	break;
+    fi
+done
 
 if [ $cmd != "list" ]; then
     echo "Image '$sel' not found"
