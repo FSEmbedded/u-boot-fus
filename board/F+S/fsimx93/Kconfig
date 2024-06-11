@@ -22,23 +22,36 @@ config FUS_UBOOTCNTR_CONFIG
 	help
 	 Configuration file to create a Container with all BL3x Images
 
-config SPL_FUS_DRAM_TIMING_ADDR
-	hex "DRAM Timing Address"
-	default 0x204E0000
-	help
-	 Base address for a FSHDR + DDR Timing struct
+# config SPL_FUS_DRAM_TIMING_ADDR
+# 	hex "DRAM Timing Address"
+# 	default 0x204E0000
+# 	help
+# 	 Base address for a FSHDR + DDR Timing struct
 
-config SPL_FUS_DRAM_FW_ADDR
-	hex "DRAM FW Address"
-	default 0x204C0000
-	help
-	 Base address for a FSHDR + DDR Firmware file.
-	 DDR FW should be copied to _end of SPL.
+# config SPL_FUS_DRAM_FW_ADDR
+# 	hex "DRAM FW Address"
+# 	default 0x204C0000
+# 	help
+# 	 Base address for a FSHDR + DDR Firmware file.
+# 	 DDR FW should be copied to _end of SPL.
 
-config FUS_BOARDCFG_ADDR
-	hex "BOARD-CFG Address"
-	default 0x20498000
+# config FUS_BOARDCFG_ADDR
+# 	hex "BOARD-CFG Address"
+# 	default 0x20498000
+# 	help
+# 		Base address for FSHDR + BOARD-CFG fdt.
+
+config FUS_SPL_EARLY_BUFFER
+	hex "Buffer for early usage"
+	default 0x2051c000
 	help
-		Base address for FSHDR + BOARD-CFG fdt.
+		Base address for EARLY Buffer
+		Do only use this address, when dram is not initialized
+
+config FUS_SPL_EARLY_BUFFER_SIZE
+	hex "MAX BUFFER SIZE FOR EARLY USAGE"
+	default 0x4000
+	help
+		
 
 endif # TARGET_FSIMX93

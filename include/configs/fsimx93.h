@@ -23,12 +23,17 @@
 	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
 
 #ifdef CONFIG_AHAB_BOOT
-#error AAA
 #define AHAB_ENV "sec_boot=yes\0"
 #else
 #define AHAB_ENV "sec_boot=no\0"
 #endif
 
+#if defined(CONFIG_MTDIDS_DEFAULT)
+#define CFG_MTDPART_DEFAULT ""
+#endif
+
+#define CFG_SYS_OCRAM_BASE 0x20498000
+#define CFG_SYS_OCRAM_SIZE 0x88000
 
 /* ENET Config */
 /* ENET1 */

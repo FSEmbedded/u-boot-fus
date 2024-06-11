@@ -114,6 +114,7 @@ int fs_image_get_board_rev_subnode(const void *fdt, int offs);
 int fs_image_get_board_rev_subnode_f(const void *fdt, int offs,
 				     uint *board_rev);
 
+#if defined(CONFIG_IMX_HAB)
 /* Check if the F&S image is signed (followed by an IVT) */
 bool fs_image_is_signed(struct fs_header_v1_0 *fsh);
 
@@ -122,6 +123,7 @@ void *fs_image_get_ivt_info(struct fs_header_v1_0 *fsh, u32 *size);
 
 /* Validate a signed image; it has to be at the validation address */
 bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh);
+#endif
 
 /* Verify CRC32 of given image */
 int fs_image_check_crc32(const struct fs_header_v1_0 *fsh);

@@ -50,8 +50,8 @@ static const struct fs_board_info *current_bi;
 #ifndef CONFIG_FS_BOARD_CFG
 
 /* Addresses of arguments coming from NBoot and going to Linux */
-#define NBOOT_ARGS_BASE (CONFIG_SYS_SDRAM_BASE + 0x00001000)
-#define BOOT_PARAMS_BASE (CONFIG_SYS_SDRAM_BASE + 0x100)
+#define NBOOT_ARGS_BASE (CFG_SYS_SDRAM_BASE + 0x00001000)
+#define BOOT_PARAMS_BASE (CFG_SYS_SDRAM_BASE + 0x100)
 
 #define ACTION_RECOVER 0x00000040	/* Start recovery instead of update */
 
@@ -489,9 +489,9 @@ void fs_board_late_init_common(const char *serial_name)
 	setup_var("updatecheck", current_bi->updatecheck, 0);
 	setup_var("installcheck", current_bi->installcheck, 0);
 	setup_var("recovercheck", current_bi->recovercheck, 0);
-#ifndef CONFIG_ARCH_MX7ULP
-	setup_var("mtdids", MTDIDS_DEFAULT, 0);
-	setup_var("partition", MTDPART_DEFAULT, 0);
+#if defined(CONFIG_MTDIDS_DEFAULT)
+	setup_var("mtdids", CONFIG_MTDIDS_DEFAULT, 0);
+	setup_var("partition", CFG_MTDPART_DEFAULT, 0);
 #endif
 #ifdef CONFIG_FS_BOARD_MODE_RO
 	setup_var("mode", "ro", 0);
@@ -561,9 +561,9 @@ void fs_board_late_init_common(const char *serial_name)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 /* Return the board name (board specific) */
-char *get_board_name(void)
+const char *get_board_name(void)
 {
-	return current_bi->name;
+	return (const char *)current_bi->name;
 }
 
 /* Return the system prompt (board specific) */

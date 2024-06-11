@@ -120,4 +120,6 @@ void fs_board_init_common(const struct fs_board_info *board_info);
 /* Set up all board specific variables */
 void fs_board_late_init_common(const char *serial_name);
 
+const char *get_board_name(void);
+
 #endif /* !__FS_BOARD_COMMON_H__ */

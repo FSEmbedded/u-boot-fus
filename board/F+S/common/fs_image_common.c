@@ -152,7 +152,7 @@
 #include "fs_dram_common.h"		/* fs_dram_init_common() */
 #include "fs_image_common.h"		/* Own interface */
 
-#include <asm/mach-imx/checkboot.h>
+// #include <asm/mach-imx/checkboot.h>
 #ifdef CONFIG_FS_SECURE_BOOT
 #include <asm/mach-imx/hab.h>
 #include <stdbool.h>
@@ -212,8 +212,10 @@ void *fs_image_find_cfg_fdt(struct fs_header_v1_0 *fsh)
 {
 	void *fdt = fsh + 1;
 
+#if defined(CONFIG_IMX_HAB)
 	if (fs_image_is_signed(fsh))
 		fdt += HAB_HEADER;
+#endif
 
 	return fdt;
 }
@@ -374,6 +376,7 @@ u32 fs_image_getprop_u32(const void *fdt, int cfg_offs, int rev_offs,
 	return fdt_getprop_u32_default_node(fdt, cfg_offs, cell, name, dflt);
 }
 
+#if defined(CONFIG_IMX_HAB)
 /* Check if the F&S image is signed (followed by an IVT) */
 bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
 {
@@ -458,9 +461,9 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 			return false;
 	}
 #endif
-
 	return true;
 }
+#endif /* CONFIG_IMX_HAB */
 
 /*
  * Check CRC32; return: 0: No CRC32, >0: CRC32 OK, <0: error (CRC32 failed)
@@ -671,9 +674,11 @@ bool fs_image_is_ocram_cfg_valid(void)
 	if (err < 0)
 		return false;
 
+#if defined(CONFIG_IMX_HAB)
 	/* Handle signed image */
 	if (fs_image_is_signed(cfg_fsh))
 		return fs_image_is_valid_signature(cfg_fsh);
+#endif
 
 	/* Handle unsigned image */
 #ifdef CONFIG_FS_SECURE_BOOT
@@ -755,14 +760,14 @@ bool fs_image_find_cfg_in_ocram(void)
 	 * To avoid having to search this location over and over again, save a
 	 * pointer to it in global data.
 	 */
-	fsh = (struct fs_header_v1_0 *)CONFIG_SYS_OCRAM_BASE;
+	fsh = (struct fs_header_v1_0 *)CFG_SYS_OCRAM_BASE;
 	do {
 		if (fs_image_match(fsh, type, NULL)) {
 			gd->board_cfg = (ulong)fsh;
 			return true;
 		}
 		fsh++;
-	} while ((ulong)fsh < (CONFIG_SYS_OCRAM_BASE + CONFIG_SYS_OCRAM_SIZE));
+	} while ((ulong)fsh < (CFG_SYS_OCRAM_BASE + CFG_SYS_OCRAM_SIZE));
 
 	return false;
 }

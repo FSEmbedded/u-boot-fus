@@ -15,12 +15,12 @@
 
 #include <common.h>			/* types, get_board_name(), ... */
 #include <version.h>			/* version_string[] */
-#include <cli.h>			/* get_board_name() */
 #include <net.h>			/* eth_env_get_enetaddr_by_index() */
 #include <fdt_support.h>		/* do_fixup_by_path_u32(), ... */
 #include <asm/arch/sys_proto.h>		/* get_reset_cause() */
 #include "fs_fdt_common.h"		/* Own interface */
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
+#include <version_string.h>
 
 /* Set a generic value, if it was not already set in the device tree */
 void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
@@ -186,7 +186,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);
 	fs_fdt_set_getenv(fdt, offs, "platform", 0);
 	fs_fdt_set_getenv(fdt, offs, "arch", 1);
-#ifndef CONFIG_ARCH_IMX8
+#if !defined(CONFIG_ARCH_IMX8) && !defined(CONFIG_ARCH_IMX9) 
 	fs_fdt_set_string(fdt, offs, "reset_cause", get_reset_cause(), 1);
 #endif
 	fs_fdt_set_string(fdt, offs, "nboot_version",
