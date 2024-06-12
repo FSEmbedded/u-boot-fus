@@ -64,11 +64,13 @@
 # #define FSH_FLAGS_CRC32 0x4000	/* CRC32 of image in type[12..15] */
 # #define FSH_FLAGS_SECURE 0x2000	/* CRC32 of header in type[12..15] */
 # #define FSH_FLAGS_INDEX 0x1000	/* Image contains an index */
+# #define FSH_FLAGS_EXTRA 0x0800	/* Extra offset sub-header in p32[7] */
 
 FSH_FLAGS_DESCR=0x8000
 FSH_FLAGS_CRC32=0x4000
 FSH_FLAGS_SECURE=0x2000
 FSH_FLAGS_INDEX=0x1000
+FSH_FLAGS_EXTRA=0x0800
 
 # Possible fields in show command
 fields="offset magic size os padsize type descr typedescr flags crc32 version"
@@ -163,9 +165,10 @@ get_header_info()
     os="[unknown]"
     version="[unknown]"
     type="[unknown]"
-    typedescr="[unknown data]"
+    typedescr="[padding/unknown data]"
     descr="[empty]"
     flags=0
+    extra=0
 
     # Read the first 4 bytes (or less) of the header and use as magic number
     if [ $1 -lt 4 ]; then
@@ -232,6 +235,9 @@ get_header_info()
     flags=$((0x$(reverse ${head:24:4})))
     if [ $((flags & (FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE))) -ne 0 ]; then
 	crc32=$(reverse ${head:56:8})
+    fi
+    if [ $((flags & (FSH_FLAGS_EXTRA))) -ne 0 ]; then
+	extra=$((0x$(reverse ${head:120:8})))
     fi
 
     typedescr="$type"
@@ -300,12 +306,13 @@ do_info()
 	return
     fi
     printf "padsize     0x%02x\n" $padsize
-    printf "type:       '%s'\n" $type
+    printf "type:       '%s'\n" "$type"
     printf "descr:      '%s'\n" $descr
     printf "flags:      0x%04x" $flags
     [ $(($flags & $FSH_FLAGS_DESCR)) -ne 0 ] && printf " DESCR"
     [ $(($flags & $FSH_FLAGS_CRC32)) -ne 0 ] && printf " CRC32"
     [ $(($flags & $FSH_FLAGS_SECURE)) -ne 0 ] && printf " SECURE"
+    [ $(($flags & $FSH_FLAGS_EXTRA)) -ne 0 ] && printf " EXTRA(0x%s)" ${p:0:8}
     printf "\ncrc32:      %s\n" $crc32
     printf "\nParameter Interpretations:\n"
     printf "p64[0..1]:  %s %s\n" ${p:48:16} ${p:32:16}
@@ -409,6 +416,11 @@ handle_command()
 	else
 	    fl=${fl}-
 	fi
+	if [ $(($flags & $FSH_FLAGS_EXTRA)) -ne 0 ]; then
+	    fl=${fl}E
+	else
+	    fl=${fl}-
+	fi
 	printf "%2d: $wx $wx %s %s\n" $index $offset $size $fl "${bl:0:$2}$typedescr"
     elif [ "$sel" = "$type" ] || [ "$sel" = "$typedescr" ] || [ $selnum -eq $index ]; then
 	do_$cmd
@@ -422,7 +434,7 @@ handle_command()
 parse_image()
 {
     local remaining=$1
-    local savedsize savedoffs found imgoffs
+    local savedextra savedoffs found imgoffs
 
 #    echo "in: offs=$offs remaining=$remaining" >&2
 
@@ -453,6 +465,17 @@ parse_image()
 	head -c $((imgoffs - globaloffs)) > /dev/null
 	globaloffs=$imgoffs
     else
+	if [ $extra -gt 0 ]; then
+	    savedextra=$extra
+	    get_header_info $savedextra
+	    remaining=$((remaining - headersize))
+	    savedextra=$((savedextra - headersize))
+	    typedescr="[header/extra data]"
+	    handle_command $((globaloffs - headersize)) $(($2 + 1))
+	    head -c $savedextra > /dev/null
+	    globaloffs=$((globaloffs + savedextra))
+	    remaining=$((remaining - savedextra))
+	fi
 	while [ $remaining -gt 0 ]; do
 	    if get_header_info $remaining; then
 		remaining=$((remaining - headersize))
@@ -462,7 +485,7 @@ parse_image()
 #		fi
 		found=1
 		offs=$globaloffs
-		parse_image $size $(($2 + 1))
+		parse_image $((size + extra)) $(($2 + 1))
 		remaining=$((remaining - (globaloffs - offs)))
 	    else
 		remaining=$((remaining - headersize))
@@ -582,7 +605,7 @@ wx="%0${#width}x"
 ws="%-${#width}s"
 
 if [[ $cmd = "list" ]]; then
-    printf " #  $ws $ws flag type (description)\n" offset size
+    printf " #  $ws $ws flags type (description)\n" offset size
 fi
 
 # Handle each of possibly several concatenated F&S images

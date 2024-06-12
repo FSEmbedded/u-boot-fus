@@ -37,6 +37,10 @@
 # description to printable ASCII characters (0x20..0x7e) to avoid any encoding
 # problems (different codepages, multi-byte characters, etc).
 #
+# If sub-images are embedded in another data structure, so that the first
+# sub-header is not immediately following the parent header, the parent header
+# can set FSH_FLAGS_EXTRA and give the extra offset in p32[7].
+#
 # struct fs_header_v0_0 {		/* Size: 16 Bytes */
 #	char magic[4];			/* "FS" + two bytes operating system
 #					   (e.g. "LX" for Linux) */
@@ -65,11 +69,13 @@
 # #define FSH_FLAGS_CRC32 0x4000	/* CRC32 of image in type[12..15] */
 # #define FSH_FLAGS_SECURE 0x2000	/* CRC32 of header in type[12..15] */
 # #define FSH_FLAGS_INDEX 0x1000	/* Image contains an index */
+# #define FSH_FLAGS_EXTRA 0x0800	/* Extra offset sub-header in p32[7] */
 
 FSH_FLAGS_DESCR=0x8000
 FSH_FLAGS_CRC32=0x4000
 FSH_FLAGS_SECURE=0x2000
 FSH_FLAGS_INDEX=0x1000
+FSH_FLAGS_EXTRA=0x0800
 
 usage()
 {
@@ -90,6 +96,7 @@ Options:
   -c | --crc32          Set flags bit 14, store image CRC32 in type[12..15]
                         (if -s is also given, then also include the header)
   -d | --descr <string> Set <string> as description and set flags bit 15
+  -e | --extra <offs>   Set flags bit 11, store <offs> to sub-header in p32[7]
   -f | --flags <value>  Set <value> for flags (16 bit, default 0); additional
                         flags may be set by other options, e.g. -c
   -h | --help           Show this usage
@@ -191,6 +198,8 @@ output_header_1.0()
 
 parse_param()
 {
+    local temp
+
     p_list=$1
 #    echo "### p_list='$p_list'" >&2
 
@@ -296,6 +305,7 @@ whole=0
 quiet=0
 secure=0
 index=0
+extra=0
 
 # We need xxd, check if it is available
 command -v xxd > /dev/null
@@ -323,6 +333,12 @@ while [ $# -gt 0 ]; do
 	    ;;
 	-d|--descr)
 	    descr="$2"
+	    shift
+	    ;;
+	-e|--extra)
+	    if ! extra=$(($2)) || [ "$extra" -lt 1 ]; then
+		usage "Invalid value '$2' for option $1"
+	    fi
 	    shift
 	    ;;
 	-f|--flags)
@@ -434,6 +450,12 @@ fi
 # Cannot store large paddings, extracted image will keep padding
 if [ $padsize -gt 255 ]; then
     padsize=0
+fi
+
+# Set extra offset to sub-header in p32[7] if requested
+if [ $extra -ne 0 ]; then
+    parse_param "32[7]=$extra"
+    flags=$((flags | FSH_FLAGS_EXTRA))
 fi
 
 # Add description and set flag 15 if requested (<=32 bytes, zero-terminated).
