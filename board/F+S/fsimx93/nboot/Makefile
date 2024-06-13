@@ -189,13 +189,10 @@ $(NBOOT_PATH)/lpddr4x_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG)
 	$(call if_changed,mkimage)
 
-$(NBOOT_PATH)/%_type.fsh: $(NBOOT_PATH)/%_type.cntr
+$(NBOOT_PATH)/%_type.fs: $(NBOOT_PATH)/%_type.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4_${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER > $@
-
-$(NBOOT_PATH)/%_type.fs: $(NBOOT_PATH)/%_type.fsh $(NBOOT_PATH)/%_type.cntr
-	$(call cmd,fsimg,-w -a 0x400 -t DRAM-INFO $^)
+	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO $^)
 
 $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 	$(Q)cat $(OBJ_DRAM_TYPES) > $@
@@ -232,13 +229,10 @@ $(NBOOT_PATH)/board-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOARDINF
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG)
 	$(call if_changed,mkimage)
 
-$(NBOOT_PATH)/board-info.fsh: $(NBOOT_PATH)/board-info.cntr
+$(NBOOT_PATH)/%_board-info.fs: $(NBOOT_PATH)/board-info.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/board-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER > $@
-
-$(NBOOT_PATH)/%_board-info.fs: $(NBOOT_PATH)/board-info.fsh $(NBOOT_PATH)/board-info.cntr
-	$(call cmd,fsimg,-w -a 0x400 -t BOARD-INFO -d $(BOARD) $^)
+	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t BOARD-INFO -d $(BOARD) $^)
 
 ### END: BOARD-CFG SPECIFIC TARGETS ###
 
@@ -253,12 +247,13 @@ BOOTINDEX_FS_OPT = -w -a 0x400 -i -t INDEX $^
 BOOTIMGS_FS_OPT = -a 0x400 -j -t $(call map_boottype,$@) -d $(BOARD) $<
 
 define map_boottype
-$(if $(findstring m33_image.bin,$(1)),CORTEX-M,\
+$(if $(findstring m33_image.fsh,$(1)),CORTEX-M,\
 $(if $(findstring u-boot-spl.fsh,$(1)),SPL,\
 $(shell basename $(1) | cut -d '.' -f 1 | tr a-z A-Z)))
 endef
 
 $(BOOTIMGS_FSH): ${BOOTCNTR_IMGS}
+%.fsh: %.bin
 	$(call cmd,fsimg,$(BOOTIMGS_FS_OPT))
 
 $(NBOOT_PATH)/boot-index.fs: $(BOOTIMGS_FSH)
@@ -272,17 +267,13 @@ $(NBOOT_PATH)/boot-info.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/boot-info_$(CNTR_LOG
 $(NBOOT_PATH)/boot-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_CFG)
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_CFG)
 	$(call if_changed,mkimage)
-	dd if=/dev/zero bs=832 count=1 >> $@
-
-$(NBOOT_PATH)/boot-info.fsh: $(NBOOT_PATH)/boot-info.cntr
-	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/boot-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
-	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER+ELE > $@
 
 # Do not align the binary. The correct Padding is done in boot-info.cntr
 # The Padding recuires BOARD-ID.fs directly after boot-info.fs
-$(NBOOT_PATH)/%_boot-info.fs: $(NBOOT_PATH)/boot-info.fsh $(NBOOT_PATH)/boot-info.cntr
-	$(call cmd,fsimg,-w -t BOOT-INFO -d $(BOARD) $^)
+$(NBOOT_PATH)/%_boot-info.fs: $(NBOOT_PATH)/boot-info.cntr
+	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/boot-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
+	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
+	$(call cmd,fsimg,-w -a 0x400-0x40 -e ${index_offset} -t BOOT-INFO -d $(BOARD) $^)
 
 ### END: BOOT-INFO SPECIFIC TARGETS ###
 
@@ -297,7 +288,7 @@ $(NBOOT_PATH)/fsimage.sh.fs: $(srctree)/scripts/fsimage.sh
 	$(call cmd,fsimg,-t EXTRA -d $(*F) $^)
 
 $(NBOOT_PATH)/$(BOARD)_board-id.fsh:
-	${Q}dd if=/dev/null bs=1 count=1 status=none | $(srctree)/scripts/addfsheader.sh -j -t BOARD-ID -d DUMMY-ID > $@
+	${Q}dd if=/dev/zero bs=1 count=0 status=none | $(srctree)/scripts/addfsheader.sh -j -t BOARD-ID -d DUMMY-ID > $@
 
 nboot-$(BOARD)-$(NBOOT_VERSION).fs: $(OBJ_NBOOT_FILES) FORCE
 	$(Q)cat $(OBJ_NBOOT_FILES) > $@

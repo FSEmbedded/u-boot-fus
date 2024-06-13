@@ -43,12 +43,13 @@ endef
 
 IMGS_FS_OPT = -a 0x400 -j -t $(call map_type,$@) -d $(BOARD) $<
 INDEX_FS_OPT = -w -a 0x400 -i -t INDEX $^ 
-INFO_FS_OPT = -t U-BOOT-INFO -d ${BOARD} $^
 
 quiet_cmd_addfsheader = FSIMG   $@
 cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
 
 $(IMGS_FSH): ${CNTR_IMGS}
+%.fsh: %.bin
+	echo "$@=$<"
 	$(call cmd,addfsheader,$(IMGS_FS_OPT))
 
 board/$(BOARDDIR)/uboot-index.fs: $(IMGS_FSH)
@@ -58,12 +59,9 @@ board/$(BOARDDIR)/uboot-info.cntr: board/$(BOARDDIR)/uboot-index.fs ${srctree}/b
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG)
 	$(call if_changed,mkimage)
 
-board/$(BOARDDIR)/uboot-info.fsh: board/$(BOARDDIR)/uboot-info.cntr
+uboot-info.fs: board/$(BOARDDIR)/uboot-info.cntr
 	$(eval index_offset := $(shell grep DATA ${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+'))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(Q)head -c ${index_offset} $< | ${srctree}/scripts/addfsheader.sh -j -t HEADER > $@
-
-uboot-info.fs: board/$(BOARDDIR)/uboot-info.fsh board/$(BOARDDIR)/uboot-info.cntr
-	$(call cmd,addfsheader,$(INFO_FS_OPT))
+	$(call cmd,addfsheader,-a 0x400 -e ${index_offset} -t U-BOOT-INFO -d ${BOARD} $^)
 
 ### END: UBOOT-INFO CREATION ###
