@@ -62,6 +62,7 @@ static const char *board_names[] = {
 };
 
 static int board_type = -1;
+static int board_adapter = 0;
 static const char *board_name;
 static const char *board_fdt;
 static enum boot_device used_boot_dev;	/* Boot device used for NAND/MMC */
@@ -240,9 +241,21 @@ static void config_uart(int bt)
 		gpio_direction_output (AUTONLINE_R232_PAD, 0);
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
-		pad_list = uart_pads_mp;
-		clk_index = 1;
-		pad_list_count = ARRAY_SIZE(uart_pads_mp);
+		switch (board_adapter) {
+			default:
+			case 0:
+				pad_list = uart_pads_mp;
+				clk_index = 1;
+				pad_list_count = ARRAY_SIZE(uart_pads_mp);
+				break;
+			/* ADP-NDCU2PCORE */
+			case 1:
+				/* NDCU2PCORE has same UART as efusMX8MP */
+				pad_list = uart_pads_efusmx8mp;
+				clk_index = 0;
+				pad_list_count = ARRAY_SIZE(uart_pads_efusmx8mp);
+				break;
+		}
 		break;
 	case BT_EFUSMX8MP:
 		pad_list = uart_pads_efusmx8mp;
@@ -274,6 +287,8 @@ ulong board_serial_base(void)
 		return UART1_BASE;
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
+		if (board_adapter == 1)
+			return UART1_BASE;
 	case BT_ARMSTONEMX8MP:
 	case BT_FSSMMX8MP:
 	default:
@@ -459,6 +474,15 @@ static void basic_init(const char *layout_name)
 		} while (c);
 
 		board_fdt = (const char *)&board_name_lc[0];
+	}
+
+	switch (board_type) {
+		default:
+			break;
+		case BT_PICOCOREMX8MPr2:
+			if (fs_image_getprop(fdt, offs, rev_offs, "is-netdcu", NULL))
+				board_adapter = 1;
+			break;
 	}
 
 	config_uart(board_type);

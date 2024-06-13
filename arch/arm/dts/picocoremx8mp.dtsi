@@ -247,6 +247,13 @@
 	status = "okay";
 };
 
+&uart1 {
+	/* console for netdcu2pcore */
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1>;
+	status = "okay";
+};
+
 &uart2 {
 	/* console */
 	pinctrl-names = "default";
@@ -465,6 +472,13 @@
 	pinctrl_reg_usdhc1_vmmc: regusdhc1vmmc {
 		fsl,pins = <
 			MX8MP_IOMUXC_SD1_RESET_B__GPIO2_IO10	0x41
+		>;
+	};
+
+	pinctrl_uart1: uart1grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI2_RXC__UART1_DCE_RX	0x49
+			MX8MP_IOMUXC_SAI2_RXFS__UART1_DCE_TX	0x49
 		>;
 	};
 

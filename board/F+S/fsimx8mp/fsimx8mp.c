@@ -1104,12 +1104,18 @@ ulong board_get_usable_ram_top(ulong total_size)
  * */
 ulong board_serial_base(void)
 {
+	void *fdt = fs_image_get_cfg_fdt();
+	int offs = fs_image_get_board_cfg_offs(fdt);
+	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
+
 	switch (fs_board_get_type())
 	{
 	case BT_EFUSMX8MP:
 		return UART1_BASE;
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
+		if (fs_image_getprop(fdt, offs, rev_offs, "is-netdcu", NULL))
+			return UART1_BASE;
 	case BT_ARMSTONEMX8MP:
 	case BT_FSSMMX8MP:
 	default:
