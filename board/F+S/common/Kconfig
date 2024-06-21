@@ -78,6 +78,10 @@ config FS_DISP_COMMON
 	bool
 	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL
 
+config FS_DEVICEINFO_COMMON
+	bool "Enable shared struct for Windows"
+	default n
+
 config FS_DISP_COUNT
 	int
 	depends on FS_DISP_COMMON

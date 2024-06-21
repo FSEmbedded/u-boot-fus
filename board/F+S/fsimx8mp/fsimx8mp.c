@@ -43,6 +43,10 @@
 #include "../common/fs_image_common.h"	/* fs_image_*() */
 #include "../common/fs_mmc_common.h"	/* fs_image_*() */
 #include <imx_thermal.h> /* for temp ranges */
+#ifdef CONFIG_FS_DEVICEINFO_COMMON
+#include <image.h>
+#include "../common/fs_deviceinfo_common.h"
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -1085,6 +1089,11 @@ int board_late_init(void)
 	/* Set mac addresses for corresponding boards */
 	fs_ethaddr_init();
 
+#ifdef CONFIG_FS_DEVICEINFO_COMMON
+	/* Initialize struct and save fdtaddr and boardname */
+	fs_deviceinfo_prepare();
+#endif
+
 	return 0;
 }
 
@@ -1153,3 +1162,16 @@ int board_postclk_init(void)
 	return 0;
 }
 #endif /* CONFIG_BOARD_POSTCLK_INIT */
+
+#ifdef CONFIG_FS_DEVICEINFO_COMMON
+void board_prep_linux(bootm_headers_t *images)
+{
+	if (images->ft_len) {
+		pr_err("WARN: A Device-Tree is loaded, will not overwrite with fsdeviceinfo!\n");
+		return;
+	}
+
+	/* Assemble rest of struct and copy to fdtaddr */
+	fs_deviceinfo_assemble();
+}
+#endif
