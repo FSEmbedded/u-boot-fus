@@ -30,3 +30,9 @@ int fs_dram_init_common(unsigned long * p) {
 	return -1;
 #endif
 }
+
+__weak int fs_board_init_dram_data(unsigned long *ptr)
+{
+	debug("%s: not defined\n", __func__);
+	return -ENODEF;
+}

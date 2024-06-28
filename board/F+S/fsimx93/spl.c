@@ -42,10 +42,20 @@
 #include <power/pca9450.h>
 #include <power/regulator.h>
 #include <asm/arch/trdc.h>
+#include "../common/fs_dram_common.h"
+#include "../common/fs_cntr_common.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
-struct dram_timing_info dram_timing;
+static struct dram_timing_info *_dram_timing;
+
+int fs_board_init_dram_data(unsigned long *ptr){
+	if(!ptr)
+		return -ENODATA;
+	debug("DRAM_DATA=0x%p\tdram_timing=0x%lx\n", ptr, *ptr);
+	_dram_timing = (struct dram_timing_info *)*ptr;
+	return 0;
+}
 
 int spl_board_boot_device(enum boot_device boot_dev_spl)
 {
@@ -76,17 +86,15 @@ void spl_board_init(void)
 		printf("Fail to start RNG: %d\n", ret);
 }
 
+/**
+ * NOTE: MUST BE CALLED AFTER FS INIT
+*/
 void spl_dram_init(void)
 {
-	struct dram_timing_info *ptiming = &dram_timing;
-#if 0
-#if IS_ENABLED(CONFIG_IMX93_EVK_LPDDR4X)
-	if (is_voltage_mode(VOLT_LOW_DRIVE))
-		ptiming = &dram_timing_1866mts;
-#endif
-#endif
-	printf("DDR: %uMTS\n", ptiming->fsp_msg[0].drate);
-	ddr_init(ptiming);
+	struct dram_timing_info *dtiming = _dram_timing;
+
+	printf("DDR: %uMTS\n", dtiming->fsp_msg[0].drate);
+	ddr_init(dtiming);
 }
 
 #if CONFIG_IS_ENABLED(DM_PMIC_PCA9450)
@@ -202,9 +210,11 @@ void board_init_f(ulong dummy)
 	/* Init power of mix */
 	soc_power_init();
 
+	/*load F&S NBOOT-Images*/
+	/* TODO: BOOTFLOW INTO UBOOT */
+	fs_cntr_init(true);
 	/* Setup TRDC for DDR access */
 	trdc_init();
-
 	/* DDR initialization */
 	spl_dram_init();
 

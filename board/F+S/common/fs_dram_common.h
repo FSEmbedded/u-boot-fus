@@ -35,6 +35,7 @@ struct dram_timing_info {
 };
 #endif
 
-int fs_dram_init_common(unsigned long * p);
+int fs_dram_init_common(unsigned long *p);
+int fs_board_init_dram_data(unsigned long *ptr);
 
 #endif // FS_DRAM_COMMON_H
