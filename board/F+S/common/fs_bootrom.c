@@ -274,6 +274,6 @@ int bootrom_stream_continue(const struct sdp_stream_ops *stream_ops)
 	fsh.type[15] = 0;
 	debug("Found: %s at buffer idx=%d\n", fsh.type, g_buffer.ptr_idx);
 
-	stream_ops->new_file((u32 *)&fsh, FSH_SIZE);
+	stream_ops->new_file((void *)&fsh, FSH_SIZE);
 	return 0;
 }

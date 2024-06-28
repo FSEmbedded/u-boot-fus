@@ -593,7 +593,7 @@ static void fs_cntr_handle(struct fs_header_v1_0 *fsh)
 /**
  * fs_cntr_new_header
  */
-static void fs_cntr_new_header(u32 *dnl_address, int size)
+static void fs_cntr_new_header(void *dnl_address, int size)
 {
 	struct fs_header_v1_0 *fsh;
 

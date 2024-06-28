@@ -16,7 +16,7 @@
  */
 struct sdp_stream_ops {
 	/* A new file with size should be downloaded to dnl_address */
-	void (*new_file)(u32 dnl_address, u32 size);
+	void (*new_file)(void *dnl_address, int size);
 
 	/* The next data_len bytes have been received in data_buf */
 	void (*rx_data)(u8 *data_buf, int data_len);
