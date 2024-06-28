@@ -177,7 +177,7 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size);
 /* ------------- Stuff only for SPL ---------------------------------------- */
 
 #ifdef CONFIG_SPL_BUILD
-
+#if !defined(CONFIG_FS_CNTR_COMMON)
 typedef void (*basic_init_t)(const char *layout_name);
 
 /* Mark BOARD_CFG to tell U-Boot that we are running on Secondary SPL */
@@ -212,6 +212,7 @@ unsigned int fs_image_fw_mmc(unsigned int jobs_todo, basic_init_t basic_init);
 
 /* Load BOARD-CFG from eMMC */
 int fs_image_cfg_mmc(void);
+#endif /* ! CONFIG_FS_CNTR_COMMON */
 #endif /* CONFIG_SPL_BUILD */
 
 #endif /* !__FS_IMAGE_COMMON_H__ */

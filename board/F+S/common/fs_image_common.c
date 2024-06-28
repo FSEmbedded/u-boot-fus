@@ -152,7 +152,6 @@
 #include "fs_dram_common.h"		/* fs_dram_init_common() */
 #include "fs_image_common.h"		/* Own interface */
 
-// #include <asm/mach-imx/checkboot.h>
 #ifdef CONFIG_FS_SECURE_BOOT
 #include <asm/mach-imx/hab.h>
 #include <stdbool.h>
@@ -191,7 +190,7 @@ bool fs_image_is_fs_image(const struct fs_header_v1_0 *fsh)
 /* Return the intended address of the board configuration in OCRAM */
 void *fs_image_get_regular_cfg_addr(void)
 {
-	return (void*)CONFIG_FUS_BOARDCFG_ADDR;
+	return (void*)CFG_FUS_BOARDCFG_ADDR;
 }
 
 /* Return the real address of the board configuration in OCRAM */
@@ -338,6 +337,7 @@ bool fs_image_match_board_id(struct fs_header_v1_0 *cfg_fsh)
 	 */
 	if (strncmp(bnr.name, compare_bnr.name, sizeof(bnr.name)))
 		return false;
+
 	if (bnr.rev > compare_bnr.rev)
 		return false;
 
@@ -350,11 +350,11 @@ const void *fs_image_getprop(const void *fdt, int cfg_offs, int rev_offs,
 {
 	const void *prop;
 
-	if (rev_offs) {
+	if (rev_offs)
 		prop = fdt_getprop(fdt, rev_offs, name, lenp);
-		if (prop)
-			return prop;
-	}
+
+	if (prop)
+		return prop;
 
 	return fdt_getprop(fdt, cfg_offs, name, lenp);
 }
@@ -363,15 +363,15 @@ const void *fs_image_getprop(const void *fdt, int cfg_offs, int rev_offs,
 u32 fs_image_getprop_u32(const void *fdt, int cfg_offs, int rev_offs,
 			 int cell, const char *name, const u32 dflt)
 {
-	const void *prop;
+	const void *prop = NULL;
 	int len;
 
-	if (rev_offs) {
+	if (rev_offs)
 		prop = fdt_getprop(fdt, rev_offs, name, &len);
-		if (prop)
-			return fdt_getprop_u32_default_node(fdt, rev_offs,
-							    cell, name, dflt);
-	}
+
+	if (prop)
+		return fdt_getprop_u32_default_node(fdt, rev_offs,
+											    cell, name, dflt);
 
 	return fdt_getprop_u32_default_node(fdt, cfg_offs, cell, name, dflt);
 }
@@ -530,7 +530,7 @@ const char *fs_image_get_board_id(void)
 }
 
 /* Store current compare_id as board_id */
-static void fs_image_set_board_id(void)
+void fs_image_set_board_id(void)
 {
 	char c;
 	int i;
@@ -919,6 +919,7 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size)
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
 
 #ifdef CONFIG_SPL_BUILD
+#if !defined(CONFIG_FS_CNTR_COMMON)
 
 /* Jobs to do when streaming image data */
 #define FSIMG_JOB_CFG BIT(0)
@@ -957,7 +958,7 @@ static unsigned int jobs;
 static int nest_level;
 static const char *ram_type;
 static const char *ram_timing;
-static basic_init_t basic_init_callback;
+// static basic_init_t basic_init_callback;
 static const char *layout_name;
 static struct fs_header_v1_0 one_fsh;	/* Buffer for one F&S header */
 static void *validate_addr = NULL;
@@ -1859,5 +1860,5 @@ int fs_image_load_system(enum boot_device boot_dev, bool secondary,
 
 	return -ENOENT;
 }
-
+#endif
 #endif /* CONFIG_SPL_BUILD */

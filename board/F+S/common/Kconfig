@@ -1,4 +1,4 @@
-if FS_BOARDS
+if FSIMX_BOARDS
 
 config ETHADDR_BASE
 	string
@@ -44,6 +44,10 @@ config FS_CNTR_COMMON
 	default y if TARGET_FSIMX8ULP || \
 				TARGET_FSIMX93
 
+config FS_BOOTROM
+	bool "build fs_bootrom"
+	default y if FS_CNTR_COMMON
+
 config FS_DRAM_COMMON
 	bool
 	default y if TARGET_FSIMX8MM || \
@@ -57,7 +61,7 @@ config FS_FDT_COMMON
 
 config FS_MMC_COMMON
 	bool
-	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX7ULP || TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP
+	default y if FSIMX_BOARDS
 
 config FS_ETH_COMMON
 	bool
