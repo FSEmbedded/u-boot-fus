@@ -19,6 +19,7 @@ include spl/include/autoconf.mk
 # 2021.03.2 for the third release in March 2021.
 NBOOT_VERSION = 2024.05
 
+
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
 # names given in the Selectsoft WaWi for the board and the PCB revision. The
 # format is:
@@ -111,7 +112,6 @@ CNTR_DEPFILES := $(srctree)/tools/imx_cntr_image.sh
 IMAGE_TYPE := imx8image
 CNTR_LOG = cntr.log
 
-
 ### DDR SPECIFIC TARGETS ###
 quiet_cmd_ddrfw = DDRFW	$@
 cmd_ddrfw= \
@@ -134,9 +134,11 @@ $(NBOOT_PATH)/.lpddr4x_fw.tmp: $(NXP_PATH_LPDDR4X)
 quiet_cmd_sed = SED     $@
 cmd_sed = sed $2 $< > $@
 
+DRAM_IMAGE_ADDR = $(shell printf "%d" 0x204dc000)
+DRAM_TIMING_ADDR = $(shell expr ${DRAM_IMAGE_ADDR} + 64 )
 DRAM_TIMINGS_LDS = $(NBOOT_PATH)/.dram-timings.lds.tmp
 DRAM_TIMINGS_REPLACE_SED_CMD = \
-	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40)))/g"
+	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(shell printf "0x%lx" $(DRAM_TIMING_ADDR))/g"
 
 $(DRAM_TIMINGS_LDS): $(obj)/dram-timings.lds
 	$(call cmd,sed,$(DRAM_TIMINGS_REPLACE_SED_CMD))
