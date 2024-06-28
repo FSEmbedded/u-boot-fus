@@ -490,10 +490,10 @@ static void set_image_hash(boot_img_t *img, char *filename, uint32_t hash_type)
 	if (img->size == 0)
 		sprintf(sha_command, "sha%dsum /dev/null", hash_type);
 	else
-		sprintf(sha_command, "dd if=/dev/zero of=tmp_pad bs=%d count=1 status=none;\
+		sprintf(sha_command, "dd if=/dev/zero of=\'%s.tmp\' bs=%d count=1 status=none;\
 			dd if=\'%s\' of=\'%s.tmp\' status=none conv=notrunc;\
-			sha%dsum \'%s.tmp\'; rm -f tmp_pad",
-			img->size, filename, filename, hash_type, filename);
+			sha%dsum \'%s.tmp\'; rm -f \'%s.tmp\'",
+			filename, img->size, filename, filename, hash_type, filename, filename);
 
 	switch (hash_type) {
 	case HASH_TYPE_SHA_256:
@@ -519,7 +519,7 @@ static void set_image_hash(boot_img_t *img, char *filename, uint32_t hash_type)
 		exit(EXIT_FAILURE);
 	}
 
-	if (!fgets(hash, hash_type / 4 + 1, fp)) {
+	if (!fgets(hash, (hash_type / 4) + 1, fp)) {
 		fprintf(stderr, "Failed to hash file: %s\n", filename);
 		exit(EXIT_FAILURE);
 	}
