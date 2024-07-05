@@ -80,7 +80,9 @@ int fsl_setenv_chain_of_trust(void)
 	 * bootdelay = 0 (To disable Boot Prompt)
 	 * bootcmd = CHAIN_BOOT_CMD (Validate and execute Boot script)
 	 */
+#if !defined(CONFIG_FUS_FORCE_BOOTDELAY)
 	env_set("bootdelay", "-2");
+#endif
 
 #ifdef CONFIG_ARM
 	env_set("secureboot", "y");

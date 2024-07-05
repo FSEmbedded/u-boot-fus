@@ -17,4 +17,11 @@ config TEXT_BASE
 	default 0x82000000 if TFABOOT
 	default 0x20100000
 
+config FUS_FORCE_BOOTDELAY
+	bool "force bootdelay"
+	default n
+	help
+		If enabled, bootdelay defined in configs/<board>_defconfig keeps it value,
+		even during chain of trust. Use this setting only for debug purpose.
+
 endif
