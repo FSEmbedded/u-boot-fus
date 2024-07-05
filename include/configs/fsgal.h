@@ -23,13 +23,17 @@
 #undef SD_BOOTCOMMAND
 #undef SD2_BOOTCOMMAND
 
+#if defined(CONFIG_BOOTCOMMAND)
+#define SD_BOOTCOMMAND CONFIG_BOOTCOMMAND
+#define SD2_BOOTCOMMAND CONFIG_BOOTCOMMAND
+#else
 #define SD_BOOTCOMMAND	\
 "run distro_bootcmd; " \
 "env exists secureboot && esbc_halt;"
-
 #define SD2_BOOTCOMMAND	\
 "run distro_bootcmd;" \
 "env exists secureboot && esbc_halt;"
+#endif
 
 #define CONFIG_SYS_CLK_FREQ		100000000
 #define CONFIG_DDR_CLK_FREQ		100000000
