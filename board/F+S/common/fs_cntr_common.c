@@ -13,12 +13,12 @@
 */
 
 #include <common.h>
-
 #include <spl.h>
 #include <malloc.h>
 #include <sdp.h>
 #include <asm/sections.h>
 #include <hang.h>
+#include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/image.h>
 
 #ifdef CONFIG_AHAB_BOOT
@@ -54,7 +54,8 @@ struct ram_info_t {
 #define FSIMG_JOB_BOARD_ID BIT(0)
 #define FSIMG_JOB_BOARD_CFG BIT(1)
 #define FSIMG_JOB_DRAM BIT(2)
-#define FSIMG_FW_JOBS (FSIMG_JOB_DRAM)
+#define FSIMG_JOB_UBOOT BIT(3)
+#define FSIMG_FW_JOBS (FSIMG_JOB_DRAM | FSIMG_JOB_UBOOT)
 
 static unsigned int jobs;
 // static unsigned int mmc_hw_part;
@@ -229,7 +230,14 @@ int fs_cntr_load_imx_container_header(struct spl_image_info *image_info, struct 
 }
 
 /**
- * read_auth_image based on arch/arm/mach-imx/parse-container.c
+ * read_auth_image()
+ * based on arch/arm/mach-imx/parse-container.c
+ * 
+ * @spl_image: returns image_info for image[image_index]
+ * @container: ptr to container header
+ * @image_index: idx for image in image array.
+ * @cntr_sector: startsector of container hdr
+ * @returns: ptr if success; else NULL
 */
 static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 					  struct spl_load_info *info,
@@ -272,10 +280,18 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 	if (ahab_verify_cntr_image(&images[image_index], image_index))
 		return NULL;
 #endif
-	return &images[image_index];
+		return &images[image_index];
 }
 
-/* load a specific image from container */
+/**
+ * fs_cntr_load_single_image()
+ * 
+ * @image_info: returns image_info for image[image_num]
+ * @cntr_info: ptr to spl_image_info for container hdr
+ * @load: ptr to load_info
+ * @image_num: idx for image in image array.
+ * @returns: 0 if success; else -ERRNO;
+ */
 static int fs_cntr_load_single_image(struct spl_image_info *image_info,
 				struct spl_image_info *cntr_info,
 				struct spl_load_info *load,
@@ -288,7 +304,6 @@ static int fs_cntr_load_single_image(struct spl_image_info *image_info,
 
 	if (!image)
 		return -EINVAL;
-
 	image_info->load_addr = image->dst;
 	image_info->entry_point = image->entry;
 	image_info->size = image->size;
@@ -296,7 +311,46 @@ static int fs_cntr_load_single_image(struct spl_image_info *image_info,
 	return 0;
 }
 
+/**
+ * fs_cntr_load_all_images()
+ * 
+ * @image_info: returns image_info for image[image_num]
+ * @cntr_info: ptr to spl_image_info for container hdr
+ * @load: ptr to load_info
+ * @fst_idx: image info for image[idx].
+ * @returns: 0 if success; else -ERRNO;
+ */
+static int fs_cntr_load_all_images(struct spl_image_info *image_info,
+				struct spl_image_info *cntr_info,
+				struct spl_load_info *load,
+				int fst_idx)
+{
+	struct container_hdr *cntr;
+	struct spl_image_info info;
+	int idx;
+	int num_images;
+	int ret;
+	
+	cntr = (struct container_hdr *)cntr_info->load_addr;
+	num_images = (int)cntr->num_images;
+	
+	for (idx = 0; idx < num_images; idx++) {
+		ret = fs_cntr_load_single_image(&info, cntr_info, load, idx);
+		if(idx == fst_idx)
+			memcpy(image_info, &info, sizeof(struct spl_image_info));
+	}
+
+	debug("image[%d]: load_addr=0x%lx, entry_point=0x%lx, image_size=0x%x\n",
+			fst_idx, image_info->load_addr, image_info->entry_point, image_info->size);
+
+	return ret;
+}
+
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
+/**
+ * The following Code is supposed to load images
+ * (BOARD-ID/BOARD-INFO/DRAM-INFO) via BOOTROM.
+ */
 #if defined(CONFIG_SPL_BUILD)
 
 extern void fs_image_set_board_id(void);
@@ -315,6 +369,7 @@ enum fsimg_state {
 	FSIMG_STATE_BOARD_ID,
 	FSIMG_STATE_BOARD_CFG,
 	FSIMG_STATE_DRAM,
+	FSIMG_STATE_UBOOT,
 	FSIMG_STATE_DONE,
 };
 
@@ -522,6 +577,7 @@ static int fs_load_cntr_dram_info(struct fs_header_v1_0 *fsh, struct ram_info_t 
 
 /**
  *  fs_handle_dram()
+ * 
  * @fsh: fsh, which should announce a dram-info
  * return: 0 if type matches; -ERRNO if type does not match
  */
@@ -542,6 +598,23 @@ static int fs_handle_dram(struct fs_header_v1_0 *fsh, struct ram_info_t *ram_inf
 	}
 
 	return ret;
+}
+
+/**
+ * fs_handle_uboot()
+ * 
+ * @fsh: fsh, which should announce a U-BOOT-INFO
+ * return: 0 if type matches; -ERRNO if not
+*/
+static int fs_handle_uboot(struct fs_header_v1_0 *fsh)
+{
+	/* State and file does not match */
+	if (!fs_image_match(fsh, "U-BOOT-INFO", NULL)){
+		debug("F&S HDR is not type U-BOOT-INFO.\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /* State machine: Use F&S HDR as transition and handle state */
@@ -578,8 +651,15 @@ static void fs_cntr_handle(struct fs_header_v1_0 *fsh)
 		if(fs_handle_dram(fsh, &ram_info))
 			break;
 		jobs &= ~FSIMG_JOB_DRAM;
-		next = FSIMG_STATE_DONE;
+		next = FSIMG_STATE_UBOOT;
 		break;
+	case FSIMG_STATE_UBOOT:
+		if(fs_handle_uboot(fsh)){
+			break;
+		}
+		jobs &= ~FSIMG_JOB_UBOOT;
+		next = FSIMG_STATE_DONE;
+		break;		
 	default:
 		debug("Current State %d is not considered\n", state);
 		printf("FSIMG: FSM violation\n");
@@ -611,7 +691,7 @@ static const struct sdp_stream_ops fs_image_sdp_stream_ops = {
 };
 
 /* Load FIRMWARE and optionally BOARD-CFG via SDPS from BOOTROM */
-void fs_cntr_all_stream(bool need_cfg)
+void fs_cntr_nboot_stream(bool need_cfg)
 {
 	unsigned int jobs_todo = FSIMG_FW_JOBS;
 
@@ -631,17 +711,89 @@ void fs_cntr_all_stream(bool need_cfg)
 	};
 }
 
-void fs_cntr_init(bool need_cfg)
+int fs_cntr_init(bool need_cfg)
 {
+	int ret = 0;
+	u32 bstage;
+
+	ret = get_bootrom_bootstage(&bstage);
+	if(ret)
+		return ret;
+
+	printf("Boot Stage: ");
+
+	switch (bstage) {
+	case BT_STAGE_PRIMARY:
+		printf("Primary boot\n");
+		break;
+	case BT_STAGE_SECONDARY:
+		printf("Secondary boot\n");
+		break;
+	case BT_STAGE_RECOVERY:
+		printf("Recovery boot\n");
+		break;
+	case BT_STAGE_USB:
+		printf("USB boot\n");
+		break;
+	default:
+		printf("Unknow (0x%x)\n", bstage);
+	}
+	
 	if(is_boot_from_stream_device()){
 		debug("FSIMG: BOOT FROM STREAMDEV\n");
-		fs_cntr_all_stream(need_cfg);
-		return;
+		fs_cntr_nboot_stream(need_cfg);
+		return ret;
 	}
 
 	debug("FSIMG: BOOT FROM BLOCK DEVICE\n");
 	// fs_cntr_all_mmc(need_cfg);
+	return ret;
 }
-
 #endif /* CONFIG_SPL_BUILD */
 /* ------------------------------------------------------------------------- */
+
+/* ------------- Functions only in SPL, not U-Boot ------------------------- */
+/**
+ *  The following Code is supposed to load U-BOOT-INFO as SPL Load Method
+ */
+#if defined(CONFIG_SPL_BUILD)
+
+static int load_uboot_stream(struct spl_image_info *spl_image)
+{
+	struct spl_image_info cntr_info;
+	struct spl_load_info load_info;
+	int sector = 0;
+	int ret = 0;
+
+	memset(&load_info, 0, sizeof(struct spl_load_info));
+	load_info.bl_len = 0x400;
+	load_info.read = bootrom_rx_data_stream;
+
+	ret = fs_cntr_load_imx_container_header(&cntr_info, &load_info, sector);
+	if(ret)
+		return ret;
+
+	ret = fs_cntr_load_all_images(spl_image, &cntr_info, &load_info, 1);
+	
+	free_container(&cntr_info);
+
+	return ret;
+}
+
+static int load_uboot_seek(struct spl_image_info *spl_image)
+{
+	printf("%s: TODO needs to be implemented", __func__);
+	return -EINVAL;
+}
+
+int board_return_to_bootrom(struct spl_image_info *spl_image,
+			    struct spl_boot_device *bootdev)
+{
+	if(is_boot_from_stream_device()){
+		debug("FSIMG: BOOT FROM STREAMDEV\n");
+		return load_uboot_stream(spl_image);
+	}
+
+	return load_uboot_seek(spl_image); 
+}
+#endif /* CONFIG_SPL_BUILD */

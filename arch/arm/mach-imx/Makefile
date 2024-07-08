@@ -302,5 +302,8 @@ obj-$(CONFIG_ARCH_IMX8) += imx8/
 obj-$(CONFIG_ARCH_IMX9) += imx9/
 obj-$(CONFIG_ARCH_IMXRT) += imxrt/
 
+ifneq ($(CONFIG_FS_BOOTROM), y)
 obj-$(CONFIG_SPL_BOOTROM_SUPPORT) += spl_imx_romapi.o
+endif
+
 obj-$(CONFIG_IMX8_ROMAPI) += romapi.o

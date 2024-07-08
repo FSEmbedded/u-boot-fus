@@ -109,6 +109,18 @@ int is_boot_from_stream_device()
 	return 0;
 }
 
+int get_bootrom_bootstage(u32 *bstage)
+{
+	int ret = 0;
+	ret |= rom_api_query_boot_infor(QUERY_BT_STAGE, bstage);
+
+	if (ret != ROM_API_OKAY) {
+		puts("ROMAPI: failure at query_boot_info\n");
+		return -ENODEV;
+	}
+	return 0;
+}
+
 static int bootrom_download(u8 *dest, u32 offset, u32 size)
 {
 	int ret;
@@ -205,15 +217,20 @@ static int bootrom_find_fshdr_stream(struct fs_header_v1_0 *fsh)
 	}
 
 	if(!phdr){
-		puts("Can't find F&S Header in 640K range\n");
+		printf("Can't find F&S Header in 64K range\n");
 		return -ENODATA;
 	}
 
 	set_buffer(&g_buffer, phdr);
 
-	/* NOTE: Stream seems to be not aligned?! */
-	if(g_buffer.r_size < FSH_SIZE)
+	/** 
+	 * NOTE: Stream seems to be not aligned?!
+	 * This should never happen.
+	 */
+	if(g_buffer.r_size < FSH_SIZE){
+		seek_buffer(&g_buffer, g_buffer.r_size);
 		return -ENODATA;
+	}
 
 	memcpy(fsh, phdr, FSH_SIZE);
 	seek_buffer(&g_buffer, FSH_SIZE);

@@ -16,6 +16,6 @@
 
 /* Board specific init */
 int fs_board_basic_init(void);
-void fs_cntr_init(bool need_cfg);
+int fs_cntr_init(bool need_cfg);
 
 #endif /* !__FS_CNTR_COMMON_H__ */

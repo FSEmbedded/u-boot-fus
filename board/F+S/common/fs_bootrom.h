@@ -31,5 +31,6 @@ ulong bootrom_rx_data_stream(struct spl_load_info *load, ulong sector,
 	ulong count, void *buf);
 
 int bootrom_stream_continue(const struct sdp_stream_ops *stream_ops);
+int get_bootrom_bootstage(u32 *bstage);
 
 #endif /* __FS_BOOTROM_H__ */
