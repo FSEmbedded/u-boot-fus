@@ -44,6 +44,7 @@
 #include <asm/arch/trdc.h>
 #include "../common/fs_dram_common.h"
 #include "../common/fs_cntr_common.h"
+#include "../common/fs_bootrom.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -191,6 +192,10 @@ void board_init_f(ulong dummy)
 	regulators_enable_boot_on(false);
 	
 	preloader_console_init();
+
+	print_bootstage();
+
+	print_devinfo();
 
 	ret = imx9_probe_mu(NULL, NULL);
 	if (ret) {

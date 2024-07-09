@@ -204,20 +204,20 @@ $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 ### BOARD-CFG SPECIFIC TARGETS ###
 
 # Prepend some macros with varying content to BOARD-CFG .dts
-$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts FORCE
+$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts
 	@echo "/* Macros with varying content */" > $@
 	@echo "#define NBOOT_VERSION \"$(NBOOT_VERSION)\"" >> $@
 	@echo "#define BOARD_CFG_NAME \"$(*F)\"" >> $@
 	@echo "#define CONFIG_SPL_BUILD" >> $@
 	@cat $< >> $@
 
-$(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp $(obj)/nboot-info.dtsi FORCE
+$(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp $(obj)/nboot-info.dtsi
 ifneq ($(KBUILD_SRC),)
 	$(Q)cp $(obj)/*.dtsi $(NBOOT_PATH)/
 endif
 	$(call cmd,dtco)
 
-$(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp FORCE
+$(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp
 	$(call cmd,fsimg,-w -a 0x400 -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
 
 BOARDINFO_CFG = board-info.cfg
@@ -287,15 +287,15 @@ $(NBOOT_PATH)/fsimage.sh.fs: $(srctree)/scripts/fsimage.sh
 	$(call cmd,fsimg,-t BASH-SCRIPT -d $(*F) $^)
 
 %_extra.fs: $(OBJ_EXTRA_FILES)
-	$(call cmd,fsimg,-t EXTRA -d $(*F) $^)
+	$(call cmd,fsimg,-t EXTRA -a 0x400-0x40 -d $(*F) $^)
 
 $(NBOOT_PATH)/$(BOARD)_board-id.fsh:
 	${Q}dd if=/dev/zero bs=1 count=0 status=none | $(srctree)/scripts/addfsheader.sh -j -t BOARD-ID -d DUMMY-ID > $@
 
-nboot-$(BOARD)-$(NBOOT_VERSION).fs: $(OBJ_NBOOT_FILES) FORCE
+nboot-$(BOARD)-$(NBOOT_VERSION).fs: $(OBJ_NBOOT_FILES)
 	$(Q)cat $(OBJ_NBOOT_FILES) > $@
 
 PHONY += nboot
-nboot: nboot-$(BOARD)-$(NBOOT_VERSION).fs FORCE
+nboot: nboot-$(BOARD)-$(NBOOT_VERSION).fs
 	@echo "Finished doing nboot"
 ### END: NBOOT TARGETS ###

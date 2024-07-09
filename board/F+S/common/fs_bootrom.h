@@ -12,25 +12,22 @@
 * GNU General Public License for more details.
 */
 
-#include <spl.h>
+#include <sdp.h>
 
 #ifndef __FS_BOOTROM_H__
 #define __FS_BOOTROM_H__
 
-/**
- * is_boot_from_stream_device
- * 
- * return:
- *  0 if seekable device,
- *  1 if streamable device,
- *  -ERRNO if failure
-*/
+#define PAGESIZE_USB 0x400
+
 int is_boot_from_stream_device(void);
-
-ulong bootrom_rx_data_stream(struct spl_load_info *load, ulong sector,
-	ulong count, void *buf);
-
 int bootrom_stream_continue(const struct sdp_stream_ops *stream_ops);
+int bootrom_seek_continue(const struct sdp_stream_ops *stream_ops);
+int get_bootrom_bootdev(u32 *bdev);
 int get_bootrom_bootstage(u32 *bstage);
+int get_bootrom_bootimg_offset(u32 *offset);
+int get_bootrom_offset(u32 *offset);
+int get_bootrom_pagesize(u32 *pagesize);
+void print_bootstage(void);
+void print_devinfo(void);
 
 #endif /* __FS_BOOTROM_H__ */

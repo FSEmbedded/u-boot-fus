@@ -14,8 +14,12 @@
 #define IMX_CNTR_NAME "IMX_CONTAINER"
 #define AHAB_CNTR_NAME "AHAB_CONTAINER"
 
-/* Board specific init */
-int fs_board_basic_init(void);
+struct fsh_load_info{
+	struct fs_header_v1_0 *fsh;
+	struct spl_load_info *load_info;
+	uint offset;
+};
+
 int fs_cntr_init(bool need_cfg);
 
 #endif /* !__FS_CNTR_COMMON_H__ */
