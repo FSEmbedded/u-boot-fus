@@ -96,6 +96,9 @@ void spl_dram_init(void)
 
 	printf("DDR: %uMTS\n", dtiming->fsp_msg[0].drate);
 	ddr_init(dtiming);
+
+	/* save ram info in gd */
+	dram_init();
 }
 
 #if CONFIG_IS_ENABLED(DM_PMIC_PCA9450)

@@ -259,18 +259,42 @@ static void display_ahab_auth_ind(u32 event)
 	printf("%s\n", ele_ind_str[get_idx(ele_ind, resp_ind, ARRAY_SIZE(ele_ind))]);
 }
 
+static unsigned long get_ahab_base_addr(void)
+{
+	unsigned long ahab_container_base = IMG_CONTAINER_BASE;
+
+#if defined(CONFIG_SPL_BUILD) && defined(CFG_SPL_FUS_EARLY_AHAB_BASE)
+	/**
+	 * IMPORTANT: In case of SPL dram_init() must be called
+	 * after ddr_init() to set gd->ram_size
+	 */
+	if(gd->ram_size <= 0)
+		return CFG_SPL_FUS_EARLY_AHAB_BASE;
+#endif
+	return ahab_container_base;
+}
+
 void *ahab_auth_cntr_hdr(struct container_hdr *container, u16 length)
 {
 	int err;
 	u32 resp;
+	unsigned long ahab_container_base;
 
-	memcpy((void *)IMG_CONTAINER_BASE, (const void *)container,
+	/**
+	 * To authenticate a container before dram_init(),
+	 * e.g. a container with DRAM timings and FW,
+	 * IMG_CONTAINER_BASE must be dynamic if this
+	 * points to the DRAM_REGION.
+	 */
+	ahab_container_base = get_ahab_base_addr();
+
+	memcpy((void *)ahab_container_base, (const void *)container,
 	       ALIGN(length, CONFIG_SYS_CACHELINE_SIZE));
 
-	flush_dcache_range(IMG_CONTAINER_BASE,
-			   IMG_CONTAINER_BASE + ALIGN(length, CONFIG_SYS_CACHELINE_SIZE) - 1);
+	flush_dcache_range(ahab_container_base,
+			   ahab_container_base + ALIGN(length, CONFIG_SYS_CACHELINE_SIZE) - 1);
 
-	err = ahab_auth_oem_ctnr(IMG_CONTAINER_BASE, &resp);
+	err = ahab_auth_oem_ctnr(ahab_container_base, &resp);
 	if (err) {
 		printf("Authenticate container hdr failed, return %d, resp 0x%x\n",
 		       err, resp);
@@ -278,7 +302,7 @@ void *ahab_auth_cntr_hdr(struct container_hdr *container, u16 length)
 		return NULL;
 	}
 
-	return (void *)IMG_CONTAINER_BASE; /* Return authenticated container header */
+	return (void *)ahab_container_base; /* Return authenticated container header */
 }
 
 int ahab_auth_release(void)
