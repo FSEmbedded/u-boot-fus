@@ -178,8 +178,8 @@ MKIMAGEFLAGS_lpddr4_type.cntr = -n ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG) \
 MKIMAGEFLAGS_lpddr4x_type.cntr = -n ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG) \
 	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
 
-$(NBOOT_PATH)/lpddr4_type.cntr:  MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4_$(CNTR_LOG)
-$(NBOOT_PATH)/lpddr4x_type.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4x_$(CNTR_LOG)
+$(NBOOT_PATH)/lpddr4_type.cntr:  MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4_type$(CNTR_LOG)
+$(NBOOT_PATH)/lpddr4x_type.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4x_type$(CNTR_LOG)
 $(NBOOT_PATH)/lpddr4_type.cntr: $(OBJ_RT_LPDDR4) 
 $(NBOOT_PATH)/lpddr4x_type.cntr: $(OBJ_RT_LPDDR4X)
 
@@ -191,8 +191,13 @@ $(NBOOT_PATH)/lpddr4x_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG)
 	$(call if_changed,mkimage)
 
-$(NBOOT_PATH)/%_type.fs: $(NBOOT_PATH)/%_type.cntr
-	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4_${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
+$(NBOOT_PATH)/lpddr4_type.fs: $(NBOOT_PATH)/lpddr4_type.cntr
+	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
+	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
+	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO $^)
+
+$(NBOOT_PATH)/lpddr4x_type.fs: $(NBOOT_PATH)/lpddr4x_type.cntr
+	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4x_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
 	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO $^)
 
