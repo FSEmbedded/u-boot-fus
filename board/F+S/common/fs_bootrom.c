@@ -365,7 +365,7 @@ static int bootrom_find_fshdr_stream(struct fs_header_v1_0 *fsh)
 	 */
 	if(g_buffer.r_size < FSH_SIZE){
 		seek_buffer(&g_buffer, g_buffer.r_size);
-		return -ENODATA;
+		return -EINVAL;
 	}
 
 	memcpy(fsh, phdr, FSH_SIZE);
@@ -465,7 +465,7 @@ int bootrom_stream_continue(const struct sdp_stream_ops *stream_ops)
 	memset(&load_info, 0, sizeof(struct spl_load_info));
 
 	ret = bootrom_find_fshdr_stream(&fsh);
-	if(ret){
+	if(ret && ret != -EINVAL){
 		printf("Failed to find F&S Header: %d\n", ret);
 		return ret;
 	}
