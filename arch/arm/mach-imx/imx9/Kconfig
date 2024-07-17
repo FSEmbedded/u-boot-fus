@@ -83,6 +83,7 @@ config TARGET_IMX95_15X15_EVK
 config TARGET_FSIMX93
 	bool "fsimx93"
 	select IMX93
+	select IMX9_LPDDR4X
 
 endchoice
 

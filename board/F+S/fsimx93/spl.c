@@ -22,13 +22,15 @@
 #include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/arch/imx93_pins.h>
+#include <asm/arch/mu.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/mxc_i2c.h>
 #include <asm/arch-mx7ulp/gpio.h>
-#include <asm/mach-imx/syscounter.h>
 #include <asm/mach-imx/ele_api.h>
+#include <asm/mach-imx/syscounter.h>
+#include <asm/sections.h>
 #include <dm/uclass.h>
 #include <dm/device.h>
 #include <dm/uclass-internal.h>
@@ -66,11 +68,11 @@ void spl_board_init(void)
 {
 	int ret;
 
-	puts("Normal Boot\n");
-
-	ret = ahab_start_rng();
+	ret = ele_start_rng();
 	if (ret)
 		printf("Fail to start RNG: %d\n", ret);
+
+	puts("Normal Boot\n");
 }
 
 void spl_dram_init(void)
@@ -82,6 +84,7 @@ void spl_dram_init(void)
 		ptiming = &dram_timing_1866mts;
 #endif
 #endif
+
 	printf("DDR: %uMTS\n", ptiming->fsp_msg[0].drate);
 	ddr_init(ptiming);
 }
@@ -161,7 +164,6 @@ int power_init_board(void)
 }
 #endif
 
-extern int imx9_probe_mu(void *ctx, struct event *event);
 void board_init_f(ulong dummy)
 {
 	int ret;
@@ -181,7 +183,7 @@ void board_init_f(ulong dummy)
 	
 	preloader_console_init();
 
-	ret = imx9_probe_mu(NULL, NULL);
+	ret = imx9_probe_mu();
 	if (ret) {
 		printf("Fail to init ELE API\n");
 	} else {
