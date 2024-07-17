@@ -11,22 +11,22 @@
 };
 
 &{/soc@0} {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &aips1 {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &aips2 {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &aips3 {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &gpio1 {
@@ -35,146 +35,159 @@
 
 &gpio2 {
 	reg = <0 0x43810000 0 0x1000>, <0 0x43810040 0 0x40>;
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &gpio3 {
 	reg = <0 0x43820000 0 0x1000>, <0 0x43820040 0 0x40>;
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &gpio4 {
 	reg = <0 0x43840000 0 0x1000>, <0 0x43840040 0 0x40>;
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &gpio5 {
 	reg = <0 0x43850000 0 0x1000>, <0 0x43850040 0 0x40>;
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &lpuart1 {
 	clocks = <&scmi_clk IMX95_CLK_LPUART1>, <&scmi_clk IMX95_CLK_LPUART1>;
 	clock-names = "ipg", "per";
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &mu2 {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &dummy {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &osc_24m {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &clk_ext1 {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&sram0 {
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&scmi_buf0 {
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &scmi_buf1 {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &{/firmware} {
-	u-boot,dm-pre-reloc;
-        u-boot,dm-spl;
+	bootph-all;
+        bootph-pre-ram;
 };
 
 &{/firmware/scmi} {
-	u-boot,dm-pre-reloc;
-        u-boot,dm-spl;
+	bootph-all;
+        bootph-pre-ram;
 };
 
 &{/firmware/scmi/protocol@11} {
-	u-boot,dm-pre-reloc;
-        u-boot,dm-spl;
+	bootph-all;
+        bootph-pre-ram;
 };
 
 &{/firmware/scmi/protocol@13} {
-	u-boot,dm-pre-reloc;
-        u-boot,dm-spl;
+	bootph-all;
+        bootph-pre-ram;
 };
 
 &{/firmware/scmi/protocol@14} {
-	u-boot,dm-pre-reloc;
-        u-boot,dm-spl;
+	bootph-all;
+        bootph-pre-ram;
 };
 
 &{/firmware/scmi/protocol@15} {
-	u-boot,dm-pre-reloc;
+	bootph-all;
 };
 
 &{/firmware/scmi/protocol@19} {
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog>;
 
 	pinctrl_hog: hoggrp {
-		u-boot,dm-spl;
+		bootph-pre-ram;
 
 		fsl,pins = <
 			IMX95_PAD_XSPI1_SS1_B__GPIO5_IO_BIT11			0x3fe
+			IMX95_PAD_GPIO_IO12__TPM3_CH2           0x51e
+			IMX95_PAD_CCM_CLKO1__GPIO3_IO_BIT26			0x3fe
+			IMX95_PAD_CCM_CLKO2__GPIO3_IO_BIT27			0x3fe
 		>;
 	};
 };
 
 &pinctrl_uart1 {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &usdhc1 {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_usdhc1 {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_usdhc1_100mhz {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_usdhc1_200mhz {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &usdhc2 {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_usdhc2 {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_usdhc2_100mhz {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_usdhc2_200mhz {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_usdhc2_gpio {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &reg_usdhc2_vmmc {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_reg_usdhc2_vmmc {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &usb2 {
@@ -187,19 +200,19 @@
 };
 
 &usb3_dwc3 {
-	compatible = "fsl,imx8mq-dwc3", "snps,dwc3";
+	compatible = "fsl,imx95a-dwc3", "fsl,imx8mq-dwc3", "snps,dwc3";
 };
 
 &elemu1 {
 	status = "okay";
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &elemu3 {
 	status = "okay";
-	u-boot,dm-pre-reloc;
-	u-boot,dm-spl;
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &i2c3_gpio_expander_20 {
@@ -223,13 +236,24 @@
 };
 
 &flexspi1 {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &mt35xu01gbba {
-	u-boot,dm-spl;
+	bootph-pre-ram;
 };
 
 &pinctrl_flexspi1 {
-	u-boot,dm-spl;
+	bootph-pre-ram;
+};
+
+&dispmix_csr {
+	/delete-property/ assigned-clocks;
+	/delete-property/ assigned-clock-rates;
+	/delete-property/ assigned-clock-parents;
+};
+
+&mipi_dsi {
+	assigned-clocks = <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>;
+	assigned-clock-parents = <&scmi_clk IMX95_CLK_VIDEOPLL1>;
 };

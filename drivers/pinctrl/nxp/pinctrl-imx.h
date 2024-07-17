@@ -27,9 +27,6 @@ struct imx_pinctrl_soc_info {
 struct imx_pinctrl_priv {
 	struct udevice *dev;
 	struct imx_pinctrl_soc_info *info;
-#ifdef CONFIG_PINCTRL_IMX_SCMI
-	struct scmi_channel *channel;
-#endif
 };
 
 extern const struct pinctrl_ops imx_pinctrl_ops;

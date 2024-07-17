@@ -37,7 +37,7 @@ int imx_clk_scmi_enable(u32 clock_id, bool enable)
 					  in, out);
 	int ret;
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 	if (ret)
 		return ret;
 
@@ -58,7 +58,7 @@ ulong imx_clk_scmi_set_rate(u32 clock_id, ulong rate)
 					  in, out);
 	int ret;
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 	if (ret < 0)
 		return ret;
 
@@ -73,7 +73,7 @@ ulong imx_clk_scmi_set_rate(u32 clock_id, ulong rate)
 
 	msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_CLOCK, SCMI_CLOCK_RATE_GET, in_rate, out_rate);
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 	if (ret < 0)
 		return ret;
 
@@ -95,7 +95,7 @@ ulong imx_clk_scmi_get_rate(u32 clock_id)
 					  in, out);
 	int ret;
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 	if (ret < 0)
 		return ret;
 
@@ -118,7 +118,7 @@ int imx_clk_scmi_set_parent(u32 clock_id, u32 parent_id)
 					  in, out);
 	int ret;
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 	if (ret < 0)
 		return ret;
 

@@ -4,13 +4,14 @@
  */
 #include <common.h>
 #include <errno.h>
+#include <imx_container.h>
 #include <log.h>
 #include <malloc.h>
 #include <asm/io.h>
 #include <mmc.h>
 #include <spi_flash.h>
+#include <spl.h>
 #include <nand.h>
-#include <asm/mach-imx/image.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/boot_mode.h>
 
@@ -30,10 +31,9 @@
  * else off = (2 ^ num) * 1MB
  */
 #define SND_IMG_NUM_TO_OFF(num) \
-        ((1UL << ((0 == (num)) ? 2 : (2 == (num)) ? 0 : (num))) * SND_IMG_OFF_UNIT)
+	((1UL << ((0 == (num)) ? 2 : (2 == (num)) ? 0 : (num))) * SND_IMG_OFF_UNIT)
 
-#define GET_SND_IMG_NUM(fuse) \
-        (((fuse) >> 24) & 0x1F)
+#define GET_SND_IMG_NUM(fuse) (((fuse) >> 24) & 0x1F)
 
 #if defined(CONFIG_IMX8QM)
 #define FUSE_IMG_SET_OFF_WORD 464
@@ -50,7 +50,7 @@ int get_container_size(ulong addr, u16 *header_length)
 	u32 max_offset = 0, img_end;
 
 	phdr = (struct container_hdr *)addr;
-	if (phdr->tag != 0x87 || phdr->version != 0x0) {
+	if (!valid_container_hdr(phdr)) {
 		debug("Wrong container header\n");
 		return -EFAULT;
 	}
@@ -219,15 +219,15 @@ static bool check_secondary_cnt_set(unsigned long *set_off)
 
 	if (!(is_imx8qxp() && is_soc_rev(CHIP_REV_B))) {
 		ret = sc_misc_get_boot_container(-1, &set_id);
-		if (!ret) {
-			/* Secondary boot */
-			if (set_id == 2) {
-				ret = sc_misc_otp_fuse_read(-1, FUSE_IMG_SET_OFF_WORD, &fuse_val);
-				if (!ret) {
-					if (set_off)
-						*set_off = SND_IMG_NUM_TO_OFF(GET_SND_IMG_NUM(fuse_val));
-					return true;
-				}
+		if (ret)
+			return false;
+		/* Secondary boot */
+		if (set_id == 2) {
+			ret = sc_misc_otp_fuse_read(-1, FUSE_IMG_SET_OFF_WORD, &fuse_val);
+			if (!ret) {
+				if (set_off)
+					*set_off = SND_IMG_NUM_TO_OFF(GET_SND_IMG_NUM(fuse_val));
+				return true;
 			}
 		}
 	}
@@ -243,39 +243,44 @@ static unsigned long get_boot_device_offset(void *dev, int dev_type)
 
 	if (dev_type == ROM_API_DEV) {
 		offset = (unsigned long)dev;
-	} else {
-		sec_boot = check_secondary_cnt_set(&sec_set_off);
-		if (sec_boot)
-			printf("Secondary set selected\n");
-		else
-			printf("Primary set selected\n");
+		return offset;
+	}
 
-		if (dev_type == MMC_DEV) {
-			struct mmc *mmc = (struct mmc *)dev;
+	sec_boot = check_secondary_cnt_set(&sec_set_off);
+	if (sec_boot)
+		printf("Secondary set selected\n");
+	else
+		printf("Primary set selected\n");
 
-			if (IS_SD(mmc) || mmc->part_config == MMCPART_NOAVAILABLE) {
-				offset = sec_boot? sec_set_off : CONTAINER_HDR_MMCSD_OFFSET;
+	if (dev_type == MMC_DEV) {
+		struct mmc *mmc = (struct mmc *)dev;
+
+		if (IS_SD(mmc) || mmc->part_config == MMCPART_NOAVAILABLE) {
+			offset = sec_boot ? sec_set_off : CONTAINER_HDR_MMCSD_OFFSET;
+		} else {
+			u8 part = EXT_CSD_EXTRACT_BOOT_PART(mmc->part_config);
+
+			if (part == 1 || part == 2) {
+				if (is_imx8qxp() && is_soc_rev(CHIP_REV_B))
+					offset = CONTAINER_HDR_MMCSD_OFFSET;
+				else
+					offset = CONTAINER_HDR_EMMC_OFFSET;
 			} else {
-				u8 part = EXT_CSD_EXTRACT_BOOT_PART(mmc->part_config);
-
-				if (part == 1 || part == 2) {
-					if (is_imx8qxp() && is_soc_rev(CHIP_REV_B))
-						offset = CONTAINER_HDR_MMCSD_OFFSET;
-					else
-						offset = CONTAINER_HDR_EMMC_OFFSET;
-				} else {
-					offset = sec_boot? sec_set_off : CONTAINER_HDR_MMCSD_OFFSET;
-				}
+				offset = sec_boot ? sec_set_off : CONTAINER_HDR_MMCSD_OFFSET;
 			}
-		} else if (dev_type == QSPI_DEV) {
-			offset = sec_boot? (sec_set_off + CONTAINER_HDR_QSPI_OFFSET) : CONTAINER_HDR_QSPI_OFFSET;
-		} else if (dev_type == NAND_DEV) {
-			offset = sec_boot? (sec_set_off + CONTAINER_HDR_NAND_OFFSET) : CONTAINER_HDR_NAND_OFFSET;
-		} else if (dev_type == QSPI_NOR_DEV) {
-			offset = CONTAINER_HDR_QSPI_OFFSET + 0x08000000;
-		} else if (dev_type == RAM_DEV) {
-			offset = (unsigned long)dev + CONTAINER_HDR_MMCSD_OFFSET;
 		}
+	} else if (dev_type == QSPI_DEV) {
+		offset = sec_boot ? (sec_set_off + CONTAINER_HDR_QSPI_OFFSET) :
+			CONTAINER_HDR_QSPI_OFFSET;
+	} else if (dev_type == NAND_DEV) {
+		offset = sec_boot ? (sec_set_off + CONTAINER_HDR_NAND_OFFSET) :
+			CONTAINER_HDR_NAND_OFFSET;
+	} else if (dev_type == QSPI_NOR_DEV) {
+		offset = CONTAINER_HDR_QSPI_OFFSET + 0x08000000;
+	} else if (dev_type == RAM_DEV) {
+		offset = (unsigned long)dev + CONTAINER_HDR_MMCSD_OFFSET;
+	} else {
+		printf("Not supported dev_type: %d\n", dev_type);
 	}
 
 	debug("container set offset 0x%lx\n", offset);
@@ -336,7 +341,7 @@ static __maybe_unused ulong get_imageset_end(void *dev, int dev_type)
 }
 
 #ifdef CONFIG_SPL_SPI_LOAD
-unsigned long spl_spi_get_uboot_offs(struct spi_flash *flash)
+unsigned int spl_spi_get_uboot_offs(struct spi_flash *flash)
 {
 	ulong end;
 
@@ -350,8 +355,8 @@ unsigned long spl_spi_get_uboot_offs(struct spi_flash *flash)
 #endif
 
 #ifdef CONFIG_SPL_MMC
-unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
-					   unsigned long raw_sect)
+unsigned long arch_spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+						unsigned long raw_sect)
 {
 	ulong end;
 
@@ -365,7 +370,7 @@ unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
 
 int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
-	int part = 0;
+	int part;
 
 #ifdef CONFIG_DUAL_BOOTLOADER
 	/* Bootloader is stored in eMMC user partition for
@@ -373,6 +378,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	 */
 	part = 0;
 #else
+
 	part = EXT_CSD_EXTRACT_BOOT_PART(mmc->part_config);
 	if (part == 1 || part == 2) {
 		unsigned long sec_set_off = 0;
@@ -380,7 +386,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 
 		sec_boot = check_secondary_cnt_set(&sec_set_off);
 		if (sec_boot)
-			part = (part == 1)? 2 : 1;
+			part = (part == 1) ? 2 : 1;
 	} else if (part == 7) {
 		part = 0;
 	}

@@ -31,16 +31,20 @@
 #define BOOTENV
 #endif
 
+#ifdef CONFIG_TARGET_IMX95_15X15_EVK
+#define JH_ROOT_DTB "imx95-15x15-evk-root.dtb"
+#else
 #define JH_ROOT_DTB "imx95-19x19-evk-root.dtb"
+#endif
 
 #define JAILHOUSE_ENV \
 	"jh_root_dtb=" JH_ROOT_DTB "\0" \
 	"jh_mmcboot=setenv fdtfile ${jh_root_dtb}; " \
-		    "setenv jh_clk clk_ignore_unused mem=1408MB kvm-arm.mode=nvhe; " \
+		    "setenv jh_clk cpuidle.off=1 clk_ignore_unused mem=1408MB kvm-arm.mode=nvhe; " \
 		    "if run loadimage; then run mmcboot;" \
 		    "else run jh_netboot; fi; \0" \
 	"jh_netboot=setenv fdtfile ${jh_root_dtb}; " \
-		    "setenv jh_clk clk_ignore_unused mem=1408MB kvm-arm.mode=nvhe; run netboot; \0 "
+		    "setenv jh_clk cpuidle.off=1 clk_ignore_unused mem=1408MB kvm-arm.mode=nvhe; run netboot; \0 "
 
 #define CFG_MFG_ENV_SETTINGS \
 	CFG_MFG_ENV_SETTINGS_DEFAULT \
@@ -51,11 +55,11 @@
 
 #define XEN_BOOT_ENV \
 	    "domu-android-auto=no\0" \
-            "xenhyper_bootargs=console=dtuart dom0_mem=2048M dom0_max_vcpus=2 \0" \
+            "xenhyper_bootargs=console=dtuart dom0_mem=2048M dom0_max_vcpus=2 pci-passthrough=on\0" \
             "xenlinux_bootargs= \0" \
             "xenlinux_console=hvc0 earlycon=xen\0" \
-            "xenlinux_addr=0x9e000000\0" \
-            "dom0fdt_file=imx95-19x19-evk.dtb\0" \
+            "xenlinux_addr=0x9c000000\0" \
+            "dom0fdt_file=" CONFIG_DEFAULT_FDT_FILE "\0" \
             "xenboot_common=" \
                 "${get_cmd} ${loadaddr} xen;" \
                 "${get_cmd} ${fdt_addr} ${dom0fdt_file};" \
@@ -64,6 +68,7 @@
                 "fdt resize 256;" \
                 "fdt set /chosen/module@0 reg <0x00000000 ${xenlinux_addr} 0x00000000 0x${filesize}>;" \
                 "fdt set /chosen/module@0 bootargs \"${bootargs} ${xenlinux_bootargs}\"; " \
+                "fdt set /soc/bus@49000000/iommu@490d0000 status disabled;" \
                 "setenv bootargs ${xenhyper_bootargs};" \
                 "booti ${loadaddr} - ${fdt_addr};" \
             "\0" \
@@ -86,7 +91,8 @@
 	XEN_BOOT_ENV \
 	BOOTENV \
 	AHAB_ENV \
-	"prepare_mcore=setenv mcore_clk clk-imx95.mcore_booted;\0" \
+	"prepare_mcore=setenv mcore_args pd_ignore_unused;\0" \
+	"cpuidle=cpuidle.off=1\0" \
 	"scriptaddr=0x93500000\0" \
 	"kernel_addr_r=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
 	"image=Image\0" \
@@ -104,7 +110,7 @@
 	"mmcpart=1\0" \
 	"mmcroot=/dev/mmcblk1p2 rootwait rw\0" \
 	"mmcautodetect=yes\0" \
-	"mmcargs=setenv bootargs ${jh_clk} ${mcore_clk} console=${console} root=${mmcroot}\0 " \
+	"mmcargs=setenv bootargs ${cpuidle} ${jh_clk} ${mcore_args} console=${console} root=${mmcroot}\0 " \
 	"loadbootscript=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
 	"bootscript=echo Running bootscript from mmc ...; " \
 		"source\0" \
@@ -132,7 +138,7 @@
 				"fi; " \
 			"fi;" \
 		"fi;\0" \
-	"netargs=setenv bootargs ${jh_clk} ${mcore_clk} console=${console} " \
+	"netargs=setenv bootargs ${cpuidle} ${jh_clk} ${mcore_args} console=${console} " \
 		"root=/dev/nfs " \
 		"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp\0" \
 	"netboot=echo Booting from net ...; " \
@@ -188,8 +194,12 @@
 #define CFG_SYS_SDRAM_BASE           0x90000000
 #define PHYS_SDRAM                      0x90000000
 /* Totally 16GB */
-#define PHYS_SDRAM_SIZE			0x70000000 /* 2GB  - 256MB DDR */
-#define PHYS_SDRAM_2_SIZE 		0x380000000 /* 14GB */
+#define PHYS_SDRAM_SIZE			0x70000000UL /* 2GB  - 256MB DDR */
+#ifdef CONFIG_TARGET_IMX95_15X15_EVK
+#define PHYS_SDRAM_2_SIZE 		0x180000000UL /* 4GB temp workaround, should be 8GB */
+#else
+#define PHYS_SDRAM_2_SIZE 		0x380000000UL /* 14GB */
+#endif
 
 #define CFG_SYS_FSL_USDHC_NUM	2
 
