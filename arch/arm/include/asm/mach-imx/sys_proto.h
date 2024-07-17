@@ -84,9 +84,12 @@ struct bd_info;
 #define is_imx8mnus() (is_cpu_type(MXC_CPU_IMX8MNUS))
 #define is_imx8mp() (is_cpu_type(MXC_CPU_IMX8MP)  || is_cpu_type(MXC_CPU_IMX8MPD) || \
 	is_cpu_type(MXC_CPU_IMX8MPL) || is_cpu_type(MXC_CPU_IMX8MP6) || is_cpu_type(MXC_CPU_IMX8MPUL) || \
-	is_cpu_type(MXC_CPU_IMX8MPSC) || is_cpu_type(MXC_CPU_IMX8MPDSC))
+	is_cpu_type(MXC_CPU_IMX8MPSC) || is_cpu_type(MXC_CPU_IMX8MPDSC) || is_cpu_type(MXC_CPU_IMX8MP5) || \
+	is_cpu_type(MXC_CPU_IMX8MPD2))
 #define is_imx8mpd() (is_cpu_type(MXC_CPU_IMX8MPD))
+#define is_imx8mpd2() (is_cpu_type(MXC_CPU_IMX8MPD2))
 #define is_imx8mpl() (is_cpu_type(MXC_CPU_IMX8MPL))
+#define is_imx8mp5() (is_cpu_type(MXC_CPU_IMX8MP5))
 #define is_imx8mp6() (is_cpu_type(MXC_CPU_IMX8MP6))
 #define is_imx8mpul() (is_cpu_type(MXC_CPU_IMX8MPUL))
 #define is_imx8mpsc() (is_cpu_type(MXC_CPU_IMX8MPSC))
@@ -96,10 +99,10 @@ struct bd_info;
 #define is_imx8dxl() (is_cpu_type(MXC_CPU_IMX8DXL))
 
 #define is_imx93() (is_cpu_type(MXC_CPU_IMX93) || is_cpu_type(MXC_CPU_IMX9331) || \
-	is_cpu_type(MXC_CPU_IMX9332) || is_cpu_type(MXC_CPU_IMX9351) || is_cpu_type(MXC_CPU_IMX9322) || \
-	is_cpu_type(MXC_CPU_IMX9321) || is_cpu_type(MXC_CPU_IMX9312) || is_cpu_type(MXC_CPU_IMX9311) || \
-	is_cpu_type(MXC_CPU_IMX9302) || is_cpu_type(MXC_CPU_IMX9301) || \
-	is_cpu_type(MXC_CPU_IMX91P3) || is_cpu_type(MXC_CPU_IMX91P1) || is_cpu_type(MXC_CPU_IMX91P0))
+	is_cpu_type(MXC_CPU_IMX9332) || is_cpu_type(MXC_CPU_IMX9351) || \
+	is_cpu_type(MXC_CPU_IMX9322) || is_cpu_type(MXC_CPU_IMX9321) || \
+	is_cpu_type(MXC_CPU_IMX9312) || is_cpu_type(MXC_CPU_IMX9311) || \
+	is_cpu_type(MXC_CPU_IMX9302) || is_cpu_type(MXC_CPU_IMX9301))
 #define is_imx9351() (is_cpu_type(MXC_CPU_IMX9351))
 #define is_imx9332() (is_cpu_type(MXC_CPU_IMX9332))
 #define is_imx9331() (is_cpu_type(MXC_CPU_IMX9331))
@@ -109,9 +112,11 @@ struct bd_info;
 #define is_imx9311() (is_cpu_type(MXC_CPU_IMX9311))
 #define is_imx9302() (is_cpu_type(MXC_CPU_IMX9302))
 #define is_imx9301() (is_cpu_type(MXC_CPU_IMX9301))
-#define is_imx91p3() (is_cpu_type(MXC_CPU_IMX91P3))
-#define is_imx91p1() (is_cpu_type(MXC_CPU_IMX91P1))
-#define is_imx91p0() (is_cpu_type(MXC_CPU_IMX91P0))
+
+#define is_imx9111() (is_cpu_type(MXC_CPU_IMX9111))
+#define is_imx9101() (is_cpu_type(MXC_CPU_IMX9101))
+#define is_imx91() (is_cpu_type(MXC_CPU_IMX91) || is_cpu_type(MXC_CPU_IMX9111) || \
+	is_cpu_type(MXC_CPU_IMX9101))
 
 #define is_imx95() (is_cpu_type(MXC_CPU_IMX95))
 
@@ -268,6 +273,14 @@ struct scmi_rom_passover_get_out {
 	u32 passover[(sizeof(rom_passover_t) + 8) / 4];
 };
 
+#define SCMI_MISC_MAX_CFGNAME    16U
+
+struct scmi_cfg_info_out {
+	u32 status;
+	u32 msel;
+	u8 cfgname[SCMI_MISC_MAX_CFGNAME];
+};
+
 #endif
 
 /* For i.MX ULP */
@@ -322,8 +335,6 @@ int mxs_wait_mask_set(struct mxs_register_32 *reg, u32 mask, u32 timeout);
 int mxs_wait_mask_clr(struct mxs_register_32 *reg, u32 mask, u32 timeout);
 
 void board_late_mmc_env_init(void);
-void vadc_power_up(void);
-void vadc_power_down(void);
 
 void pcie_power_up(void);
 void pcie_power_off(void);

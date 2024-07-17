@@ -197,6 +197,20 @@ static void reboot_bootloader(char *cmd_parameter, char *response)
 		fastboot_okay(NULL, response);
 }
 
+bool endswith(char* s, char* subs) {
+	if (!s || !subs)
+		return false;
+	uint32_t len = strlen(s);
+	uint32_t sublen = strlen(subs);
+	if (len < sublen) {
+		return false;
+	}
+	if (strncmp(s + len - sublen, subs, sublen)) {
+		return false;
+	}
+        return true;
+}
+
 #ifdef CONFIG_ANDROID_RECOVERY
 /**
  * reboot_fastboot() - Sets reboot fastboot flag.
@@ -214,20 +228,6 @@ static void reboot_fastboot(char *cmd_parameter, char *response)
 		fastboot_okay(NULL, response);
 }
 #endif
-
-bool endswith(char* s, char* subs) {
-	if (!s || !subs)
-		return false;
-	uint32_t len = strlen(s);
-	uint32_t sublen = strlen(subs);
-	if (len < sublen) {
-		return false;
-	}
-	if (strncmp(s + len - sublen, subs, sublen)) {
-		return false;
-	}
-	return true;
-}
 
 static void send(char *response, const char *buffer, unsigned int buffer_size)
 {
@@ -1344,4 +1344,10 @@ int fastboot_handle_command(char *cmd_string, char *response)
 	pr_err("command %s not recognized.\n", cmd_string);
 	fastboot_fail("unrecognized command", response);
 	return -1;
+}
+
+void fastboot_multiresponse(int cmd, char *response)
+{
+	pr_err("Unknown multiresponse command %d\n", cmd);
+	fastboot_fail("Unknown multiresponse command", response);
 }

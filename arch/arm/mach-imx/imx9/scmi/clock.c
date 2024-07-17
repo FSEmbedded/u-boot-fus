@@ -49,7 +49,7 @@ void set_arm_core_max_clk(void)
 	struct scmi_perf_out out;
 	struct scmi_msg msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_PERF, SCMI_PERF_LEVEL_SET, in, out);
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 	if (ret)
 		printf("%s: %d\n", __func__, ret);
 }

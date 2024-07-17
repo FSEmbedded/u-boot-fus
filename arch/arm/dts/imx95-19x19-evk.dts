@@ -63,7 +63,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "jedec,spi-nor";
-		spi-max-frequency = <100000000>;
+		spi-max-frequency = <200000000>;
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
 	};
@@ -573,6 +573,12 @@
 			IMX95_PAD_SD2_DATA2__USDHC2_DATA2			0x13fe
 			IMX95_PAD_SD2_DATA3__USDHC2_DATA3			0x13fe
 			IMX95_PAD_SD2_VSELECT__USDHC2_VSELECT			0x51e
+		>;
+	};
+
+	pinctrl_mipi_dsi_csi: mipidsigrp {
+		fsl,pins = <
+			IMX95_PAD_CCM_CLKO2__GPIO3_IO_BIT27			0x31e
 		>;
 	};
 };

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  */
 
 #include <common.h>
@@ -20,7 +20,10 @@
 #include <miiphy.h>
 #include <netdev.h>
 #include <asm/gpio.h>
-#include <asm/mach-imx/sys_proto.h>
+#include <asm/arch/sys_proto.h>
+#include <i2c.h>
+#include <dm/uclass.h>
+#include <dm/uclass-internal.h>
 
 #ifdef CONFIG_SCMI_FIRMWARE
 #include <scmi_agent.h>
@@ -41,11 +44,31 @@ int board_early_init_f(void)
 
 #ifdef CONFIG_USB_TCPC
 struct tcpc_port port;
+#ifdef CONFIG_TARGET_IMX95_15X15_EVK
+struct tcpc_port portpd;
+struct tcpc_port_config port_config = {
+	.i2c_bus = 2, /* i2c3 */
+	.addr = 0x50,
+	.port_type = TYPEC_PORT_DFP,
+};
+
+struct tcpc_port_config portpd_config = {
+	.i2c_bus = 2, /*i2c3*/
+	.addr = 0x52,
+	.port_type = TYPEC_PORT_UFP,
+	.max_snk_mv = 20000,
+	.max_snk_ma = 3000,
+	.max_snk_mw = 15000,
+	.op_snk_mv = 9000,
+};
+#else
 struct tcpc_port_config port_config = {
 	.i2c_bus = 6, /* i2c7 */
 	.addr = 0x50,
 	.port_type = TYPEC_PORT_DFP,
 };
+#endif
+
 ulong tca_base;
 
 void tca_mux_select(enum typec_cc_polarity pol)
@@ -88,6 +111,34 @@ static void setup_typec(void)
 	int ret;
 
 	tca_base = USB1_BASE_ADDR + 0xfc000;
+
+#ifdef CONFIG_TARGET_IMX95_15X15_EVK
+	struct gpio_desc ext_12v_desc;
+
+	ret = tcpc_init(&portpd, portpd_config, NULL);
+	if (ret) {
+		printf("%s: tcpc portpd init failed, err=%d\n",
+		       __func__, ret);
+	} else if (tcpc_pd_sink_check_charging(&portpd)) {
+		printf("Power supply on USB PD\n");
+
+		/* Enable EXT 12V */
+		ret = dm_gpio_lookup_name("gpio@22_1", &ext_12v_desc);
+		if (ret) {
+			printf("%s lookup gpio@22_1 failed ret = %d\n", __func__, ret);
+			return;
+		}
+
+		ret = dm_gpio_request(&ext_12v_desc, "ext_12v_en");
+		if (ret) {
+			printf("%s request ext_12v_en failed ret = %d\n", __func__, ret);
+			return;
+		}
+
+		/* Enable PER 12V regulator */
+		dm_gpio_set_dir_flags(&ext_12v_desc, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);
+	}
+#endif
 
 	ret = tcpc_init(&port, port_config, &tca_mux_select);
 	if (ret) {
@@ -137,9 +188,9 @@ static struct dwc3_device dwc3_device_data = {
 	.power_down_scale = 2,
 };
 
-int usb_gadget_handle_interrupts(int index)
+int dm_usb_gadget_handle_interrupts(struct udevice *dev)
 {
-	dwc3_uboot_handle_interrupt(index);
+	dwc3_uboot_handle_interrupt(dev);
 	return 0;
 }
 
@@ -181,22 +232,7 @@ static void dwc3_nxp_usb_phy_init(struct dwc3_device *dwc3)
 
 static int imx9_scmi_power_domain_enable(u32 domain, bool enable)
 {
-	struct scmi_power_set_state power_in = {
-		.domain = domain,
-		.flags = 0,
-		.state = enable ? 0 : BIT(30),
-	};
-	struct scmi_power_set_state_out power_out;
-	struct scmi_msg msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_POWER_DOMAIN,
-					  SCMI_POWER_STATE_SET,
-					  power_in, power_out);
-	int ret;
-
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
-	if (ret)
-		return ret;
-
-	return scmi_to_linux_errno(power_out.status);
+	return scmi_pwd_state_set(gd->arch.scmi_dev, 0, domain, enable ? 0 : BIT(30));
 }
 
 int board_usb_init(int index, enum usb_init_type init)
@@ -247,28 +283,28 @@ int board_usb_cleanup(int index, enum usb_init_type init)
 	return ret;
 }
 
-static void netc_phy_rst(void)
+static void netc_phy_rst(const char *gpio_name, const char *label)
 {
 	int ret;
 	struct gpio_desc desc;
 
-	/* ENET1_RST_B */
-	ret = dm_gpio_lookup_name("i2c5_io@21_2", &desc);
+	/* ENET_RST_B */
+	ret = dm_gpio_lookup_name(gpio_name, &desc);
 	if (ret) {
-		printf("%s lookup i2c5_io@21_2 failed ret = %d\n", __func__, ret);
+		printf("%s lookup %s failed ret = %d\n", __func__, gpio_name, ret);
 		return;
 	}
 
-	ret = dm_gpio_request(&desc, "ENET1_RST_B");
+	ret = dm_gpio_request(&desc, label);
 	if (ret) {
-		printf("%s request ENET1_RST_B failed ret = %d\n", __func__, ret);
+		printf("%s request %s failed ret = %d\n", __func__, label, ret);
 		return;
 	}
 
-	/* assert the ENET1_RST_B */
+	/* assert the ENET_RST_B */
 	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE | GPIOD_ACTIVE_LOW);
 	udelay(10000);
-	dm_gpio_set_value(&desc, 0); /* deassert the ENET1_RST_B */
+	dm_gpio_set_value(&desc, 0); /* deassert the ENET_RST_B */
 	udelay(80000);
 
 }
@@ -286,8 +322,12 @@ void netc_init(void)
 
 	set_clk_netc(ENET_125MHZ);
 
-	netc_phy_rst();
-
+#ifdef CONFIG_TARGET_IMX95_15X15_EVK
+	netc_phy_rst("gpio@22_4", "ENET1_RST_B");
+	netc_phy_rst("gpio@22_5", "ENET2_RST_B");
+#else
+	netc_phy_rst("i2c5_io@21_2", "ENET1_RST_B");
+#endif
 	pci_init();
 }
 
@@ -309,11 +349,17 @@ int board_init(void)
 		return ret;
 	}
 
+	imx9_scmi_power_domain_enable(IMX95_PD_DISPLAY, false);
+	imx9_scmi_power_domain_enable(IMX95_PD_CAMERA, false);
+
 #if defined(CONFIG_USB_TCPC)
 	setup_typec();
 #endif
 
 	netc_init();
+
+	power_on_m7("mx95alt");
+
 	return 0;
 }
 
@@ -348,6 +394,7 @@ int board_phys_sdram_size(phys_size_t *size)
 void board_quiesce_devices(void)
 {
 	int ret;
+	struct uclass *uc_dev;
 
 	ret = imx9_scmi_power_domain_enable(IMX95_PD_HSIO_TOP, false);
 	if (ret) {
@@ -360,8 +407,137 @@ void board_quiesce_devices(void)
 		printf("%s: Failed for NETC MIX: %d\n", __func__, ret);
 		return;
 	}
+
+	ret = uclass_get(UCLASS_SPI_FLASH, &uc_dev);
+	if (uc_dev)
+		ret = uclass_destroy(uc_dev);
+	if (ret)
+		printf("couldn't remove SPI FLASH devices\n");
 }
 
+#if IS_ENABLED(CONFIG_OF_BOARD_FIXUP)
+
+#if IS_ENABLED(CONFIG_TARGET_IMX95_15X15_EVK)
+static void change_fdt_mido_pins(void *fdt)
+{
+	int nodeoff, ret;
+	u32 enet1_pins[12] = { 0x00B8, 0x02BC, 0x0424, 0x00, 0x00, 0x57e,
+		0x00BC, 0x02C0, 0x0428, 0x00, 0x00, 0x97e};
+
+	nodeoff = fdt_path_offset(fdt, "/firmware/scmi/protocol@19/emdiogrp");
+	if (nodeoff > 0) {
+
+		int i;
+		for (i = 0; i < 12; i++) {
+			enet1_pins[i] = cpu_to_fdt32(enet1_pins[i]);
+		}
+
+		ret = fdt_setprop(fdt, nodeoff, "fsl,pins", enet1_pins, 12 * sizeof(u32));
+		if (ret)
+			printf("fdt_setprop fsl,pins error %d\n", ret);
+		else
+			debug("Update MDIO pins ok\n");
+	}
+}
+
+static int board_fix_15x15_evk(void *fdt)
+{
+	int ret;
+	struct udevice *bus;
+	struct udevice *i2c_dev = NULL;
+
+	ret = uclass_get_device_by_seq(UCLASS_I2C, 2, &bus);
+	if (ret) {
+		printf("%s: Can't find I2C bus 2\n", __func__);
+		return 0;
+	}
+
+	ret = dm_i2c_probe(bus, 0x50, 0, &i2c_dev);
+	if (ret) {
+		ret = dm_i2c_probe(bus, 0x20, 0, &i2c_dev);
+		if (!ret) {
+			debug("Find Audio board\n");
+			change_fdt_mido_pins(fdt);
+		}
+	}
+
+	return 0;
+}
+
+#else
+
+static int imx9_scmi_misc_cfginfo(u32 *msel, char *cfgname)
+{
+	struct scmi_cfg_info_out out;
+	struct scmi_msg msg = SCMI_MSG(SCMI_PROTOCOL_ID_MISC, SCMI_MISC_CFG_INFO, out);
+	int ret;
+
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
+	if(ret == 0 && out.status == 0) {
+		strcpy(cfgname, (const char *)out.cfgname);
+	} else {
+		printf("Failed to get cfg name, scmi_err = %d\n",
+		       out.status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void disable_fdt_resources(void *fdt)
+{
+	int i = 0;
+	int nodeoff, ret;
+	const char *status = "disabled";
+	static const char * const dsi_nodes[] = {
+		"/soc@0/bus@42000000/i2c@426b0000",
+		"/soc@0/bus@42000000/i2c@426d0000",
+		"/pcie@4ca00000",
+		"/pcie@4cb00000"
+	};
+
+	for (i = 0; i < ARRAY_SIZE(dsi_nodes); i++) {
+		nodeoff = fdt_path_offset(fdt, dsi_nodes[i]);
+		if (nodeoff > 0) {
+set_status:
+			ret = fdt_setprop(fdt, nodeoff, "status", status,
+					  strlen(status) + 1);
+			if (ret == -FDT_ERR_NOSPACE) {
+				ret = fdt_increase_size(fdt, 512);
+				if (!ret)
+					goto set_status;
+			}
+		}
+	}
+}
+
+static int board_fix_19x19_evk(void *fdt)
+{
+	char cfgname[SCMI_MISC_MAX_CFGNAME];
+	u32 msel;
+	int ret;
+	const char *netcfg = "mx95netc";
+
+	ret = imx9_scmi_misc_cfginfo(&msel, cfgname);
+	if (!ret) {
+		debug("SM: %s\n", cfgname);
+		if (!strcmp(netcfg, cfgname))
+			disable_fdt_resources(fdt);
+	}
+
+	return 0;
+}
+#endif
+
+int board_fix_fdt(void *fdt)
+{
+#if IS_ENABLED(CONFIG_TARGET_IMX95_15X15_EVK)
+	return board_fix_15x15_evk(fdt);
+#else
+	return board_fix_19x19_evk(fdt);
+#endif
+}
+#endif
 #ifdef CONFIG_FSL_FASTBOOT
 #ifdef CONFIG_ANDROID_RECOVERY
 int is_recovery_key_pressing(void)
