@@ -27,9 +27,12 @@
 static union fsdeviceinfo fsdi;
 static union fsdeviceinfo* pfsdi;
 static char boardname[FSDI_STD_STRING_LEN];
+static unsigned int displayinterface = -1;
+static unsigned int displaypanel = -1;
 
 void fs_deviceinfo_dump(union fsdeviceinfo* pfsdi)
 {
+	printf("\n-----FS_DeviceInfo-----\n");	
 	printf("Board name:    %s\n", pfsdi->info.boardname);
 	printf("Board type:    %d\n", pfsdi->info.boardtype);
 	printf("Board rev.:    %d\n", pfsdi->info.boardrevision);
@@ -44,6 +47,10 @@ void fs_deviceinfo_dump(union fsdeviceinfo* pfsdi)
 	pfsdi->info.enetaddr1[0], pfsdi->info.enetaddr1[1],
 	pfsdi->info.enetaddr1[2], pfsdi->info.enetaddr1[3],
 	pfsdi->info.enetaddr1[4], pfsdi->info.enetaddr1[5]);
+	printf("**Display**\n");
+	printf("Interface:     %d\n", pfsdi->info.displayinterface);
+	printf("Panel:         %d\n", pfsdi->info.displaypanel);
+	printf("-----FS_DeviceInfo-----\n");
 }
 
 void fs_deviceinfo_setcrc32(union fsdeviceinfo* pfsdi, u32 crc32)
@@ -65,6 +72,13 @@ void fs_deviceinfo_prepare(void)
 	char* bn = get_board_name();
 	if(bn)
 		memcpy(boardname, bn, strlen(bn));
+
+	char* di = env_get("displayinterface");
+	if (di)
+		displayinterface = simple_strtoul(di, NULL, 10);
+	char* dp = env_get("displaypanel");
+	if (dp)
+		displaypanel = simple_strtoul(dp, NULL, 10);
 
 	// Prepare FDT address
 	if (envvar) {
@@ -111,6 +125,10 @@ void fs_deviceinfo_assemble(void)
 	// Enet address
 	eth_env_get_enetaddr_by_index("eth", id++, pfsdi->info.enetaddr0);
 	eth_env_get_enetaddr_by_index("eth", id++, pfsdi->info.enetaddr1);
+
+	// Get display configuration
+	pfsdi->info.displayinterface = displayinterface;
+	pfsdi->info.displaypanel = displaypanel;
 
 	// CRC
 	u32 calc = fs_deviceinfo_calccrc32(pfsdi);

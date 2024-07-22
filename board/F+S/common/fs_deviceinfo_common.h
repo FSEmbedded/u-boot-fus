@@ -33,6 +33,9 @@ union fsdeviceinfo{
 
 		uchar enetaddr0[FSDI_ENETADDR_LEN];
 		uchar enetaddr1[FSDI_ENETADDR_LEN];
+
+		unsigned int displayinterface;
+		unsigned int displaypanel;
 	}info;
 };
 
