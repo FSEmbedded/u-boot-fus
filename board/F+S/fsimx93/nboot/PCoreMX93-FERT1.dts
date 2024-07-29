@@ -13,6 +13,7 @@
 / {
 	board-cfg {
 		board-name = "PicoCoreMX93";
+		board-fdt = "picocoremx93";
 
 		dram-type = "lpddr4";
 		dram-timing = "lpddr4_pc_1g3200m1ch1cs";

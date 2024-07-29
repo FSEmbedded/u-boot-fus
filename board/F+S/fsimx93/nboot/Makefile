@@ -48,7 +48,7 @@ BOARD_CONFIGS = \
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
 	lpddr4_pc_1g3200m1ch1cs_timing.fs \
-	lpddr4_osm_1g3733m1ch1cs_timing.fs
+	lpddr4_osm_1g3200m1ch1cs_timing.fs
 	
 RT_LPDDR4X :=
 
