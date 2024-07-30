@@ -30,48 +30,191 @@
 #include <usb.h>
 #include <dwc3-uboot.h>
 #include <asm/gpio.h>
+#include <hang.h>
+
+#include "../common/fs_board_common.h"
+#include "../common/fs_image_common.h"
+#include "../common/fs_cntr_common.h"
+#include "fsimx93.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define UART_PAD_CTRL	(PAD_CTL_DSE(6) | PAD_CTL_FSEL2)
-#define WDOG_PAD_CTRL	(PAD_CTL_DSE(6) | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
+/* +++ FEATURE defines +++ */
+/**
+ *  TODO: FEATURE defines
+ */
+/* --- FEATURE defines --- */
 
-static iomux_v3_cfg_t const uart_pads[] = {
-	MX93_PAD_UART2_RXD__LPUART2_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	MX93_PAD_UART2_TXD__LPUART2_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-};
+/* +++ Environment defines +++ */
 
-#if CONFIG_IS_ENABLED(EFI_HAVE_CAPSULE_SUPPORT)
-#define IMX_BOOT_IMAGE_GUID \
-	EFI_GUID(0xbc550d86, 0xda26, 0x4b70, 0xac, 0x05, \
-		 0x2a, 0x44, 0x8e, 0xda, 0x6f, 0x21)
+#define INSTALL_RAM	"ram@80400000"
 
-struct efi_fw_image fw_images[] = {
-	{
-		.image_type_id = IMX_BOOT_IMAGE_GUID,
-		.fw_name = u"IMX93-11X11-EVK-RAW",
-		.image_index = 1,
+#if CONFIG_IS_ENABLED(MMC) && CONFIG_IS_ENABLED(USB_STORAGE) && CONFIG_IS_ENABLED(FS_FAT)
+#define UPDATE_DEF	"mmc,usb"
+#define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
+#elif CONFIG_IS_ENABLED(MMC) && CONFIG_IS_ENABLED(USB_STORAGE)
+#define UPDATE_DEF	"mmc"
+#define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
+#elif CONFIG_IS_ENABLED(USB_STORAGE) && CONFIG_IS_ENABLED(FS_FAT)
+#define UPDATE_DEF	"usb"
+#define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
+#else
+#define UPDATE_DEF NULL
+#define INSTALL_DEF INSTALL_RAM
+#endif
+
+#if CONFIG_IS_ENABLED(FS_UPDATE_SUPPORT)
+	#define INIT_DEF ".init_fs_updater"
+#else
+	#define INIT_DEF ".init_init"
+#endif
+
+/* --- Environment defines --- */
+
+const struct fs_board_info board_info[] = {
+	{	/* 0 (BT_PICOCOREMX93) */
+		.name = "PicoCoreMX93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 1 (BT_OSMSFMX93) */
+		.name = "FS-OSM-SF-MX93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
 	},
 };
 
-struct efi_capsule_update_info update_info = {
-	.dfu_string = "mmc 0=flash-bin raw 0 0x2000 mmcpart 1",
-	.images = fw_images,
-};
+/* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
 
-u8 num_image_type_guids = ARRAY_SIZE(fw_images);
-#endif /* EFI_HAVE_CAPSULE_SUPPORT */
+static int set_gd_board_type(void)
+{
+	struct fs_header_v1_0 *cfg_fsh;
+	const char *board_id;
+	const char *ptr;
+	int len;
+
+	cfg_fsh = fs_image_get_regular_cfg_addr();
+	board_id = cfg_fsh->param.descr;
+	ptr = strchr(board_id, '-');
+	len = (int)(ptr - board_id);
+
+	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93);
+	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93);
+
+	return -EINVAL;
+}
+
+#if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
+/* definition for U-BOOT */
+int board_fit_config_name_match(const char *name)
+{
+	void *fdt;
+	int offs;
+	const char *board_fdt;
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
+
+	if(!strcmp(name, board_fdt))
+		return 0;
+
+	return -EINVAL;
+}
+#endif
+
+static void fs_setup_cfg_info(void)
+{
+#ifndef CONFIG_SPL_BUILD
+	void *fdt;
+	int offs;
+	int rev_offs;
+	unsigned int features;
+	struct cfg_info *info;
+	const char *string;
+	u32 flags = 0;
+
+	/**
+	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
+	 * is fatal. However no output is possible this early, so simply stop.
+	 * If the BOARD-CFG is not at the expected location in OCRAM but is
+	 * found somewhere else, output a warning later in board_late_init().
+	 */
+	if(!fs_image_find_cfg_in_ocram())
+		hang();
+
+	/**
+	 * TODO: BOARD-CFG Validation
+	 */
+	// if (!fs_image_is_ocram_cfg_valid())
+	// 	hang();
+
+	info = fs_board_get_cfg_info();
+	memset(info, 0, sizeof(struct cfg_info));
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
+						    &info->board_rev);
+	
+	set_gd_board_type();
+	info->board_type = gd->board_type;
+
+	string = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
+	info->boot_dev = fs_board_get_boot_dev_from_name(string);
+
+	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
+						"dram-chips", 1);
+
+	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
+					       "dram-size", 0x400);
+
+	info->flags = flags;
+
+	features = 0;
+	/**
+	 * TODO: cfg_info FEATURES
+	 */
+	#endif
+}
 
 int board_early_init_f(void)
-{
-	imx_iomux_v3_setup_multiple_pads(uart_pads, ARRAY_SIZE(uart_pads));
+{	
+	fs_setup_cfg_info();
 
-	init_uart_clk(LPUART2_CLK_ROOT);
-
+	switch(gd->board_type) {
+		case BT_PICOCOREMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart2_pads, ARRAY_SIZE(lpuart2_pads));
+			init_uart_clk(LPUART2_CLK_ROOT);
+			break;
+		case BT_OSMSFMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
+			init_uart_clk(LPUART1_CLK_ROOT);
+			break;
+		default:
+			return -EINVAL;
+			break;
+	}
 	return 0;
 }
 
-#if defined(CONFIG_OF_BOARD_SETUP)
+#if CONFIG_IS_ENABLED(OF_BOARD_SETUP)
 int	ft_board_setup(void *fdt_blob, struct bd_info *bd)
 {
 	return fdt_fixup_memory(fdt_blob,
@@ -120,7 +263,7 @@ int board_init(void)
 
 	if (IS_ENABLED(CONFIG_DWC_ETH_QOS))
 		setup_eqos();
-
+	
 	return 0;
 }
 
@@ -139,6 +282,7 @@ int board_late_init(void)
 	env_set("board_name", "11X11_EVK");
 	env_set("board_rev", "iMX93");
 #endif
+
 	return 0;
 }
 

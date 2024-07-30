@@ -12,11 +12,11 @@
 # GNU General Public License for more details.
 #
 
-obj-y += fsimx93.o
 
 ifdef CONFIG_SPL_BUILD
 obj-y += spl.o
-# obj-$(CONFIG_TARGET_FSIMX93) += lpddr4_pc_MT53D512M16D1_timing.o
+else
+obj-y += fsimx93.o
 endif
 
 ### UBOOT-INFO CREATION ###
@@ -49,7 +49,6 @@ cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
 
 $(IMGS_FSH): ${CNTR_IMGS}
 %.fsh: %.bin
-	echo "$@=$<"
 	$(call cmd,addfsheader,$(IMGS_FS_OPT))
 
 board/$(BOARDDIR)/uboot-index.fs: $(IMGS_FSH)

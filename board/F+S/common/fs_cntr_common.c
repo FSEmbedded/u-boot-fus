@@ -372,8 +372,6 @@ static int fs_handle_board_id(struct fsh_load_info *fsh_info)
 		return -EINVAL;
 	}
 
-	printf("BOARD-ID: %s\n", fsh->param.descr);
-
 	/* Save ID and add job to load BOARD-CFG */
 	fs_image_set_compare_id(fsh->param.descr);
 	fs_image_set_board_id();
@@ -481,6 +479,10 @@ static int fs_handle_board_cfg(struct fsh_load_info *fsh_info, struct ram_info_t
 		debug("FSCNTR: dram definition not in board_cfg");
 		return -EINVAL;
 	}
+
+	/* Set Board ID in BOARD-CFG Header */
+	fs_image_board_cfg_set_board_rev(fsh);
+	printf("BOARD-ID: %s\n", fs_image_get_board_id());
 
 	return 0;
 }
@@ -714,7 +716,6 @@ void fs_cntr_nboot_stream(bool need_cfg)
 
 	if (need_cfg){
 		jobs_todo |= FSIMG_JOB_BOARD_CFG;
-		jobs_todo |= FSIMG_JOB_BOARD_ID;
 	}
 
 	set_jobs(jobs_todo);
@@ -732,7 +733,6 @@ void fs_cntr_nboot_mmc(bool need_cfg)
 
 	if (need_cfg){
 		jobs_todo |= FSIMG_JOB_BOARD_CFG;
-		jobs_todo |= FSIMG_JOB_BOARD_ID;
 	}
 
 	set_jobs(jobs_todo);
@@ -756,6 +756,47 @@ int fs_cntr_init(bool need_cfg)
 
 	debug("FSCNTR: BOOT FROM BLOCK DEVICE\n");
 	fs_cntr_nboot_mmc(need_cfg);
+	return ret;
+}
+
+static void fs_cntr_board_id_stream(void)
+{
+	unsigned int jobs_todo = FSIMG_JOB_BOARD_ID;
+
+	set_jobs(jobs_todo);
+
+	/* Stream until BOARD-ID HDR is downloaded */
+	while (get_jobs()) {
+		debug("%s: Jobs not done: 0x%x\n", __func__, jobs);
+		bootrom_stream_continue(&fs_image_sdp_stream_ops);
+	};
+}
+
+static void fs_cntr_board_id_mmc(void)
+{
+	unsigned int jobs_todo = FSIMG_JOB_BOARD_ID;
+
+	set_jobs(jobs_todo);
+
+	/* load files, until BOARD-ID HDR is done */
+	while (get_jobs()) {
+		debug("%s: Jobs not done: 0x%x\n", __func__, jobs);
+		bootrom_seek_continue(&fs_image_sdp_stream_ops);
+	};
+}
+
+int fs_cntr_load_board_id()
+{
+	int ret = 0;
+
+	if(is_boot_from_stream_device()){
+		debug("FSCNTR: GET BOARD-ID FROM STREAMDEV\n");
+		fs_cntr_board_id_stream();
+		return ret;
+	}
+
+	debug("FSCNTR: GET BOARD-ID FROM BLOCK DEVICE\n");
+	fs_cntr_board_id_mmc();
 	return ret;
 }
 #endif /* CONFIG_SPL_BUILD */

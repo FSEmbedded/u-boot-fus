@@ -348,7 +348,7 @@ bool fs_image_match_board_id(struct fs_header_v1_0 *cfg_fsh)
 const void *fs_image_getprop(const void *fdt, int cfg_offs, int rev_offs,
 			     const char *name, int *lenp)
 {
-	const void *prop;
+	const void *prop = NULL;
 
 	if (rev_offs)
 		prop = fdt_getprop(fdt, rev_offs, name, lenp);

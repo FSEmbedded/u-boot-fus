@@ -66,7 +66,7 @@ void ddr_load_train_firmware(enum fw_type type)
 	u32 error = 0;
 #endif
 
-#ifdef CONFIG_SPL_OF_CONTROL
+#if defined(CONFIG_SPL_OF_CONTROL) && !defined(CONFIG_SPL_MULTI_DTB_FIT)
 	if (gd->fdt_blob && !fdt_check_header(gd->fdt_blob)) {
 		imem_start = roundup((unsigned long)&_end +
 				     fdt_totalsize(gd->fdt_blob), 4) +

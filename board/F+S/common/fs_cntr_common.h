@@ -21,5 +21,6 @@ struct fsh_load_info{
 };
 
 int fs_cntr_init(bool need_cfg);
+int fs_cntr_load_board_id(void);
 
 #endif /* !__FS_CNTR_COMMON_H__ */

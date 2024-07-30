@@ -38,11 +38,11 @@ void debug_dump_mem(char *ptr, int size)
 	int c;
 	for(c = 0; c < size; c++){
 		if (!(c % 16))
-			puts("\n");
+			printf("\n%08x", c);
 		if(!(c % 4))
 			puts(" ");
 
-		debug("%02x", ptr[c]);
+		printf("%02x", ptr[c]);
 	}
 	puts("\n\n");
 }

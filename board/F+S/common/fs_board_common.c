@@ -202,6 +202,7 @@ const char *fs_board_get_nboot_version(void)
 	return fs_image_get_nboot_version(NULL);
 }
 
+#if !defined(CONFIG_TARGET_FSIMX93)
 /* Set RAM size; optee will be subtracted in dram_init() */
 int board_phys_sdram_size(phys_size_t *size)
 {
@@ -209,6 +210,7 @@ int board_phys_sdram_size(phys_size_t *size)
 
 	return 0;
 }
+#endif
 
 #endif /* CONFIG_FS_BOARD_CFG */
 

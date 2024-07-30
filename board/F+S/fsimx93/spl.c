@@ -22,6 +22,7 @@
 #include <spl.h>
 #include <asm/global_data.h>
 #include <asm/io.h>
+#include <asm/sections.h>
 #include <asm/arch/imx93_pins.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
@@ -34,6 +35,7 @@
 #include <dm/device.h>
 #include <dm/uclass-internal.h>
 #include <dm/device-internal.h>
+#include <dm/root.h>
 #include <linux/delay.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/ccm_regs.h>
@@ -42,9 +44,12 @@
 #include <power/pca9450.h>
 #include <power/regulator.h>
 #include <asm/arch/trdc.h>
+
 #include "../common/fs_dram_common.h"
 #include "../common/fs_cntr_common.h"
+#include "../common/fs_image_common.h"
 #include "../common/fs_bootrom.h"
+#include "fsimx93.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -53,14 +58,16 @@ static struct dram_timing_info *_dram_timing;
 int fs_board_init_dram_data(unsigned long *ptr){
 	if(!ptr)
 		return -ENODATA;
-	debug("DRAM_DATA=0x%p\tdram_timing=0x%lx\n", ptr, *ptr);
+
+	debug("DRAM_DATA=0x%p\tdram_timing=0x%lx, _end=0x%p\n", ptr, *ptr, &_end);
 	_dram_timing = (struct dram_timing_info *)*ptr;
+
 	return 0;
 }
 
 int spl_board_boot_device(enum boot_device boot_dev_spl)
 {
-#ifdef CONFIG_SPL_BOOTROM_SUPPORT
+#if CONFIG_IS_ENABLED(BOOTROM_SUPPORT)
 	return BOOT_DEVICE_BOOTROM;
 #else
 	switch (boot_dev_spl) {
@@ -100,6 +107,62 @@ void spl_dram_init(void)
 	/* save ram info in gd */
 	dram_init();
 }
+
+static int set_gd_board_type(void)
+{
+	const char *board_id;
+	const char *ptr;
+	int len;
+
+	board_id = fs_image_get_board_id();
+	ptr = strchr(board_id, '-');
+	len = (int)(ptr - board_id);
+
+	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93);
+	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93);
+
+	return -EINVAL;
+}
+
+int board_early_init_f(void)
+{
+	int rescan = 0;
+
+	set_gd_board_type();
+
+	switch(gd->board_type) {
+		case BT_PICOCOREMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart2_pads, ARRAY_SIZE(lpuart2_pads));
+			init_uart_clk(LPUART2_CLK_ROOT);
+			break;
+		case BT_OSMSFMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
+			init_uart_clk(LPUART1_CLK_ROOT);
+			break;
+		default:
+			return -EINVAL;
+			break;
+	}
+
+	fdtdec_resetup(&rescan);
+
+	if(rescan) {
+		dm_uninit();
+		dm_init_and_scan(!CONFIG_IS_ENABLED(OF_PLATDATA));
+	}
+
+	return 0;
+}
+
+#if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
+int board_fit_config_name_match(const char *name)
+{
+	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93);
+	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93);
+
+	return -EINVAL;
+}
+#endif
 
 #if CONFIG_IS_ENABLED(DM_PMIC_PCA9450)
 int power_init_board(void)
@@ -188,9 +251,14 @@ void board_init_f(ulong dummy)
 
 	arch_cpu_init();
 
-	board_early_init_f();
-
+	/* Setup default Devicetree */
 	spl_early_init();
+
+	/* Load Board ID to know the Board in early state*/
+	fs_cntr_load_board_id();
+
+	/* Setup Multiple Devicetree */
+	board_early_init_f();
 
 	regulators_enable_boot_on(false);
 	
@@ -217,12 +285,13 @@ void board_init_f(ulong dummy)
 
 	/* Init power of mix */
 	soc_power_init();
-
+	
 	/*load F&S NBOOT-Images*/
-	/* TODO: BOOTFLOW INTO UBOOT */
 	fs_cntr_init(true);
+
 	/* Setup TRDC for DDR access */
 	trdc_init();
+	
 	/* DDR initialization */
 	spl_dram_init();
 
@@ -233,9 +302,3 @@ void board_init_f(ulong dummy)
 
 	board_init_r(NULL, 0);
 }
-
-#ifdef CONFIG_ANDROID_SUPPORT
-int board_get_emmc_id(void) {
-	return 0;
-}
-#endif
