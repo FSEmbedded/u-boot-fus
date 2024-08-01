@@ -60,7 +60,7 @@ uint32_t scmi_get_rom_data(rom_passover_t *rom_data)
 	struct scmi_msg msg = SCMI_MSG(SCMI_PROTOCOL_ID_MISC, SCMI_MISC_ROM_PASSOVER_GET, out);
 	int ret;
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 	if(ret == 0 && out.status == 0) {
 		memcpy(rom_data, (struct rom_passover_t *)out.passover, sizeof(rom_passover_t));
 	} else {
@@ -267,6 +267,14 @@ static struct mm_region imx9_mem_map[] = {
 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+       }, {
+               /* M7 TCM */
+               .virt = 0x203c0000UL,
+               .phys = 0x203c0000UL,
+               .size = 0x80000UL,
+               .attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
+                        PTE_BLOCK_NON_SHARE |
+                        PTE_BLOCK_PXN | PTE_BLOCK_UXN
 	}, {
 		/* OCRAM */
 		.virt = 0x20480000UL,
@@ -286,7 +294,7 @@ static struct mm_region imx9_mem_map[] = {
 		/* Flexible Serial Peripheral Interface */
 		.virt = 0x28000000UL,
 		.phys = 0x28000000UL,
-		.size = 0x30000000UL,
+		.size = 0x8000000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
@@ -563,7 +571,7 @@ int get_reset_reason(bool sys, bool lm)
 	int ret;
 
 	if (sys) {
-		ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+		ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 		if (out.status) {
 			printf("%s:%d for SYS\n", __func__, out.status);
 			return ret;
@@ -593,7 +601,7 @@ int get_reset_reason(bool sys, bool lm)
 		in.flags = 0;
 		memset(&out, 0, sizeof(struct scmi_imx_misc_reset_reason_out));
 
-		ret = devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
+		ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
 		if (out.status) {
 			printf("%s:%d for LM\n", __func__, out.status);
 			return ret;
@@ -619,6 +627,39 @@ int get_reset_reason(bool sys, bool lm)
 			       );
 		}
 	}
+
+	return 0;
+}
+
+/* name: SM CFG name */
+int power_on_m7(char *name)
+{
+	struct scmi_imx_misc_cfg_info_out out = { 0 };
+	struct scmi_msg msg = SCMI_MSG(SCMI_IMX_PROTOCOL_ID_MISC,
+				       SCMI_IMX_MISC_CFG_INFO, out);
+	int ret;
+
+	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
+	if (out.status) {
+		printf("%s:%d fail\n", __func__, out.status);
+		return ret;
+	}
+
+	if (strncmp(out.cfgname, name, MISC_MAX_CFGNAME)) {
+		printf("cfg name not match %s:%s, ignore\n", name, out.cfgname);
+		return -EINVAL;
+	}
+
+	/* Power up M7MIX */
+	ret = scmi_pwd_state_set(gd->arch.scmi_dev, 0, IMX95_PD_M7, 0);
+	if (ret) {
+		printf("Power M7 failed\n");
+		return -EIO;
+	}
+
+	/* In case OEI not init ECC, do it here */
+	memset_io((void *)0x203c0000, 0, 0x40000);
+	memset_io((void *)0x20400000, 0, 0x40000);
 
 	return 0;
 }
@@ -700,16 +741,16 @@ int print_cpuinfo(void)
 
 void build_info(void)
 {
-	u32 fw_version, sha1, res, status;
+	u32 fw_version, sha1, res = 0, status;
 	int ret;
 
 	printf("\nBuildInfo:\n");
 
-	ret = ahab_get_fw_status(&status, &res);
+	ret = ele_get_fw_status(&status, &res);
 	if (ret) {
 		printf("  - ELE firmware status failed %d, 0x%x\n", ret, res);
 	} else if ((status & 0xff) == 1) {
-		ret = ahab_get_fw_version(&fw_version, &sha1, &res);
+		ret = ele_get_fw_version(&fw_version, &sha1, &res);
 		if (ret) {
 			printf("  - ELE firmware version failed %d, 0x%x\n", ret, res);
 		} else {
@@ -785,30 +826,15 @@ static int disable_m7_node(void *blob)
 	return delete_fdt_nodes(blob, nodes_path_m7, ARRAY_SIZE(nodes_path_m7));
 }
 
-#ifdef CONFIG_OF_BOARD_FIXUP
-#ifndef CONFIG_SPL_BUILD
-int board_fix_fdt(void *fdt)
+static bool is_m7_off(void)
 {
-	return 0;
-}
-#endif
-#endif
+	u32 state = 0;
+	int ret;
+	ret = scmi_pwd_state_get(gd->arch.scmi_dev, IMX95_PD_M7, &state);
+	if (ret)
+		printf("scmi_pwd_state_get Failed %d for M7\n", ret);
 
-static int is_m7_off(void)
-{
-	struct scmi_power_get_state power_in = {
-		.domain = IMX95_PD_M7,
-	};
-	struct scmi_power_get_state_out power_out;
-	struct scmi_msg msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_POWER_DOMAIN,
-					  SCMI_POWER_STATE_GET,
-					  power_in, power_out);
-
-	devm_scmi_process_msg(gd->arch.scmi_dev, gd->arch.scmi_channel, &msg);
-	if (power_out.status)
-		printf("SCMI_POWWER_STATE_SET Failed for DDR MIX\n");
-
-	if (power_out.state == BIT(30))
+	if (state == BIT(30))
 		return true;
 	else
 		return false;
@@ -842,8 +868,8 @@ void get_board_serial(struct tag_serialnr *serialnr)
 	printf("UID: 0x%x 0x%x 0x%x 0x%x\n",
 	       gd->arch.uid[0], gd->arch.uid[1], gd->arch.uid[2], gd->arch.uid[3]);
 
-	serialnr->low = gd->arch.uid[0];
-	serialnr->high = gd->arch.uid[3];
+	serialnr->low = __be32_to_cpu(gd->arch.uid[1]);
+	serialnr->high = __be32_to_cpu(gd->arch.uid[0]);
 }
 #endif
 
@@ -872,10 +898,9 @@ int arch_cpu_init(void)
 	return 0;
 }
 
-int imx9_probe_mu(void *ctx, struct event *event)
+int imx9_probe_mu(void)
 {
 	struct udevice *dev;
-	struct scmi_channel *channel;
 	int ret;
 	u32 res;
 	struct ele_get_info_data info;
@@ -888,12 +913,11 @@ int imx9_probe_mu(void *ctx, struct event *event)
 	if (ret)
 		return ret;
 
-	ret = devm_scmi_of_get_channel(dev, &channel);
+	ret = devm_scmi_of_get_channel(dev);
 	if (ret)
 		return ret;
 
 	gd->arch.scmi_dev = dev;
-	gd->arch.scmi_channel = channel;
 
 	ret = uclass_get_device_by_name(UCLASS_PINCTRL, "protocol@19", &dev);
 	if (ret)
@@ -910,7 +934,7 @@ int imx9_probe_mu(void *ctx, struct event *event)
 	if (gd->flags & GD_FLG_RELOC)
 		return 0;
 
-	ret = ahab_get_info(&info, &res);
+	ret = ele_get_info(&info, &res);
 	if (ret)
 		return ret;
 
@@ -918,7 +942,8 @@ int imx9_probe_mu(void *ctx, struct event *event)
 
 	return 0;
 }
-EVENT_SPY(EVT_DM_POST_INIT, imx9_probe_mu);
+EVENT_SPY_SIMPLE(EVT_DM_POST_INIT_F, imx9_probe_mu);
+EVENT_SPY_SIMPLE(EVT_DM_POST_INIT_R, imx9_probe_mu);
 
 int timer_init(void)
 {
@@ -928,6 +953,13 @@ int timer_init(void)
 #ifdef CONFIG_SPL_BUILD
 	unsigned long freq = 24000000;
 	asm volatile("msr cntfrq_el0, %0" : : "r" (freq) : "memory");
+
+	/* Clear the compare frame interrupt */
+	unsigned long sctr_cmpcr_addr = SYSCNT_CMP_BASE_ADDR + 0x2c;
+	unsigned long sctr_cmpcr = readl(sctr_cmpcr_addr);
+
+	sctr_cmpcr &= ~0x1;
+	writel(sctr_cmpcr, sctr_cmpcr_addr);
 #endif
 
 	return 0;
@@ -1046,14 +1078,16 @@ enum boot_device get_boot_device(void)
 }
 #endif
 
-ulong h_spl_load_read(struct spl_load_info *load, ulong sector,
-		      ulong count, void *buf)
+ulong h_spl_load_read(struct spl_load_info *load, ulong off,
+		      ulong size, void *buf)
 {
-	struct mmc *mmc = load->dev;
+	struct blk_desc *bd = load->priv;
+	lbaint_t sector = off >> bd->log2blksz;
+	lbaint_t count = size >> bd->log2blksz;
 	ulong trampoline_sz = SZ_16M;
 	void *trampoline = (void *)((ulong)CFG_SYS_SDRAM_BASE + PHYS_SDRAM_SIZE - trampoline_sz);
 	ulong ns_ddr_end = CFG_SYS_SDRAM_BASE + PHYS_SDRAM_SIZE;
-	ulong read_count, trampoline_cnt = trampoline_sz / 512, actual, total;
+	ulong read_count, trampoline_cnt = trampoline_sz >> bd->log2blksz, actual, total;
 
 #ifdef PHYS_SDRAM_2_SIZE
 	ns_ddr_end += PHYS_SDRAM_2_SIZE;
@@ -1064,7 +1098,7 @@ ulong h_spl_load_read(struct spl_load_info *load, ulong sector,
 		total = 0;
 		while (count) {
 			read_count = trampoline_cnt > count ? count : trampoline_cnt;
-			actual = blk_dread(mmc_get_blk_desc(mmc), sector, read_count, trampoline);
+			actual = blk_dread(bd, sector, read_count, trampoline);
 			if (actual != read_count) {
 				printf("Error in blk_dread, %lu, %lu\n", read_count, actual);
 				return 0;
@@ -1076,8 +1110,8 @@ ulong h_spl_load_read(struct spl_load_info *load, ulong sector,
 			count -= actual;
 		}
 
-		return total;
+		return total << bd->log2blksz;
 	}
 
-	return blk_dread(mmc_get_blk_desc(mmc), sector, count, buf);
+	return blk_dread(bd, sector, count, buf) << bd->log2blksz;
 }

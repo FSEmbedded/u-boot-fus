@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <malloc.h>
 #include <asm/arch/sys_proto.h>
+#include <dm/device.h>
 #include <sdp.h>
 #include <hang.h>
 #include <spl.h>

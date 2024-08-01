@@ -19,24 +19,26 @@
 #include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/syscounter.h>
 #include <asm/armv8/mmu.h>
+#include <dm/device.h>
+#include <dm/device_compat.h>
 #include <dm/uclass.h>
 #include <env.h>
 #include <env_internal.h>
 #include <errno.h>
 #include <fdt_support.h>
+#include <imx_thermal.h>
 #include <linux/bitops.h>
+#include <linux/bitfield.h>
+#include <linux/delay.h>
+#include <thermal.h>
 #include <asm/setup.h>
 #include <asm/bootm.h>
 #include <asm/arch-imx/cpu.h>
 #include <asm/mach-imx/ele_api.h>
-#include <asm/mach-imx/optee.h>
-#include <linux/delay.h>
 #include <fuse.h>
-#include <imx_thermal.h>
-#include <thermal.h>
-#include <imx_sip.h>
-#include <linux/arm-smccc.h>
 #include <asm/arch/ddr.h>
+#include <asm/mach-imx/optee.h>
+#include <fuse.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -108,23 +110,43 @@ int board_usb_gadget_port_auto(void)
 }
 #endif
 
+/*
+ * SPEED_GRADE[5:4]    SPEED_GRADE[3:0]    MHz
+ * xx                  0000                2300
+ * xx                  0001                2200
+ * xx                  0010                2100
+ * xx                  0011                2000
+ * xx                  0100                1900
+ * xx                  0101                1800
+ * xx                  0110                1700
+ * xx                  0111                1600
+ * xx                  1000                1500
+ * xx                  1001                1400
+ * xx                  1010                1300
+ * xx                  1011                1200
+ * xx                  1100                1100
+ * xx                  1101                1000
+ * xx                  1110                900
+ * xx                  1111                800
+ */
 u32 get_cpu_speed_grade_hz(void)
 {
-	u32 speed, max_speed;
 	int ret;
+	u32 speed, max_speed;
 	u32 val;
+
 	ret = fuse_read(2, 3, &val);
 	if (ret)
 		val = 0; /* If read fuse failed, return as blank fuse */
 
-	val >>= 6;
-	val &= 0xf;
+	val = FIELD_GET(SPEED_GRADING_MASK, val) & 0xF;
 
-	max_speed = 2300000000;
-	speed = max_speed - val * 100000000;
+	speed = MHZ(2300) - val * MHZ(100);
 
 	if (is_imx93())
-		max_speed = 1700000000;
+		max_speed = MHZ(1700);
+	else if (is_imx91())
+		max_speed = MHZ(1400);
 
 	/* In case the fuse of speed grade not programmed */
 	if (speed > max_speed)
@@ -133,16 +155,22 @@ u32 get_cpu_speed_grade_hz(void)
 	return speed;
 }
 
+/*
+ * `00` - Consumer 0C to 95C
+ * `01` - Ext. Consumer -20C to 105C
+ * `10` - Industrial -40C to 105C
+ * `11` - Automotive -40C to 125C
+ */
 u32 get_cpu_temp_grade(int *minc, int *maxc)
 {
 	int ret;
 	u32 val;
+
 	ret = fuse_read(2, 3, &val);
 	if (ret)
 		val = 0; /* If read fuse failed, return as blank fuse */
 
-	val >>= 4;
-	val &= 0x3;
+	val = FIELD_GET(MARKETING_GRADING_MASK, val);
 
 	if (minc && maxc) {
 		if (val == TEMP_AUTOMOTIVE) {
@@ -152,7 +180,7 @@ u32 get_cpu_temp_grade(int *minc, int *maxc)
 			*minc = -40;
 			*maxc = 105;
 		} else if (val == TEMP_EXTCOMMERCIAL) {
-			if (is_imx93()){
+			if (is_imx93()) {
 				/* imx93 only has extended industrial*/
 				*minc = -40;
 				*maxc = 125;
@@ -190,21 +218,17 @@ static u32 get_cpu_variant_type(u32 type)
 	bool npu_disable = !!(val & BIT(13));
 	bool core1_disable = !!(val & BIT(15));
 	u32 pack_9x9_fused = BIT(4) | BIT(5) | BIT(17) | BIT(19) | BIT(24);
-	u32 phantom_fused = BIT(10) | BIT(17) | BIT(19) | BIT(24);
-	u32 phantom_9x9_fused = BIT(4) | BIT(5);
+	u32 imx91_9x9_fused = BIT(4) | BIT(5);
 	u32 can_fused = BIT(28) | BIT(29) | BIT(30) | BIT(31);
 	bool enet2_disable = !!(val2 & BIT(6));
 
-	/* For iMX91P */
-	if (((val2 & phantom_fused) == phantom_fused)
-		&& npu_disable && core1_disable) {
-		type = MXC_CPU_IMX91P3;
-
-		if ((val2 & phantom_9x9_fused) == phantom_9x9_fused) {
-			type = MXC_CPU_IMX91P1;
+	/* For iMX91 */
+	if (type == MXC_CPU_IMX91) {
+		if ((val2 & imx91_9x9_fused) == imx91_9x9_fused) {
+			type = MXC_CPU_IMX9111;
 
 			if ((val & can_fused) == can_fused && enet2_disable)
-				type = MXC_CPU_IMX91P0;
+				type = MXC_CPU_IMX9101;
 		}
 
 		return type;
@@ -230,8 +254,14 @@ static u32 get_cpu_variant_type(u32 type)
 u32 get_cpu_rev(void)
 {
 	u32 rev = (gd->arch.soc_rev >> 24) - 0xa0;
+	u32 type;
 
-	return (get_cpu_variant_type(MXC_CPU_IMX93) << 12) |
+	if ((gd->arch.soc_rev & 0xFFFF) == 0x9300)
+		type = MXC_CPU_IMX93;
+	else
+		type = MXC_CPU_IMX91;
+
+	return (get_cpu_variant_type(type) << 12) |
 		(CHIP_REV_1_0 + rev);
 }
 
@@ -303,7 +333,7 @@ static struct mm_region imx93_mem_map[] = {
 		/* Flexible Serial Peripheral Interface */
 		.virt = 0x28000000UL,
 		.phys = 0x28000000UL,
-		.size = 0x30000000UL,
+		.size = 0x08000000UL,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
@@ -371,8 +401,8 @@ void enable_caches(void)
 	dcache_enable();
 }
 
-__weak int board_phys_sdram_size(phys_size_t *size){
-
+__weak int board_phys_sdram_size(phys_size_t *size)
+{
 	phys_size_t start, end;
 	phys_size_t val;
 
@@ -406,7 +436,7 @@ int dram_init(void)
 		return ret;
 
 	/* rom_pointer[1] contains the size of TEE occupies */
-	if (rom_pointer[1])
+	if (!IS_ENABLED(CONFIG_SPL_BUILD) && rom_pointer[1])
 		gd->ram_size = sdram_size - rom_pointer[1];
 	else
 		gd->ram_size = sdram_size;
@@ -435,7 +465,7 @@ int dram_init_banksize(void)
 	}
 
 	gd->bd->bi_dram[bank].start = PHYS_SDRAM;
-	if (rom_pointer[1]) {
+	if (!IS_ENABLED(CONFIG_SPL_BUILD) && rom_pointer[1]) {
 		phys_addr_t optee_start = (phys_addr_t)rom_pointer[0];
 		phys_size_t optee_size = (size_t)rom_pointer[1];
 
@@ -471,17 +501,17 @@ phys_size_t get_effective_memsize(void)
 	int ret;
 	phys_size_t sdram_size;
 	phys_size_t sdram_b1_size;
+
 	ret = board_phys_sdram_size(&sdram_size);
 	if (!ret) {
 		/* Bank 1 can't cross over 4GB space */
-		if (sdram_size > 0x80000000) {
+		if (sdram_size > 0x80000000)
 			sdram_b1_size = 0x80000000;
-		} else {
+		else
 			sdram_b1_size = sdram_size;
-		}
 
-		if (rom_pointer[1]) {
-			/* We will relocate u-boot to Top of dram1. Tee position has two cases:
+		if (!IS_ENABLED(CONFIG_SPL_BUILD) && rom_pointer[1]) {
+			/* We will relocate u-boot to top of dram1. TEE position has two cases:
 			 * 1. At the top of dram1,  Then return the size removed optee size.
 			 * 2. In the middle of dram1, return the size of dram1.
 			 */
@@ -494,7 +524,6 @@ phys_size_t get_effective_memsize(void)
 		return PHYS_SDRAM_SIZE;
 	}
 }
-
 
 void imx_get_mac_from_fuse(int dev_id, unsigned char *mac)
 {
@@ -526,7 +555,7 @@ void imx_get_mac_from_fuse(int dev_id, unsigned char *mac)
 		if (ret)
 			goto err;
 
-		if (is_soc_rev(CHIP_REV_1_0)) {
+		if (is_imx93() && is_soc_rev(CHIP_REV_1_0)) {
 			mac[0] = val[1] >> 24;
 			mac[1] = val[1] >> 16;
 			mac[2] = val[0] >> 24;
@@ -551,148 +580,44 @@ err:
 	printf("%s: fuse read err: %d\n", __func__, ret);
 }
 
-const char *get_imx_type(u32 imxtype)
+static int fixup_thermal_trips(void *blob, const char *name)
 {
-	switch (imxtype) {
-	case MXC_CPU_IMX93:
-		return "93(52)";/* iMX93 Dual core with NPU */
-	case MXC_CPU_IMX9351:
-		return "93(51)";/* iMX93 Single core with NPU */
-	case MXC_CPU_IMX9332:
-		return "93(32)";/* iMX93 Dual core without NPU */
-	case MXC_CPU_IMX9331:
-		return "93(31)";/* iMX93 Single core without NPU */
-	case MXC_CPU_IMX9322:
-		return "93(22)";/* iMX93 9x9 Dual core  */
-	case MXC_CPU_IMX9321:
-		return "93(21)";/* iMX93 9x9 Single core  */
-	case MXC_CPU_IMX9312:
-		return "93(12)";/* iMX93 9x9 Dual core without NPU */
-	case MXC_CPU_IMX9311:
-		return "93(11)";/* iMX93 9x9 Single core without NPU */
-	case MXC_CPU_IMX9302:
-		return "93(02)";/* iMX93 900Mhz Low performance Dual core without NPU */
-	case MXC_CPU_IMX9301:
-		return "93(01)";/* iMX93 900Mhz Low performance Single core without NPU */
-	case MXC_CPU_IMX91P3:
-		return "91P(31)";/* iMX91P 11x11 Full feature */
-	case MXC_CPU_IMX91P1:
-		return "91P(11)";/* iMX91P 9x9 Reduced feature */
-	case MXC_CPU_IMX91P0:
-		return "91P(01)";/* iMX91P 9x9 Specific feature */
-	default:
-		return "??";
-	}
-}
-
-#define SRC_SRSR_RESET_CAUSE_NUM 16
-const char *reset_cause[SRC_SRSR_RESET_CAUSE_NUM] = {
-	"POR ",
-	"JTAG ",
-	"IPP USER ",
-	"WDOG1 ",
-	"WDOG2 ",
-	"WDOG3 ",
-	"WDOG4 ",
-	"WDOG5 ",
-	"TEMPSENSE ",
-	"CSU ",
-	"JTAG_SW ",
-	"M33_REQ ",
-	"M33_LOCKUP "
-	"UNK ",
-	"UNK ",
-	"UNK ",
-};
-
-static void save_reset_cause(void)
-{
-	struct src_general_regs *src = (struct src_general_regs *)SRC_GLOBAL_RBASE;
-	u32 srsr = readl(&src->srsr);
-	writel(srsr, &src->srsr); /* clear srsr in sec mode */
-
-	/* Save value to GPR1 to pass to nonsecure */
-	writel(srsr, &src->gpr[0]);
-}
-
-static const char *get_reset_cause(u32 *srsr_ret)
-{
-	struct src_general_regs *src = (struct src_general_regs *)SRC_GLOBAL_RBASE;
-	u32 srsr;
-	u32 i;
-
-	srsr = readl(&src->gpr[0]);
-	if (srsr_ret)
-		*srsr_ret = srsr;
-
-	for (i = SRC_SRSR_RESET_CAUSE_NUM; i > 0; i--) {
-		if (srsr & (1 << (i - 1)))
-			return reset_cause[i - 1];
-	}
-
-	return "unknown reset";
-}
-
-int print_cpuinfo(void)
-{
-	u32 cpurev, max_freq;
 	int minc, maxc;
-	u32 ssrs_ret;
+	int node, trip;
 
-	cpurev = get_cpu_rev();
+	node = fdt_path_offset(blob, "/thermal-zones");
+	if (node < 0)
+		return node;
 
-	printf("CPU:   i.MX%s rev%d.%d",
-		get_imx_type((cpurev & 0x1FF000) >> 12),
-		(cpurev & 0x000F0) >> 4, (cpurev & 0x0000F) >> 0);
+	node = fdt_subnode_offset(blob, node, name);
+	if (node < 0)
+		return node;
 
-	max_freq = get_cpu_speed_grade_hz();
-	if (!max_freq || max_freq == mxc_get_clock(MXC_ARM_CLK)) {
-		printf(" at %dMHz\n", mxc_get_clock(MXC_ARM_CLK) / 1000000);
-	} else {
-		printf(" %d MHz (running at %d MHz)\n", max_freq / 1000000,
-		       mxc_get_clock(MXC_ARM_CLK) / 1000000);
+	node = fdt_subnode_offset(blob, node, "trips");
+	if (node < 0)
+		return node;
+
+	get_cpu_temp_grade(&minc, &maxc);
+
+	fdt_for_each_subnode(trip, blob, node) {
+		const char *type;
+		int temp, ret;
+
+		type = fdt_getprop(blob, trip, "type", NULL);
+		if (!type)
+			continue;
+
+		temp = 0;
+		if (!strcmp(type, "critical"))
+			temp = 1000 * (maxc - 5);
+		else if (!strcmp(type, "passive"))
+			temp = 1000 * (maxc - 10);
+		if (temp) {
+			ret = fdt_setprop_u32(blob, trip, "temperature", temp);
+			if (ret)
+				return ret;
+		}
 	}
-
-	puts("CPU:   ");
-	switch (get_cpu_temp_grade(&minc, &maxc)) {
-	case TEMP_AUTOMOTIVE:
-		puts("Automotive temperature grade ");
-		break;
-	case TEMP_INDUSTRIAL:
-		puts("Industrial temperature grade ");
-		break;
-	case TEMP_EXTCOMMERCIAL:
-		if (is_imx93())
-			puts("Extended Industrial temperature grade ");
-		else
-			puts("Extended Consumer temperature grade ");
-		break;
-	default:
-		puts("Consumer temperature grade ");
-		break;
-	}
-	printf("(%dC to %dC)", minc, maxc);
-
-#if defined(CONFIG_IMX_TMU)
-	struct udevice *udev;
-	int ret, temp;
-
-	ret = uclass_get_device_by_name(UCLASS_THERMAL, "cpu-thermal", &udev);
-	if (!ret) {
-		ret = thermal_get_temp(udev, &temp);
-
-		if (!ret)
-			printf(" at %dC", temp);
-		else
-			debug(" - invalid sensor data\n");
-	} else {
-		debug(" - invalid sensor device\n");
-	}
-#endif
-	puts("\n");
-
-	printf("Reset cause: %s", get_reset_cause(&ssrs_ret));
-	printf("(0x%x)\n", ssrs_ret);
 
 	return 0;
 }
@@ -704,11 +629,11 @@ void build_info(void)
 
 	printf("\nBuildInfo:\n");
 
-	ret = ahab_get_fw_status(&status, &res);
+	ret = ele_get_fw_status(&status, &res);
 	if (ret) {
 		printf("  - ELE firmware status failed %d, 0x%x\n", ret, res);
 	} else if ((status & 0xff) == 1) {
-		ret = ahab_get_fw_version(&fw_version, &sha1, &res);
+		ret = ele_get_fw_version(&fw_version, &sha1, &res);
 		if (ret) {
 			printf("  - ELE firmware version failed %d, 0x%x\n", ret, res);
 		} else {
@@ -970,7 +895,7 @@ int board_fix_fdt(void *fdt)
 		}
 	}
 
-	if (is_imx91p0()) {
+	if (is_imx9101()) {
 		int i = 0;
 		int nodeoff, ret;
 		const char *status = "disabled";
@@ -1002,6 +927,9 @@ set_status:
 
 int ft_system_setup(void *blob, struct bd_info *bd)
 {
+	if (fixup_thermal_trips(blob, "cpu-thermal"))
+		printf("Failed to update cpu-thermal trip(s)");
+
 	if (is_imx9351() || is_imx9331() || is_imx9321() || is_imx9311() || is_imx9301())
 		disable_cpu_nodes(blob, 1);
 
@@ -1009,7 +937,7 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 	    is_imx9301())
 		disable_npu_nodes(blob);
 
-	if (is_imx91p0()) {
+	if (is_imx9101()) {
 		disable_eqos_nodes(blob);
 		disable_flexcan_nodes(blob);
 		disable_parallel_display_nodes(blob);
@@ -1029,10 +957,22 @@ void get_board_serial(struct tag_serialnr *serialnr)
 	printf("UID: 0x%x 0x%x 0x%x 0x%x\n",
 	       gd->arch.uid[0], gd->arch.uid[1], gd->arch.uid[2], gd->arch.uid[3]);
 
-	serialnr->low = gd->arch.uid[0];
-	serialnr->high = gd->arch.uid[3];
+	serialnr->low = __be32_to_cpu(gd->arch.uid[1]);
+	serialnr->high = __be32_to_cpu(gd->arch.uid[0]);
 }
 #endif
+
+static void save_reset_cause(void)
+{
+	struct src_general_regs *src = (struct src_general_regs *)SRC_GLOBAL_RBASE;
+	u32 srsr = readl(&src->srsr);
+
+	/* clear srsr in sec mode */
+	writel(srsr, &src->srsr);
+
+	/* Save value to GPR1 to pass to nonsecure */
+	writel(srsr, &src->gpr[0]);
+}
 
 int arch_cpu_init(void)
 {
@@ -1051,7 +991,7 @@ int arch_cpu_init(void)
 	return 0;
 }
 
-int imx9_probe_mu(void *ctx, struct event *event)
+int imx9_probe_mu(void)
 {
 	struct udevice *devp;
 	int node, ret;
@@ -1067,7 +1007,7 @@ int imx9_probe_mu(void *ctx, struct event *event)
 	if (gd->flags & GD_FLG_RELOC)
 		return 0;
 
-	ret = ahab_get_info(&info, &res);
+	ret = ele_get_info(&info, &res);
 	if (ret)
 		return ret;
 
@@ -1075,7 +1015,8 @@ int imx9_probe_mu(void *ctx, struct event *event)
 
 	return 0;
 }
-EVENT_SPY(EVT_DM_POST_INIT, imx9_probe_mu);
+EVENT_SPY_SIMPLE(EVT_DM_POST_INIT_F, imx9_probe_mu);
+EVENT_SPY_SIMPLE(EVT_DM_POST_INIT_R, imx9_probe_mu);
 
 int timer_init(void)
 {
@@ -1099,18 +1040,15 @@ int timer_init(void)
 enum env_location env_get_location(enum env_operation op, int prio)
 {
 	enum boot_device dev = get_boot_device();
-	enum env_location env_loc = ENVL_UNKNOWN;
 
 	if (prio)
-		return env_loc;
+		return ENVL_UNKNOWN;
 
 	switch (dev) {
-#if defined(CONFIG_ENV_IS_IN_SPI_FLASH)
 	case QSPI_BOOT:
-		env_loc = ENVL_SPI_FLASH;
-		break;
-#endif
-#if defined(CONFIG_ENV_IS_IN_MMC)
+		if (CONFIG_IS_ENABLED(ENV_IS_IN_SPI_FLASH))
+			return ENVL_SPI_FLASH;
+		return ENVL_NOWHERE;
 	case SD1_BOOT:
 	case SD2_BOOT:
 	case SD3_BOOT:
@@ -1118,17 +1056,16 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	case MMC2_BOOT:
 	case MMC3_BOOT:
 	case FLEXSPI_NAND_BOOT:
-		env_loc =  ENVL_MMC;
-		break;
-#endif
+		if (CONFIG_IS_ENABLED(ENV_IS_IN_MMC))
+			return ENVL_MMC;
+		else if (CONFIG_IS_ENABLED(ENV_IS_IN_EXT4))
+			return ENVL_EXT4;
+		else if (CONFIG_IS_ENABLED(ENV_IS_IN_FAT))
+			return ENVL_FAT;
+		return ENVL_NOWHERE;
 	default:
-#if defined(CONFIG_ENV_IS_NOWHERE)
-		env_loc = ENVL_NOWHERE;
-#endif
-		break;
+		return ENVL_NOWHERE;
 	}
-
-	return env_loc;
 }
 
 static int mix_power_init(enum mix_power_domain pd)
@@ -1146,7 +1083,7 @@ static int mix_power_init(enum mix_power_domain pd)
 		mem_id = SRC_MEM_MEDIA;
 		scr = BIT(5);
 
-		/* Enable S400 handshake */
+		/* Enable ELE handshake */
 		struct blk_ctrl_s_aonmix_regs *s_regs =
 			(struct blk_ctrl_s_aonmix_regs *)BLK_CTRL_S_ANOMIX_BASE_ADDR;
 
@@ -1226,7 +1163,9 @@ void disable_isolation(void)
 void soc_power_init(void)
 {
 	mix_power_init(MIX_PD_MEDIAMIX);
-	mix_power_init(MIX_PD_MLMIX);
+
+	if (is_imx93())
+		mix_power_init(MIX_PD_MLMIX);
 
 	disable_isolation();
 }
@@ -1252,7 +1191,7 @@ int m33_prepare(void)
 			(struct blk_ctrl_s_aonmix_regs *)BLK_CTRL_S_ANOMIX_BASE_ADDR;
 	u32 val, i;
 
-	if (is_imx91p3() || is_imx91p1() || is_imx91p0())
+	if (is_imx91())
 		return -ENODEV;
 
 	if (m33_is_rom_kicked())
@@ -1267,7 +1206,7 @@ int m33_prepare(void)
 		val = readl(&mix_regs->func_stat);
 
 	/* Release ELE TROUT */
-	ahab_release_m33_trout();
+	ele_release_m33_trout();
 
 	/* Mask WDOG1 IRQ from A55, we use it for M33 reset */
 	setbits_le32(&s_regs->ca55_irq_mask[1], BIT(6));
@@ -1296,12 +1235,54 @@ int m33_prepare(void)
 	return 0;
 }
 
+int psci_sysreset_get_status(struct udevice *dev, char *buf, int size)
+{
+	static const char *reset_cause[] = {
+		"POR ",
+		"JTAG ",
+		"IPP USER ",
+		"WDOG1 ",
+		"WDOG2 ",
+		"WDOG3 ",
+		"WDOG4 ",
+		"WDOG5 ",
+		"TEMPSENSE ",
+		"CSU ",
+		"JTAG_SW ",
+		"M33_REQ ",
+		"M33_LOCKUP ",
+		"UNK ",
+		"UNK ",
+		"UNK "
+	};
+
+	struct src_general_regs *src = (struct src_general_regs *)SRC_GLOBAL_RBASE;
+	u32 srsr;
+	u32 i;
+	int res;
+
+	srsr = readl(&src->gpr[0]);
+
+	for (i = ARRAY_SIZE(reset_cause); i > 0; i--) {
+		if (srsr & (BIT(i - 1)))
+			break;
+	}
+
+	res = snprintf(buf, size, "Reset Status: %s\n", i ? reset_cause[i - 1] : "unknown reset");
+	if (res < 0) {
+		dev_err(dev, "Could not write reset status message (err = %d)\n", res);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 enum imx9_soc_voltage_mode soc_target_voltage_mode(void)
 {
 	u32 speed = get_cpu_speed_grade_hz();
 	enum imx9_soc_voltage_mode voltage = VOLT_OVER_DRIVE;
 
-	if (is_imx93()) {
+	if (is_imx93() || is_imx91()) {
 		if (speed == 1700000000)
 			voltage = VOLT_OVER_DRIVE;
 		else if (speed == 1400000000)

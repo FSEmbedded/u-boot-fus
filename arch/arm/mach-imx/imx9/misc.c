@@ -22,7 +22,7 @@
 static int do_v2x_status(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	int ret;
-	u32 resp;
+	u32 resp = 0;
 	struct v2x_get_state state;
 
 	if (!is_imx95()) {
@@ -30,7 +30,7 @@ static int do_v2x_status(struct cmd_tbl *cmdtp, int flag, int argc, char *const 
 		return CMD_RET_FAILURE;
 	}
 
-	ret = ahab_v2x_get_state(&state, &resp);
+	ret = ele_v2x_get_state(&state, &resp);
 	if (ret) {
 		printf("get v2x state failed, resp 0x%x, ret %d\n", resp, ret);
 		return CMD_RET_FAILURE;
@@ -46,7 +46,7 @@ static int do_v2x_status(struct cmd_tbl *cmdtp, int flag, int argc, char *const 
 static int do_ele_info(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	int ret;
-	u32 res;
+	u32 res = 0;
 	struct ele_get_info_data *info;
 
 	/* ELE can't access full DDR */
@@ -54,7 +54,7 @@ static int do_ele_info(struct cmd_tbl *cmdtp, int flag, int argc, char *const ar
 		sizeof(struct ele_get_info_data));
 	flush_dcache_range((ulong)info, (ulong)info + sizeof(struct ele_get_info_data));
 
-	ret = ahab_get_info(info, &res);
+	ret = ele_get_info(info, &res);
 	if (ret) {
 		printf("Get ELE info failed, resp 0x%x, ret %d\n", res, ret);
 		return CMD_RET_FAILURE;

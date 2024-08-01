@@ -18,6 +18,7 @@
 #define MRC_MAX_NUM 2
 #define MBC_NUM(HWCFG) (((HWCFG) >> 16) & 0xF)
 #define MRC_NUM(HWCFG) (((HWCFG) >> 24) & 0x1F)
+#define MBC_BLK_NUM(GLBCFG) (GLBCFG & 0x3FF)
 
 struct mbc_mem_dom {
 	u32 mem_glbcfg[4];
@@ -134,6 +135,22 @@ static ulong trdc_get_mrc_base(ulong trdc_reg, u32 mrc_x)
 	return trdc_reg + 0x10000 + 0x2000 * mbc_num + 0x1000 * mrc_x;
 }
 
+uint32_t trdc_mbc_blk_num(ulong trdc_reg, uint32_t mbc_x, uint32_t mem_x)
+{
+	struct trdc_mbc *mbc_base = (struct trdc_mbc *)trdc_get_mbc_base(trdc_reg, mbc_x);
+	struct mbc_mem_dom *mbc_dom;
+	uint32_t glbcfg;
+
+	if (mbc_base == 0)
+		return 0;
+
+	/* only first dom has the glbcfg */
+	mbc_dom = &mbc_base->mem_dom[0];
+	glbcfg = readl((uintptr_t)&mbc_dom->mem_glbcfg[mem_x]);
+
+	return MBC_BLK_NUM(glbcfg);
+}
+
 int trdc_mbc_set_control(ulong trdc_reg, u32 mbc_x, u32 glbac_id, u32 glbac_val)
 {
 	struct trdc_mbc *mbc_base = (struct trdc_mbc *)trdc_get_mbc_base(trdc_reg, mbc_x);
@@ -196,7 +213,7 @@ int trdc_mbc_blk_config(ulong trdc_reg, u32 mbc_x, u32 dom_x, u32 mem_x,
 	val &= ~(0xFU << offset);
 
 	/* MBC0-3
-	 *  Global 0, 0x7777 secure pri/user read/write/execute, S400 has already set it.
+	 *  Global 0, 0x7777 secure pri/user read/write/execute, ELE has already set it.
 	 *  So select MBC0_MEMN_GLBAC0
 	 */
 	if (sec_access) {
@@ -266,7 +283,7 @@ int trdc_mrc_region_config(ulong trdc_reg, u32 mrc_x, u32 dom_x, u32 addr_start,
 			continue;
 
 		/* MRC0,1
-		 *  Global 0, 0x7777 secure pri/user read/write/execute, S400 has already set it.
+		 *  Global 0, 0x7777 secure pri/user read/write/execute, ELE has already set it.
 		 *  So select MRCx_MEMN_GLBAC0
 		 */
 		if (sec_access) {
@@ -336,8 +353,8 @@ int release_rdc(u8 xrdc)
 		return -EINVAL;
 	}
 
-	msg.version = AHAB_VERSION;
-	msg.tag = AHAB_CMD_TAG;
+	msg.version = ELE_VERSION;
+	msg.tag = ELE_CMD_TAG;
 	msg.size = 2;
 	msg.command = ELE_RELEASE_RDC_REQ;
 	msg.data[0] = (rdc_id << 8) | 0x2; /* A55 */
@@ -362,7 +379,8 @@ int release_rdc(u8 xrdc)
 
 void trdc_early_init(void)
 {
-	int ret = 0, i;
+	int ret = 0;
+	u32 i, blks;
 
 	ret |= release_rdc(0);
 	ret |= release_rdc(2);
@@ -373,16 +391,18 @@ void trdc_early_init(void)
 		/* Set OCRAM to RWX for secure, when OEM_CLOSE, the image is RX only */
 		trdc_mbc_set_control(0x49010000, 3, 0, 0x7700);
 
-		for (i = 0; i < 40; i++)
+		blks = trdc_mbc_blk_num(0x49010000, 3, 0);
+
+		for (i = 0; i < blks; i++)
 			trdc_mbc_blk_config(0x49010000, 3, 3, 0, i, true, 0);
 
-		for (i = 0; i < 40; i++)
+		for (i = 0; i < blks; i++)
 			trdc_mbc_blk_config(0x49010000, 3, 3, 1, i, true, 0);
 
-		for (i = 0; i < 40; i++)
+		for (i = 0; i < blks; i++)
 			trdc_mbc_blk_config(0x49010000, 3, 0, 0, i, true, 0);
 
-		for (i = 0; i < 40; i++)
+		for (i = 0; i < blks; i++)
 			trdc_mbc_blk_config(0x49010000, 3, 0, 1, i, true, 0);
 	}
 }
@@ -394,7 +414,7 @@ void trdc_init(void)
 		/* DDR */
 		trdc_mrc_set_control(0x49010000, 0, 0, 0x7777);
 
-		/* S400*/
+		/* ELE */
 		trdc_mrc_region_config(0x49010000, 0, 0, 0x80000000, 0xFFFFFFFF, false, 0);
 
 		/* MTR */

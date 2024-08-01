@@ -22,15 +22,15 @@ struct sdp_stream_ops {
 	void (*rx_data)(u8 *data_buf, int data_len);
 };
 
-int sdp_init(int controller_index);
+int sdp_init(struct udevice *udc);
 
 #ifdef CONFIG_SPL_BUILD
 #include <spl.h>
 
-int spl_sdp_handle(int controller_index, struct spl_image_info *spl_image,
+int spl_sdp_handle(struct udevice *udc, struct spl_image_info *spl_image,
 		   struct spl_boot_device *bootdev);
 #else
-int sdp_handle(int controller_index);
+int sdp_handle(struct udevice *udc);
 #endif
 
 #endif /* __SDP_H_ */

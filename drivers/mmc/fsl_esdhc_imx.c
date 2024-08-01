@@ -26,6 +26,7 @@
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/printk.h>
 #include <power/regulator.h>
 #include <malloc.h>
 #include <fsl_esdhc_imx.h>
@@ -1423,7 +1424,7 @@ static int fsl_esdhc_of_to_plat(struct udevice *dev)
 
 #if CONFIG_IS_ENABLED(IMX_MODULE_FUSE)
 	if (esdhc_fused(addr)) {
-		printf("ESDHC@0x%lx is fused, disable it\n", addr);
+		printf("ESDHC@0x%x is fused, disable it\n", addr);
 		return -ENODEV;
 	}
 #endif

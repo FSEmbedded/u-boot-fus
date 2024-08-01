@@ -18,7 +18,7 @@
 #include <asm/arch/sys_proto.h>
 #include <asm/setup.h>
 #include <env.h>
-#ifdef CONFIG_DM_SCSI
+#ifdef CONFIG_SCSI
 #include <scsi.h>
 #endif
 
@@ -150,7 +150,7 @@ static int _fastboot_parts_load_from_ptable(void)
 
 	/* sata case in env */
 	if (fastboot_devinfo.type == DEV_SATA) {
-#ifdef CONFIG_DM_SCSI
+#ifdef CONFIG_SCSI
 		int sata_device_no = fastboot_devinfo.dev_id;
 		puts("flash target is SATA\n");
 		scsi_scan(false);

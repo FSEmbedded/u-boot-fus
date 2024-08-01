@@ -19,7 +19,7 @@
 #include <asm/sections.h>
 #include <hang.h>
 #include <asm/arch/sys_proto.h>
-#include <asm/mach-imx/image.h>
+#include <imx_container.h>
 
 #ifdef CONFIG_AHAB_BOOT
 #include <asm/mach-imx/ahab.h>

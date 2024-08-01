@@ -8,15 +8,14 @@
 #include <command.h>
 #include <ctype.h>
 #include <errno.h>
+#include <imx_container.h>
 #include <asm/io.h>
 #include <asm/mach-imx/ele_api.h>
 #include <asm/mach-imx/sys_proto.h>
 #include <asm/arch-imx/cpu.h>
 #include <asm/arch/sys_proto.h>
-#include <asm/mach-imx/image.h>
 #include <console.h>
 #include <cpu_func.h>
-#include <asm/mach-imx/ahab.h>
 #include <asm/global_data.h>
 #include <stdio.h>
 
@@ -310,7 +309,7 @@ int ahab_auth_release(void)
 	int err;
 	u32 resp;
 
-	err = ahab_release_container(&resp);
+	err = ele_release_container(&resp);
 	if (err) {
 		printf("Error: release container failed, resp 0x%x!\n", resp);
 		display_ahab_auth_ind(resp);
@@ -324,7 +323,7 @@ int ahab_verify_cntr_image(struct boot_img_t *img, int image_index)
 	int err;
 	u32 resp;
 
-	err = ahab_verify_image(image_index, &resp);
+	err = ele_verify_image(image_index, &resp);
 	if (err) {
 		printf("Authenticate img %d failed, return %d, resp 0x%x\n",
 		       image_index, err, resp);
@@ -371,7 +370,7 @@ int authenticate_os_container(ulong addr)
 	}
 
 	phdr = (struct container_hdr *)addr;
-	if (phdr->tag != 0x87 || phdr->version != 0x0) {
+	if (!valid_container_hdr(phdr)) {
 		printf("Error: Wrong container header\n");
 		return -EFAULT;
 	}
@@ -430,7 +429,7 @@ static int do_authenticate(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc < 2)
 		return CMD_RET_USAGE;
 
-	addr = simple_strtoul(argv[1], NULL, 16);
+	addr = hextoul(argv[1], NULL);
 
 	printf("Authenticate OS container at 0x%lx\n", addr);
 
@@ -561,7 +560,7 @@ static int do_ahab_close(struct cmd_tbl *cmdtp, int flag, int argc,
 		return -EPERM;
 	}
 
-	err = ahab_forward_lifecycle(8, &resp);
+	err = ele_forward_lifecycle(8, &resp);
 	if (err != 0) {
 		printf("Error in forward lifecycle to OEM closed\n");
 		return -EIO;
@@ -578,7 +577,7 @@ int ahab_dump(void)
 	int ret, i = 0;
 
 	do {
-		ret = ahab_dump_buffer(buffer, 32);
+		ret = ele_dump_buffer(buffer, 32);
 		if (ret < 0) {
 			printf("Error in dump AHAB log\n");
 			return -EIO;
@@ -623,7 +622,7 @@ static int do_ahab_status(struct cmd_tbl *cmdtp, int flag, int argc, char *const
 
 	display_life_cycle(lc);
 
-	ret = ahab_get_events(events, &cnt, NULL);
+	ret = ele_get_events(events, &cnt, NULL);
 	if (ret) {
 		printf("Get ELE EVENTS error %d\n", ret);
 		return CMD_RET_FAILURE;
@@ -640,8 +639,7 @@ static int do_ahab_status(struct cmd_tbl *cmdtp, int flag, int argc, char *const
 	return 0;
 }
 
-static int do_sec_fuse_prog(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_sec_fuse_prog(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	ulong addr;
 	u32 header, response;
@@ -649,7 +647,7 @@ static int do_sec_fuse_prog(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc < 2)
 		return CMD_RET_USAGE;
 
-	addr = simple_strtoul(argv[1], NULL, 16);
+	addr = hextoul(argv[1], NULL);
 	header = *(u32 *)addr;
 
 	if ((header & 0xff0000ff) != 0x89000000) {
@@ -662,7 +660,7 @@ static int do_sec_fuse_prog(struct cmd_tbl *cmdtp, int flag, int argc,
 	printf("Signed Message block at 0x%lx, size 0x%x\n", addr, header);
 	flush_dcache_range(addr, addr + header - 1);
 
-	if (ahab_write_secure_fuse(addr, &response)) {
+	if (ele_write_secure_fuse(addr, &response)) {
 		printf("Program secure fuse failed, response 0x%x\n", response);
 		return CMD_RET_FAILURE;
 	}
@@ -672,8 +670,7 @@ static int do_sec_fuse_prog(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-static int do_ahab_return_lifecycle(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
+static int do_ahab_return_lifecycle(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	ulong addr;
 	u32 header, response;
@@ -681,7 +678,7 @@ static int do_ahab_return_lifecycle(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc < 2)
 		return CMD_RET_USAGE;
 
-	addr = simple_strtoul(argv[1], NULL, 16);
+	addr = hextoul(argv[1], NULL);
 	header = *(u32 *)addr;
 
 	if ((header & 0xff0000ff) != 0x89000000) {
@@ -694,7 +691,7 @@ static int do_ahab_return_lifecycle(struct cmd_tbl *cmdtp, int flag, int argc,
 	printf("Signed Message block at 0x%lx, size 0x%x\n", addr, header);
 	flush_dcache_range(addr, addr + header - 1);
 
-	if (ahab_return_lifecycle_update(addr, &response)) {
+	if (ele_return_lifecycle_update(addr, &response)) {
 		printf("Return lifecycle failed, response 0x%x\n", response);
 		return CMD_RET_FAILURE;
 	}
@@ -717,7 +714,7 @@ static int do_ahab_commit(struct cmd_tbl *cmdtp, int flag, int argc,
 	index = simple_strtoul(argv[1], NULL, 16);
 	printf("Commit index is 0x%x\n", index);
 
-	if (ahab_commit(index, &resp, &info_type)) {
+	if (ele_commit(index, &resp, &info_type)) {
 		printf("Error in AHAB commit\n");
 		return -EIO;
 	}
@@ -745,11 +742,11 @@ u8 hexstring_to_byte(const char *data)
 
 u32 hexstring_to_word(const char *data)
 {
-	return hexstring_to_byte(data) 
-	| hexstring_to_byte(data + 2) << 8 
-	| hexstring_to_byte(data + 4) << 16 
+	return hexstring_to_byte(data)
+	| hexstring_to_byte(data + 2) << 8
+	| hexstring_to_byte(data + 4) << 16
 	| hexstring_to_byte(data + 6) << 24;
-} 
+}
 
 int decode_ele_message(struct ele_msg *msg, const char *data)
 {
@@ -760,25 +757,25 @@ int decode_ele_message(struct ele_msg *msg, const char *data)
 		return 1;
 	}
 
-	// ELE header
+	/* ELE header */
 	msg->version = hexstring_to_byte(data + 0);
 	msg->size    = hexstring_to_byte(data + 2);
 	msg->command = hexstring_to_byte(data + 4);
 	msg->tag     = hexstring_to_byte(data + 6);
 
-	// Number of words expected has to match number of received hex characters 
+	/* Number of words expected has to match number of received hex characters */
 	if (arglen != msg->size * 8) {
-		printf("Argument size %d bytes does not match the expected size %d bytes \n", 
-         arglen, msg->size * 8);
+		printf("Argument size %d bytes does not match the expected size %d bytes \n",
+		       arglen, msg->size * 8);
 		return 1;
 	}
-	
-	// Parse the remaining size - 1 words
+
+	/* Parse the remaining size - 1 words */
 	for (u32 i = 0; i < msg->size - 1; i++)
 		msg->data[i] = hexstring_to_word(data + (i + 1) * 8);
 
 	return 0;
-} 
+}
 
 void print_as_hexstring(char *msg, u32 size)
 {
@@ -786,7 +783,7 @@ void print_as_hexstring(char *msg, u32 size)
 		printf("%02x", msg[i]);
 }
 
-void print_ele_message(struct ele_msg *msg) 
+void print_ele_message(struct ele_msg *msg)
 {
 	print_as_hexstring((char *) msg, msg->size * sizeof(u32));
 }
@@ -803,7 +800,7 @@ static int do_ele_message(struct cmd_tbl *cmdtp, int flag, int argc,
 	ulong ele_buffer_address = hextoul(argv[1], NULL);
 	ulong ele_buffer_size    = hextoul(argv[2], NULL);
 
-	// We parse the ELE message encoded as hex string 
+	/* We parse the ELE message encoded as hex string */
 	ret = decode_ele_message(&msg, argv[3]);
 	if (ret) {
 		printf("Decode ELE message error\n");
@@ -811,8 +808,8 @@ static int do_ele_message(struct cmd_tbl *cmdtp, int flag, int argc,
 	}
 
 	flush_cache(ele_buffer_address, ele_buffer_size);
-	  
-	// We send the message to ELE and receive back the response
+
+	/* We send the message to ELE and receive back the response */
 	ret = ele_message_call(&msg);
 	if (ret) {
 		printf("Call ELE message error %d\n", ret);
@@ -821,14 +818,14 @@ static int do_ele_message(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	invalidate_dcache_range(ele_buffer_address, ele_buffer_size);
 
-	// ELE reponse is a message too
+	/* ELE reponse is a message too */
 	print_ele_message(&msg);
 
 	return CMD_RET_SUCCESS;
 }
 
-U_BOOT_CMD(ele_message, CONFIG_SYS_MAXARGS, 4, do_ele_message, 
-		"Send RAW message to ELE", 
+U_BOOT_CMD(ele_message, CONFIG_SYS_MAXARGS, 4, do_ele_message,
+		"Send RAW message to ELE",
 		"<addr> <size> <msg>\n"
 		"addr - ELE Buffer start address\n"
 		"size - ELE Buffer size in bytes\n"

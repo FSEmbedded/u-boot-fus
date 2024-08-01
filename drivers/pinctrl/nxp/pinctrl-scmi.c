@@ -33,13 +33,13 @@
 static int imx_pinconf_scmi_set(struct udevice *dev, u32 mux_ofs, u32 mux, u32 config_val,
 				u32 input_ofs, u32 input_val)
 {
-	struct imx_pinctrl_priv *priv = dev_get_priv(dev);
 	int ret, num_cfgs = 0;
 
 	/* Call SCMI API to set the pin mux and configuration. */
 	struct scmi_pinctrl_config_set_out out;
 	struct scmi_pinctrl_config_set_in in = {
 		.identifier = mux_ofs / 4,
+		.function_id = 0xFFFFFFFF,
 		.attributes = 0,
 	};
 	if (mux_ofs != 0) {
@@ -66,7 +66,7 @@ static int imx_pinconf_scmi_set(struct udevice *dev, u32 mux_ofs, u32 mux, u32 c
 	struct scmi_msg msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_PINCTRL,
 					  SCMI_MSG_PINCTRL_CONFIG_SET, in, out);
 
-	ret = devm_scmi_process_msg(dev, priv->channel, &msg);
+	ret = devm_scmi_process_msg(dev, &msg);
 	if (ret != 0 || out.status != 0)
 		dev_err(dev, "Failed to set PAD = %d, daisy = %d, scmi_err = %d, ret = %d\n", mux_ofs / 4, input_ofs / 4, out.status, ret);
 
@@ -116,7 +116,7 @@ static int imx_scmi_pinctrl_probe(struct udevice *dev)
 	struct imx_pinctrl_priv *priv = dev_get_priv(dev);
 	int ret;
 
-	ret = devm_scmi_of_get_channel(dev, &priv->channel);
+	ret = devm_scmi_of_get_channel(dev);
 	if (ret) {
 		dev_err(dev, "get channel: %d\n", ret);
 		return ret;
