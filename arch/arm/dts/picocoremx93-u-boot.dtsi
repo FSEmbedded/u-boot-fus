@@ -185,7 +185,6 @@
 	status = "okay";
 };
 
-
 &s4muap {
 	bootph-pre-ram;
 	bootph-some-ram;
