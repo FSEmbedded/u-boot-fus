@@ -29,8 +29,13 @@ endif
 obj-$(CONFIG_FSL_CADMUS)	+= cadmus.o
 obj-$(CONFIG_FSL_VIA)		+= cds_via.o
 obj-$(CONFIG_FMAN_ENET)	+= fman.o
+
+obj-$(CONFIG_FS_BOARD_COMMON)	+= fs_board_common.o
+
 ifndef CONFIG_SPL_BUILD
 obj-$(CONFIG_FSL_NGPIXIS)	+= ngpixis.o
+obj-$(CONFIG_FS_FDT_COMMON)	+= fs_fdt_common.o
+obj-$(CONFIG_FS_ETH_COMMON)	+= fs_eth_common.o
 endif
 obj-$(I2C_COMMON)		+= i2c_common.o
 obj-$(CONFIG_FSL_USE_PCA9547_MUX)		+= i2c_mux.o

@@ -34,7 +34,7 @@ config FS_MMC_COMMON
 
 config FS_ETH_COMMON
 	bool
-	default n if TARGET_FSIMX93
+	default y if TARGET_FSIMX93
 
 config FS_USB_COMMON
 	bool
