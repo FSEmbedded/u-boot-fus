@@ -88,7 +88,7 @@
 	bootph-pre-ram;
 };
 
-&pinctrl_uart2 {
+&pinctrl_uart7 {
 	bootph-pre-ram;
 	bootph-some-ram;
 };
@@ -125,7 +125,7 @@
 	bootph-some-ram;
 };
 
-&lpuart2 {
+&lpuart7 {
 	bootph-pre-ram;
 	bootph-some-ram;
 };
