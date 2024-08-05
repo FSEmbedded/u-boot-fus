@@ -69,6 +69,9 @@
 #define BOOTENV
 #endif
 
+#define MTDIDS_DEFAULT		""
+#define MTDPART_DEFAULT		""
+
 /* Initial environment variables */
 #define CFG_EXTRA_ENV_SETTINGS		\
 	BOOTENV \
@@ -78,7 +81,7 @@
 	"kernel_addr_r=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
 	"image=Image\0" \
 	"splashimage=0x90000000\0" \
-	"console=ttyLP1,115200\0" \
+	"console=ttyLP6,115200\0" \
 	"fdt_addr_r=0x83000000\0"			\
 	"fdt_addr=0x83000000\0"			\
 	"fdt_high=0xffffffffffffffff\0"		\
@@ -168,7 +171,7 @@
 	   "fi;"
 
 /* Link Definitions */
-
+#define CONFIG_SYS_SDRAM_BASE        0x80000000
 #define CFG_SYS_INIT_RAM_ADDR        0x80000000
 #define CFG_SYS_INIT_RAM_SIZE        0x200000
 
@@ -177,6 +180,18 @@
 #define PHYS_SDRAM_SIZE			0x10000000 /* 1GB DDR */
 
 #define CFG_SYS_FSL_USDHC_NUM	2
+
+/* TODO: */
+/* have to define for F&S serial_mxc driver */
+#define UART1_BASE		0x44380000
+#define UART2_BASE		0x44390000
+#define UART3_BASE		0x42570000
+#define UART4_BASE		0x42580000
+#define UART5_BASE		0x42590000
+#define UART6_BASE		0x425a0000
+#define UART7_BASE		0x42690000
+#define UART8_BASE		0x426a0000
+#define UART9_BASE		0xFFFFFFFF
 
 /* Monitor Command Prompt */
 
@@ -196,10 +211,6 @@
 
 #ifdef CONFIG_IMX_MATTER_TRUSTY
 #define NS_ARCH_ARM64 1
-#endif
-
-#ifdef CONFIG_ANDROID_SUPPORT
-#include "imx93_evk_android.h"
 #endif
 
 #endif /* __FSIMX93_H */
