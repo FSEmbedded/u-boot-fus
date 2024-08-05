@@ -22,9 +22,12 @@
 #include "fs_fdt_common.h"		/* Own interface */
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
 
+const char *get_reset_cause(void);
+char *get_board_name(void);
+
 /* Set a generic value, if it was not already set in the device tree */
 void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
-		    int len, int force)
+		    int len, int force, bool verbose)
 {
 	int err;
 
@@ -34,9 +37,12 @@ void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
 
 	/* Warn if property already exists in device tree */
 	if (fdt_get_property(fdt, offs, name, NULL) != NULL) {
-		printf("## %s property %s/%s from device tree!\n",
+		if(verbose)
+                {
+                    printk("## %s property %s/%s from device tree!\n",
 		       force ? "Overwriting": "Keeping",
 		       fdt_get_name(fdt, offs, NULL), name);
+		}
 		if (!force)
 			return;
 	}
@@ -52,7 +58,7 @@ void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
 void fs_fdt_set_string(void *fdt, int offs, const char *name, const char *str,
 		       int force)
 {
-	fs_fdt_set_val(fdt, offs, name, str, strlen(str) + 1, force);
+	fs_fdt_set_val(fdt, offs, name, str, strlen(str) + 1, force, true);
 }
 
 /* Set a u32 value as a string (usually for bdinfo) */
@@ -66,11 +72,11 @@ void fs_fdt_set_u32str(void *fdt, int offs, const char *name, u32 val,
 }
 
 /* Set a u32 value */
-void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force)
+void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force, bool verbose)
 {
 	fdt32_t tmp = cpu_to_fdt32(val);
 
-	fs_fdt_set_val(fdt, offs, name, &tmp, sizeof(tmp), force);
+	fs_fdt_set_val(fdt, offs, name, &tmp, sizeof(tmp), force, verbose);
 }
 
 /* Set ethernet MAC address aa:bb:cc:dd:ee:ff for given index */
@@ -181,7 +187,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 #endif /* !CONFIG_FS_BOARD_CFG */
 	fs_fdt_set_string(fdt, offs, "boot_dev",
 		fs_board_get_name_from_boot_dev(fs_board_get_boot_dev()), 1);
-	fs_fdt_set_string(fdt, offs, "board_name", get_board_name(), 0);
+	fs_fdt_set_string(fdt, offs, "board_name", (const char*)get_board_name(), 0);
 	sprintf(rev, "%d.%02d", board_rev / 100, board_rev % 100);
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);
 	fs_fdt_set_getenv(fdt, offs, "platform", 0);
@@ -189,9 +195,11 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 #ifndef CONFIG_ARCH_IMX8
 	fs_fdt_set_string(fdt, offs, "reset_cause", get_reset_cause(), 1);
 #endif
+#if 0 // TODO:
 	fs_fdt_set_string(fdt, offs, "nboot_version",
 			  fs_board_get_nboot_version(), 1);
 	fs_fdt_set_string(fdt, offs, "u-boot_version", version_string, 1);
+#endif
 }
 
 #endif /* CONFIG_OF_BOARD_SETUP */
