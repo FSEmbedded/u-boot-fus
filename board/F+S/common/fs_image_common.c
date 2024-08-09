@@ -510,17 +510,50 @@ int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
 	return ret;
 }
 
+/* Update size, flags and padsize, calculate CRC32 if requested */
+void fs_image_update_header(struct fs_header_v1_0 *fsh,
+				   uint size, uint fsh_flags)
+{
+	u8 padsize = 0;
+
+	padsize = size % 16;
+	if (padsize)
+		padsize = 16 - padsize;
+
+	fsh->info.file_size_low = size;
+	fsh->info.padsize = padsize;
+	fsh->info.flags = fsh_flags | FSH_FLAGS_DESCR;
+
+	if (fsh_flags & (FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE)) {
+		unsigned char *crc32_start = (unsigned char *)fsh;
+		unsigned int crc32_size = 0;
+		u32 *pcs = (u32 *)&fsh->type[12];
+
+		*pcs = 0;
+		if (fsh_flags & FSH_FLAGS_SECURE)
+			crc32_size += FSH_SIZE;
+		else
+			crc32_start += FSH_SIZE;
+
+		if (fsh_flags & FSH_FLAGS_CRC32)
+			crc32_size += size;
+
+		*pcs = crc32(0, crc32_start, crc32_size);
+		debug("- Setting CRC32 for %s to 0x%08x\n", fsh->type, *pcs);
+	}
+}
+
 /* Add the board revision as BOARD-ID to the given BOARD-CFG and update CRC32 */
 void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh)
 {
-	u32 *pcs = (u32 *)&cfg_fsh->type[12];
-
+	ulong size = fs_image_get_size(cfg_fsh, false);
 	/* Set compare_id rev in file_size_high, compute new CRC32 */
 	cfg_fsh->info.file_size_high = compare_bnr.rev;
 
 	cfg_fsh->info.flags |= FSH_FLAGS_SECURE | FSH_FLAGS_CRC32;
-	*pcs = 0;
-	*pcs = crc32(0, (uchar *)cfg_fsh, fs_image_get_size(cfg_fsh, true));
+	
+	/* calc new crc32 */
+	fs_image_update_header(cfg_fsh, size, cfg_fsh->info.flags);
 }
 
 /* Return the current BOARD-ID */

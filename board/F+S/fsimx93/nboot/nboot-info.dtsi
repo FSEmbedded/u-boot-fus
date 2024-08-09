@@ -41,7 +41,7 @@
 		version = NBOOT_VERSION;
 
 		/* NBoot capabilities */
-		save-board-id;
+		support-crc32;
 		uboot-with-fsh;
 		uboot-emmc-bootpart;
 		emmc-both-bootparts;
@@ -78,15 +78,16 @@
 			 * 0x0080_0000: End of reserved area
 			 */
 
-            /* Padding solution is considered */
 			spl-start = <0x00000000>;
-			// spl-size = <0x00040000>;		/* 256 KiB */
-			// nboot-start = < CONFIG_FUS_BOARDCFG_MMC0 >;
-			// nboot-size = <0x000f8000>;		/* 992 KiB */
-			// uboot-start = <0x00140000>;
-			// uboot-size = <0x002c0000>;		/* 2816 KiB */
-			// env-start = <0x00040000>;
-			// env-size = <0x00004000>;		/* 16 KiB */
+			spl-size = <SPL_SIZE>;
+			nboot-start = <SPL_SIZE>;
+			env-start = <0x3cc800>;
+			env-size = <0x00004000>;
+			
+			/* Set by SPL during boot */
+			nboot-size = <0x0>;
+			uboot-start = <0x0>;
+			uboot-size = <0x0>;
 		};
 
 		sd-user {

@@ -92,6 +92,10 @@ const void *fs_image_getprop(const void *fdt, int cfg_offs, int rev_offs,
 u32 fs_image_getprop_u32(const void *fdt, int cfg_offs, int rev_offs,
 			 int cell, const char *name, const u32 dflt);
 
+/* Update size, flags and padsize, calculate CRC32 if requested */
+void fs_image_update_header(struct fs_header_v1_0 *fsh,
+				   uint size, uint fsh_flags);
+
 /* Add the board revision as BOARD-ID to the given BOARD-CFG and update CRC32 */
 void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh);
 
@@ -114,7 +118,7 @@ int fs_image_get_board_rev_subnode(const void *fdt, int offs);
 int fs_image_get_board_rev_subnode_f(const void *fdt, int offs,
 				     uint *board_rev);
 
-#if defined(CONFIG_IMX_HAB)
+#if CONFIG_IS_ENABLED(IMX_HAB)
 /* Check if the F&S image is signed (followed by an IVT) */
 bool fs_image_is_signed(struct fs_header_v1_0 *fsh);
 

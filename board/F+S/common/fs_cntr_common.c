@@ -20,6 +20,7 @@
 #include <hang.h>
 #include <asm/arch/sys_proto.h>
 #include <imx_container.h>
+#include <fdt_support.h>
 
 #ifdef CONFIG_AHAB_BOOT
 #include <asm/mach-imx/ahab.h>
@@ -620,9 +621,12 @@ static struct fsh_load_info *get_uboot_info(void)
 */
 static int fs_handle_uboot(struct fsh_load_info *fsh_info)
 {
-	struct fs_header_v1_0 *fsh;
+	struct fs_header_v1_0 *fsh = fsh_info->fsh;
+	struct fs_header_v1_0 *cfg_fsh = fs_image_get_cfg_addr();
+	void *fdt = fs_image_get_cfg_fdt();
+	unsigned int uboot_size;
+	unsigned int uboot_offset;
 	int ret = 0;
-	fsh = fsh_info->fsh;
 
 	/* State and file does not match */
 	if (!fs_image_match(fsh, "U-BOOT-INFO", NULL)){
@@ -635,6 +639,19 @@ static int fs_handle_uboot(struct fsh_load_info *fsh_info)
 		printf("ERROR: %d\n", ret);
 		hang();
 	}
+
+	/* Update BOARD-CFG */
+	uboot_size = fs_image_get_size(fsh, false);
+	uboot_offset = fsh_info->offset;
+
+	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+			"nboot-size", &uboot_offset, sizeof(uint), 0);
+	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+			"uboot-start", &uboot_offset, sizeof(uint), 0);
+	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+			"uboot-size", &uboot_size, sizeof(uint), 0);
+
+	fs_image_update_header(cfg_fsh, fdt_totalsize(fdt), cfg_fsh->info.flags);
 
 	return ret;
 }

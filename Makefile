@@ -1558,6 +1558,8 @@ ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
 uboot-info.fs: prepare_fus u-boot.bin FORCE
 	$(Q)$(MAKE) $(build)=board/${BOARDDIR} $@
 
+firmware.fs: uboot-info.fs nboot
+	$(Q)cat nboot.fs uboot-info.fs > $@
 endif
 
 u-boot.uim: u-boot.bin FORCE

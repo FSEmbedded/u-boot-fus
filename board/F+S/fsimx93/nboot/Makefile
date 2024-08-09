@@ -194,12 +194,12 @@ $(NBOOT_PATH)/lpddr4x_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4
 $(NBOOT_PATH)/lpddr4_type.fs: $(NBOOT_PATH)/lpddr4_type.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO $^)
+	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4 $^)
 
 $(NBOOT_PATH)/lpddr4x_type.fs: $(NBOOT_PATH)/lpddr4x_type.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4x_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO $^)
+	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4x $^)
 
 $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 	$(Q)cat $(OBJ_DRAM_TYPES) > $@
@@ -209,11 +209,12 @@ $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 ### BOARD-CFG SPECIFIC TARGETS ###
 
 # Prepend some macros with varying content to BOARD-CFG .dts
-$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts
+$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts $(NBOOT_PATH)/$(BOARD)_boot-info.fs
 	@echo "/* Macros with varying content */" > $@
 	@echo "#define NBOOT_VERSION \"$(NBOOT_VERSION)\"" >> $@
 	@echo "#define BOARD_CFG_NAME \"$(*F)\"" >> $@
 	@echo "#define CONFIG_SPL_BUILD" >> $@
+	@echo "#define SPL_SIZE $(shell expr $(shell ls -la $(NBOOT_PATH)/$(BOARD)_boot-info.fs | cut -d ' ' -f 5 ) - 64)" >> $@
 	@cat $< >> $@
 
 $(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp $(obj)/nboot-info.dtsi
@@ -300,7 +301,10 @@ $(NBOOT_PATH)/$(BOARD)_board-id.fsh:
 nboot-$(BOARD)-$(NBOOT_VERSION).fs: $(OBJ_NBOOT_FILES)
 	$(Q)cat $(OBJ_NBOOT_FILES) > $@
 
+nboot.fs: nboot-$(BOARD)-$(NBOOT_VERSION).fs
+	$(Q)cp $< nboot.fs
+
 PHONY += nboot
-nboot: nboot-$(BOARD)-$(NBOOT_VERSION).fs
+nboot: nboot.fs
 	@echo "Finished doing nboot"
 ### END: NBOOT TARGETS ###
