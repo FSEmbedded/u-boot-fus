@@ -28,7 +28,6 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 static int fdt_parse_prop(char *const*newval, int count, char *data, int *len);
-static int fdt_print(const char *pathp, char *prop, int depth);
 static int is_printable_string(const void *data, int len);
 
 /*
@@ -527,7 +526,7 @@ static int do_fdt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		else
 			prop = NULL;
 
-		ret = fdt_print(pathp, prop, depth);
+		ret = fdt_print(working_fdt, pathp, prop, depth);
 		if (ret != 0)
 			return ret;
 
@@ -995,7 +994,7 @@ static void print_data(const void *data, int len)
  * Recursively print (a portion of) the working_fdt.  The depth parameter
  * determines how deeply nested the fdt is printed.
  */
-static int fdt_print(const char *pathp, char *prop, int depth)
+int fdt_print(struct fdt_header *fdt_blob, const char *pathp, char *prop, int depth)
 {
 	static char tabs[MAX_LEVEL+1] =
 		"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"
@@ -1008,7 +1007,7 @@ static int fdt_print(const char *pathp, char *prop, int depth)
 	int  level = 0;		/* keep track of nesting level */
 	const struct fdt_property *fdt_prop;
 
-	nodeoffset = fdt_path_offset (working_fdt, pathp);
+	nodeoffset = fdt_path_offset (fdt_blob, pathp);
 	if (nodeoffset < 0) {
 		/*
 		 * Not found or something else bad happened.
@@ -1022,7 +1021,7 @@ static int fdt_print(const char *pathp, char *prop, int depth)
 	 * Print only the given property and then return.
 	 */
 	if (prop) {
-		nodep = fdt_getprop (working_fdt, nodeoffset, prop, &len);
+		nodep = fdt_getprop (fdt_blob, nodeoffset, prop, &len);
 		if (len == 0) {
 			/* no property value */
 			printf("%s %s\n", pathp, prop);
@@ -1044,10 +1043,10 @@ static int fdt_print(const char *pathp, char *prop, int depth)
 	 * print the node and all subnodes.
 	 */
 	while(level >= 0) {
-		tag = fdt_next_tag(working_fdt, nodeoffset, &nextoffset);
+		tag = fdt_next_tag(fdt_blob, nodeoffset, &nextoffset);
 		switch(tag) {
 		case FDT_BEGIN_NODE:
-			pathp = fdt_get_name(working_fdt, nodeoffset, NULL);
+			pathp = fdt_get_name(fdt_blob, nodeoffset, NULL);
 			if (level <= depth) {
 				if (pathp == NULL)
 					pathp = "/* NULL pointer error */";
@@ -1071,9 +1070,9 @@ static int fdt_print(const char *pathp, char *prop, int depth)
 			}
 			break;
 		case FDT_PROP:
-			fdt_prop = fdt_offset_ptr(working_fdt, nodeoffset,
+			fdt_prop = fdt_offset_ptr(fdt_blob, nodeoffset,
 					sizeof(*fdt_prop));
-			pathp    = fdt_string(working_fdt,
+			pathp    = fdt_string(fdt_blob,
 					fdt32_to_cpu(fdt_prop->nameoff));
 			len      = fdt32_to_cpu(fdt_prop->len);
 			nodep    = fdt_prop->data;

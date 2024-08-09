@@ -1810,6 +1810,15 @@ struct cipher_algo {
 int fit_image_cipher_get_algo(const void *fit, int noffset, char **algo);
 
 struct cipher_algo *image_get_cipher_algo(const char *full_name);
+
+ulong get_loadaddr(void);
+
+/* Parse address, in case of "." return current get_loadaddr() */
+ulong parse_loadaddr(const char *buffer, char **endp);
+
+/* Like simple_loadaddr(), but return error in case of trailing garbage */
+int strict_parse_loadaddr(const char *buffer, ulong *loadaddr);
+
 struct andr_image_data;
 struct boot_img_hdr_v3;
 struct vendor_boot_img_hdr_v3;

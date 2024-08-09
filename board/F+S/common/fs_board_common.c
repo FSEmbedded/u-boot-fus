@@ -837,6 +837,82 @@ u32 fs_board_get_secondary_offset(void)
 	return val;
 }
 
-#endif /* CONFIG_IMX8 CONFIG_IMX8MM CONFIG_IMX8MN */
+#elif   defined(CONFIG_IMX93)
+/* Definitions in boot_cfg (fuse bank 3, word 0) */
+#define BOOT_CFG_BOOT_MODE_SHIFT 0
+#define BOOT_CFG_BOOT_MODE_MASK GENMASK(3, BOOT_CFG_BOOT_MODE_SHIFT)
+
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB (returned by spl_boot_device()), but is basically fused to boot from
+ * NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 boot_mode;
+
+	enum boot_device boot_dev = USB_BOOT;
+
+	/* boot_mode is in fuse bank 3, word 1 */
+	if (fuse_read(3, 0, &val)) {
+		puts("Error reading boot_cfg\n");
+		return boot_dev;
+	}
+
+	boot_mode = (val & BOOT_CFG_BOOT_MODE_MASK);
+
+	switch (boot_mode) {
+	case 0x2: // eMMC(USDHC1)
+		boot_dev = MMC1_BOOT;
+		break;	
+	case 0x3: // SD(USDHC2)
+		boot_dev = SD2_BOOT;
+		break;
+	case 0x4: // NOR(FLEXSPI)
+		boot_dev = FLEXSPI_BOOT;
+		break;
+	case 0x5: // NAND(FLEXSPI)
+		boot_dev = FLEXSPI_NAND_BOOT;
+		break;
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+#define IMG_CNTN_SET1_OFFSET_SHIFT 8
+#define IMG_CNTN_SET1_OFFSET_MASK GENMASK(15, IMG_CNTN_SET1_OFFSET_SHIFT)
+u32 fs_board_get_secondary_offset(void)
+{
+	u32 val;
+	unsigned long offset;
+
+
+	/* Secondary boot image offset is in fuse bank 3, word 8 */
+	if (fuse_read(3, 8, &val)) {
+		puts("Error reading secondary image offset from fuses\n");
+		return 0;
+	}
+
+	val &= IMG_CNTN_SET1_OFFSET_MASK;
+	val >>= IMG_CNTN_SET1_OFFSET_SHIFT;
+
+	/**
+	 *  TODO: Value CNT_N = 254 and CNT_N = 255 are currently not supported
+	 */
+	if (val == 0)
+		val = 2;
+	else if (val == 2 || val >= 10 )
+		val = 0;
+
+	val += 20;
+	offset = 1 << val;
+
+	return offset;
+}
+#endif
 
 #endif /* CONFIG_FS_BOARD_CFG */

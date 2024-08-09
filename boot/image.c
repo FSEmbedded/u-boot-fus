@@ -539,6 +539,38 @@ int image_decomp(int comp, ulong load, ulong image_start, int type,
 	return 0;
 }
 
+#ifndef USE_HOSTCC
+ulong get_loadaddr(void)
+{
+	return env_get_ulong("loadaddr", 16, CONFIG_SYS_LOAD_ADDR);
+}
+
+/* If string starts with '.', return current load_addr, else parse address */
+ulong parse_loadaddr(const char *buffer, char ** endp)
+{
+	if (*buffer != '.')
+		return simple_strtoul(buffer, endp, 16);
+	
+	if (endp)
+		*endp = (char *)(buffer + 1);
+
+	return  env_get_ulong("loadaddr", 16, CONFIG_SYS_LOAD_ADDR);
+}
+
+int strict_parse_loadaddr(const char *buffer, ulong *loadaddr)
+{
+	if (*buffer != '.')
+		return strict_strtoul(buffer, 16, loadaddr);
+
+	*loadaddr = env_get_ulong("loadaddr", 16, CONFIG_SYS_LOAD_ADDR);
+
+	if (buffer[1])
+		return -EINVAL;
+
+	return 0;
+}
+#endif
+
 const table_entry_t *get_table_entry(const table_entry_t *table, int id)
 {
 	for (; table->id >= 0; ++table) {
