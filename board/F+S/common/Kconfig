@@ -81,6 +81,17 @@ config FS_DISP_COMMON
 config FS_DEVICEINFO_COMMON
 	bool "Enable shared struct for Windows"
 	default n
+	help
+	  Enable shared struct in RAM for Windows. Contains MAC-addresses and other
+	  board specific information which Windows needs.
+
+config FS_DEVICEINFO_ADDR
+	hex "Address for shared struct under Windows"
+	depends on FS_DEVICEINFO_COMMON
+	default 0x40004000 if FS_DEVICEINFO_COMMON
+	help
+	  Set the address of the shared struct for Windows. Must be the same value as
+	  PcdFSDeviceInfoBase in UEFI.
 
 config FS_DISP_COUNT
 	int

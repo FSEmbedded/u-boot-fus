@@ -1166,11 +1166,6 @@ int board_postclk_init(void)
 #ifdef CONFIG_FS_DEVICEINFO_COMMON
 void board_prep_linux(bootm_headers_t *images)
 {
-	if (images->ft_len) {
-		pr_err("WARN: A Device-Tree is loaded, will not overwrite with fsdeviceinfo!\n");
-		return;
-	}
-
 	/* Assemble rest of struct and copy to fdtaddr */
 	fs_deviceinfo_assemble();
 }

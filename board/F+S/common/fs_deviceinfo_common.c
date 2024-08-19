@@ -24,7 +24,6 @@
 #include "fs_deviceinfo_common.h"
 #include "fs_board_common.h"
 
-static union fsdeviceinfo fsdi;
 static union fsdeviceinfo* pfsdi;
 static char boardname[FSDI_STD_STRING_LEN];
 static unsigned int displayinterface = -1;
@@ -65,8 +64,7 @@ u32 fs_deviceinfo_calccrc32(union fsdeviceinfo* pfsdi)
 
 void fs_deviceinfo_prepare(void)
 {
-	pfsdi = &fsdi;
-	char *envvar = env_get("fdtaddr");
+	pfsdi = (union fsdeviceinfo*) CONFIG_FS_DEVICEINFO_ADDR;
 
 	// Prepare Board name
 	char* bn = get_board_name();
@@ -79,21 +77,6 @@ void fs_deviceinfo_prepare(void)
 	char* dp = env_get("displaypanel");
 	if (dp)
 		displaypanel = simple_strtoul(dp, NULL, 10);
-
-	// Prepare FDT address
-	if (envvar) {
-		char *endp;
-		pfsdi = (union fsdeviceinfo*) simple_strtoul(envvar, &endp, 16);
-
-		// Invalidate envvar, if conversion failed
-		if (endp == (char *) pfsdi)
-			envvar = NULL;
-	}
-
-	if (!envvar) {
-		printf("fs_deviceinfo_assemble could not get fdtaddr\n");
-		return;
-	}
 }
 
 void fs_deviceinfo_assemble(void)
