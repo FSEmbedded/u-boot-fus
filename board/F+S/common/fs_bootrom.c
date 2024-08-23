@@ -15,7 +15,6 @@
 #include <common.h>
 #include <errno.h>
 #include <malloc.h>
-#include <asm/arch/sys_proto.h>
 #include <dm/device.h>
 #include <sdp.h>
 #include <hang.h>
@@ -24,77 +23,6 @@
 #include "fs_bootrom.h"
 #include "fs_image_common.h"
 #include "fs_cntr_common.h"
-
-struct buffer_t {
-	u8 buffer[PAGESIZE_USB];
-	int r_size; /* remaining buffer size */
-	int ptr_idx;
-};
-
-static struct buffer_t g_buffer;
-
-#ifdef DEBUG
-void debug_dump_mem(char *ptr, int size)
-{
-	int c;
-	for(c = 0; c < size; c++){
-		if (!(c % 16))
-			printf("\n%08x", c);
-		if(!(c % 4))
-			puts(" ");
-
-		printf("%02x", ptr[c]);
-	}
-	puts("\n\n");
-}
-#endif
-
-static inline void seek_buffer(struct buffer_t *buffer, unsigned int seek)
-{
-	buffer->ptr_idx += seek;
-	if(buffer->ptr_idx > PAGESIZE_USB )
-		buffer->ptr_idx = PAGESIZE_USB;
-
-	buffer->r_size = PAGESIZE_USB - buffer->ptr_idx;
-}
-
-static inline void reverse_buffer(struct buffer_t *buffer, unsigned int reverse)
-{
-	buffer->ptr_idx -= reverse;
-	if(buffer->ptr_idx < 0)
-		buffer->ptr_idx = 0;
-
-	buffer->r_size = PAGESIZE_USB - buffer->ptr_idx;
-}
-
-static inline void set_buffer(struct buffer_t *buffer, u8 *ptr)
-{
-	buffer->ptr_idx = (int)(ptr - buffer->buffer);
-	if(buffer->ptr_idx < 0)
-		buffer->ptr_idx = 0;
-
-	buffer->r_size = PAGESIZE_USB - buffer->ptr_idx;
-}
-
-static inline void reset_buffer(struct buffer_t *buffer)
-{
-	buffer->ptr_idx = 0;
-	buffer->r_size = PAGESIZE_USB;
-}
-
-static int bootrom_download(u8 *dest, u32 offset, u32 size);
-static inline void align_buffer(struct buffer_t *buffer)
-{
-	u8 *buf = buffer->buffer;
-	if (buffer->ptr_idx == 0 || buffer->r_size == 0)
-		return;
-
-	debug("align page\n");
-
-	memcpy(buf, buf + buffer->ptr_idx, buffer->r_size);
-	bootrom_download(buf + buffer->r_size, 0, buffer->ptr_idx);
-	reset_buffer(buffer);
-}
 
 int get_bootrom_bootdev(u32 *bdev)
 {
@@ -152,6 +80,36 @@ int get_bootrom_pagesize(u32 *pagesize)
 		puts("ROMAPI: failure at QUERY_PAGE_SZ\n");
 		return -ENODEV;
 	}
+
+	return 0;
+}
+
+/**
+ * is_boot_from_stream_device
+ * 
+ * return:
+ *  0 if seekable device,
+ *  1 if streamable device,
+ *  -ERRNO if failure
+ */
+int is_boot_from_stream_device()
+{
+	int ret;
+	u32 interface;
+	u32 boot;
+
+	ret = get_bootrom_bootdev(&boot);
+	if (ret < 0)
+		return ret;
+
+	interface = boot >> 16;
+
+	if (interface >= BT_DEV_TYPE_USB)
+		return 1;
+
+	/* EMMC FASTBOOT MODE */
+	if (interface == BT_DEV_TYPE_MMC && (boot & 1))
+		return 1;
 
 	return 0;
 }
@@ -240,34 +198,76 @@ void print_devinfo()
 	printf("PAGESIZE: 0x%x\n", pagesize);
 }
 
-/**
- * is_boot_from_stream_device
- * 
- * return:
- *  0 if seekable device,
- *  1 if streamable device,
- *  -ERRNO if failure
- */
-int is_boot_from_stream_device()
+#ifdef CONFIG_SPL_BUILD
+struct buffer_t {
+	u8 buffer[PAGESIZE_USB];
+	int r_size; /* remaining buffer size */
+	int ptr_idx;
+};
+
+static struct buffer_t g_buffer;
+
+#ifdef DEBUG
+void debug_dump_mem(char *ptr, int size)
 {
-	int ret;
-	u32 interface;
-	u32 boot;
+	int c;
+	for(c = 0; c < size; c++){
+		if (!(c % 16))
+			printf("\n%08x", c);
+		if(!(c % 4))
+			puts(" ");
 
-	ret = get_bootrom_bootdev(&boot);
-	if (ret < 0)
-		return ret;
+		printf("%02x", ptr[c]);
+	}
+	puts("\n\n");
+}
+#endif
 
-	interface = boot >> 16;
+static inline void seek_buffer(struct buffer_t *buffer, unsigned int seek)
+{
+	buffer->ptr_idx += seek;
+	if(buffer->ptr_idx > PAGESIZE_USB )
+		buffer->ptr_idx = PAGESIZE_USB;
 
-	if (interface >= BT_DEV_TYPE_USB)
-		return 1;
+	buffer->r_size = PAGESIZE_USB - buffer->ptr_idx;
+}
 
-	/* EMMC FASTBOOT MODE */
-	if (interface == BT_DEV_TYPE_MMC && (boot & 1))
-		return 1;
+static inline void reverse_buffer(struct buffer_t *buffer, unsigned int reverse)
+{
+	buffer->ptr_idx -= reverse;
+	if(buffer->ptr_idx < 0)
+		buffer->ptr_idx = 0;
 
-	return 0;
+	buffer->r_size = PAGESIZE_USB - buffer->ptr_idx;
+}
+
+static inline void set_buffer(struct buffer_t *buffer, u8 *ptr)
+{
+	buffer->ptr_idx = (int)(ptr - buffer->buffer);
+	if(buffer->ptr_idx < 0)
+		buffer->ptr_idx = 0;
+
+	buffer->r_size = PAGESIZE_USB - buffer->ptr_idx;
+}
+
+static inline void reset_buffer(struct buffer_t *buffer)
+{
+	buffer->ptr_idx = 0;
+	buffer->r_size = PAGESIZE_USB;
+}
+
+static int bootrom_download(u8 *dest, u32 offset, u32 size);
+static inline void align_buffer(struct buffer_t *buffer)
+{
+	u8 *buf = buffer->buffer;
+	if (buffer->ptr_idx == 0 || buffer->r_size == 0)
+		return;
+
+	debug("align page\n");
+
+	memcpy(buf, buf + buffer->ptr_idx, buffer->r_size);
+	bootrom_download(buf + buffer->r_size, 0, buffer->ptr_idx);
+	reset_buffer(buffer);
 }
 
 static int bootrom_download(u8 *dest, u32 offset, u32 size)
@@ -540,3 +540,4 @@ int bootrom_seek_continue(const struct sdp_stream_ops *stream_ops)
 
 	return 0;
 }
+#endif
