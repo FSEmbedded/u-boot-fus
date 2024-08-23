@@ -86,9 +86,7 @@ obj-$(CONFIG_CMD_FSPINAND) += cmd_fspinand.o
 obj-$(CONFIG_IMX_VSERVICE) += imx_vservice.o
 endif
 
-ifeq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_SPL_LOAD_IMX_CONTAINER) += image-container.o
-endif
 
 ifeq ($(SOC),$(filter $(SOC),imx8ulp imx9))
 obj-$(CONFIG_AHAB_BOOT) += ele_ahab.o
