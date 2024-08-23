@@ -19,9 +19,11 @@
 #include <asm/sections.h>
 #include <hang.h>
 #include <asm/arch/sys_proto.h>
-#include <imx_container.h>
 #include <fdt_support.h>
-
+#include <memalign.h>
+#include <u-boot/sha256.h>
+#include <u-boot/sha512.h>
+#include <hash.h>
 #ifdef CONFIG_AHAB_BOOT
 #include <asm/mach-imx/ahab.h>
 #endif
@@ -334,6 +336,132 @@ static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_i
 	return ret;
 }
 
+enum sha_types {
+	SHA256,
+	SHA384,
+	SHA512,
+};
+
+/*
+ * Use a "constant-length" time compare function for this
+ * hash compare:
+ *
+ * https://crackstation.net/hashing-security.htm
+ */
+static int slow_equals(u8 *a, u8 *b, int len)
+{
+	int diff = 0;
+	int i;
+
+	for (i = 0; i < len; i++)
+		diff |= a[i] ^ b[i];
+
+	return diff == 0;
+}
+
+static void __maybe_unused print_hash(u8 *hash, int hash_size)
+{
+	int i;
+	for (i = 0; i < hash_size; i++) {
+		printf("%02x", hash[i]);
+	}
+	puts("\n");
+}
+
+bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
+{
+	unsigned int sha_type;
+	const char *algo_name;
+	u8 sha[HASH_MAX_DIGEST_SIZE];
+	int sha_size;
+	int ret;
+
+	sha_type = img->hab_flags & GENMASK(10,8);
+	switch(sha_type) {
+	case SHA256:
+		sha_size = SHA256_SUM_LEN;
+		algo_name = "sha256";
+		break;
+	case SHA384:
+		sha_size = SHA384_SUM_LEN;
+		algo_name = "sha384";
+		break;
+	case SHA512:
+		sha_size = SHA512_SUM_LEN;
+		algo_name = "sha512";
+		break;
+	default:
+		algo_name = "NONE";
+		break;
+	}
+
+	debug("%s: validate %ssum\n", __func__ , algo_name);
+	ret = hash_block(algo_name, blob, img->size, sha, &sha_size);
+	if(ret){
+		printf("failed to calc hash: %d\n", ret);
+		return false;
+	}
+
+#ifdef DEBUG
+	puts("CNTR_HASH is ");
+	print_hash(img->hash, sha_size);
+	puts("Calc HASH is ");
+	print_hash(sha, sha_size);
+#endif
+
+	return slow_equals(sha, img->hash, sha_size);
+}
+
+bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
+{
+	__maybe_unused struct container_hdr *authhdr = NULL;
+	u16 cntr_length;
+	int i;
+	bool ret = false;
+
+
+	if(!valid_container_hdr(cntr_hdr)){
+		return false;
+	}
+
+	cntr_length = cntr_hdr->length_lsb + (cntr_hdr->length_msb << 8);;
+
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	authhdr = ahab_auth_cntr_hdr(cntr_hdr, cntr_length);
+	if(!authhdr)
+		goto ahab_release;
+#endif
+
+	if(!cntr_hdr->num_images)
+		goto ahab_release;
+
+	for (i = 0; i < cntr_hdr->num_images; i++) {
+		struct boot_img_t *img_idx;
+		void *img_ptr;
+
+		img_idx = (struct boot_img_t *)((u8 *)cntr_hdr + sizeof(struct container_hdr));
+		img_idx += i * sizeof(struct boot_img_t);
+
+		img_ptr = (void *)cntr_hdr + img_idx->offset;
+
+		ret = cntr_image_check_sha(img_idx, img_ptr);
+		if(!ret)
+			goto ahab_release;
+	}
+
+	ahab_release:
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	ahab_auth_release();
+#endif
+	return ret;
+}
+
+bool fs_cntr_is_signed(struct container_hdr *cntr)
+{
+	/* CHECK CNTR FLAG SRK Set*/
+	return !!(cntr->flags & GENMASK(1,0) );
+}
+
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
 /**
  * The following Code is supposed to load images
@@ -482,6 +610,7 @@ static int fs_handle_board_cfg(struct fsh_load_info *fsh_info, struct ram_info_t
 	}
 
 	/* Set Board ID in BOARD-CFG Header */
+	fsh = fs_image_get_regular_cfg_addr();
 	fs_image_board_cfg_set_board_rev(fsh);
 	printf("BOARD-ID: %s\n", fs_image_get_board_id());
 
@@ -626,6 +755,8 @@ static int fs_handle_uboot(struct fsh_load_info *fsh_info)
 	void *fdt = fs_image_get_cfg_fdt();
 	unsigned int uboot_size;
 	unsigned int uboot_offset;
+	unsigned int nboot_start;
+	unsigned int nboot_size;
 	int ret = 0;
 
 	/* State and file does not match */
@@ -641,17 +772,26 @@ static int fs_handle_uboot(struct fsh_load_info *fsh_info)
 	}
 
 	/* Update BOARD-CFG */
-	uboot_size = fs_image_get_size(fsh, false);
-	uboot_offset = fsh_info->offset;
+	if(!is_boot_from_stream_device()){
+		uboot_size = fs_image_get_size(fsh, true);
+		uboot_offset = fsh_info->offset;
+		nboot_start = fdt_getprop_u32_default(fdt,
+						"/nboot-info/emmc-boot", "nboot-start", 0);
+		nboot_size = uboot_offset - nboot_start;
 
-	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
-			"nboot-size", &uboot_offset, sizeof(uint), 0);
-	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
-			"uboot-start", &uboot_offset, sizeof(uint), 0);
-	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
-			"uboot-size", &uboot_size, sizeof(uint), 0);
+		uboot_size = cpu_to_fdt32(uboot_size);
+		nboot_size = cpu_to_fdt32(nboot_size);
+		uboot_offset = cpu_to_fdt32(uboot_offset);
 
-	fs_image_update_header(cfg_fsh, fdt_totalsize(fdt), cfg_fsh->info.flags);
+		fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+				"nboot-size", &nboot_size, sizeof(uint), 0);
+		fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+				"uboot-start", &uboot_offset, sizeof(uint), 0);
+		fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+				"uboot-size", &uboot_size, sizeof(uint), 0);
+
+		fs_image_update_header(cfg_fsh, fdt_totalsize(fdt), cfg_fsh->info.flags);
+	}
 
 	return ret;
 }
