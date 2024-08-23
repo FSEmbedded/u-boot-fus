@@ -41,8 +41,8 @@ $(if $(findstring u-boot.fsh,$(1)),UBOOT,\
 $(shell basename $(1) | cut -d '.' -f 1 | tr a-z A-Z))))
 endef
 
-IMGS_FS_OPT = -a 0x400 -j -t $(call map_type,$@) -d $(BOARD) $<
-INDEX_FS_OPT = -w -a 0x400 -i -t INDEX $^ 
+IMGS_FS_OPT = -c -a 0x400 -j -t $(call map_type,$@) -d $(BOARD) $<
+INDEX_FS_OPT = -c -w -a 0x400 -i -t INDEX $^
 
 quiet_cmd_addfsheader = FSIMG   $@
 cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
@@ -61,6 +61,6 @@ board/$(BOARDDIR)/uboot-info.cntr: board/$(BOARDDIR)/uboot-index.fs ${srctree}/b
 uboot-info.fs: board/$(BOARDDIR)/uboot-info.cntr
 	$(eval index_offset := $(shell grep DATA ${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+'))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,addfsheader,-a 0x400 -e ${index_offset} -t U-BOOT-INFO -d ${BOARD} $^)
+	$(call cmd,addfsheader,-c -a 0x400 -e ${index_offset} -t U-BOOT-INFO -d ${BOARD} $^)
 
 ### END: UBOOT-INFO CREATION ###

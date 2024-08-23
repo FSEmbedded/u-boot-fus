@@ -162,12 +162,12 @@ quiet_cmd_fsimg = FSIMG   $@
 cmd_fsimg = ${srctree}/scripts/addfsheader.sh $2 > $@
 
 $(NBOOT_PATH)/%_timing.fs: $(NBOOT_PATH)/.%_timing.bin.tmp
-	$(call cmd,fsimg,-w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40))) -t DRAM-TIMING -d $(*F) $< > $@)
+	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40))) -t DRAM-TIMING -d $(*F) $< > $@)
 
 $(NBOOT_PATH)/lpddr4_fw.fs: $(NBOOT_PATH)/.lpddr4_fw.tmp
 $(NBOOT_PATH)/lpddr4x_fw.fs: $(NBOOT_PATH)/.lpddr4x_fw.tmp
 $(NBOOT_PATH)/%_fw.fs: $(NBOOT_PATH)/.%_fw.tmp
-	$(call cmd,fsimg,-w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_FW_ADDR) + 0x40))) -t DRAM-FW -d $(*F) $< > $@ )
+	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_FW_ADDR) + 0x40))) -t DRAM-FW -d $(*F) $< > $@ )
 
 LPDDR4_CFG = lpddr4_type.cfg
 LPDDR4X_CFG = lpddr4x_type.cfg
@@ -194,12 +194,12 @@ $(NBOOT_PATH)/lpddr4x_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4
 $(NBOOT_PATH)/lpddr4_type.fs: $(NBOOT_PATH)/lpddr4_type.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4 $^)
+	$(call cmd,fsimg, -c -w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4 $^)
 
 $(NBOOT_PATH)/lpddr4x_type.fs: $(NBOOT_PATH)/lpddr4x_type.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4x_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4x $^)
+	$(call cmd,fsimg, -c -w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4x $^)
 
 $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 	$(Q)cat $(OBJ_DRAM_TYPES) > $@
@@ -209,7 +209,7 @@ $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 ### BOARD-CFG SPECIFIC TARGETS ###
 
 # Prepend some macros with varying content to BOARD-CFG .dts
-$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts $(NBOOT_PATH)/$(BOARD)_boot-info.fs
+$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts $(NBOOT_PATH)/$(BOARD)_boot-info.fs FORCE
 	@echo "/* Macros with varying content */" > $@
 	@echo "#define NBOOT_VERSION \"$(NBOOT_VERSION)\"" >> $@
 	@echo "#define BOARD_CFG_NAME \"$(*F)\"" >> $@
@@ -224,7 +224,7 @@ endif
 	$(call cmd,dtco)
 
 $(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp
-	$(call cmd,fsimg,-w -a 0x400 -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
+	$(call cmd,fsimg, -c -w -a 0x400 -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
 
 BOARDINFO_CFG = board-info.cfg
 
@@ -240,7 +240,7 @@ $(NBOOT_PATH)/board-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOARDINF
 $(NBOOT_PATH)/%_board-info.fs: $(NBOOT_PATH)/board-info.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/board-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg,-w -a 0x400 -e ${index_offset} -t BOARD-INFO -d $(BOARD) $^)
+	$(call cmd,fsimg, -c -w -a 0x400 -e ${index_offset} -t BOARD-INFO -d $(BOARD) $^)
 
 ### END: BOARD-CFG SPECIFIC TARGETS ###
 
@@ -251,8 +251,8 @@ BOOTINFO_CFG = boot-info.cfg
 BOOTCNTR_IMGS = $(shell grep IMAGE $(srctree)/board/$(BOARDDIR)/$(BOOTINFO_CFG) | cut -f 3 )
 BOOTIMGS_FSH = $(shell echo ${BOOTCNTR_IMGS} | sed -e 's/\.bin/.fsh/g')
 
-BOOTINDEX_FS_OPT = -w -a 0x400 -i -t INDEX $^
-BOOTIMGS_FS_OPT = -a 0x400 -j -t $(call map_boottype,$@) -d $(BOARD) $<
+BOOTINDEX_FS_OPT = -c -w -a 0x400 -i -t INDEX $^
+BOOTIMGS_FS_OPT = -c -a 0x400 -j -t $(call map_boottype,$@) -d $(BOARD) $<
 
 define map_boottype
 $(if $(findstring m33_image.fsh,$(1)),CORTEX-M,\
@@ -281,7 +281,7 @@ $(NBOOT_PATH)/boot-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_
 $(NBOOT_PATH)/%_boot-info.fs: $(NBOOT_PATH)/boot-info.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/boot-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg,-w -a 0x400-0x40 -e ${index_offset} -t BOOT-INFO -d $(BOARD) $^)
+	$(call cmd,fsimg, -c -w -a 0x400-0x40 -e ${index_offset} -t BOOT-INFO -d $(BOARD) $^)
 
 ### END: BOOT-INFO SPECIFIC TARGETS ###
 
@@ -290,10 +290,10 @@ $(NBOOT_PATH)/%_boot-info.fs: $(NBOOT_PATH)/boot-info.cntr
 $(NBOOT_PATH)/addfsheader.sh.fs: $(srctree)/scripts/addfsheader.sh
 $(NBOOT_PATH)/fsimage.sh.fs: $(srctree)/scripts/fsimage.sh
 %.sh.fs:
-	$(call cmd,fsimg,-t BASH-SCRIPT -d $(*F) $^)
+	$(call cmd,fsimg, -t BASH-SCRIPT -d $(*F) $^)
 
 %_extra.fs: $(OBJ_EXTRA_FILES)
-	$(call cmd,fsimg,-t EXTRA -a 0x400-0x40 -d $(*F) $^)
+	$(call cmd,fsimg, -t EXTRA -a 0x400-0x40 -d $(*F) $^)
 
 $(NBOOT_PATH)/$(BOARD)_board-id.fsh:
 	${Q}dd if=/dev/zero bs=1 count=0 status=none | $(srctree)/scripts/addfsheader.sh -j -t BOARD-ID -d DUMMY-ID > $@
