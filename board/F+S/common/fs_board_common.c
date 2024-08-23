@@ -18,7 +18,7 @@
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/delay.h>
-#ifndef CONFIG_TARGET_FSIMX93
+#if CONFIG_IS_ENABLED(MTD_RAW_NAND)
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #endif
 #include "fs_board_common.h"		/* Own interface */
@@ -916,3 +916,28 @@ u32 fs_board_get_secondary_offset(void)
 #endif
 
 #endif /* CONFIG_FS_BOARD_CFG */
+
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+static bool imx_ele_ahab_is_enabled(void)
+{
+	u32 lc;
+
+	lc = readl(FSB_BASE_ADDR + 0x41c);
+	lc &= 0x3ff;
+	
+	// if lc != 0x8 then lifecycle is not OEM open
+	return !!(lc != 0x8);
+}
+
+#endif
+
+bool fs_board_is_closed(void)
+{
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	return imx_ele_ahab_is_enabled();
+#elif CONFIG_IS_ENABLED(IMX_HAB)
+	return imx_hab_is_enabled();
+#endif
+
+	return false;
+}
