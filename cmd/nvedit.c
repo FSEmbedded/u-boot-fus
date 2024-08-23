@@ -463,7 +463,14 @@ static int do_env_edit(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_env_save(struct cmd_tbl *cmdtp, int flag, int argc,
 		       char *const argv[])
 {
-	return env_save() ? 1 : 0;
+	int ret;
+
+	ret = env_save() ? 1: 0;
+	if(IS_ENABLED(CONFIG_SYS_REDUNDAND_ENVIRONMENT) &&
+			!ret && gd->env_valid != ENV_REDUND)
+		ret = env_save() ? 1 : 0;
+
+	return ret;
 }
 
 U_BOOT_CMD(
