@@ -151,6 +151,7 @@
 #include "fs_board_common.h"		/* fs_board_*() */
 #include "fs_dram_common.h"		/* fs_dram_init_common() */
 #include "fs_image_common.h"		/* Own interface */
+#include "fs_cntr_common.h"
 
 #ifdef CONFIG_FS_SECURE_BOOT
 #include <asm/mach-imx/hab.h>
@@ -257,6 +258,31 @@ unsigned int fs_image_get_size(const struct fs_header_v1_0 *fsh,
 	return fsh->info.file_size_low + (with_fs_header ? FSH_SIZE : 0);
 }
 
+/* return the size of extra data after FS HEADER */
+unsigned int fs_image_get_extra_size(const struct fs_header_v1_0 *fsh)
+{
+	if (!(fsh->info.flags & FSH_FLAGS_EXTRA))
+		return 0;
+
+	return fsh->param.p32[7];
+}
+
+bool fs_image_is_index(const struct fs_header_v1_0 *fsh)
+{
+	return !!(fsh->info.flags & FSH_FLAGS_INDEX);
+}
+
+/* return number of index entries */
+unsigned int fs_image_index_get_n(const struct fs_header_v1_0 *fsh)
+{
+	unsigned int size;
+	if(!fs_image_is_index(fsh))
+		return 0;
+
+	size = fs_image_get_size(fsh, false);
+	return size / FSH_SIZE;
+}
+
 /* Check image magic, type and descr; return true on match */
 bool fs_image_match(const struct fs_header_v1_0 *fsh,
 		    const char *type, const char *descr)
@@ -270,7 +296,7 @@ bool fs_image_match(const struct fs_header_v1_0 *fsh,
 	if (strncmp(fsh->type, type, MAX_TYPE_LEN))
 		return false;
 
-	if (descr) {
+	if (descr && descr[0] != 0) {
 		if (!(fsh->info.flags & FSH_FLAGS_DESCR))
 			return false;
 		if (strncmp(fsh->param.descr, descr, MAX_DESCR_LEN))
@@ -376,7 +402,7 @@ u32 fs_image_getprop_u32(const void *fdt, int cfg_offs, int rev_offs,
 	return fdt_getprop_u32_default_node(fdt, cfg_offs, cell, name, dflt);
 }
 
-#if defined(CONFIG_IMX_HAB)
+#if !defined(CONFIG_FS_CNTR_COMMON)
 /* Check if the F&S image is signed (followed by an IVT) */
 bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
 {
@@ -463,7 +489,68 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 #endif
 	return true;
 }
-#endif /* CONFIG_IMX_HAB */
+#else
+bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
+{
+	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
+
+	if(!valid_container_hdr(cntr_hdr)){
+		char type[MAX_TYPE_LEN + 1];
+		memcpy(type, fsh->type, MAX_TYPE_LEN);
+		type[MAX_TYPE_LEN] = 0;
+		printf("%s does not contain IMX-Container\n", type);
+		return false;
+	}
+
+	return fs_cntr_is_signed(cntr_hdr);
+}
+
+bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
+{
+	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
+	struct signature_block_hdr *sig_hdr;
+	unsigned int offset;
+	bool ret = false;
+
+	if(!valid_container_hdr(cntr_hdr)){
+		char type[MAX_TYPE_LEN + 1];
+		memcpy(type, fsh->type, MAX_TYPE_LEN);
+		type[MAX_TYPE_LEN] = 0;
+		printf("%s does not contain IMX-Container\n", type);
+		return false;
+	}
+
+	ret = fs_cntr_is_valid_signature(cntr_hdr);
+	if(!ret)
+		return ret;
+
+	if(!fs_image_match(fsh, "BOOT-INFO", NULL))
+		return ret;
+
+	/**
+	 * BOOT-INFO image contains two bootcntr.
+	 * One container contains the ELE-FW,
+	 * the second contains the SPL and optionally an M33_Image
+	 */
+	sig_hdr = (void *)cntr_hdr + cntr_hdr->sig_blk_offset;
+	offset = cntr_hdr->sig_blk_offset + sig_hdr->length_lsb + (sig_hdr->length_msb << 8);
+	offset = ALIGN(offset, CONTAINER_HDR_ALIGNMENT);
+	cntr_hdr = (void *)cntr_hdr + offset;
+
+	if(!valid_container_hdr(cntr_hdr)){
+		printf("No IMX-Container found!\n");
+		return false;
+	}
+
+	/* if second cntr is not signed then it is OK when board is OEM open */
+	if(!fs_cntr_is_signed(cntr_hdr) && !fs_board_is_closed()){
+		printf("NOTE: Second BOOT-CNTR is unsigned\n");
+		return true;
+	}
+
+	return fs_cntr_is_valid_signature(cntr_hdr);
+}
+#endif /* !CONFIG_IS_ENABLED(FS_CNTR_COMMON) */
 
 /*
  * Check CRC32; return: 0: No CRC32, >0: CRC32 OK, <0: error (CRC32 failed)
@@ -472,7 +559,7 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
  * 2: CRC32 was Image only (only FSH_FLAGS_CRC32 set)
  * 3: CRC32 was Header+Image (both FSH_FLAGS_SECURE and FSH_FLAGS_CRC32 set)
  */
-int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
+int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh, unsigned int offset)
 {
 	u32 expected_cs;
 	u32 computed_cs;
@@ -490,6 +577,7 @@ int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
 		ret |= 1;
 	} else {
 		start = (unsigned char *)(fsh + 1);
+		start += offset;
 		size = 0;
 	}
 
@@ -508,6 +596,36 @@ int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
 		return -EILSEQ;
 
 	return ret;
+}
+
+int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
+{
+	return fs_image_check_crc32_offset(fsh, 0);
+}
+
+void fs_image_print_crc32_status(const struct fs_header_v1_0 *fsh, int err)
+{
+	char fsh_type[MAX_TYPE_LEN];
+	memcpy(&fsh_type, fsh->type, MAX_TYPE_LEN);
+
+	fsh_type[12] = 0;
+
+	switch (err) {
+	case 0:
+		debug("%s: (no CRC32)\n", fsh_type);
+		break;
+	case 1:
+		debug("%s: (CRC32 header only ok)\n", fsh_type);
+		break;
+	case 2:
+		debug("%s: (CRC32 image only ok)\n", fsh_type);
+		break;
+	case 3:
+		debug("%s: (CRC32 header+image ok)\n", fsh_type);
+		break;
+	default:
+		printf("%s: BAD CRC32\n", fsh_type);
+	}
 }
 
 /* Update size, flags and padsize, calculate CRC32 if requested */
