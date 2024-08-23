@@ -269,10 +269,6 @@ void board_init_f(ulong dummy)
 
 	print_devinfo();
 
-	print_bootstage();
-
-	print_devinfo();
-
 	ret = imx9_probe_mu();
 	if (ret) {
 		printf("Fail to init ELE API\n");
