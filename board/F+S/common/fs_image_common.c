@@ -498,7 +498,7 @@ bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
 		char type[MAX_TYPE_LEN + 1];
 		memcpy(type, fsh->type, MAX_TYPE_LEN);
 		type[MAX_TYPE_LEN] = 0;
-		printf("%s does not contain IMX-Container\n", type);
+		printf("%s has no IMX-Container, skip validation ...\n", type);
 		return false;
 	}
 
