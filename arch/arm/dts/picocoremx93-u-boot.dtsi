@@ -167,12 +167,8 @@
 	bootph-pre-ram;
 };
 
-&fec {
-	phy-reset-duration = <15>;
-	phy-reset-post-delay = <100>;
-};
-
 &ethphy1 {
+	reset-gpios = <&expander 1 GPIO_ACTIVE_LOW>;
 	reset-assert-us = <15000>;
 	reset-deassert-us = <100000>;
 };
