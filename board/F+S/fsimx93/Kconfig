@@ -1,4 +1,4 @@
-if TARGET_FSIMX93
+if TARGET_FSIMX93_PC || TARGET_FSIMX93_OSM
 
 config SYS_BOARD
 	default "fsimx93"

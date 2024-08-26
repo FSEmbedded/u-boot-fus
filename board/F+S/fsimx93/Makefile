@@ -15,5 +15,6 @@ obj-y += fsimx93.o
 
 ifdef CONFIG_SPL_BUILD
 obj-y += spl.o
-obj-$(CONFIG_TARGET_FSIMX93) += lpddr4_pc_MT53D512M16D1_timing.o
+obj-$(CONFIG_TARGET_FSIMX93_PC) += lpddr4_pc_MT53D512M16D1_timing.o
+obj-$(CONFIG_TARGET_FSIMX93_OSM) += lpddr4_osm_MT53D512M16D1_timing.o
 endif

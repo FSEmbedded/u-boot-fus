@@ -18,13 +18,13 @@
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/delay.h>
-#ifndef CONFIG_TARGET_FSIMX93
+#if (!defined(CONFIG_TARGET_FSIMX93_PC) && !defined(CONFIG_TARGET_FSIMX93_OSM))
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #endif
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"
 #include <fuse.h>			/* fuse_read() */
-#ifndef CONFIG_TARGET_FSIMX93
+#if (!defined(CONFIG_TARGET_FSIMX93_PC) && !defined(CONFIG_TARGET_FSIMX93_OSM))
 #include <update.h>			/* enum update_action */
 #endif
 

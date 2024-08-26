@@ -1,4 +1,4 @@
-if TARGET_FSIMX93
+if TARGET_FSIMX93_PC || TARGET_FSIMX93_OSM
 
 config ETHADDR_BASE
 	string
@@ -30,15 +30,15 @@ config FS_FDT_COMMON
 
 config FS_MMC_COMMON
 	bool
-	default n if TARGET_FSIMX93
+	default n if TARGET_FSIMX93_PC || TARGET_FSIMX93_OSM
 
 config FS_ETH_COMMON
 	bool
-	default y if TARGET_FSIMX93
+	default y if TARGET_FSIMX93_PC || TARGET_FSIMX93_OSM
 
 config FS_USB_COMMON
 	bool
-	default y if TARGET_FSIMX93
+	default y if TARGET_FSIMX93_PC || TARGET_FSIMX93_OSM
 
 config FS_USB_PWR_USBNC
 	bool "Use USB PWR function from host controller"
@@ -53,7 +53,7 @@ config FS_USB_PWR_USBNC
 
 config FS_SPL_MEMTEST_COMMON
 	bool "Activate memory test in SPL"
-	depends on TARGET_FSIMX93
+	depends on TARGET_FSIMX93_PC || TARGET_FSIMX93_OSM
 	select SPL_CACHE_SUPPORT
 	select LIB_RAND
 	select SPL_ALLOC_BD
@@ -64,7 +64,7 @@ config FS_SPL_MEMTEST_COMMON
 
 config USB_TCPC
 	bool "USB Typec port controller simple driver"
-	default n if TARGET_FSIMX93
+	default n if TARGET_FSIMX93_PC
 	help
 	  Enable USB type-c port controller (TCPC) driver
 
