@@ -207,23 +207,6 @@ int board_phy_config(struct phy_device *phydev)
 	return 0;
 }
 
-static int setup_eqos(void)
-{
-	struct blk_ctrl_wakeupmix_regs *bctrl =
-		(struct blk_ctrl_wakeupmix_regs *)BLK_CTRL_WAKEUPMIX_BASE_ADDR;
-
-	if (!IS_ENABLED(CONFIG_TARGET_IMX93_14X14_EVK)) {
-		/* set INTF as RGMII, enable RGMII TXC clock */
-		clrsetbits_le32(&bctrl->eqos_gpr,
-				BCTRL_GPR_ENET_QOS_INTF_MODE_MASK,
-				BCTRL_GPR_ENET_QOS_INTF_SEL_RGMII | BCTRL_GPR_ENET_QOS_CLK_GEN_EN);
-
-		return set_clk_eqos(ENET_125MHZ);
-	}
-
-	return 0;
-}
-
 void fs_ethaddr_init(void)
 {
 	int eth_id = 0;
@@ -247,15 +230,9 @@ int board_init(void)
 	unsigned int board_type = BT_PICOCOREMX93;
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[board_type]);
-#ifdef CONFIG_USB_TCPC
-	setup_typec();
-#endif
 
 	if (IS_ENABLED(CONFIG_FEC_MXC))
 		setup_fec();
-
-	if (IS_ENABLED(CONFIG_DWC_ETH_QOS))
-		setup_eqos();
 
 	return 0;
 }
