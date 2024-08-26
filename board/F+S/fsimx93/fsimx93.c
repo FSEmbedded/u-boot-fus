@@ -132,7 +132,7 @@ int board_fit_config_name_match(const char *name)
 	offs = fs_image_get_board_cfg_offs(fdt);
 	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
 
-	if(!strcmp(name, board_fdt))
+	if(board_fdt && !strncmp(name, board_fdt, 64))
 		return 0;
 
 	return -EINVAL;
@@ -141,7 +141,6 @@ int board_fit_config_name_match(const char *name)
 
 static void fs_setup_cfg_info(void)
 {
-#ifndef CONFIG_SPL_BUILD
 	void *fdt;
 	int offs;
 	int rev_offs;
@@ -191,7 +190,6 @@ static void fs_setup_cfg_info(void)
 	/**
 	 * TODO: cfg_info FEATURES
 	 */
-	#endif
 }
 
 int board_early_init_f(void)
