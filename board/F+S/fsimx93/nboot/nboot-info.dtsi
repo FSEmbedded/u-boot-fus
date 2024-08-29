@@ -66,11 +66,10 @@
 			 *
 			 * Boot1/2 HW-Partition (Boot Offset Primary Image: 0)
 			 * ---------------------------------------------------
-			 * 0x0000_0000: SPL Copy 0/1 (256 KiB)
-			 * 0x0004_0000: UBootEnv/UBootEnvRed (16 KiB)
-			 * 0x0004_4000: - (free, 16 KiB, option for bigger Env)
-			 * 0x0004_8000: NBOOT Copy 0/1 (992 KiB)
-			 * 0x0014_0000: U-Boot A/B (2816 KiB, to end of part)
+			 * 0x0000_0000:		BOOT-CONTAINER 1&2
+			 * + <SPL_SIZE>:	BOARD-ID; BOARD-INFO; DRAM-INFO	
+			 * + <NBOOT_SIZE>:	U-BOOT
+			 * 0x003c_c800:		U-BOOT-ENV (END of 4MiB)
 			 *
 			 * User HW-Partition
 			 * -----------------
@@ -91,7 +90,7 @@
 		};
 
 		sd-user {
-			/*
+			/**
 			 * All parts are stored in the User partition/SD Card.
 			 *
 			 * Boot1/2 HW-Partition
@@ -100,16 +99,7 @@
 			 *
 			 * User HW-Partition (Boot Offset Primary Image: 0x8000)
 			 * -----------------------------------------------------
-			 * 0x0000_0000: --- (space for GPT, 32 KiB)
-			 * 0x0000_8000: SPL Copy 0 (256 KiB)
-			 * 0x0004_8000: NBOOT Copy 0 (992 KiB)
-			 * 0x0014_0000: U-Boot A (2816 KiB)
-			 * 0x0040_0000: SPL Copy 1 (256 KiB) Secondary Im. Offs.
-			 * 0x0044_0000: UBootEnv (16 KiB)
-			 * 0x0044_4000: UBootEnvRed (16 KiB)
-			 * 0x0044_8000: NBOOT Copy 1 (992 KiB)
-			 * 0x0054_0000: U-Boot B (2816 MiB)
-			 * 0x0080_0000: End of reserved area
+			 * TODO: Not defined yet
 			 */
 
             /* Padding solution is considered */

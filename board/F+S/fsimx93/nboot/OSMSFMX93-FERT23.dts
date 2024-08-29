@@ -15,7 +15,7 @@
 		board-name = "FS-OSM-SF-MX93";
 		board-fdt = "fs-osm-sf-mx93-adp-osm-bb";
 
-		/* DRAM: B.ICDRAM.40 */
+		/* DRAM: B.ICDRAM.48 */
 		dram-type = "lpddr4";
 		dram-timing = "lpddr4_osm_1g3200m1ch1cs";
 		dram-size = <0x400>;		/* In MiB */
@@ -33,14 +33,14 @@
 		/* Common board features */
 		have-emmc;
 		have-ext-rtc;
-		have-eeprom;
+		// have-eeprom;
 		have-eth-a;
 		have-eth-b;
 		// have-mipi-dsi;
 		have-mipi-csi;
 		have-lvds;
 
-        OSMSFMX93-FERT1.100 {
+        OSMSFMX93-FERT23.100 {
             board-rev = <100>;
         };
 	};

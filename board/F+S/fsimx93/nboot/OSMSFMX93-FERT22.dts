@@ -33,14 +33,14 @@
 		/* Common board features */
 		have-emmc;
 		have-ext-rtc;
-		have-eeprom;
+		// have-eeprom;
 		have-eth-a;
 		have-eth-b;
 		// have-mipi-dsi;
 		have-mipi-csi;
 		have-lvds;
 
-        OSMSFMX93-FERT1.100 {
+        OSMSFMX93-FERT22.100 {
             board-rev = <100>;
         };
 	};
