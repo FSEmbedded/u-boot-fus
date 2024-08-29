@@ -129,14 +129,28 @@ int fs_fdt_path_offset(void *fdt, const char *path)
 	return offs;
 }
 
-/* Enable or disable node given by path, overwrite any existing status value */
-int fs_fdt_enable(void *fdt, const char *path, int enable)
+/**
+ * Enable or disable node given by path, alias, or __symbols__.
+ * This will overwrite the status property.
+ * @fdt: pointer to the device tree blob
+ * @path: full path or name of the node to locate
+ * @enable: if set, then status = "okay", else "disabled"
+ * Retrun: 0 if succesed, else -FDT_ERR
+ */
+int fs_fdt_enable(void *fdt, const char *path, bool enable)
 {
 	int offs, err, len;
 	const void *val;
 	char *str = enable ? "okay" : "disabled";
 
 	offs = fdt_path_offset(fdt, path);
+
+	/* look in __symbols__ for given name */
+	if(offs < 0 && *path != '/') {
+		path = fdt_get_symbol(fdt, path);
+		offs = fdt_path_offset(fdt, path);
+	}
+
 	if (offs < 0)
 		return offs;
 
