@@ -35,6 +35,7 @@
 #include "../common/fs_board_common.h"
 #include "../common/fs_image_common.h"
 #include "../common/fs_cntr_common.h"
+#include "../common/fs_fdt_common.h"
 #include "fsimx93.h"
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -114,8 +115,8 @@ static int set_gd_board_type(void)
 	ptr = strchr(board_id, '-');
 	len = (int)(ptr - board_id);
 
-	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93);
-	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93);
+	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
+	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93, board_id, len);
 
 	return -EINVAL;
 }
@@ -187,9 +188,36 @@ static void fs_setup_cfg_info(void)
 	info->flags = flags;
 
 	features = 0;
-	/**
-	 * TODO: cfg_info FEATURES
-	 */
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
+		features |= FEAT_EMMC;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
+		features |= FEAT_EXT_RTC;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
+		features |= FEAT_EEPROM;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
+		features |= FEAT_ETH_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
+		features |= FEAT_ETH_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
+		features |= FEAT_ETH_PHY_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
+		features |= FEAT_ETH_PHY_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
+		features |= FEAT_AUDIO;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
+		features |= FEAT_WLAN;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
+		features |= FEAT_SDIO_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b;", NULL))
+		features |= FEAT_SDIO_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
+		features |= FEAT_MIPI_DSI;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
+		features |= FEAT_MIPI_CSI;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
+		features |= FEAT_LVDS;
+
+	info->features = features;
 }
 
 int board_early_init_f(void)
@@ -212,11 +240,101 @@ int board_early_init_f(void)
 	return 0;
 }
 
-#if CONFIG_IS_ENABLED(OF_BOARD_SETUP)
-int	ft_board_setup(void *fdt_blob, struct bd_info *bd)
+static void fdt_pcore_fixup(void *fdt)
 {
+	uint features = fs_board_get_features();
+
+	if(!(features & FEAT_ETH_PHY_A)){
+		fs_fdt_enable(fdt, "ethphy0", 0);
+	}
+
+	if(!(features & FEAT_ETH_PHY_B)){
+		fs_fdt_enable(fdt, "ethphy1", 0);
+	}
+
+	if(!(features & FEAT_AUDIO)){
+		fs_fdt_enable(fdt, "sound_sgtl5000", 0);
+		fs_fdt_enable(fdt, "sgtl5000", 0);
+	}
+
+	if(!(features & FEAT_WLAN)){
+		fs_fdt_enable(fdt, "wlan", 0);
+		fs_fdt_enable(fdt, "wlan_wake", 0);
+	}
+
+	if(!(features & FEAT_SDIO_A))
+		fs_fdt_enable(fdt, "pc_sdio_a", 0);
+
+	if(!(features & (FEAT_SDIO_B | FEAT_WLAN)))
+		fs_fdt_enable(fdt, "pc_sdio_b", 0);
+}
+
+static void fdt_osm_fixup(void *fdt)
+{
+}
+
+static void fdt_common_fixup(void *fdt)
+{
+	uint features = fs_board_get_features();
+	int ret;
+
+	/* Realloc FDT-Blob to next full page-size.
+	 * If NOSPACE Error appiers, increase extrasize.
+	 */
+	ret = fdt_shrink_to_minimum(fdt, 0x400);
+	if(ret < 0){
+		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
+	}
+
+	if(!(features & FEAT_EMMC))
+		fs_fdt_enable(fdt, "emmc", 0);
+
+	if(!(features & FEAT_EXT_RTC))
+		fs_fdt_enable(fdt, "rtc0", 0);
+
+	if(!(features & FEAT_EEPROM))
+		fs_fdt_enable(fdt, "eeprom", 0);
+
+	if(!(features & FEAT_ETH_A))
+		fs_fdt_enable(fdt, "ethernet0", 0);
+
+	if(!(features & FEAT_ETH_B))
+		fs_fdt_enable(fdt, "ethernet1", 0);
+
+	if(!(features & FEAT_MIPI_DSI)){
+		fs_fdt_enable(fdt, "dsi", 0);
+		fs_fdt_enable(fdt, "dphy", 0);
+	}
+
+	if(!(features & FEAT_LVDS)){
+		fs_fdt_enable(fdt, "ldb", 0);
+		fs_fdt_enable(fdt, "ldb_phy", 0);
+	}
+
+	if(!(features & (FEAT_LVDS | FEAT_MIPI_DSI)))
+		fs_fdt_enable(fdt, "lcdif", 0);
+
+	if(gd->board_type == BT_PICOCOREMX93)
+		fdt_pcore_fixup(fdt);
+
+	if(gd->board_type == BT_OSMSFMX93)
+		fdt_osm_fixup(fdt);
+}
+
+#if CONFIG_IS_ENABLED(OF_BOARD_FIXUP)
+int board_fix_fdt(void *fdt_blob)
+{
+	fdt_common_fixup(fdt_blob);
+	return 0;
+}
+#endif
+
+#if CONFIG_IS_ENABLED(OF_BOARD_SETUP)
+int ft_board_setup(void *fdt_blob, struct bd_info *bd)
+{
+	fdt_common_fixup(fdt_blob);
 	return fdt_fixup_memory(fdt_blob,
-			CFG_SYS_SDRAM_BASE, gd->bd->bi_dram[0].size);
+			gd->bd->bi_dram[0].start, gd->bd->bi_dram[0].size);
 }
 #endif
 
@@ -246,8 +364,17 @@ int board_init(void)
 	return 0;
 }
 
+static const char* fsimx93_get_board_name(void)
+{
+	return board_info[gd->board_type].name;
+}
+
 int board_late_init(void)
 {
+	struct cfg_info *info;
+	info = fs_board_get_cfg_info();
+	fs_image_set_board_id_from_cfg();
+
 #ifdef CONFIG_ENV_IS_IN_MMC
 	board_late_mmc_env_init();
 #endif
@@ -258,10 +385,11 @@ int board_late_init(void)
 #endif
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
-	env_set("board_name", "11X11_EVK");
-	env_set("board_rev", "iMX93");
+	env_set("board_name", fsimx93_get_board_name());
+	env_set("board_rev", "fsimx93");
 #endif
 
+	debug("FEATURES=0x%x\n", info->features);
 	return 0;
 }
 

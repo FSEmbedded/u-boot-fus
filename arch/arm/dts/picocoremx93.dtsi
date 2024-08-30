@@ -34,14 +34,10 @@
 		ethernet1 = &fec;
 		spi0 = &lpspi3;
 		spi1 = &lpspi6;
-		eeprom = &eeprom;
 #ifdef CONFIG_PICOCOREMX93_EXT_RTC
-		rtcpcf85263 = &rtc85263;
+		rtc0 = &rtc85263;
+		rtc1 = &bbnsm_rtc;
 #endif
-		sd_a = &usdhc2;
-		sd_b = &usdhc3;
-		sd_c = &usdhc1;
-		adc  = &adc1;
 	};
 
 	/* -------------------- BOARD INFO -------------------- */
@@ -771,7 +767,7 @@
 	status = "okay";
 };
 
-&usdhc1 {
+emmc: &usdhc1 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
@@ -782,7 +778,7 @@
 };
 
 #ifdef CONFIG_PICOCOREMX93_SD_A
-&usdhc2 {
+pc_sdio_a: &usdhc2 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
@@ -797,7 +793,7 @@
 #endif /* CONFIG_PICOCOREMX93_SD_A */
 
 #ifdef CONFIG_PICOCOREMX93_SD_B
-&usdhc3 {
+pc_sdio_b: &usdhc3 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc3>, <&pinctrl_usdhc3_wlan>;
 	pinctrl-1 = <&pinctrl_usdhc3_100mhz>, <&pinctrl_usdhc3_wlan>;
@@ -816,12 +812,12 @@
 
 	#address-cells = <1>;
 	#size-cells = <0>;
-	wifi@1 {
+	wlan: wifi@1 {
 		reg = <1>;
 		compatible = "brcm,bcm4329-fmac";
 	};
 
-	wifi_wake_host {
+	wlan_wake: wifi_wake_host {
 		compatible = "nxp,wifi-wake-host";
 		interrupt-parent = <&gpio3>;
 		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;

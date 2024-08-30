@@ -8,6 +8,8 @@ All implementations of the new NBOOT are limited to the board files located unde
 
 `board/F+S/<BOARD>/`
 
+`include/configs/<BOARD>.h`
+
 and the firmware directory:
 
 `board/F+S/NXP-Firmware/`
@@ -190,8 +192,8 @@ Must be called early. This initializes the driver model stack with a default dev
         ptr = strchr(board_id, '-');
         len = (int)(ptr - board_id);
 
-        SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93);
-        SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93);
+        SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
+        SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93, board_id, len);
 
         return -EINVAL;
     }
@@ -206,14 +208,14 @@ Must be called early. This initializes the driver model stack with a default dev
 - `print_bootstage()`:  
     Uses boot ROM to determine the current boot stage and prints the information to the console.
 
-- `print_devinfo()`:
+- `print_devinfo()`:    
     Uses boot ROM to determine the current boot device and prints the information to the console.
 
-- `fs_cntr_init(true)`: 
+- `fs_cntr_init(true)`:     
     Loads the remaining NBOOT files from Flash.
 
-- `spl_dram_init()`:
-    Board-specific DRAM initialization. Calls ddr_init() to set up DRAM, and dram_init() to set up `gd`. This is important for ELE-API!
+- `spl_dram_init()`:    
+    Board-specific DRAM initialization. Calls ddr_init() to set up DRAM, and dram_init() to set up `gd`. This is important for ELE-API! Also, please define CFG_SPL_FUS_EARLY_AHAB_BASE in `include/configs/<BOARD>.h`. CFG_SPL_FUS_EARLY_AHAB_BASE is needed to define a ELE_AHAB_BASE_ADDRESS, befor dram is initialized.
     ```c
     void spl_dram_init(void)
     {
@@ -227,15 +229,15 @@ Must be called early. This initializes the driver model stack with a default dev
     }
     ```
 
-`spl.c` must define `fs_board_init_dram_data()` to create a reference to the DRAM timing struct. The function is used in `fs_cntr_common.c.`
+`spl.c` must define `fs_board_init_dram_data()` to create a reference to the DRAM timing struct `_dram_timing`. The function is used in `fs_cntr_common.c.`
 
 For SPL to find its correct device tree, the following function is required:
 ```c
 #if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
 int board_fit_config_name_match(const char *name)
 {
-    CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93);
-    CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93);
+    CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93, name);
+    CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93, name);
 
     return -EINVAL;
 }
@@ -257,8 +259,8 @@ static int set_gd_board_type(void)
     ptr = strchr(board_id, '-');
     len = (int)(ptr - board_id);
 
-    SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93);
-    SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93);
+    SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
+    SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93, board_id, len);
 
     return -EINVAL;
 }

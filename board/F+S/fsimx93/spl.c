@@ -61,7 +61,6 @@ int fs_board_init_dram_data(unsigned long *ptr){
 	if(!ptr)
 		return -ENODATA;
 
-	debug("DRAM_DATA=0x%p\tdram_timing=0x%lx, _end=0x%p\n", ptr, *ptr, &_end);
 	_dram_timing = (struct dram_timing_info *)*ptr;
 
 	return 0;
@@ -72,16 +71,7 @@ int spl_board_boot_device(enum boot_device boot_dev_spl)
 #if CONFIG_IS_ENABLED(BOOTROM_SUPPORT)
 	return BOOT_DEVICE_BOOTROM;
 #else
-	switch (boot_dev_spl) {
-	case SD1_BOOT:
-	case MMC1_BOOT:
-		return BOOT_DEVICE_MMC1;
-	case SD2_BOOT:
-	case MMC2_BOOT:
-		return BOOT_DEVICE_MMC2;
-	default:
-		return BOOT_DEVICE_NONE;
-	}
+	return BOOT_DEVICE_NONE;
 #endif
 }
 
@@ -120,8 +110,8 @@ static int set_gd_board_type(void)
 	ptr = strchr(board_id, '-');
 	len = (int)(ptr - board_id);
 
-	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93);
-	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93);
+	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
+	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93, board_id, len);
 
 	return -EINVAL;
 }
@@ -159,8 +149,8 @@ int board_early_init_f(void)
 #if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
 int board_fit_config_name_match(const char *name)
 {
-	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93);
-	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93);
+	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93, name);
+	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93, name);
 
 	return -EINVAL;
 }
