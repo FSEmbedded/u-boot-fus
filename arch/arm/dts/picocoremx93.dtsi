@@ -636,7 +636,7 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpspi1>;
 	pinctrl-1 = <&pinctrl_lpspi1>;
-	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+	cs-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	spidev@0 {
@@ -859,10 +859,10 @@
 		fsl,pins = <
 #ifndef CONFIG_PICOCOREMX93_SPI_B
 			/* GPIO pins if SPI_B is not used */
-			MX93_PAD_GPIO_IO08__GPIO2_IO08		0x3fe
-			MX93_PAD_GPIO_IO09__GPIO2_IO09		0x3fe
-			MX93_PAD_GPIO_IO10__GPIO2_IO10		0x3fe
-			MX93_PAD_GPIO_IO11__GPIO2_IO11		0x3fe
+			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x3fe
+			MX93_PAD_SAI1_TXC__GPIO1_IO12		0x3fe
+			MX93_PAD_SAI1_RXD0__GPIO1_IO14		0x3fe
+			MX93_PAD_SAI1_TXD0__GPIO1_IO13		0x3fe
 #endif
 			/* GPIO expander irq */
 			MX93_PAD_CCM_CLKO4__GPIO4_IO29		0x3fe
