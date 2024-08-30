@@ -145,8 +145,10 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 		debug("%s: container: 0x%p sector: 0x%lx count: 0x%x\n",
 		      __func__, cntr, sector, tmp_count);
 
-		if (info->read(info, (sector + count), (tmp_count - count), cntr_tmp) !=
-					(tmp_count - count)) {
+		if (info->read(info, (sector + count),
+				(tmp_count - count),
+				(void *)((ulong)(cntr_tmp) + size)) !=
+				(tmp_count - count)) {
 			ret = -EIO;
 			goto free_cntr;
 		}
@@ -190,7 +192,7 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 			goto free_cntr;
 		}
 
-		images = (struct boot_img_t *)((u8 *)cntr +
+		images = (struct boot_img_t *)((ulong)cntr +
 				       sizeof(struct container_hdr));
 
 		debug("1st img offset=0x%x\n", images[0].offset);
@@ -516,15 +518,15 @@ static int init_ram_info(struct ram_info_t *ram_info)
 {
 	void *fdt = fs_image_get_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
-	int rev_offs;
+	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);;
 
 	memset(ram_info, 0, sizeof(struct ram_info_t));
 
-	rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	ram_info->type = fs_image_getprop(fdt, offs, rev_offs, "dram-type", NULL);
 	ram_info->timing = fs_image_getprop(fdt, offs, rev_offs, "dram-timing", NULL);
 
-	if(!ram_info->type[0] || !ram_info->timing[0])
+	debug("%s: type at 0x%p; timing at 0x%p\n", __func__, ram_info->type, ram_info->timing);
+	if(!ram_info->type || !ram_info->timing)
 		return -1;
 
 	return 0;
@@ -605,7 +607,7 @@ static int fs_handle_board_cfg(struct fsh_load_info *fsh_info, struct ram_info_t
 
 	ret = init_ram_info(ram_info);
 	if(ret) {
-		debug("FSCNTR: dram definition not in board_cfg");
+		debug("FSCNTR: dram definition not in board_cfg\n");
 		return -EINVAL;
 	}
 
