@@ -17,7 +17,7 @@
 		board-name = "PicoCoreMX93";
 		board-fdt = "picocoremx93";
 
-		/* DRAM: B.ICDRAM.48 */
+		/* DRAM: B.ICDRAM.52 */
 		dram-type = "lpddr4";
 		dram-timing = "lpddr4_pc_2g3200m1ch1cs";
 		dram-size = <0x400>;		/* In MiB */
