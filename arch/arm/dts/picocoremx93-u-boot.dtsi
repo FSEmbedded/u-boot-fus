@@ -88,7 +88,7 @@
 	bootph-pre-ram;
 };
 
-&pinctrl_uart2 {
+&pinctrl_uart7 {
 	bootph-pre-ram;
 	bootph-some-ram;
 };
@@ -125,7 +125,7 @@
 	bootph-some-ram;
 };
 
-&lpuart2 {
+&lpuart7 {
 	bootph-pre-ram;
 	bootph-some-ram;
 };
@@ -167,12 +167,8 @@
 	bootph-pre-ram;
 };
 
-&fec {
-	phy-reset-duration = <15>;
-	phy-reset-post-delay = <100>;
-};
-
 &ethphy1 {
+	reset-gpios = <&expander 1 GPIO_ACTIVE_LOW>;
 	reset-assert-us = <15000>;
 	reset-deassert-us = <100000>;
 };

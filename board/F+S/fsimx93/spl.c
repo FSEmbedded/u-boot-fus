@@ -124,8 +124,8 @@ int board_early_init_f(void)
 
 	switch(gd->board_type) {
 		case BT_PICOCOREMX93:
-			imx_iomux_v3_setup_multiple_pads(lpuart2_pads, ARRAY_SIZE(lpuart2_pads));
-			init_uart_clk(LPUART2_CLK_ROOT);
+			imx_iomux_v3_setup_multiple_pads(lpuart7_pads, ARRAY_SIZE(lpuart7_pads));
+			init_uart_clk(LPUART7_CLK_ROOT);
 			break;
 		case BT_OSMSFMX93:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
