@@ -135,16 +135,46 @@ struct efi_capsule_update_info update_info = {
 #define UART_PAD_CTRL	(PAD_CTL_DSE(6) | PAD_CTL_FSEL2)
 #define WDOG_PAD_CTRL	(PAD_CTL_DSE(6) | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
 
-static iomux_v3_cfg_t const uart_pads[] = {
+static iomux_v3_cfg_t const uart_pads_pc[] = {
 	MX93_PAD_GPIO_IO09__LPUART7_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
 	MX93_PAD_GPIO_IO08__LPUART7_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
 };
 
+static iomux_v3_cfg_t const uart_pads_osm[] = {
+	MX93_PAD_UART1_RXD__LPUART1_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
+	MX93_PAD_UART1_TXD__LPUART1_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
+};
+
 int board_early_init_f(void)
 {
-	imx_iomux_v3_setup_multiple_pads(uart_pads, ARRAY_SIZE(uart_pads));
+	iomux_v3_cfg_t const *pad_list;
+	unsigned pad_list_count;
+	u32 clk_index;
+	unsigned int board_type = BT_PICOCOREMX93;
 
-	init_uart_clk(LPUART7_CLK_ROOT);
+	if (IS_ENABLED(CONFIG_TARGET_FSIMX93_OSM))
+		board_type = BT_OSM93;
+
+		/* Set MAC addresses as environment variables */
+	switch (board_type)
+	{
+	case BT_PICOCOREMX93:
+		pad_list = uart_pads_pc;
+		clk_index = LPUART7_CLK_ROOT;
+		pad_list_count = ARRAY_SIZE(uart_pads_pc);
+	case BT_OSM93:
+		pad_list = uart_pads_osm;
+		clk_index = LPUART1_CLK_ROOT;
+		pad_list_count = ARRAY_SIZE(uart_pads_osm);
+		break;
+	default:
+		break;
+	}
+
+	/* Setup UART pads */
+	imx_iomux_v3_setup_multiple_pads(pad_list, pad_list_count);
+	/* enable uart clock */
+	init_uart_clk(clk_index);
 
 	return 0;
 }
@@ -213,10 +243,14 @@ void fs_ethaddr_init(void)
 	/* TODO: */
 	unsigned int board_type = BT_PICOCOREMX93;
 
+	if (IS_ENABLED(CONFIG_TARGET_FSIMX93_OSM))
+		board_type = BT_OSM93;
+
 	/* Set MAC addresses as environment variables */
 	switch (board_type)
 	{
 	case BT_PICOCOREMX93:
+	case BT_OSM93:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
 		break;
@@ -228,6 +262,10 @@ void fs_ethaddr_init(void)
 int board_init(void)
 {
 	unsigned int board_type = BT_PICOCOREMX93;
+
+	if (IS_ENABLED(CONFIG_TARGET_FSIMX93_OSM))
+		board_type = BT_OSM93;
+
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[board_type]);
 
@@ -245,8 +283,11 @@ int board_late_init(void)
 #endif
 	/* TODO: use 0 default */
 	pargs->dwNBOOT_VER = 0;
+
+	if (IS_ENABLED(CONFIG_TARGET_FSIMX93_OSM))
+		env_set("platform", CONFIG_DEFAULT_DEVICE_TREE);
 	/* Set up all board specific variables */
-	fs_board_late_init_common("ttymxc");	/* Set up all board specific variables */
+	fs_board_late_init_common("ttyLP");	/* Set up all board specific variables */
 
 	/* Set mac addresses for corresponding boards */
 	fs_ethaddr_init();

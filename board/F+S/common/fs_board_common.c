@@ -529,7 +529,7 @@ void fs_board_late_init_common(const char *serial_name)
 	setup_var("mtdparts", current_bi->mtdparts, 1);
 	setup_var("network", current_bi->network, 1);
 	setup_var("init", current_bi->init, 1);
-	setup_var("bootfdt", "set_bootfdt", 1);
+	setup_var("fdtfile", "set_bootfdt", 1);
 	setup_var("bootargs", "set_bootargs", 1);
 #ifdef CONFIG_ARCH_MX7ULP
 	setup_var("bootauxfile", "power_mode_switch.img", 0);
