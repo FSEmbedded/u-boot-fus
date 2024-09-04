@@ -6,24 +6,23 @@
  * published by the Free Software Foundation.
  */
 
-/* TODO: IN PREPARATION */
-
 /dts-v1/;
 
 #include "nboot-info.dtsi"
 
 / {
 	board-cfg {
-		board-name = "PicoCoreMX93";
-		board-fdt = "picocoremx93";
+		board-name = "FS-OSM-SF-MX93";
+		board-fdt = "fs-osm-sf-mx93-adp-osm-bb";
 
-		/* DRAM: B.ICDRAM.52 */
+		/* DRAM: B.ICDRAM.40 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_2g3200m1ch1cs";
+		dram-timing = "lpddr4_osm_1g3200m1ch1cs";
 		dram-size = <0x400>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
+
 		boot-dev = "MMC1";
 
 		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
@@ -37,18 +36,12 @@
 		have-eeprom;
 		have-eth-a;
 		have-eth-b;
-		have-eth-phy-a;
-		have-eth-phy-b;
-		have-audio;
-		have-wlan;
-		have-sd-a;
-		// have-sd-b;
-		have-mipi-dsi;
+		// have-mipi-dsi;
 		have-mipi-csi;
 		have-lvds;
 
-        PCoreMX93-FERT5.110 {
-            board-rev = <110>;
+        OSM93-FERT1.100 {
+            board-rev = <100>;
         };
 	};
 };

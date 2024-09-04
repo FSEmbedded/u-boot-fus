@@ -110,8 +110,8 @@ static int set_gd_board_type(void)
 	ptr = strchr(board_id, '-');
 	len = (int)(ptr - board_id);
 
-	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
-	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93, board_id, len);
+	SET_BOARD_TYPE("PCore93", BT_PICOCOREMX93, board_id, len);
+	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
 
 	return -EINVAL;
 }

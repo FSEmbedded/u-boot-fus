@@ -15,7 +15,7 @@
 		board-name = "PicoCoreMX93";
 		board-fdt = "picocoremx93";
 
-		/* DRAM: B.ICDRAM.48 */
+		/* DRAM: B.ICDRAM.40 */
 		dram-type = "lpddr4";
 		dram-timing = "lpddr4_pc_1g3200m1ch1cs";
 		dram-size = <0x400>;		/* In MiB */
@@ -34,18 +34,18 @@
 		have-ext-rtc;
 		have-eeprom;
 		have-eth-a;
-		have-eth-b;
+		// have-eth-b;
 		have-eth-phy-a;
-		have-eth-phy-b;
-		have-audio;
-		have-wlan;
+		// have-eth-phy-b;
+		// have-audio;
+		// have-wlan;
 		have-sd-a;
-		// have-sd-b;
+		have-sd-b;
 		have-mipi-dsi;
 		have-mipi-csi;
 		have-lvds;
 
-        PCoreMX93-FERT4.110 {
+        PCore93-FERT2.110 {
             board-rev = <110>;
         };
 	};
