@@ -17,6 +17,8 @@
 #include <asm/gpio.h>			/* gpio_get_value(), ... */
 #include <asm/io.h>			/* readl(), writel() */
 #include <asm/mach-imx/boot_mode.h>
+#include <env.h>
+#include <command.h>
 #include "fs_board_common.h"		/* Own interface */
 #if !defined(CONFIG_IMX8M) && !defined(CONFIG_IMX8MM) && !defined(CONFIG_IMX8MN) && !defined(CONFIG_ARCH_MX7ULP) && !defined(CONFIG_IMX93)
 #include <asm/arch/crm_regs.h>		/* struct mxc_ccm_reg */
@@ -28,11 +30,10 @@
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
 
-#define USDHC_NONE -1
-
 enum
 {
-	USDHC1,
+	USDHC_NONE = -1,
+	USDHC1 = 0,
 	USDHC2,
 	USDHC3,
 	USDHC4,
@@ -42,6 +43,10 @@ enum
 static int usdhc_boot_device = USDHC_NONE;
 static int mmc_boot_device = USDHC_NONE;
 
+/**
+ * TODO: no more required and can be removed
+*/
+#if !CONFIG_IS_ENABLED(DM_MMC) && 0
 /* Return value of Card Detect pin (if present) */
 int board_mmc_getcd(struct mmc *mmc)
 {
@@ -54,6 +59,7 @@ int board_mmc_getcd(struct mmc *mmc)
 	/* Return CD signal (active low) */
 	return !gpio_get_value(cd_gpio);
 }
+#endif
 
 #if !defined(CONFIG_DM_MMC) || !defined(CONFIG_BLK)
 static int usdhc_pos_in_init[] =
@@ -126,7 +132,7 @@ int fs_mmc_setup(struct bd_info *bd, u8 bus_width, struct fs_mmc_cfg *cfg,
 }
 #endif
 
-#ifdef CONFIG_ENV_IS_IN_MMC
+#if CONFIG_IS_ENABLED(ENV_IS_IN_MMC)
 /* Override board_mmc_get_env_dev to get boot dev from fuse settings */
 int board_mmc_get_env_dev(int devno)
 {
@@ -233,8 +239,8 @@ static void fs_mmc_get_env_info(struct mmc *mmc, struct cfg_info *cfg)
 		err = fs_image_get_known_env_mmc(0, cfg->env_start, NULL);
 	}
 	if (err) {
-		cfg->env_start[0] = CONFIG_ENV_MMC_OFFSET;
-		cfg->env_start[1] = CONFIG_ENV_MMC_OFFSET_REDUND;
+		cfg->env_start[0] = CONFIG_ENV_OFFSET;
+		cfg->env_start[1] = CONFIG_ENV_OFFSET_REDUND;
 	}
 
 	cfg->flags |= CI_FLAGS_HAVE_ENV;
@@ -280,6 +286,31 @@ __weak int get_usdhc_boot_device()
 __weak int get_mmc_boot_device()
 {
 	return mmc_boot_device;
+}
+
+/* This should be defined for each board */
+__weak int mmc_map_to_kernel_blk(int dev_no)
+{
+	return dev_no;
+}
+
+void board_late_mmc_env_init(void)
+{
+	char cmd[32];
+	char mmcblk[32];
+	u32 dev_no = mmc_get_env_dev();
+
+	env_set_ulong("mmcdev", dev_no);
+
+	/**
+	 * TODO: consider F&S U-BOOT-ENV $rootfs_partition_mmc
+	 * This section will be replaced
+	*/
+	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw", mmc_map_to_kernel_blk(dev_no));
+	env_set("mmcroot", mmcblk);
+
+	sprintf(cmd, "mmc dev %d", dev_no);
+	run_command(cmd, 0);
 }
 
 #endif /* CONFIG_FSL_ESDHC_IMX */

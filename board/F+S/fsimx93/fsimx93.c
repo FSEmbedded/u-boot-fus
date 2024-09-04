@@ -310,7 +310,6 @@ static void fdt_thermal_fixup(void *fdt, bool verbose)
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
 	}
-	return 0;
 }
 
 static void fdt_common_fixup(void *fdt)

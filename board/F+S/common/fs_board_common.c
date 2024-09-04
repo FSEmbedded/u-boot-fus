@@ -24,7 +24,7 @@
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"
 #include <fuse.h>			/* fuse_read() */
-#if (!defined(CONFIG_TARGET_FSIMX93_PC) && !defined(CONFIG_TARGET_FSIMX93_OSM))
+#if !defined(CONFIG_TARGET_FSIMX93)
 #include <update.h>			/* enum update_action */
 #endif
 

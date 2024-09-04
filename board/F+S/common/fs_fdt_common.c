@@ -23,7 +23,7 @@
 #include <version_string.h>
 
 const char *get_reset_cause(void);
-char *get_board_name(void);
+const char *get_board_name(void);
 
 /* Set a generic value, if it was not already set in the device tree */
 void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
@@ -201,7 +201,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 #endif /* !CONFIG_FS_BOARD_CFG */
 	fs_fdt_set_string(fdt, offs, "boot_dev",
 		fs_board_get_name_from_boot_dev(fs_board_get_boot_dev()), 1);
-	fs_fdt_set_string(fdt, offs, "board_name", (const char*)get_board_name(), 0);
+	fs_fdt_set_string(fdt, offs, "board_name", get_board_name(), 0);
 	sprintf(rev, "%d.%02d", board_rev / 100, board_rev % 100);
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);
 	fs_fdt_set_getenv(fdt, offs, "platform", 0);
