@@ -80,12 +80,7 @@ config TARGET_IMX95_15X15_EVK
 	bool "imx95_15x15_evk"
 	select IMX95
 
-config TARGET_FSIMX93_PC
-	bool "fsimx93"
-	select IMX93
-	select IMX9_LPDDR4X
-
-config TARGET_FSIMX93_OSM
+config TARGET_FSIMX93
 	bool "fsimx93"
 	select IMX93
 	select IMX9_LPDDR4X

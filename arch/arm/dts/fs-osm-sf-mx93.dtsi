@@ -44,15 +44,11 @@
 		usb1 = &osm_usb_b;
 		mmc1 = &osm_sdio_a;
 		csi0 = &osm_csi; 
-		rtc0 = &bbnsm_rtc;
-		rtc1 = &rtc85263;
+		rtc0 = &rtc85263;
+		rtc1 = &bbnsm_rtc;
 		// pwm0 = &osm_dsi_pwm;
 		// pwm1 = &osm_pwm_1;
 		// pwm2 = &osm_pwm_2;
-		
-		/* specific */
-		eeprom = &eeprom;
-		rtcpcf85263 = &rtc85263;
 	};
 
 	reserved-memory {
@@ -556,7 +552,7 @@ osm_i2s_a: &sai3 {
 };
 
 /* SDIO decleration */
-&usdhc1 {
+emmc: &usdhc1 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
 * Copyright 2024 F&S Elektronik Systeme GmbH
 *
@@ -21,6 +22,7 @@
 #include <spl.h>
 #include <asm/global_data.h>
 #include <asm/io.h>
+#include <asm/sections.h>
 #include <asm/arch/imx93_pins.h>
 #include <asm/arch/mu.h>
 #include <asm/arch/clock.h>
@@ -35,6 +37,7 @@
 #include <dm/device.h>
 #include <dm/uclass-internal.h>
 #include <dm/device-internal.h>
+#include <dm/root.h>
 #include <linux/delay.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/ccm_regs.h>
@@ -44,23 +47,31 @@
 #include <power/regulator.h>
 #include <asm/arch/trdc.h>
 
+#include "../common/fs_dram_common.h"
+#include "../common/fs_cntr_common.h"
+#include "../common/fs_image_common.h"
+#include "../common/fs_bootrom.h"
+#include "fsimx93.h"
+
 DECLARE_GLOBAL_DATA_PTR;
+
+static struct dram_timing_info *_dram_timing;
+
+int fs_board_init_dram_data(unsigned long *ptr){
+	if(!ptr)
+		return -ENODATA;
+
+	_dram_timing = (struct dram_timing_info *)*ptr;
+
+	return 0;
+}
 
 int spl_board_boot_device(enum boot_device boot_dev_spl)
 {
-#ifdef CONFIG_SPL_BOOTROM_SUPPORT
+#if CONFIG_IS_ENABLED(BOOTROM_SUPPORT)
 	return BOOT_DEVICE_BOOTROM;
 #else
-	switch (boot_dev_spl) {
-	case SD1_BOOT:
-	case MMC1_BOOT:
-		return BOOT_DEVICE_MMC1;
-	case SD2_BOOT:
-	case MMC2_BOOT:
-		return BOOT_DEVICE_MMC2;
-	default:
-		return BOOT_DEVICE_NONE;
-	}
+	return BOOT_DEVICE_NONE;
 #endif
 }
 
@@ -75,19 +86,75 @@ void spl_board_init(void)
 	puts("Normal Boot\n");
 }
 
+/**
+ * NOTE: MUST BE CALLED AFTER FS INIT
+*/
 void spl_dram_init(void)
 {
-	struct dram_timing_info *ptiming = &dram_timing;
-#if 0
-#if IS_ENABLED(CONFIG_IMX93_EVK_LPDDR4X)
-	if (is_voltage_mode(VOLT_LOW_DRIVE))
-		ptiming = &dram_timing_1866mts;
-#endif
-#endif
+	struct dram_timing_info *dtiming = _dram_timing;
 
-	printf("DDR: %uMTS\n", ptiming->fsp_msg[0].drate);
-	ddr_init(ptiming);
+	printf("DDR: %uMTS\n", dtiming->fsp_msg[0].drate);
+	ddr_init(dtiming);
+
+	/* save ram info in gd */
+	dram_init();
 }
+
+static int set_gd_board_type(void)
+{
+	const char *board_id;
+	const char *ptr;
+	int len;
+
+	board_id = fs_image_get_board_id();
+	ptr = strchr(board_id, '-');
+	len = (int)(ptr - board_id);
+
+	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
+	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93, board_id, len);
+
+	return -EINVAL;
+}
+
+int board_early_init_f(void)
+{
+	int rescan = 0;
+
+	set_gd_board_type();
+
+	switch(gd->board_type) {
+		case BT_PICOCOREMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart7_pads, ARRAY_SIZE(lpuart7_pads));
+			init_uart_clk(LPUART7_CLK_ROOT);
+			break;
+		case BT_OSMSFMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
+			init_uart_clk(LPUART1_CLK_ROOT);
+			break;
+		default:
+			return -EINVAL;
+			break;
+	}
+
+	fdtdec_resetup(&rescan);
+
+	if(rescan) {
+		dm_uninit();
+		dm_init_and_scan(!CONFIG_IS_ENABLED(OF_PLATDATA));
+	}
+
+	return 0;
+}
+
+#if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
+int board_fit_config_name_match(const char *name)
+{
+	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93, name);
+	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93, name);
+
+	return -EINVAL;
+}
+#endif
 
 #if CONFIG_IS_ENABLED(DM_PMIC_PCA9450)
 int power_init_board(void)
@@ -175,13 +242,22 @@ void board_init_f(ulong dummy)
 
 	arch_cpu_init();
 
-	board_early_init_f();
-
+	/* Setup default Devicetree */
 	spl_early_init();
+
+	/* Load Board ID to know the Board in early state*/
+	fs_cntr_load_board_id();
+
+	/* Setup Multiple Devicetree */
+	board_early_init_f();
 
 	regulators_enable_boot_on(false);
 	
 	preloader_console_init();
+
+	print_bootstage();
+
+	print_devinfo();
 
 	ret = imx9_probe_mu();
 	if (ret) {
@@ -200,10 +276,13 @@ void board_init_f(ulong dummy)
 
 	/* Init power of mix */
 	soc_power_init();
+	
+	/*load F&S NBOOT-Images*/
+	fs_cntr_init(true);
 
 	/* Setup TRDC for DDR access */
 	trdc_init();
-
+	
 	/* DDR initialization */
 	spl_dram_init();
 

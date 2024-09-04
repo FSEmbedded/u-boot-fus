@@ -11,6 +11,30 @@
 * GNU General Public License for more details.
 */
 
+/*
+ * TCM layout (SPL)
+ * ----------------
+ * unused
+ *
+ * OCRAM layout SPL/U-BOOT
+ * ---------------------------------------------------------
+ * 0x2048_0000: (Region reserved by ROM loader)(96KB)
+ * 0x2049_8000: BOARD-CFG            (8KB)	CONFIG_FUS_BOARDCFG_ADDR
+ * 0x2049_A000: SPL                  (<=208KB)  (loaded by ROM-Loader, address defined by ATF)
+ *     DRAM-FW: Training Firmware    (up to 96KB, immediately behind end of SPL)
+ * --------
+ * CNTR_LOAD_AREA:
+ * 0x204c0000 : DRAM-FW              (82KB)     (Load Image, validate and copy to &_end)
+ * 0x204dc000 : DRAM Timing Data     (16KB)     CFG_SPL_DRAM_TIMING_ADDR
+ *                                              (ddr_init() copies to SAVED_DRAM_TIMING_BASE)
+ * --------
+ * 0x204E_0000: EARLY_AHAB_BASE/ATF  (96KB)     CFG_SPL_ATF_ADDR
+ * 0x2051_9DD0: SPL_STACK            (135KB)    (MALLOC_F, GLOBAL_DATA) CONFIG_SPL_STACK
+ * 0x2051_A000: BSS data             (8KB)      CONFIG_SPL_BSS_START_ADDR
+ * 0x2051_C000: SAVED_DRAM_TIMING_BASE  (16KB)
+ * 0x2051_FFFF: END (93)
+*/
+
 #ifndef __FSIMX93_H
 #define __FSIMX93_H
 
@@ -19,16 +43,31 @@
 #include <asm/arch/imx-regs.h>
 #include "imx_env.h"
 
+/* RAM Layout */
+#define CFG_SYS_OCRAM_BASE 0x20498000
+#define CFG_SYS_OCRAM_SIZE 0x88000
+#define CFG_FUS_BOARDCFG_ADDR CFG_SYS_OCRAM_BASE
+#define CFG_SPL_DRAM_TIMING_ADDR 0x204DC000
+#define CFG_SPL_ATF_ADDR 0x204E0000
+#define CFG_SPL_TEE_ADDR 0x96000000
+
+// /* eMMC Layout */
+// /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */
+// #define CFG_FUS_BOARDCFG_MMC0	0x00048000
+// #define CFG_FUS_BOARDCFG_MMC1	0x00448000
+
 #define CFG_SYS_UBOOT_BASE	\
 	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
 
 #ifdef CONFIG_AHAB_BOOT
-#error AAA
 #define AHAB_ENV "sec_boot=yes\0"
 #else
 #define AHAB_ENV "sec_boot=no\0"
 #endif
 
+#if defined(CONFIG_MTDIDS_DEFAULT)
+#define CFG_MTDPART_DEFAULT ""
+#endif
 
 /* ENET Config */
 /* ENET1 */
@@ -39,12 +78,11 @@
 #define FDT_SEQ_MACADDR_FROM_ENV
 
 #define CONFIG_FEC_XCV_TYPE             RGMII
-//#define CONFIG_FEC_MXC_PHYADDR          5
 #define FEC_QUIRK_ENET_MAC
 
 //#define DWC_NET_PHYADDR					4
 #ifdef CONFIG_DWC_ETH_QOS
-#define CONFIG_SYS_NONCACHED_MEMORY     (1 * SZ_1M)     /* 1M */
+#define CONFIG_SYS_NONCACHED_MEMORY	(1 * SZ_1M) /* 1M */
 #endif
 
 #define PHY_ANEG_TIMEOUT 20000
@@ -175,13 +213,14 @@
 	   "fi;"
 
 /* Link Definitions */
-#define CONFIG_SYS_SDRAM_BASE        0x80000000
-#define CFG_SYS_INIT_RAM_ADDR        0x80000000
-#define CFG_SYS_INIT_RAM_SIZE        0x200000
 
-#define CFG_SYS_SDRAM_BASE           0x80000000
-#define PHYS_SDRAM                      0x80000000
-#define PHYS_SDRAM_SIZE			0x10000000 /* 1GB DDR */
+#define CFG_SYS_INIT_RAM_ADDR		0x80000000
+#define CFG_SYS_INIT_RAM_SIZE		0x200000
+
+#define CFG_SYS_SDRAM_BASE		0x80000000
+#define CFG_SPL_FUS_EARLY_AHAB_BASE	0x204e0000
+#define PHYS_SDRAM			0x80000000
+#define PHYS_SDRAM_SIZE			0x40000000 /* 1GB DDR */
 
 #define CFG_SYS_FSL_USDHC_NUM	2
 

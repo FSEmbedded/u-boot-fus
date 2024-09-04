@@ -15,12 +15,12 @@
 
 #include <common.h>			/* types, get_board_name(), ... */
 #include <version.h>			/* version_string[] */
-#include <cli.h>			/* get_board_name() */
 #include <net.h>			/* eth_env_get_enetaddr_by_index() */
 #include <fdt_support.h>		/* do_fixup_by_path_u32(), ... */
 #include <asm/arch/sys_proto.h>		/* get_reset_cause() */
 #include "fs_fdt_common.h"		/* Own interface */
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
+#include <version_string.h>
 
 const char *get_reset_cause(void);
 char *get_board_name(void);
@@ -135,14 +135,28 @@ int fs_fdt_path_offset(void *fdt, const char *path)
 	return offs;
 }
 
-/* Enable or disable node given by path, overwrite any existing status value */
-int fs_fdt_enable(void *fdt, const char *path, int enable)
+/**
+ * Enable or disable node given by path, alias, or __symbols__.
+ * This will overwrite the status property.
+ * @fdt: pointer to the device tree blob
+ * @path: full path or name of the node to locate
+ * @enable: if set, then status = "okay", else "disabled"
+ * Retrun: 0 if succesed, else -FDT_ERR
+ */
+int fs_fdt_enable(void *fdt, const char *path, bool enable)
 {
 	int offs, err, len;
 	const void *val;
 	char *str = enable ? "okay" : "disabled";
 
 	offs = fdt_path_offset(fdt, path);
+
+	/* look in __symbols__ for given name */
+	if(offs < 0 && *path != '/') {
+		path = fdt_get_symbol(fdt, path);
+		offs = fdt_path_offset(fdt, path);
+	}
+
 	if (offs < 0)
 		return offs;
 
@@ -192,7 +206,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);
 	fs_fdt_set_getenv(fdt, offs, "platform", 0);
 	fs_fdt_set_getenv(fdt, offs, "arch", 1);
-#ifndef CONFIG_ARCH_IMX8
+#if !defined(CONFIG_ARCH_IMX8) && !defined(CONFIG_ARCH_IMX9) 
 	fs_fdt_set_string(fdt, offs, "reset_cause", get_reset_cause(), 1);
 #endif
 #if 0 // TODO:

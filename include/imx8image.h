@@ -156,7 +156,8 @@ enum imx8image_cmd {
 	CMD_SOC_TYPE,
 	CMD_CONTAINER,
 	CMD_IMAGE,
-	CMD_DATA
+	CMD_DATA,
+	CMD_HASH,
 };
 
 enum imx8image_core_type {
@@ -209,6 +210,12 @@ typedef enum option_type {
 	SENTINEL,
 	UPOWER
 } option_type_t;
+
+typedef enum hashes {
+	SHA256 = 256,
+	SHA384 = 384,
+	SHA512 = 512,
+} option_hash_t;
 
 typedef struct {
 	option_type_t option;

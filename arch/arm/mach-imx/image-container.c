@@ -83,6 +83,8 @@ int get_container_size(ulong addr, u16 *header_length)
 	return max_offset;
 }
 
+#ifdef CONFIG_SPL_BUILD
+
 #define MAX_V2X_CTNR_IMG_NUM   (4)
 #define MIN_V2X_CTNR_IMG_NUM   (2)
 
@@ -466,4 +468,5 @@ unsigned long spl_ram_get_uboot_base(void)
 
 	return end;
 }
+#endif
 #endif

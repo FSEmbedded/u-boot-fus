@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
 * Copyright 2024 F&S Elektronik Systeme GmbH
 *
@@ -29,46 +30,28 @@
 #include <usb.h>
 #include <dwc3-uboot.h>
 #include <asm/gpio.h>
-#include "../common/fs_fdt_common.h"	/* fs_fdt_set_val(), ... */
-#include "../common/fs_board_common.h"	/* fs_board_*() */
-#include "../common/fs_eth_common.h"	/* fs_eth_*() */
+#include <hang.h>
+
+#include "../common/fs_board_common.h"
+#include "../common/fs_eth_common.h"
+#include "../common/fs_image_common.h"
+#include "../common/fs_cntr_common.h"
+#include "../common/fs_fdt_common.h"
+#include "fsimx93.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define BT_PICOCOREMX93 	0
-#define BT_OSM93 	1
-
-#define FEAT_ETH_A 	(1<<0)	/* 0: no LAN0,  1: has LAN0 */
-#define FEAT_ETH_B	(1<<1)	/* 0: no LAN1,  1: has LAN1 */
-#define FEAT_DISP_A	(1<<2)	/* 0: MIPI-DSI, 1: LVDS lanes 0-3 */
-#define FEAT_DISP_B	(1<<3)	/* 0: HDMI,     1: LVDS lanes 0-4 or (4-7 if DISP_A=1) */
-#define FEAT_AUDIO 	(1<<4)	/* 0: no Audio, 1: Analog Audio Codec */
-#define FEAT_WLAN	(1<<5)	/* 0: no WLAN,  1: has WLAN */
-#define FEAT_EXT_RTC	(1<<6)	/* 0: internal RTC, 1: external RTC */
-#define FEAT_NAND	(1<<7)	/* 0: no NAND,  1: has NAND */
-#define FEAT_EMMC	(1<<8)	/* 0: no EMMC,  1: has EMMC */
-#define FEAT_SEC_CHIP	(1<<9)	/* 0: no SE050,  1: has SE050 */
-#define FEAT_EEPROM	(1<<10)	/* 0: no EEPROM,  1: has EEPROM */
-#define FEAT_ADC	(1<<11)	/* 0: no ADC,  1: has ADC */
-#define FEAT_DISP_RGB	(1<<12)	/* 0: no RGB Display,  1: has RGB Display */
-#define FEAT_SD_A	(1<<13)	/* 0: no SD_A,  1: has SD_A */
-#define FEAT_SD_B	(1<<14)	/* 0: no SD_B,  1: has SD_B */
-
-/* TODO: Should be overworked by configurations */
-/* features for picocoremx93-fert4 */
-#define PICOCOREMX93_FERT4_FEAT \
-	( FEAT_SD_A | FEAT_ADC | FEAT_EMMC | FEAT_EXT_RTC | \
-	FEAT_WLAN | FEAT_AUDIO | FEAT_ETH_B | FEAT_ETH_A )
-
+/* +++ Environment defines +++ */
 
 #define INSTALL_RAM "ram@84800000"
-#if defined(CONFIG_MMC) && defined(CONFIG_USB_STORAGE) && defined(CONFIG_FS_FAT)
+
+#if CONFIG_IS_ENABLED(MMC) && CONFIG_IS_ENABLED(USB_STORAGE) && CONFIG_IS_ENABLED(FS_FAT)
 #define UPDATE_DEF "mmc,usb"
 #define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
-#elif defined(CONFIG_MMC) && defined(CONFIG_FS_FAT)
+#elif CONFIG_IS_ENABLED(MMC) && CONFIG_IS_ENABLED(USB_STORAGE)
 #define UPDATE_DEF "mmc"
 #define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
-#elif defined(CONFIG_USB_STORAGE) && defined(CONFIG_FS_FAT)
+#elif CONFIG_IS_ENABLED(USB_STORAGE) && CONFIG_IS_ENABLED(FS_FAT)
 #define UPDATE_DEF "usb"
 #define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
 #else
@@ -76,16 +59,18 @@ DECLARE_GLOBAL_DATA_PTR;
 #define INSTALL_DEF INSTALL_RAM
 #endif
 
-#ifdef CONFIG_FS_UPDATE_SUPPORT
+#if CONFIG_IS_ENABLED(FS_UPDATE_SUPPORT)
 #define INIT_DEF ".init_fs_updater"
 #else
 #define INIT_DEF ".init_init"
 #endif
 
+/* --- Environment defines --- */
+
 const struct fs_board_info board_info[] = {
 	{	/* 0 (BT_PICOCOREMX93) */
 		.name = "PicoCoreMX93",
-		.bootdelay = "3",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
 		.recovercheck = UPDATE_DEF,
@@ -96,9 +81,9 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 1 (BT_OSM93) */
-		.name = "OSM93",
-		.bootdelay = "3",
+	{	/* 1 (BT_OSMSFMX93) */
+		.name = "FS-OSM-SF-MX93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
 		.recovercheck = UPDATE_DEF,
@@ -132,59 +117,179 @@ struct efi_capsule_update_info update_info = {
 
 #endif /* EFI_HAVE_CAPSULE_SUPPORT */
 
-#define UART_PAD_CTRL	(PAD_CTL_DSE(6) | PAD_CTL_FSEL2)
-#define WDOG_PAD_CTRL	(PAD_CTL_DSE(6) | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
+/* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
 
-static iomux_v3_cfg_t const uart_pads_pc[] = {
-	MX93_PAD_GPIO_IO09__LPUART7_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	MX93_PAD_GPIO_IO08__LPUART7_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-};
+static int set_gd_board_type(void)
+{
+	struct fs_header_v1_0 *cfg_fsh;
+	const char *board_id;
+	const char *ptr;
+	int len;
 
-static iomux_v3_cfg_t const uart_pads_osm[] = {
-	MX93_PAD_UART1_RXD__LPUART1_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	MX93_PAD_UART1_TXD__LPUART1_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-};
+	cfg_fsh = fs_image_get_regular_cfg_addr();
+	board_id = cfg_fsh->param.descr;
+	ptr = strchr(board_id, '-');
+	len = (int)(ptr - board_id);
+
+	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
+	SET_BOARD_TYPE("OSMSFMX93", BT_OSMSFMX93, board_id, len);
+
+	return -EINVAL;
+}
+
+#if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
+/* definition for U-BOOT */
+int board_fit_config_name_match(const char *name)
+{
+	void *fdt;
+	int offs;
+	const char *board_fdt;
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
+
+	if(board_fdt && !strncmp(name, board_fdt, 64))
+		return 0;
+
+	return -EINVAL;
+}
+#endif
+
+static void fs_setup_cfg_info(void)
+{
+	void *fdt;
+	int offs;
+	int rev_offs;
+	unsigned int features;
+	struct cfg_info *info;
+	const char *string;
+	u32 flags = 0;
+
+	/**
+	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
+	 * is fatal. However no output is possible this early, so simply stop.
+	 * If the BOARD-CFG is not at the expected location in OCRAM but is
+	 * found somewhere else, output a warning later in board_late_init().
+	 */
+	if(!fs_image_find_cfg_in_ocram())
+		hang();
+
+	/**
+	 * TODO: BOARD-CFG Validation
+	 */
+	// if (!fs_image_is_ocram_cfg_valid())
+	// 	hang();
+
+	info = fs_board_get_cfg_info();
+	memset(info, 0, sizeof(struct cfg_info));
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
+						    &info->board_rev);
+	
+	set_gd_board_type();
+	info->board_type = gd->board_type;
+
+	string = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
+	info->boot_dev = fs_board_get_boot_dev_from_name(string);
+
+	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
+						"dram-chips", 1);
+
+	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
+					       "dram-size", 0x400);
+
+	info->flags = flags;
+
+	features = 0;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
+		features |= FEAT_EMMC;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
+		features |= FEAT_EXT_RTC;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
+		features |= FEAT_EEPROM;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
+		features |= FEAT_ETH_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
+		features |= FEAT_ETH_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
+		features |= FEAT_ETH_PHY_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
+		features |= FEAT_ETH_PHY_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
+		features |= FEAT_AUDIO;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
+		features |= FEAT_WLAN;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
+		features |= FEAT_SDIO_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b;", NULL))
+		features |= FEAT_SDIO_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
+		features |= FEAT_MIPI_DSI;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
+		features |= FEAT_MIPI_CSI;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
+		features |= FEAT_LVDS;
+
+	info->features = features;
+}
 
 int board_early_init_f(void)
-{
-	iomux_v3_cfg_t const *pad_list;
-	unsigned pad_list_count;
-	u32 clk_index;
-	unsigned int board_type = BT_PICOCOREMX93;
+{	
+	fs_setup_cfg_info();
 
-	if (IS_ENABLED(CONFIG_TARGET_FSIMX93_OSM))
-		board_type = BT_OSM93;
-
-		/* Set MAC addresses as environment variables */
-	switch (board_type)
-	{
-	case BT_PICOCOREMX93:
-		pad_list = uart_pads_pc;
-		clk_index = LPUART7_CLK_ROOT;
-		pad_list_count = ARRAY_SIZE(uart_pads_pc);
-	case BT_OSM93:
-		pad_list = uart_pads_osm;
-		clk_index = LPUART1_CLK_ROOT;
-		pad_list_count = ARRAY_SIZE(uart_pads_osm);
-		break;
-	default:
-		break;
+	switch(gd->board_type) {
+		case BT_PICOCOREMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart2_pads, ARRAY_SIZE(lpuart2_pads));
+			init_uart_clk(LPUART2_CLK_ROOT);
+			break;
+		case BT_OSMSFMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
+			init_uart_clk(LPUART1_CLK_ROOT);
+			break;
+		default:
+			return -EINVAL;
+			break;
 	}
-
-	/* Setup UART pads */
-	imx_iomux_v3_setup_multiple_pads(pad_list, pad_list_count);
-	/* enable uart clock */
-	init_uart_clk(clk_index);
-
 	return 0;
 }
 
-#if defined(CONFIG_OF_BOARD_SETUP)
-#define FDT_CPU_TEMP_ALERT	"/thermal-zones/cpu-thermal/trips/cpu-alert"
-#define FDT_CPU_TEMP_CRIT	"/thermal-zones/cpu-thermal/trips/cpu-crit"
+static void fdt_pcore_fixup(void *fdt)
+{
+	uint features = fs_board_get_features();
 
-/* Do all fixups that are done on both, U-Boot and Linux device tree */
-static int do_fdt_board_setup_common(void *fdt, bool verbose)
+	if(!(features & FEAT_ETH_PHY_A)){
+		fs_fdt_enable(fdt, "ethphy0", 0);
+	}
+
+	if(!(features & FEAT_ETH_PHY_B)){
+		fs_fdt_enable(fdt, "ethphy1", 0);
+	}
+
+	if(!(features & FEAT_AUDIO)){
+		fs_fdt_enable(fdt, "sound_sgtl5000", 0);
+		fs_fdt_enable(fdt, "sgtl5000", 0);
+	}
+
+	if(!(features & FEAT_WLAN)){
+		fs_fdt_enable(fdt, "wlan", 0);
+		fs_fdt_enable(fdt, "wlan_wake", 0);
+	}
+
+	if(!(features & FEAT_SDIO_A))
+		fs_fdt_enable(fdt, "pc_sdio_a", 0);
+
+	if(!(features & (FEAT_SDIO_B | FEAT_WLAN)))
+		fs_fdt_enable(fdt, "pc_sdio_b", 0);
+}
+
+static void fdt_osm_fixup(void *fdt)
+{
+}
+
+static void fdt_thermal_fixup(void *fdt, bool verbose)
 {
 	int offs;
 	int minc, maxc;
@@ -197,10 +302,10 @@ static int do_fdt_board_setup_common(void *fdt, bool verbose)
 	if ((minc > -500) && maxc < 500) {
 		u32 tmp_val;
 		tmp_val = (maxc - 10) * 1000;
-		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_ALERT);
+		offs = fs_fdt_path_offset(fdt, "cpu_alert");
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, verbose);
 		tmp_val = maxc * 1000;
-		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_CRIT);
+		offs = fs_fdt_path_offset(fdt, "cpu_crit");
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, verbose);
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
@@ -208,19 +313,70 @@ static int do_fdt_board_setup_common(void *fdt, bool verbose)
 	return 0;
 }
 
-/* Do any board-specific modifications on U-Boot device tree before starting */
-int board_fix_fdt(void *fdt)
+static void fdt_common_fixup(void *fdt)
 {
-	/* Make some room in the FDT */
-	fdt_shrink_to_minimum(fdt, 8192);
-	return do_fdt_board_setup_common(fdt, false);
+	uint features = fs_board_get_features();
+	int ret;
+
+	/* Realloc FDT-Blob to next full page-size.
+	 * If NOSPACE Error appiers, increase extrasize.
+	 */
+	ret = fdt_shrink_to_minimum(fdt, 0x400);
+	if(ret < 0){
+		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
+	}
+
+	fdt_thermal_fixup(fdt, 0);
+
+	if(!(features & FEAT_EMMC))
+		fs_fdt_enable(fdt, "emmc", 0);
+
+	if(!(features & FEAT_EXT_RTC))
+		fs_fdt_enable(fdt, "rtc0", 0);
+
+	if(!(features & FEAT_EEPROM))
+		fs_fdt_enable(fdt, "eeprom", 0);
+
+	if(!(features & FEAT_ETH_A))
+		fs_fdt_enable(fdt, "ethernet0", 0);
+
+	if(!(features & FEAT_ETH_B))
+		fs_fdt_enable(fdt, "ethernet1", 0);
+
+	if(!(features & FEAT_MIPI_DSI)){
+		fs_fdt_enable(fdt, "dsi", 0);
+		fs_fdt_enable(fdt, "dphy", 0);
+	}
+
+	if(!(features & FEAT_LVDS)){
+		fs_fdt_enable(fdt, "ldb", 0);
+		fs_fdt_enable(fdt, "ldb_phy", 0);
+	}
+
+	if(!(features & (FEAT_LVDS | FEAT_MIPI_DSI)))
+		fs_fdt_enable(fdt, "lcdif", 0);
+
+	if(gd->board_type == BT_PICOCOREMX93)
+		fdt_pcore_fixup(fdt);
+
+	if(gd->board_type == BT_OSMSFMX93)
+		fdt_osm_fixup(fdt);
 }
 
-/* Do any additional board-specific modifications on Linux device tree */
-int ft_board_setup(void *fdt, struct bd_info *bd)
+#if CONFIG_IS_ENABLED(OF_BOARD_FIXUP)
+int board_fix_fdt(void *fdt_blob)
 {
-	do_fdt_board_setup_common(fdt, true);
-	return	fdt_fixup_memory(fdt, CFG_SYS_SDRAM_BASE, gd->bd->bi_dram[0].size);
+	fdt_common_fixup(fdt_blob);
+	return 0;
+}
+#endif
+
+#if CONFIG_IS_ENABLED(OF_BOARD_SETUP)
+int ft_board_setup(void *fdt_blob, struct bd_info *bd)
+{
+	fdt_common_fixup(fdt_blob);
+	return fdt_fixup_memory(fdt_blob,
+			CFG_SYS_SDRAM_BASE, gd->bd->bi_dram[0].size);
 }
 #endif
 
@@ -240,17 +396,12 @@ int board_phy_config(struct phy_device *phydev)
 void fs_ethaddr_init(void)
 {
 	int eth_id = 0;
-	/* TODO: */
-	unsigned int board_type = BT_PICOCOREMX93;
-
-	if (IS_ENABLED(CONFIG_TARGET_FSIMX93_OSM))
-		board_type = BT_OSM93;
 
 	/* Set MAC addresses as environment variables */
-	switch (board_type)
+	switch (gd->board_type)
 	{
 	case BT_PICOCOREMX93:
-	case BT_OSM93:
+	case BT_OSMSFMX93:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
 		break;
@@ -261,13 +412,8 @@ void fs_ethaddr_init(void)
 
 int board_init(void)
 {
-	unsigned int board_type = BT_PICOCOREMX93;
-
-	if (IS_ENABLED(CONFIG_TARGET_FSIMX93_OSM))
-		board_type = BT_OSM93;
-
 	/* Copy NBoot args to variables and prepare command prompt string */
-	fs_board_init_common(&board_info[board_type]);
+	fs_board_init_common(&board_info[gd->board_type]);
 
 	if (IS_ENABLED(CONFIG_FEC_MXC))
 		setup_fec();
@@ -275,17 +421,31 @@ int board_init(void)
 	return 0;
 }
 
+static const char* fsimx93_get_board_name(void)
+{
+	return board_info[gd->board_type].name;
+}
+
 int board_late_init(void)
 {
-	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
+	struct cfg_info *info = fs_board_get_cfg_info();
+	void *fdt;
+	int offs;
+	const char *board_fdt;
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
+
+	fs_image_set_board_id_from_cfg();
+
 #ifdef CONFIG_ENV_IS_IN_MMC
 	board_late_mmc_env_init();
 #endif
-	/* TODO: use 0 default */
-	pargs->dwNBOOT_VER = 0;
-
-	if (IS_ENABLED(CONFIG_TARGET_FSIMX93_OSM))
-		env_set("platform", CONFIG_DEFAULT_DEVICE_TREE);
+	
+	if(board_fdt)
+		env_set("platform", board_fdt);
+	
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttyLP");	/* Set up all board specific variables */
 
@@ -296,13 +456,14 @@ int board_late_init(void)
 #ifdef CONFIG_AHAB_BOOT
 	env_set("sec_boot", "yes");
 #endif
-	return 0;
-}
 
-/* TODO: functions to compile fs_board_common */
-enum boot_device fs_board_get_boot_dev(void)
-{
-	return MMC1_BOOT;
+#ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
+	env_set("board_name", fsimx93_get_board_name());
+	env_set("board_rev", "fsimx93");
+#endif
+
+	debug("FEATURES=0x%x\n", info->features);
+	return 0;
 }
 
 int serial_get_alias_seq(void)
