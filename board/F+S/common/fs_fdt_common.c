@@ -121,12 +121,21 @@ void fs_fdt_set_getenv(void *fdt, int offs, const char *name, int force)
 		fs_fdt_set_string(fdt, offs, name, str, force);
 }
 
-/* Open a node, warn if the node does not exist */
+/**
+ *  return offset via path, alias or __symbols__
+ */
 int fs_fdt_path_offset(void *fdt, const char *path)
 {
 	int offs;
 
 	offs = fdt_path_offset(fdt, path);
+
+	/* look in __symbols__ for given name */
+	if(offs < 0 && *path != '/') {
+		path = fdt_get_symbol(fdt, path);
+		offs = fdt_path_offset(fdt, path);
+	}
+
 	if (offs < 0) {
 		printf("## Can not access node %s: err=%s\n",
 		       path, fdt_strerror(offs));
