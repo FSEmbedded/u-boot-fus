@@ -293,7 +293,7 @@ void *ahab_auth_cntr_hdr(struct container_hdr *container, u16 length)
 	flush_dcache_range(ahab_container_base,
 			   ahab_container_base + ALIGN(length, CONFIG_SYS_CACHELINE_SIZE) - 1);
 
-	err = ahab_auth_oem_ctnr(ahab_container_base, &resp);
+	err = ele_auth_oem_ctnr(ahab_container_base, &resp);
 	if (err) {
 		printf("Authenticate container hdr failed, return %d, resp 0x%x\n",
 		       err, resp);
