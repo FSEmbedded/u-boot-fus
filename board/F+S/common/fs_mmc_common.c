@@ -20,7 +20,12 @@
 #include <env.h>
 #include <command.h>
 #include "fs_board_common.h"		/* Own interface */
-#if !defined(CONFIG_IMX8M) && !defined(CONFIG_IMX8MM) && !defined(CONFIG_IMX8MN) && !defined(CONFIG_ARCH_MX7ULP) && !defined(CONFIG_IMX93)
+#if !defined(CONFIG_IMX8M) &&\
+	!defined(CONFIG_IMX8MM) &&\
+	!defined(CONFIG_IMX8MN) &&\
+	!defined(CONFIG_ARCH_MX7ULP) &&\
+	!defined(CONFIG_IMX93) &&\
+	!defined(CONFIG_IMX8ULP)
 #include <asm/arch/crm_regs.h>		/* struct mxc_ccm_reg */
 #endif
 #include <asm/arch/clock.h>		/* MXC_ESDHC_CLK, ... */

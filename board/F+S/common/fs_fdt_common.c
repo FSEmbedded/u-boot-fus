@@ -215,7 +215,9 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);
 	fs_fdt_set_getenv(fdt, offs, "platform", 0);
 	fs_fdt_set_getenv(fdt, offs, "arch", 1);
-#if !defined(CONFIG_ARCH_IMX8) && !defined(CONFIG_ARCH_IMX9) 
+#if !CONFIG_IS_ENABLED(ARCH_IMX8) && \
+	!CONFIG_IS_ENABLED(ARCH_IMX9) && \
+	!CONFIG_IS_ENABLED(ARCH_IMX8ULP)
 	fs_fdt_set_string(fdt, offs, "reset_cause", get_reset_cause(), 1);
 #endif
 #if 0 // TODO:

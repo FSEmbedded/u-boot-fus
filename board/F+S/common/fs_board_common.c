@@ -24,7 +24,8 @@
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"
 #include <fuse.h>			/* fuse_read() */
-#if !defined(CONFIG_TARGET_FSIMX93)
+#if !defined(CONFIG_TARGET_FSIMX93) && \
+	!defined(CONFIG_TARGET_FSIMX8ULP)
 #include <update.h>			/* enum update_action */
 #endif
 
@@ -912,6 +913,78 @@ u32 fs_board_get_secondary_offset(void)
 	offset = 1 << val;
 
 	return offset;
+}
+#elif defined(CONFIG_IMX8ULP)
+/* Definitions in boot_cfg (fuse bank 4, word 1) */
+#define BOOT_CFG_BOOT_TYPE_SHIFT	29
+#define BOOT_CFG_BOOT_TYPE_MASK		GENMASK(30, 29)
+#define BOOT_CFG_BOOT_IFACE_SHIFT 	26
+#define BOOT_CFG_BOOT_IFACE_MASK	GENMASK(28, 26)
+#define BOOT_CFG_BOOT_DEV_SHIFT 	25
+#define BOOT_CFG_BOOT_DEV_MASK		GENMASK(25, 25)
+
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB (returned by spl_boot_device()), but is basically fused to boot from
+ * NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 boot_type;
+	u32 boot_iface;
+	u32 boot_devtype;
+
+	enum boot_device boot_dev = USB_BOOT;
+
+	if (fuse_read(4, 1, &val)) {
+		puts("Error reading boot_cfg\n");
+	 	return boot_dev;
+	}
+
+	boot_type = val & BOOT_CFG_BOOT_TYPE_MASK;
+	boot_type = boot_type >> BOOT_CFG_BOOT_TYPE_SHIFT;
+
+	boot_iface = val & BOOT_CFG_BOOT_IFACE_MASK;
+	boot_iface = boot_iface >> BOOT_CFG_BOOT_IFACE_SHIFT;
+
+	boot_devtype = val & BOOT_CFG_BOOT_DEV_MASK;
+	boot_devtype = boot_devtype >> BOOT_CFG_BOOT_DEV_SHIFT;
+
+	if(boot_type != 0x0)
+		goto non_usdhc;
+
+	boot_dev = SD1_BOOT;
+	boot_dev += boot_iface;
+
+	if(!boot_devtype)
+		boot_dev += MMC1_BOOT - SD1_BOOT;
+
+	return boot_dev;
+
+	non_usdhc:
+	switch (boot_type) {
+	case 0x1: // NAND(FLEXSPI)
+	 	boot_dev = FLEXSPI_NAND_BOOT;
+	 	break;
+	case 0x2: // NOR(FLEXSPI)
+	 	boot_dev = FLEXSPI_BOOT;
+	 	break;
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+u32 fs_board_get_secondary_offset(void)
+{
+	/**
+	 *  TODO: There is no description for secondary cntr offset on mmc
+	 * devices
+	 */
+	return 0;
 }
 #endif
 
