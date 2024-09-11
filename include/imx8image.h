@@ -163,12 +163,14 @@ enum imx8image_cmd {
 enum imx8image_core_type {
 	CFG_CORE_INVALID,
 	CFG_SCU,
+	CFG_M33,
 	CFG_M40,
 	CFG_M41,
 	CFG_A35,
 	CFG_A55,
 	CFG_A53,
-	CFG_A72
+	CFG_A72,
+	CFG_UPOWER
 };
 
 enum imx8image_fld_types {
@@ -193,6 +195,7 @@ typedef enum option_type {
 	DCD,
 	SCFW,
 	SECO,
+	M33,
 	M40,
 	M41,
 	AP,

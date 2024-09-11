@@ -59,12 +59,14 @@ static table_entry_t imx8image_cmds[] = {
 
 static table_entry_t imx8image_core_entries[] = {
 	{CFG_SCU,	"SCU",			"scu core",	},
+	{CFG_M33,	"M33",			"M33 core",		},
 	{CFG_M40,	"M40",			"M4 core 0",	},
 	{CFG_M41,	"M41",			"M4 core 1",	},
 	{CFG_A35,	"A35",			"A35 core",	},
 	{CFG_A55,	"A55",			"A55 core",	},
 	{CFG_A53,	"A53",			"A53 core",	},
 	{CFG_A72,	"A72",			"A72 core",	},
+	{CFG_UPOWER, "UPOWER",		"UPOWER Core", },
 	{-1,		"",			"",		},
 };
 
@@ -121,7 +123,7 @@ static void parse_cfg_cmd(image_t *param_stack, int32_t cmd, char *token,
 		} else if (!strncmp(token, "IMX8QM", 6)) {
 			soc = QM;
 		} else if (!strncmp(token, "ULP", 3)) {
-			soc = IMX9;
+			soc = ULP;
 		} else if (!strncmp(token, "IMX9", 4)) {
 			soc = IMX9;
 		} else {
@@ -185,6 +187,10 @@ static void parse_cfg_fld(image_t *param_stack, int32_t *cmd, char *token,
 			param_stack[p_idx].option = SCFW;
 			param_stack[p_idx++].filename = token;
 			break;
+		case CFG_M33:
+			param_stack[p_idx].option = M33;
+			param_stack[p_idx].filename = token;
+			break;
 		case CFG_M40:
 			param_stack[p_idx].option = M40;
 			param_stack[p_idx].ext = 0;
@@ -214,6 +220,10 @@ static void parse_cfg_fld(image_t *param_stack, int32_t *cmd, char *token,
 				(*cmd == CMD_DATA) ? DATA : AP;
 			param_stack[p_idx].filename = token;
 			break;
+		case CFG_UPOWER:
+			param_stack[p_idx].option = UPOWER;
+			param_stack[p_idx++].filename = token;
+			break;
 		}
 		break;
 	case CFG_LOAD_ADDR:
@@ -225,6 +235,7 @@ static void parse_cfg_fld(image_t *param_stack, int32_t *cmd, char *token,
 		switch (core_type) {
 		case CFG_SCU:
 			break;
+		case CFG_M33:
 		case CFG_M40:
 		case CFG_M41:
 		case CFG_A35:
@@ -598,11 +609,13 @@ static void set_image_array_entry(flash_header_v3_t *container,
 		img->meta = meta;
 		custom_partition = 0;
 		break;
+	case M33:
 	case M40:
 	case M41:
 		if ((soc == ULP) || (soc == IMX9)) {
 			core = CORE_ULP_CM33;
 			meta = 0;
+			tmp_name = "M33";
 		} else {
 			if (core == 0) {
 				core = CORE_CM4_0;
@@ -612,14 +625,14 @@ static void set_image_array_entry(flash_header_v3_t *container,
 				meta = IMAGE_M4_1_DEFAULT_META(custom_partition);
 			} else {
 				fprintf(stderr,
-					"Error: invalid m4 core id: %" PRIu64 "\n",
+					"Error: invalid m4/m33 core id: %" PRIu64 "\n",
 					core);
 				exit(EXIT_FAILURE);
 			}
+			tmp_name = "M4";
 		}
 		img->hab_flags |= IMG_TYPE_EXEC;
 		img->hab_flags |= core << BOOT_IMG_FLAGS_CORE_SHIFT;
-		tmp_name = "M4";
 		if ((entry & 0x7) != 0) {
 			fprintf(stderr, "\n\nWarning: M4 Destination address is not 8 byte aligned\n\n");
 			exit(EXIT_FAILURE);
@@ -863,6 +876,7 @@ static int build_container(soc_type_t soc, uint32_t sector_size,
 	while (img_sp->option != NO_IMG) {
 		switch (img_sp->option) {
 		case AP:
+		case M33:
 		case M40:
 		case M41:
 		case SCFW:
@@ -989,7 +1003,8 @@ static int build_container(soc_type_t soc, uint32_t sector_size,
 	 */
 	img_sp = image_stack;
 	while (img_sp->option != NO_IMG) {
-		if (img_sp->option == M40 || img_sp->option == M41 ||
+		if (img_sp->option == M33 || 
+			img_sp->option == M40 || img_sp->option == M41 ||
 		    img_sp->option == AP || img_sp->option == DATA ||
 		    img_sp->option == SCD || img_sp->option == SCFW ||
 		    img_sp->option == SECO || img_sp->option == MSG_BLOCK ||
