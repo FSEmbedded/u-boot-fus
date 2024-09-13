@@ -3323,8 +3323,6 @@ static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 
 	err = blk_select_hwpart(fi->bdev, boot_hwpart);
 
-	fs_image_show_sub_status(err);
-
 	if (!err)
 		fi->boot_hwpart = boot_hwpart;
 
@@ -4694,6 +4692,9 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		printf("Warning! Boot fuses not yet set, remember to burn"
 				" them for %s\n", fi.boot_dev_name);
 	}
+
+	/* set HWPART, if Available */
+	fi.ops->set_boot_hwpart(&fi, boot_hwpart);
 
 	/* Prepare Regions */
 	fs_image_region_create(&spl_ri, &ni_new.spl, &spl_sub);
