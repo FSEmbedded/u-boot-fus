@@ -648,22 +648,7 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	cntr = (struct container_hdr *)cntr_info.load_addr;
 	num_imgs = cntr->num_images;
 
-	ret = fs_cntr_load_single_image(&dram_info, &cntr_info, load_info, 0);
-	if(ret){
-		free_container(&cntr_info);
-		return ret;
-	}
-
-	dram_fsh = (struct fs_header_v1_0 *)dram_info.load_addr;
-	if(!fs_image_match(dram_fsh, "DRAM-FW", ram_info->type)) {
-		free_container(&cntr_info);
-		return -EINVAL;
-	}
-	debug("FSCNTR: FOUND %s (%s)\n", dram_fsh->type, dram_fsh->param.descr);
-
-	memcpy(&_end, (void *)(dram_info.load_addr + FSH_SIZE), dram_info.size);
-
-	for (idx = 1; idx < num_imgs; idx++) {
+	for (idx = 0; idx < num_imgs; idx++) {
 		ret = fs_cntr_load_single_image(&dram_info, 
 					&cntr_info,
 					load_info,
@@ -673,6 +658,13 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 
 		dram_fsh = (struct fs_header_v1_0 *)dram_info.load_addr;
 		debug("FSCNTR: FOUND %s(%s)\n", dram_fsh->type, dram_fsh->param.descr);
+
+		if(idx == 0 && fs_image_match(dram_fsh, "DRAM-FW", ram_info->type)){
+			memcpy(&_end, (void *)(dram_info.load_addr + FSH_SIZE), dram_info.size);
+			ret = -EINVAL;
+			continue;
+		}
+
 		if(fs_image_match(dram_fsh, "DRAM-TIMING", ram_info->timing))
 			break;
 
