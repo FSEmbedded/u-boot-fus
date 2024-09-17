@@ -50,7 +50,7 @@ static void lpuart_set_clk(u32 index, enum cgc_clk clk)
 	pcc_reset_peripheral(lpuart_pcc[index], lpuart_pcc_slots[index], false);
 }
 
-static void init_clk_lpuart(void)
+void init_clk_lpuart(ulong lpuart_base)
 {
 	u32 index = 0, i;
 
@@ -62,7 +62,7 @@ static void init_clk_lpuart(void)
 	};
 
 	for (i = 0; i < 4; i++) {
-		if (lpuart_array[i] == LPUART_BASE) {
+		if (lpuart_array[i] == lpuart_base) {
 			index = i;
 			break;
 		}
@@ -157,7 +157,7 @@ void clock_init_early(void)
 {
 	cgc1_soscdiv_init();
 
-	init_clk_lpuart();
+	init_clk_lpuart(LPUART_BASE);
 
 	/* Enable upower mu1 clk */
 	pcc_clock_enable(3, UPOWER_PCC3_SLOT, true);
