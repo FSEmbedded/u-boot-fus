@@ -1026,6 +1026,10 @@ ifeq ($(CONFIG_ARCH_ROCKCHIP)_$(CONFIG_SPL_FRAMEWORK),y_)
 INPUTS-y += u-boot.img
 endif
 
+ifeq ($(CONFIG_FSIMX_BOARDS)_$(CONFIG_FS_CNTR_COMMON), y_y)
+INPUTS-y += uboot-info.fs
+endif
+
 INPUTS-$(CONFIG_X86) += u-boot-x86-start16.bin u-boot-x86-reset16.bin \
 	$(if $(CONFIG_SPL_X86_16BIT_INIT),spl/u-boot-spl.bin) \
 	$(if $(CONFIG_TPL_X86_16BIT_INIT),tpl/u-boot-tpl.bin)
