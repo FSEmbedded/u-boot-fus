@@ -276,7 +276,7 @@ static int bootrom_download(u8 *dest, u32 offset, u32 size)
 
 	ret = rom_api_download_image(dest, offset, size);
 	if(ret != ROM_API_OKAY) {
-		printf("ROMAPI: Failed to download 0x%x bytes\n", size);
+		printf("ROMAPI: Failed to download 0x%x bytes at offset 0x%x\n", size, offset);
 		return -ENODATA;
 	}
 	return 0;

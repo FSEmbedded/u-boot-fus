@@ -261,7 +261,9 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 		cntr_sector;
 
 	debug("%s: container: 0x%p sector: 0x%lx sectors: 0x%x\n", __func__,
-	      container, sector, count);
+			container, sector, count);
+	debug("%s: img_idx=%d, loadaddr=0x%lx \n", __func__,
+			image_index, (ulong)images[image_index].dst);
 	if (info->read(info, sector, count,
 		       (void *)images[image_index].dst) != count) {
 		printf("%s: failed to load image %d\n", __func__, image_index);
