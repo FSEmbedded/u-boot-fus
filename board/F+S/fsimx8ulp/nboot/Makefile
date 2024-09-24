@@ -41,47 +41,22 @@ NBOOT_VERSION = 2024.08
 # revisions .130, .120 and .100. Boards with revision .121 or .120 in their
 # BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
-	PCore93-FERT2.fs \
-	PCore93-FERT3.fs \
-	PCore93-FERT4.fs \
-	PCore93-FERT5.fs \
-	OSM93-FERT1.fs \
-	OSM93-FERT21.fs \
-	OSM93-FERT22.fs \
-	OSM93-FERT23.fs
-
+	SCore8ULP-FERT1.fs \
+	PCoreMX8ULP-FERT1.fs \
+	PCoreMX8ULP-FERT2.fs \
+	PCoreMX8ULP-FERT5.fs \
+#	OSMSFMX8ULP-FERT1.fs
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
-	lpddr4_pc_1g3200m1ch1cs_timing.fs \
-	lpddr4_pc_2g3200m1ch1cs_timing.fs \
-	lpddr4_osm_1g3733m1ch1cs_timing.fs
-	
-RT_LPDDR4X :=
-
-DDR_FW_VERSION = v202201
-
-# List of provided firmware files from NXP
-NXP_LPDDR4 = \
-	lpddr4_imem_1d_${DDR_FW_VERSION}.bin \
-	lpddr4_dmem_1d_${DDR_FW_VERSION}.bin \
-	lpddr4_imem_2d_${DDR_FW_VERSION}.bin \
-	lpddr4_dmem_2d_${DDR_FW_VERSION}.bin
-
-NXP_LPDDR4X = 
+	lpddr4_pc_2g1056m2ch1cs_timing.fs \
+	lpddr4_sc_1g1056m2ch1cs_timing.fs
 
 # List of DRAM-INFO (TYPES) for DRAM-SETTINGS Container; only add those that have timings
 DRAM_TYPES :=
 ifneq ($(RT_LPDDR4),)
 DRAM_TYPES += lpddr4_type.fs
 endif
-ifneq ($(RT_LPDDR4X),)
-DRAM_TYPES += lpddr4x_type.fs
-endif
-
-# Prepend the DDR Training Firmware as an additional file before the timings
-RT_LPDDR4 := lpddr4_fw.fs $(RT_LPDDR4)
-RT_LPDDR4X := lpddr4x_fw.fs $(RT_LPDDR4X)
 
 # List of files to add to EXTRA image
 EXTRA_FILES = addfsheader.sh.fs fsimage.sh.fs
@@ -111,8 +86,6 @@ OBJ_NBOOT = $(addprefix $(NBOOT_PATH)/, $(NBOOT))
 
 # Add path for NXP firmware images
 NXP_PATH = board/F+S/NXP-Firmware
-NXP_PATH_LPDDR4 = $(addprefix $(NXP_PATH)/, $(NXP_LPDDR4))
-NXP_PATH_LPDDR4X = $(addprefix $(NXP_PATH)/, $(NXP_LPDDR4X))
 
 # MKIMAGE defines
 CNTR_DEPFILES := $(srctree)/tools/imx_cntr_image.sh
@@ -120,28 +93,10 @@ IMAGE_TYPE := imx8image
 CNTR_LOG = cntr.log
 
 ### DDR SPECIFIC TARGETS ###
-quiet_cmd_ddrfw = DDRFW	$@
-cmd_ddrfw= \
-	objcopy -I binary -O binary --pad-to 0x8000 --gap-fill=0x0 $(word 1,$^) $(NBOOT_PATH)/.$2_train_1d_imem_pad.tmp; \
-	objcopy -I binary -O binary --pad-to 0x4000 --gap-fill=0x0 $(word 2,$^) $(NBOOT_PATH)/.$2_train_1d_dmem_pad.tmp; \
-	objcopy -I binary -O binary --pad-to 0x8000 --gap-fill=0x0 $(word 3,$^) $(NBOOT_PATH)/.$2_train_2d_imem_pad.tmp; \
-	cat $(NBOOT_PATH)/.$2_train_1d_imem_pad.tmp $(NBOOT_PATH)/.$2_train_1d_dmem_pad.tmp > $(NBOOT_PATH)/.$2_train_1d_fw.tmp; \
-	cat $(NBOOT_PATH)/.$2_train_2d_imem_pad.tmp $(word 4,$^) > $(NBOOT_PATH)/.$2_train_2d_fw.tmp; \
-	cat $(NBOOT_PATH)/.$2_train_1d_fw.tmp $(NBOOT_PATH)/.$2_train_2d_fw.tmp > $@;
-
-.INTERMEDIATE: $(NBOOT_PATH)/.lpddr4_fw.tmp $(NBOOT_PATH)/.lpddr4x_fw.tmp $(DRAM_TIMINGS_LDS)
-
-$(NBOOT_PATH)/.lpddr4_fw.tmp: $(NXP_PATH_LPDDR4)
-	$(call cmd,ddrfw,lpddr4)
-	
-
-$(NBOOT_PATH)/.lpddr4x_fw.tmp: $(NXP_PATH_LPDDR4X)
-	$(call cmd,ddrfw,lpddr4x)
-
 quiet_cmd_sed = SED     $@
 cmd_sed = sed $2 $< > $@
 
-DRAM_IMAGE_ADDR = $(shell printf "%d" 0x204dc000)
+DRAM_IMAGE_ADDR = $(shell printf "%d" 0x22050000)
 DRAM_TIMING_ADDR = $(shell expr ${DRAM_IMAGE_ADDR} + 64 )
 DRAM_TIMINGS_LDS = $(NBOOT_PATH)/.dram-timings.lds.tmp
 DRAM_TIMINGS_REPLACE_SED_CMD = \
@@ -171,13 +126,7 @@ cmd_fsimg = ${srctree}/scripts/addfsheader.sh $2 > $@
 $(NBOOT_PATH)/%_timing.fs: $(NBOOT_PATH)/.%_timing.bin.tmp
 	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40))) -t DRAM-TIMING -d $(*F) $< > $@)
 
-$(NBOOT_PATH)/lpddr4_fw.fs: $(NBOOT_PATH)/.lpddr4_fw.tmp
-$(NBOOT_PATH)/lpddr4x_fw.fs: $(NBOOT_PATH)/.lpddr4x_fw.tmp
-$(NBOOT_PATH)/%_fw.fs: $(NBOOT_PATH)/.%_fw.tmp
-	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_FW_ADDR) + 0x40))) -t DRAM-FW -d $(*F) $< > $@ )
-
 LPDDR4_CFG = lpddr4_type.cfg
-LPDDR4X_CFG = lpddr4x_type.cfg
 
 MKIMAGEFLAGS_lpddr4_type.cntr = -n ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG) \
 	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
@@ -186,27 +135,16 @@ MKIMAGEFLAGS_lpddr4x_type.cntr = -n ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG) 
 	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
 
 $(NBOOT_PATH)/lpddr4_type.cntr:  MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4_type$(CNTR_LOG)
-$(NBOOT_PATH)/lpddr4x_type.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4x_type$(CNTR_LOG)
 $(NBOOT_PATH)/lpddr4_type.cntr: $(OBJ_RT_LPDDR4) 
-$(NBOOT_PATH)/lpddr4x_type.cntr: $(OBJ_RT_LPDDR4X)
 
 $(NBOOT_PATH)/lpddr4_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG)
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG)
-	$(call if_changed,mkimage)
-
-$(NBOOT_PATH)/lpddr4x_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG)
-	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG)
 	$(call if_changed,mkimage)
 
 $(NBOOT_PATH)/lpddr4_type.fs: $(NBOOT_PATH)/lpddr4_type.cntr
 	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
 	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
 	$(call cmd,fsimg, -c -w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4 $^)
-
-$(NBOOT_PATH)/lpddr4x_type.fs: $(NBOOT_PATH)/lpddr4x_type.cntr
-	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4x_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
-	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg, -c -w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4x $^)
 
 $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 	$(Q)cat $(OBJ_DRAM_TYPES) > $@

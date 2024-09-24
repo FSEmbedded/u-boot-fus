@@ -11,35 +11,54 @@
 * GNU General Public License for more details.
 */
 
+/*
+ * NOTE: SRAM2 is used as L2 Cache after SPL
+ * OCRAM layout SPL/U-BOOT
+ * ---------------------------------------------------------
+ * 0x2201_0000 (SRAM0): 	Region reserved by ROM loader (64KB)
+ * --------
+ * 0x2202_0000 (SRAM2): 	SPL		(<=168KiB) CONFIG_SPL_TEXT_BASE
+ * 0x2204_A000 (SRAM2):		FDT		(24KiB)	CONFIG_SPL_MULTI_DTB_FIT_USER_DEF_ADDR
+ * 0x2205_0000 (SRAM2):		DRAM_TIMING	(20KiB) CFG_SPL_DRAM_TIMING_ADDR 
+ * 0x2205_DFFF (SRAM2): 	SPL_STACK	(36KiB)	CONFIG_SPL_STACK
+ * 0x2205_E000 (SRAM2): 	BSS data	( 8KiB)	CONFIG_SPL_BSS_START_ADDR
+ * 0x2206_0000 (SRAM2):		END
+ * --------
+ * 0x2004_0000 (SSRAM_P5): 	EARLY_AHAB_BASE/ATF	(192KiB)     CFG_SPL_ATF_ADDR
+ * 0x2005_5000 (SSRAM_P5): 	SAVED_DRAM_TIMING_BASE	(16KB)
+ * --------
+ * 0x2100_E000 (SRAM1):	CFG_FUS_BOARDCFG_ADDR (8KiB)
+ * --------
+ */
+
 #ifndef __FSIMX8ULP_H
 #define __FSIMX8ULP_H
 
 #include <linux/sizes.h>
+#include <linux/stringify.h>
 #include <asm/arch/imx-regs.h>
 #include "imx_env.h"
 
-#define CFG_SYS_UBOOT_BASE	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
+#define CFG_SYS_UBOOT_BASE \
+	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
 
 #ifdef CONFIG_SPL_BUILD
 #define CFG_MALLOC_F_ADDR		0x22048000
-
-
-#endif
-
-/* ENET Config */
-#if defined(CONFIG_FEC_MXC)
-#define PHY_ANEG_TIMEOUT		20000
-
-#define CONFIG_NETMASK		255.255.255.0
-#define CONFIG_IPADDR		10.0.0.252
-#define CONFIG_SERVERIP		10.0.0.200
-#define CONFIG_GATEWAYIP	10.0.0.5
 #endif
 
 #ifdef CONFIG_AHAB_BOOT
 #define AHAB_ENV "sec_boot=yes\0"
 #else
 #define AHAB_ENV "sec_boot=no\0"
+#endif
+
+#if defined(CONFIG_MTDIDS_DEFAULT)
+#define CFG_MTDPART_DEFAULT ""
+#endif
+
+/* ENET Config */
+#if defined(CONFIG_FEC_MXC)
+#define PHY_ANEG_TIMEOUT		20000
 #endif
 
 #ifdef CONFIG_DISTRO_DEFAULTS
@@ -162,15 +181,30 @@
 
 #define CFG_SYS_INIT_RAM_ADDR	0x80000000
 #define CFG_SYS_INIT_RAM_SIZE	0x80000
+#define CFG_SYS_OCRAM_BASE	0x22020000
+#define CFG_SYS_OCRAM_SIZE	0x40000
+#define CFG_FUS_BOARDCFG_ADDR	0x2100e000
 
 #define CFG_SYS_SDRAM_BASE		0x80000000
+#define CFG_SPL_ATF_ADDR		0x20040000
+#define CFG_SPL_FUS_EARLY_AHAB_BASE	CFG_SPL_ATF_ADDR
 #define PHYS_SDRAM			0x80000000
-#if defined(CONFIG_PICOCOREMX8ULP_LPDDR4_NANYA_2GBYTE)
-#define PHYS_SDRAM_SIZE			0x80000000 /* 2GB DDR */
-#elif defined(CONFIG_SOLDERCORE8ULP_LPDDR4_FORESEE_1GBYTE)
-#define PHYS_SDRAM_SIZE			0x40000000 /* 1GB DDR */
-#else
-#define PHYS_SDRAM_SIZE			0x20000000 /* 512MB default */
+
+/**
+ * The real DRAM Size is determinied by BOARD-CFG.
+ * PHYS_SDRAM_SIZE is used for xrdc configs and imx8ulp_arm64_mem_map.
+ * The Value in imx8ulp_arm64_mem_map is overwritten during dram_init()
+ * with the size from BOARD-CFG.
+ */
+#define PHYS_SDRAM_SIZE			0x80000000 /* 2GB DRAM-Region */
+
+/* Monitor Command Prompt */
+
+/************************************************************************
+ * Command Line Editor (Shell)
+ ************************************************************************/
+#ifdef CONFIG_SYS_HUSH_PARSER
+#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 #endif
 
 /* Using ULP WDOG for reset */

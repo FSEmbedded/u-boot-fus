@@ -261,6 +261,11 @@ flash.bin: spl/u-boot-spl.bin FORCE
 endif
 endif
 
+ifeq ($(CONFIG_ARCH_IMX8ULP), y)
+SPL:
+
+endif
+
 ifeq ($(CONFIG_ARCH_IMX9), y)
 
 quiet_cmd_imx9_check = CHECK    $@

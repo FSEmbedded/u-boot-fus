@@ -1,69 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2024 F&S Elektronik Systeme GmbH
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- */
+* Copyright 2024 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
 
 /dts-v1/;
 
-/* Network*/
-#define CONFIG_PICOCOREMX8ULP_ETH_A
+/* Set board revision as 3-digit number, e.g. 110 for board rev. 1.10 */
+#define CONFIG_PICOCOREMX8ULP_BOARD_REVISION	110
+/* Set baseboard revision as 3-digit number, e.g. 110 for board rev. 1.10 */
+#define CONFIG_PICOCOREBBDSI_BOARD_REVISION	140
 
-/* WLAN/BLUETOOTH */
-#define CONFIG_PICOCOREMX8ULP_WLAN
-#define CONFIG_PICOCOREMX8ULP_WLAN_MARVELL_DRV
+/* M33 Configs*/
+// #define SUPPORT_M33
 
-/* USB */
-#define CONFIG_PICOCOREMX8ULP_USB_HOST
-#define CONFIG_PICOCOREMX8ULP_USB_OTG
+// #if defined(SUPPORT_M33)
+// #define SUPPORT_RPMSG
+// #endif
 
-/* I2C */
-#define CONFIG_PICOCOREMX8ULP_I2C_A
-#define CONFIG_PICOCOREMX8ULP_I2C_B
-#define CONFIG_PICOCOREMX8ULP_I2C_INT
+// #if defined(SUPPORT_M33) &&\
+//     defined(SUPPORT_RPMSG)
+// #define CONFIG_PICOCOREMX8ULP_AUDIO_RTD
+// #define CONFIG_RPMSG_GPIOA
+// #define CONFIG_RPMSG_GPIOB
+// #else
+// #define CONFIG_PICOCOREMX8ULP_AUDIO_APD
+// #endif
 
-/* EEPROM */
-#define CONFIG_PICOCOREMX8ULP_EEPROM
+/* common Configs */
+// #define CONFIG_PICOCOREMX8ULP_WLAN
 
-/* AUDIO */
-#define CONFIG_PICOCOREMX8ULP_AUDIO
-
-/* External RTC - default not mounted */
-#define CONFIG_PICOCOREMX8ULP_EXT_RTC
-
-/*
- * SD_A - External SD port with Card Detect (CD) and Write Protect (WP)
- * On picocoremx8ulp SKIT: external port is Micro-SD card slot with CD but without WP
- */
-// #define CONFIG_PICOCOREMX8ULP_SD_A
+// #if !defined(CONFIG_PICOCOREMX8ULP_WLAN)
 // #define CONFIG_PICOCOREMX8ULP_SD_A_CD
 // #define CONFIG_PICOCOREMX8ULP_SD_A_WP
+// #endif
 
-/* UART */
-#define CONFIG_PICOCOREMX8ULP_UART_A
-#define CONFIG_PICOCOREMX8ULP_UART_C
-
-/* EMMC */
-#define CONFIG_PICOCOREMX8ULP_EMMC
-
-/*SPI*/
-#define CONFIG_PICOCOREMX8ULP_SPI_A
-
-#include "fsimx8ulp.dtsi"
-
-/ {
-	model = "F&S PicoCoreMX8ULP";
-	compatible = "fus,picocoremx8ulp", "fus,fsimx8ulp", "fsl,imx8ulp";
-};
-
-#if defined(CONFIG_PICOCOREMX8ULP_EEPROM)
-&lpi2c7 {
-    eeprom: eeprom@50 {
-		compatible = "atmel,24c02";
-		reg = <0x50>;
-		pagesize = <8>;
-	};
-};
-#endif /* CONFIG_PICOCOREMX8ULP_EEPROM */
+#include "picocoremx8ulp.dtsi"
