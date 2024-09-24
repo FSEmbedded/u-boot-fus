@@ -579,8 +579,15 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 		ret = -EINVAL;
 	}
 
-	if(!ret)
+	if(!ret){
 		debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh->type, cfg_fsh->param.descr);
+		/**
+		 * TODO: A simple workaround to load data in other sram areas using Cortex-A.
+		 * Check between Loadaddr and CFG_FUS_BOARDCFG_ADDR and copy the binary.
+		 */
+		if ((ulong) cfg_info.load_addr != CFG_FUS_BOARDCFG_ADDR)
+			memcpy((void *)CFG_FUS_BOARDCFG_ADDR, (void *)cfg_info.load_addr, cfg_info.size);
+	}
 
 	free_container(&cntr_info);
 
