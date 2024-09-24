@@ -278,8 +278,8 @@ void xrdc_init_mda(void)
 	ulong xrdc_base = XRDC_ADDR, off;
 	u32 i = 0;
 
-	/* Set MDA3-5 for PXP, ENET, CAAM to DID 1*/
-	for (i = 3; i <= 5; i++) {
+	/* Set MDA2-8 for USB, PXP, ENET, CAAM, USDHC0-2 to DID 1*/
+	for (i = 2; i <= 8; i++) {
 		off = 0x800 + i * 0x20;
 		writel(0x200000A1, xrdc_base + off);
 		writel(0xA00000A1, xrdc_base + off);
