@@ -32,12 +32,12 @@
 #include <asm/gpio.h>
 #include <hang.h>
 
+#include "fsimx93.h"
 #include "../common/fs_board_common.h"
 #include "../common/fs_eth_common.h"
 #include "../common/fs_image_common.h"
 #include "../common/fs_cntr_common.h"
 #include "../common/fs_fdt_common.h"
-#include "fsimx93.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -175,11 +175,8 @@ static void fs_setup_cfg_info(void)
 	if(!fs_image_find_cfg_in_ocram())
 		hang();
 
-	/**
-	 * TODO: BOARD-CFG Validation
-	 */
-	// if (!fs_image_is_ocram_cfg_valid())
-	// 	hang();
+	if (!fs_image_is_ocram_cfg_valid())
+		hang();
 
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));
@@ -237,7 +234,7 @@ static void fs_setup_cfg_info(void)
 }
 
 int board_early_init_f(void)
-{	
+{
 	fs_setup_cfg_info();
 
 	switch(gd->board_type) {
@@ -363,6 +360,12 @@ static void fdt_common_fixup(void *fdt)
 }
 
 #if CONFIG_IS_ENABLED(OF_BOARD_FIXUP)
+int checkcpu()
+{
+	fdt_thermal_fixup((void *)gd->fdt_blob, 0);
+	return 0;
+}
+
 int board_fix_fdt(void *fdt_blob)
 {
 	fdt_common_fixup(fdt_blob);
@@ -373,9 +376,17 @@ int board_fix_fdt(void *fdt_blob)
 #if CONFIG_IS_ENABLED(OF_BOARD_SETUP)
 int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 {
+	u64 dram_base[CONFIG_NR_DRAM_BANKS];
+	u64 dram_size[CONFIG_NR_DRAM_BANKS];
+	int i;
+
+	for(i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+		dram_base[i] = gd->bd->bi_dram[i].start;
+		dram_size[i] = gd->bd->bi_dram[i].size;
+	}
+
 	fdt_common_fixup(fdt_blob);
-	return fdt_fixup_memory(fdt_blob,
-			CFG_SYS_SDRAM_BASE, gd->bd->bi_dram[0].size);
+	return fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
 }
 #endif
 
@@ -411,11 +422,12 @@ void fs_ethaddr_init(void)
 
 int board_init(void)
 {
+#if CONFIG_IS_ENABLED(FEC_MXC)
+		setup_fec();
+#endif
+
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[gd->board_type]);
-
-	if (IS_ENABLED(CONFIG_FEC_MXC))
-		setup_fec();
 
 	return 0;
 }
@@ -438,13 +450,13 @@ int board_late_init(void)
 
 	fs_image_set_board_id_from_cfg();
 
-#ifdef CONFIG_ENV_IS_IN_MMC
+#if CONFIG_IS_ENABLED(ENV_IS_IN_MMC)
 	board_late_mmc_env_init();
 #endif
-	
+
 	if(board_fdt)
 		env_set("platform", board_fdt);
-	
+
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttyLP");	/* Set up all board specific variables */
 

@@ -1,27 +1,56 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2024 F&S Elektronik Systeme GmbH
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- */
+* Copyright 2024 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
 
 /dts-v1/;
 
 #include <dt-bindings/pwm/pwm.h>
 #include "imx93.dtsi"
 
-&ele_fw2 {
-	memory-region = <&ele_reserved>;
-};
+osm_eth_a: &eqos {};
+osm_eth_b: &fec {};
+osm_uart_con: &lpuart1 {};
+osm_uart_a: &lpuart2 {};
+osm_uart_c: &lpuart3 {};
+osm_uart_d: &lpuart8 {};
+osm_i2c_int: &lpi2c2 {};
+osm_i2c_a: &lpi2c1 {};
+osm_i2c_b: &lpi2c3 {};
+osm_spi_a: &flexspi1 {};
+osm_spi_b: &lpspi3{};
+osm_usb_a: &usbotg1 {};
+osm_usb_b: &usbotg2 {};
+emmc: &usdhc1 {};
+osm_sdio_a: &usdhc2 {};
+osm_csi: &mipi_csi {};
+osm_dsi: &dsi {};
+osm_dsi_pwm: &tpm5 {};
+osm_pwm_2: &tpm4{};
+osm_pwm_1: &tpm3 {};
+osm_i2s_a: &sai3 {};
+osm_can_a: &flexcan1 {};
+osm_can_b: &flexcan2 {};
+
+osm_gpio_a25: &gpio2 {};
+osm_gpio_a01: &gpio3 {};
 
 / {
 	model = "F+S OSM-SF-MX93";
-	compatible = "fus,imx93-osm-sf-mx93", "fsl,imx93";
+	compatible = "fus,fs-osm-sf-mx93", "fsl,imx93";
 
 	chosen {
 		bootargs = "console=ttyLP0,115200";
-		stdout-path = &lpuart1;
+		stdout-path = &osm_uart_con;
 	};
 
 	aliases {
@@ -32,23 +61,30 @@
 		serial2 = &osm_uart_b;
 		serial3 = &osm_uart_c;
 		serial4 = &osm_uart_d;
-		serial5 = &lpuart4;
-		serial6 = &lpuart6;
-		serial7 = &lpuart7;
-		i2c0 = &lpi2c2;
+		/delete-property/ serial5;
+		/delete-property/ serial6;
+		/delete-property/ serial7;
+		i2c0 = &osm_i2c_int;
 		i2c1 = &osm_i2c_a;
 		i2c2 = &osm_i2c_b;
+		/delete-property/ i2c3;
+		/delete-property/ i2c4;
+		/delete-property/ i2c5;
+		/delete-property/ i2c6;
+		/delete-property/ i2c7;
 		spi0 = &osm_spi_a;
 		spi1 = &osm_spi_b;
 		usb0 = &osm_usb_a;
 		usb1 = &osm_usb_b;
+		mmc0 = &emmc;
 		mmc1 = &osm_sdio_a;
+		/delete-property/ mmc2;
 		csi0 = &osm_csi; 
 		rtc0 = &rtc85263;
 		rtc1 = &bbnsm_rtc;
-		// pwm0 = &osm_dsi_pwm;
-		// pwm1 = &osm_pwm_1;
-		// pwm2 = &osm_pwm_2;
+		pwm0 = &osm_dsi_pwm;
+		pwm1 = &osm_pwm_1;
+		pwm2 = &osm_pwm_2;
 	};
 
 	reserved-memory {
@@ -210,8 +246,8 @@
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_carrier_en>;
 			gpio = <&gpio1 11 GPIO_ACTIVE_HIGH>;
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
 			enable-active-high;
 			regulator-always-on;
 			regulator-boot-on;
@@ -251,19 +287,19 @@
 };
 
 /* UART declerations */
-osm_uart_con: &lpuart1 {
+&osm_uart_con {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1>;
 	status = "okay";
 };
 
-osm_uart_a: &lpuart2 {
+&osm_uart_a {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart2>;
 	status = "disabled";
 };
 
-osm_uart_c: &lpuart3 {
+&osm_uart_c {
 #if defined(CONFIG_OSMSFMX93_UARTC)
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart3>;
@@ -277,7 +313,7 @@ osm_uart_b: &lpuart5 {
 	status = "disabled";
 };
 
-osm_uart_d: &lpuart8 {
+&osm_uart_d {
 #if defined(CONFIG_OSMSFMX93_UARTD)
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart8>;
@@ -286,7 +322,7 @@ osm_uart_d: &lpuart8 {
 };
 
 /* Ethernet declerations */
-osm_eth_a: &eqos {
+&osm_eth_a {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_eqos>;
 	status = "disabled";
@@ -299,7 +335,7 @@ osm_eth_a: &eqos {
 	};
 };
 
-osm_eth_b: &fec {
+&osm_eth_b {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_fec>;
 	fsl,magic-packet;
@@ -323,7 +359,7 @@ osm_eth_b: &fec {
 		"","";
 };
 
-osm_gpio_a25: &gpio2 {
+&osm_gpio_a25 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_gpio2>;
 	pinctrl-1 = <&pinctrl_gpio2>;
@@ -345,7 +381,7 @@ osm_gpio_a25: &gpio2 {
 		"","","","","","";
 };
 
-osm_gpio_a01: &gpio3 {
+&osm_gpio_a01 {
 	gpio-line-names = \
 		"","","","","",
 		"","",
@@ -376,7 +412,7 @@ osm_gpio_a01: &gpio3 {
 };
 
 /* I2C declerations */
-i2c_int: &lpi2c2 {
+&osm_i2c_int {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	pinctrl-names = "default";
@@ -479,7 +515,7 @@ i2c_int: &lpi2c2 {
 	};
 };
 
-osm_i2c_a: &lpi2c1 {
+&osm_i2c_a {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c1>;
 	#address-cells = <1>;
@@ -493,7 +529,7 @@ osm_i2c_a: &lpi2c1 {
 	};
 };
 
-osm_i2c_b: &lpi2c3 {
+&osm_i2c_b {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c3>;
 	#address-cells = <1>;
@@ -502,13 +538,13 @@ osm_i2c_b: &lpi2c3 {
 };
 
 /* SPI declerations */
-osm_spi_a: &flexspi1 {
+&osm_spi_a {
 	 pinctrl-names = "default";
 	 pinctrl-0 = <&pinctrl_flexspi1>;
 	 status = "disabled";
 };
 
-osm_spi_b: &lpspi3{
+&osm_spi_b{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpspi3>;
 	status = "disabled";
@@ -516,7 +552,7 @@ osm_spi_b: &lpspi3{
 
 /* USB decleration */
 /* usb dr_mode needs extra configuration */
-osm_usb_a: &usbotg1 {
+&osm_usb_a {
 	vbus-supply = <&reg_usb1_vbus>;
 	disable-over-current;
 	samsung,picophy-pre-emp-curr-control = <3>;
@@ -524,7 +560,7 @@ osm_usb_a: &usbotg1 {
 	status = "disabled";
 };
 
-osm_usb_b: &usbotg2 {
+&osm_usb_b {
 	vbus-supply = <&reg_usb2_vbus>;
 	disable-over-current;
 	samsung,picophy-pre-emp-curr-control = <3>;
@@ -533,26 +569,26 @@ osm_usb_b: &usbotg2 {
 };
 
 /* CAN decleration */
-osm_can_a: &flexcan1 {
+&osm_can_a {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexcan1>;
 	status = "disabled";
 };
 
-osm_can_b: &flexcan2 {
+&osm_can_b {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexcan2>;
 	status = "disabled";
 };
 
 /* I2S decleration */
-osm_i2s_a: &sai3 {
+&osm_i2s_a {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
 };
 
 /* SDIO decleration */
-emmc: &usdhc1 {
+&emmc {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
@@ -566,7 +602,7 @@ emmc: &usdhc1 {
 	status = "okay";
 };
 
-osm_sdio_a: &usdhc2 {
+&osm_sdio_a {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
@@ -579,13 +615,13 @@ osm_sdio_a: &usdhc2 {
 
 
 /* MISC */
-osm_csi: &mipi_csi {
+&osm_csi {
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "disabled";
 };
 
-osm_dsi: &dsi {
+&osm_dsi {
 	status = "disabled";
 };
 
@@ -593,23 +629,27 @@ osm_dsi: &dsi {
 	status = "disabled";
 };
 
-// osm_dsi_pwm: &tpm5 {
-// 	pinctrl-names = "default";
-// 	pinctrl-0 = <&pinctrl_tpm5>;
-// 	status = "disabled";
-// };
+&osm_dsi_pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_tpm5>;
+	status = "disabled";
+};
 
-// osm_pwm_2: &tpm4{
-// 	pinctrl-names = "default";
-// 	pinctrl-0 = <&pinctrl_tpm4>;
-// 	status = "disabled";
-// };
+&osm_pwm_2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_tpm4>;
+	status = "disabled";
+};
 
-// osm_pwm_1: &tpm3 {
-// 	pinctrl-names = "default";
-// 	pinctrl-0 = <&pinctrl_tpm3>;
-// 	status = "disabled";
-// };
+&osm_pwm_1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_tpm3>;
+	status = "disabled";
+};
+
+&ele_fw2 {
+	memory-region = <&ele_reserved>;
+};
 
 &epxp {
 	status = "okay";

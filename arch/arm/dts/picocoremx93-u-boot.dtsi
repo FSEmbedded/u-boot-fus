@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
 * Copyright 2024 F&S Elektronik Systeme GmbH
 *
@@ -210,3 +211,11 @@
 	bootph-pre-ram;
 };
 
+/* Correct trippoints are set in fdt-fixup */
+&cpu_alert {
+	temperature = <95000>;
+};
+
+&cpu_crit {
+	temperature = <105000>;
+};

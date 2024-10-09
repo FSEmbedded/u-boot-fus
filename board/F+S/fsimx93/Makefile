@@ -36,9 +36,10 @@ IMGS_FSH = $(shell echo ${CNTR_IMGS} | sed -e 's/\.bin/.fsh/g')
 
 define map_type
 $(if $(findstring bl31.fsh,$(1)),ATF,\
+$(if $(findstring bl31-optee.fsh,$(1)),ATF,\
 $(if $(findstring bl32.fsh,$(1)),TEE,\
 $(if $(findstring u-boot.fsh,$(1)),UBOOT,\
-$(shell basename $(1) | cut -d '.' -f 1 | tr a-z A-Z))))
+$(shell basename $(1) | cut -d '.' -f 1 | tr a-z A-Z)))))
 endef
 
 IMGS_FS_OPT = -c -a 0x400 -j -t $(call map_type,$@) -d $(BOARD) $<
