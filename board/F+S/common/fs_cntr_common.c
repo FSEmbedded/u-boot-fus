@@ -420,6 +420,7 @@ bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
 	u16 cntr_length;
 	int i;
 	bool ret = false;
+	struct boot_img_t *img_idx;
 
 
 	if(!valid_container_hdr(cntr_hdr)){
@@ -437,16 +438,14 @@ bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
 	if(!cntr_hdr->num_images)
 		goto ahab_release;
 
+	img_idx = (struct boot_img_t *)((u8 *)cntr_hdr + sizeof(struct container_hdr));
+
 	for (i = 0; i < cntr_hdr->num_images; i++) {
-		struct boot_img_t *img_idx;
 		void *img_ptr;
 
-		img_idx = (struct boot_img_t *)((u8 *)cntr_hdr + sizeof(struct container_hdr));
-		img_idx += i * sizeof(struct boot_img_t);
+		img_ptr = (void *)cntr_hdr + img_idx[i].offset;
 
-		img_ptr = (void *)cntr_hdr + img_idx->offset;
-
-		ret = cntr_image_check_sha(img_idx, img_ptr);
+		ret = cntr_image_check_sha(&img_idx[i], img_ptr);
 		if(!ret)
 			goto ahab_release;
 	}
