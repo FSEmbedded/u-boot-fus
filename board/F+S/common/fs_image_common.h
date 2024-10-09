@@ -114,6 +114,9 @@ const char *fs_image_get_board_id(void);
 /* Set the compare_id that will be used in fs_image_match_board_id() */
 void fs_image_set_compare_id(const char id[MAX_DESCR_LEN]);
 
+/* Get the compare_id that will be used in fs_image_match_board_id() */
+void fs_image_get_compare_id(char *id, uint len);
+
 /* Get the board-rev from BOARD-ID (in compare-id) */
 unsigned int fs_image_get_board_rev(void);
 

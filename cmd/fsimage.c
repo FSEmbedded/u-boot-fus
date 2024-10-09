@@ -1335,7 +1335,7 @@ static int fs_image_find_board_cfg(ulong addr, bool force,
 
 		memcpy(new_id, fsh->param.descr, MAX_DESCR_LEN);
 		new_id[MAX_DESCR_LEN] = '\0';
-		if (strcmp(new_id, old_id)) {
+		if (strncmp(new_id, old_id, MAX_DESCR_LEN)) {
 #if CONFIG_IS_ENABLED(FS_SECURE_BOOT) && CONFIG_IS_ENABLED(IMX_HAB)
 			if (imx_hab_is_enabled()) {
 				printf("Error: Current board is %s and board"
@@ -4350,7 +4350,7 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	struct fs_header_v1_0 *tmp_fsh;
 	struct nboot_info ni_old;
 	const char *arch = fs_image_get_arch();
-	const char *board_id = fs_image_get_board_id();
+	const char board_id[MAX_DESCR_LEN + 1] = {0};
 	const char *dram_type;
 	void *fdt_old = fs_image_get_cfg_fdt();
  	ulong uboot_addr, env_addr;
@@ -4361,6 +4361,9 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	bool need_uboot = false;
 	bool need_env = false;
 	int ret;
+
+	/* get Board-ID from compare id */
+	fs_image_get_compare_id((char *)board_id, MAX_DESCR_LEN + 1);
 
 	/* --- Get a list of available Images to save into flash --- */
 	ret = create_image_list(&img_list, addr, &file_size);

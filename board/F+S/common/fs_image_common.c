@@ -680,23 +680,27 @@ const char *fs_image_get_board_id(void)
 	return board_id;
 }
 
-/* Store current compare_id as board_id */
-void fs_image_set_board_id(void)
+void fs_image_get_compare_id(char *id, uint len)
 {
 	char c;
 	int i;
 
 	/* Copy base name */
-	for (i = 0; i < MAX_DESCR_LEN; i++) {
+	for (i = 0; i < len; i++) {
 		c = compare_bnr.name[i];
 		if (!c)
 			break;
-		board_id[i] = c;
+		id[i] = c;
 	}
 
 	/* Add board revision */
-	snprintf(&board_id[i], MAX_DESCR_LEN - i, ".%03d", compare_bnr.rev);
-	board_id[MAX_DESCR_LEN] = '\0';
+	snprintf(&id[i], len - i, ".%03d", compare_bnr.rev);
+}
+
+/* Store current compare_id as board_id */
+void fs_image_set_board_id(void)
+{
+	fs_image_get_compare_id(board_id, MAX_DESCR_LEN + 1);
 }
 
 /* Set the compare_id that will be used in fs_image_match_board_id() */
