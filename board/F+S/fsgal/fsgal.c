@@ -144,6 +144,20 @@ int board_init(void)
 }
 
 int fsl_board_late_init(void){
+	enum board_type btype;
+	btype = fs_get_board();
+
+	switch(btype) {
+		case GAL1:
+			env_set("dtb", "fsgal1.dtb");
+			break;
+		case GAL2:
+			env_set("dtb", "fsgal2.dtb");
+			break;
+		default:
+			break;
+	}
+
 	fs_set_macaddrs();
 	return 0;
 }

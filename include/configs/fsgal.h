@@ -86,7 +86,7 @@
 	"boot_scripts=fsgal_boot.scr\0"    \
 	"boot_script_hdr=hdr_bootscr.out\0" \
 	"kernel_image=Image\0" \
-	"dtb=fs-gal1.dtb\0" \
+	"dtb=fsgal1.dtb\0" \
 	\
 	"scan_dev_for_boot_part=" \
 		"part list ${devtype} ${devnum} devplist; " \
