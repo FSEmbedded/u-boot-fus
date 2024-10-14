@@ -32,10 +32,10 @@
 #include <linux/compat.h>
 
 #include "../drivers/net/fsl_enetc.h"
-#include "../fs_common/fs_eth_common.h"
-#include "../fs_common/fs_ls1028a_common.h"
-#include "../fs_common/fs_common.h"
-#include "../fs_common/fs_fdt_common.h"
+#include "../common/fs_eth_common.h"
+#include "../common/fs_ls1028a_common.h"
+#include "../common/fs_common.h"
+#include "../common/fs_fdt_common.h"
 
 /* GPIO-NAMES */
 #define GPIO_PCIe_CLK_EN "gpio@22_2"
