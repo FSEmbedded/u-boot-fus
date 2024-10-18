@@ -4606,7 +4606,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 
 	fdt = fs_image_get_cfg_fdt();
 
-	if(!fs_image_match(uboot_fsh, "U-BOOT-INFO", arch))
+	if(fs_image_validate(uboot_fsh, "U-BOOT-INFO", arch, (ulong) uboot_fsh))
 		return CMD_RET_FAILURE;
 
 	fs_image_region_create(&uboot_ri, &ni.uboot, &uboot_sub);
