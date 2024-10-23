@@ -264,6 +264,7 @@ static inline void align_buffer(struct buffer_t *buffer)
 		return;
 
 	debug("align page\n");
+	debug("r_size=%d, ptr_idx=%d\n", buffer->r_size, buffer->ptr_idx);
 
 	memcpy(buf, buf + buffer->ptr_idx, buffer->r_size);
 	bootrom_download(buf + buffer->r_size, 0, buffer->ptr_idx);
@@ -361,12 +362,11 @@ static int bootrom_find_fshdr_stream(struct fs_header_v1_0 *fsh)
 	set_buffer(&g_buffer, phdr);
 
 	/** 
-	 * NOTE: Stream seems to be not aligned?!
-	 * This should never happen.
+	 * NOTE: Stream seems to be not aligned!
 	 */
 	if(g_buffer.r_size < FSH_SIZE){
-		seek_buffer(&g_buffer, g_buffer.r_size);
-		return -EINVAL;
+		align_buffer(&g_buffer);
+		phdr = &g_buffer.buffer[g_buffer.ptr_idx];
 	}
 
 	memcpy(fsh, phdr, FSH_SIZE);
@@ -466,7 +466,7 @@ int bootrom_stream_continue(const struct sdp_stream_ops *stream_ops)
 	memset(&load_info, 0, sizeof(struct spl_load_info));
 
 	ret = bootrom_find_fshdr_stream(&fsh);
-	if(ret && ret != -EINVAL){
+	if(ret){
 		printf("Failed to find F&S Header: %d\n", ret);
 		return ret;
 	}
