@@ -45,11 +45,12 @@ BOARD_CONFIGS = \
 	PCoreMX8ULP-FERT1.fs \
 	PCoreMX8ULP-FERT2.fs \
 	PCoreMX8ULP-FERT5.fs \
-#	OSMSFMX8ULP-FERT1.fs
+	OSM8ULP-FERT1.fs
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
 	lpddr4_pc_2g1056m2ch1cs_timing.fs \
+	lpddr4_osm_1g1056m2ch1cs_timing.fs \
 	lpddr4_sc_1g1056m2ch1cs_timing.fs
 
 # List of DRAM-INFO (TYPES) for DRAM-SETTINGS Container; only add those that have timings
@@ -153,8 +154,15 @@ $(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
 
 ### BOARD-CFG SPECIFIC TARGETS ###
 
+ifneq ($(KBUILD_SRC),)
+prepare_nboot:
+	$(Q)cp -a ${KBUILD_SRC}/board/F+S/${BOARD}/nboot/*.dtsi board/F+S/${BOARD}/nboot/
+else
+prepare_nboot:
+endif
+
 # Prepend some macros with varying content to BOARD-CFG .dts
-$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts $(NBOOT_PATH)/$(BOARD)_boot-info.fs FORCE
+$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts $(NBOOT_PATH)/$(BOARD)_boot-info.fs $(NBOOT_PATH)/nboot-info.dtsi FORCE
 	@echo "/* Macros with varying content */" > $@
 	@echo "#define NBOOT_VERSION \"$(NBOOT_VERSION)\"" >> $@
 	@echo "#define BOARD_CFG_NAME \"$(*F)\"" >> $@
@@ -162,10 +170,7 @@ $(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts $(NBOOT_PATH)/$(BOARD)_boot-info.fs FORCE
 	@echo "#define SPL_SIZE $(shell expr $(shell ls -la $(NBOOT_PATH)/$(BOARD)_boot-info.fs | cut -d ' ' -f 5 ) - 64)" >> $@
 	@cat $< >> $@
 
-$(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp $(obj)/nboot-info.dtsi
-ifneq ($(KBUILD_SRC),)
-	$(Q)cp $(obj)/*.dtsi $(NBOOT_PATH)/
-endif
+$(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp
 	$(call cmd,dtco)
 
 $(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp
@@ -248,7 +253,7 @@ nboot-$(BOARD)-$(NBOOT_VERSION).fs: $(OBJ_NBOOT_FILES)
 nboot.fs: nboot-$(BOARD)-$(NBOOT_VERSION).fs
 	$(Q)cp $< nboot.fs
 
-PHONY += nboot
-nboot: nboot.fs
+PHONY += nboot prepare_nboot
+nboot: prepare_nboot nboot.fs
 	@echo "Finished doing nboot"
 ### END: NBOOT TARGETS ###
