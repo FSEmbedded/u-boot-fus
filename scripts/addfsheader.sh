@@ -71,6 +71,12 @@
 # #define FSH_FLAGS_INDEX 0x1000	/* Image contains an index */
 # #define FSH_FLAGS_EXTRA 0x0800	/* Extra offset sub-header in p32[7] */
 
+error_handler() {
+    echo "ERROR: $(basename $0) returned $1 in line $2." >&2
+    exit 1
+}
+trap 'error_handler $? $LINENO' ERR
+
 FSH_FLAGS_DESCR=0x8000
 FSH_FLAGS_CRC32=0x4000
 FSH_FLAGS_SECURE=0x2000
