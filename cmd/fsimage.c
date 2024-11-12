@@ -4459,23 +4459,22 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 		 * fs_handle_uboot(). When Infos are missing, than load complete
 		 * firmware into $loadaddr.
 		 */
-		if(!ni_old.uboot.start || !ni_old.uboot.size){
-			puts("FAILED TO GET U-BOOT.\n");
-			puts("Provide complete Firmware (NBOOT + UBOOT) in RAM\n");
-			free_image_list(img_list);
-			return -EINVAL;
+		if(ni_old.uboot.start && ni_old.uboot.size){
+			/* Since new U-Boot is not provided, we need to know the old size */
+			ni_new->uboot.size = ni_old.uboot.size;
+
+			/* Check if there are changes */
+			need_uboot = fi->ops->si_differs(&ni_new->uboot, &ni_old.uboot);
+			need_env = fi->ops->si_differs(&ni_new->env, &ni_old.env);
+		} else {
+			puts("WARNING: U-Boot is not found. System will not BOOT!\n");
+			puts("WARNING: Load U-Boot and then re-run fsimage save!\n");
 		}
-
-		/* Since new U-Boot is not provided, we need to know the old size */
-		ni_new->uboot.size = ni_old.uboot.size;
-
-		/* Check if there are changes */
-		need_uboot = fi->ops->si_differs(&ni_new->uboot, &ni_old.uboot);
-		need_env = fi->ops->si_differs(&ni_new->env, &ni_old.env);
 	}else{
 		ni_new->uboot.size = fs_image_get_size((void *)uboot_addr, true);
 	}
 
+	/* load U-Boot from Flash, if needed */
 	if(need_uboot) {
 		puts("Need to move U-BOOT-INFO\n");
 		uboot_addr = addr + (ulong)file_size;
@@ -4501,6 +4500,7 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 		}
 	}
 
+	/* Load Env from Flash, if Needed */
 	if(need_env) {
 		puts("Need to move U-Boot Environment\n");
 		printf("Loading ENV from %s\n", fi->devname);
@@ -4593,6 +4593,23 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	return CMD_RET_SUCCESS;
 }
 
+static void update_board_cfg(struct nboot_info *ni)
+{
+	uint uboot_size, nboot_size, uboot_offset;
+	void *fdt = fs_image_get_cfg_fdt();
+
+	nboot_size = cpu_to_fdt32(ni->nboot.size);
+	uboot_offset = cpu_to_fdt32(ni->uboot.start[0]);
+	uboot_size = cpu_to_fdt32(ni->uboot.size);
+
+	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+				"nboot-size", &nboot_size, sizeof(uint), 0);
+	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+				"uboot-start", &uboot_offset, sizeof(uint), 0);
+	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
+				"uboot-size", &uboot_size, sizeof(uint), 0);
+}
+
 static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 {
 	struct fs_header_v1_0 *uboot_fsh = (void *)addr;
@@ -4601,10 +4618,10 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 	struct region_info uboot_ri;
 	struct sub_info uboot_sub;
 	const char *arch = fs_image_get_arch();
-	void *fdt;
+	struct fs_header_v1_0 *cfg_fsh = fs_image_get_cfg_addr();
+	uint cfg_size = fs_image_get_size(cfg_fsh, false);
+	void *fdt = fs_image_get_cfg_fdt();
 	int ret = CMD_RET_SUCCESS;
-
-	fdt = fs_image_get_cfg_fdt();
 
 	if(fs_image_validate(uboot_fsh, "U-BOOT-INFO", arch, (ulong) uboot_fsh))
 		return CMD_RET_FAILURE;
@@ -4645,6 +4662,10 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 		return CMD_RET_FAILURE;
 	}
 
+	update_board_cfg(&ni);
+
+	/* calc new crc32 */
+	fs_image_update_header(cfg_fsh, cfg_size, cfg_fsh->info.flags);
 	return ret;
 }
 
@@ -4765,6 +4786,7 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 	       fs_image_get_size(cfg_fsh, true));
 
 	cfg_fsh = fs_image_get_cfg_addr();
+	update_board_cfg(&ni_new);
 	fs_image_board_cfg_set_board_rev(cfg_fsh);
 	puts("New BOARD-CFG is now active\n");
 
