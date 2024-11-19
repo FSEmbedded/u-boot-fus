@@ -134,9 +134,9 @@ static int set_gd_board_type(void)
 	len = (int)(ptr - board_id);
 
 	SET_BOARD_TYPE("PCoreMX8ULP", BT_PICOCOREMX8ULP, board_id, len);
-	SET_BOARD_TYPE("OSMSFMX8ULP", BT_OSMSFMX8ULP, board_id, len);
+	SET_BOARD_TYPE("OSM8ULP", BT_OSMSFMX8ULP, board_id, len);
+	SET_BOARD_TYPE("aStone8ULP", BT_ARMSTONEMX8ULP, board_id, len);
 	SET_BOARD_TYPE("SCoreMX8ULP", BT_SOLDERCOREMX8ULP, board_id, len);
-	SET_BOARD_TYPE("ARMSTONEMX8ULP", BT_SOLDERCOREMX8ULP, board_id, len);
 
 	return -EINVAL;
 }

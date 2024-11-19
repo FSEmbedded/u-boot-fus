@@ -157,7 +157,7 @@ static void sim_pad_setup(void)
 			break;
 		case BT_ARMSTONEMX8ULP:
 		case BT_OSMSFMX8ULP:
-			set_apd_gpiox_op_range(PTE, RANGE_3V3V);
+			set_apd_gpiox_op_range(PTE, RANGE_1P8V);
 			set_apd_gpiox_op_range(PTF, RANGE_AUTO);
 			break;
 		case BT_SOLDERCOREMX8ULP:
@@ -169,100 +169,12 @@ static void sim_pad_setup(void)
 	}
 }
 
-void spl_board_init(void)
-{
-	u32 res;
-	int ret;
-	struct udevice *dev;
-
-	/* Load Board ID to know the Board in early state*/
-	fs_cntr_load_board_id();
-
-	/* Setup Multiple Devicetree */
-	board_early_init_f();
-
-	ret = imx8ulp_dm_post_init();
-	if (ret)
-		return;
-
-	regulators_enable_boot_on(false);
-
-	preloader_console_init();
-
-	print_bootstage();
-
-	print_devinfo();
-
-	display_ele_fw_version();
-
-	/* Set iomuxc0 for pmic when m33 is not booted */
-	if (!m33_image_booted())
-		setup_iomux_pmic();
-
-	/* Load the lposc fuse to work around ROM issue. The fuse depends on ELE to read. */
-	if (is_soc_rev(CHIP_REV_1_0))
-		load_lposc_fuse();
-
-	upower_init();
-
-	power_init_board();
-
-	clock_init_late();
-
-	/* This must place after upower init, so access to MDA and MRC are valid */
-	/* Init XRDC MDA  */
-	xrdc_init_mda();
-
-	/* Init XRDC MRC for VIDEO, DSP domains */
-	xrdc_init_mrc();
-
-	xrdc_init_pdac_msc();
-
-	/* Load F&S NBOOT-Images */
-    fs_cntr_init(true);
-
-	/* DDR initialization */
-	spl_dram_init();
-
-	/* Call it after PS16 power up */
-	set_lpav_qos();
-
-	sim_pad_setup();
-
-	/* Enable A35 access to the CAAM */
-	ret = ele_release_caam(0x7, &res);
-	if (!ret) {
-		if (((res >> 8) & 0xff) == ELE_NON_SECURE_STATE_FAILURE_IND)
-			printf("Warning: CAAM is in non-secure state, 0x%x\n", res);
-
-		/* Only two UCLASS_MISC devicese are present on the platform. There
-		 * are MU and CAAM. Here we initialize CAAM once it's released by
-		 * ELE firmware..
-		 */
-		if (IS_ENABLED(CONFIG_FSL_CAAM)) {
-			ret = uclass_get_device_by_driver(UCLASS_MISC, DM_DRIVER_GET(caam_jr), &dev);
-			if (ret)
-				printf("Failed to initialize caam_jr: %d\n", ret);
-		}
-	}
-
-	/*
-	 * RNG start only available on the A1 soc revision.
-	 * Check some JTAG register for the SoC revision.
-	 */
-	if (!is_soc_rev(CHIP_REV_1_0)) {
-		ret = ele_start_rng();
-		if (ret)
-			printf("Fail to start RNG: %d\n", ret);
-	}
-}
-
 #if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
 int board_fit_config_name_match(const char *name)
 {
-    CHECK_BOARD_TYPE_AND_NAME("picocoremx8ulp", BT_PICOCOREMX8ULP, name);
-    CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx8ulp-adp-osm-bb",
-								BT_OSMSFMX8ULP, name);
+	CHECK_BOARD_TYPE_AND_NAME("picocoremx8ulp", BT_PICOCOREMX8ULP, name);
+	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx8ulp-adp-osm-bb",
+					BT_OSMSFMX8ULP, name);
 
     return -EINVAL;
 }
@@ -279,7 +191,8 @@ static int set_gd_board_type(void)
 	len = (int)(ptr - board_id);
 
 	SET_BOARD_TYPE("PCoreMX8ULP", BT_PICOCOREMX8ULP, board_id, len);
-	SET_BOARD_TYPE("OSMSFMX8ULP", BT_OSMSFMX8ULP, board_id, len);
+	SET_BOARD_TYPE("OSM8ULP", BT_OSMSFMX8ULP, board_id, len);
+	SET_BOARD_TYPE("aStone8ULP", BT_ARMSTONEMX8ULP, board_id, len);
 	SET_BOARD_TYPE("SCoreMX8ULP", BT_SOLDERCOREMX8ULP, board_id, len);
 
 	return -EINVAL;
@@ -351,22 +264,114 @@ int board_early_init_f(void)
 	/* reinit dm */
 	fdtdec_resetup(&rescan);
 
-	if(rescan) {
-		dm_uninit();
-		dm_init_and_scan(!CONFIG_IS_ENABLED(OF_PLATDATA));
-	}
-
-	return 0;
+	if(!rescan)
+		return 0;
+	
+	dm_uninit();
+	return dm_init_and_scan(!CONFIG_IS_ENABLED(OF_PLATDATA));
 }
 
 void board_init_f(ulong dummy)
 {
+	u32 res;
+	struct udevice *dev;
+	int ret;
+
 	/* Clear the BSS. */
 	memset(__bss_start, 0, __bss_end - __bss_start);
 
 	timer_init();
 
 	arch_cpu_init();
+
+	/* Setup default Devicetree */
+	spl_early_init();
+
+
+	/* Load Board ID to know the Board in early state*/
+	fs_cntr_load_board_id();
+
+	/* Setup Multiple Devicetree */
+	ret = board_early_init_f();
+
+	preloader_console_init();
+
+	print_bootstage();
+
+	print_devinfo();
+
+	regulators_enable_boot_on(false);
+
+	if(ret)
+		printf("DM_INIT FAILED!: %d\n", ret);
+
+	ret = imx8ulp_dm_post_init();
+	if (ret)
+		printf("imx8ulp_dm_post_init failed\n");
+
+	display_ele_fw_version();
+
+	/* Set iomuxc0 for pmic when m33 is not booted */
+	if (!m33_image_booted())
+		setup_iomux_pmic();
+
+	/* Load the lposc fuse to work around ROM issue. The fuse depends on ELE to read. */
+	if (is_soc_rev(CHIP_REV_1_0))
+		load_lposc_fuse();
+
+	upower_init();
+
+	power_init_board();
+
+	clock_init_late();
+
+	/* This must place after upower init, so access to MDA and MRC are valid */
+	/* Init XRDC MDA  */
+	xrdc_init_mda();
+
+	/* Init XRDC MRC for VIDEO, DSP domains */
+	xrdc_init_mrc();
+
+	xrdc_init_pdac_msc();
+
+
+	/* Load F&S NBOOT-Images */
+	fs_cntr_init(true);
+
+	/* DDR initialization */
+	spl_dram_init();
+
+	/* Call it after PS16 power up */
+	set_lpav_qos();
+
+	sim_pad_setup();
+
+	/* Enable A35 access to the CAAM */
+	ret = ele_release_caam(0x7, &res);
+	if (!ret) {
+		if (((res >> 8) & 0xff) == ELE_NON_SECURE_STATE_FAILURE_IND)
+			printf("Warning: CAAM is in non-secure state, 0x%x\n", res);
+
+		/* Only two UCLASS_MISC devicese are present on the platform. There
+		 * are MU and CAAM. Here we initialize CAAM once it's released by
+		 * ELE firmware..
+		 */
+		if (IS_ENABLED(CONFIG_FSL_CAAM)) {
+			ret = uclass_get_device_by_driver(UCLASS_MISC, DM_DRIVER_GET(caam_jr), &dev);
+			if (ret)
+				printf("Failed to initialize caam_jr: %d\n", ret);
+		}
+	}
+
+	/*
+	 * RNG start only available on the A1 soc revision.
+	 * Check some JTAG register for the SoC revision.
+	 */
+	if (!is_soc_rev(CHIP_REV_1_0)) {
+		ret = ele_start_rng();
+		if (ret)
+			printf("Fail to start RNG: %d\n", ret);
+	}
 
 	board_init_r(NULL, 0);
 }
