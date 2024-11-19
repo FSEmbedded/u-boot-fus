@@ -11,9 +11,9 @@ A Boot image consists of:
 The imx8image only support the Primary Boot Container Set.
 
 The Primary Boot Container Set contains two containers. The 1st container
-only contain the SECO firmware image, the 2nd container can contain
+only contain the SECO/ELE firmware image, the 2nd container can contain
 multiple images and typically have:
- - SCF FW image
+ - SCF/UPOWER FW image
  - M4 FW image
  - AP FW image
 
@@ -45,3 +45,6 @@ APPEND mx8qm-ahab-container.img
 CONTAINER
 IMAGE SCU mx8qm-mek-scfw-tcm.bin
 IMAGE A35 spl/u-boot-spl.bin 0x00100000
+DATA A35 ./datafile.bin 0x12345678
+DATA M33 ./datafile.bin 0x12345678
+

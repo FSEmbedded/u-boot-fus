@@ -17,7 +17,7 @@ include spl/include/autoconf.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2024.08
+NBOOT_SUFFIX = 2024.11
 GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 
@@ -99,7 +99,7 @@ CNTR_LOG = cntr.log
 quiet_cmd_sed = SED     $@
 cmd_sed = sed $2 $< > $@
 
-DRAM_IMAGE_ADDR = $(shell printf "%d" 0x22050000)
+DRAM_IMAGE_ADDR = $(shell printf "%d" 0x22048000)
 DRAM_TIMING_ADDR = $(shell expr ${DRAM_IMAGE_ADDR} + 64 )
 DRAM_TIMINGS_LDS = $(NBOOT_PATH)/.dram-timings.lds.tmp
 DRAM_TIMINGS_REPLACE_SED_CMD = \
