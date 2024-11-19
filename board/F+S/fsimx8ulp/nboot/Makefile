@@ -47,12 +47,14 @@ BOARD_CONFIGS = \
 	PCoreMX8ULP-FERT1.fs \
 	PCoreMX8ULP-FERT2.fs \
 	PCoreMX8ULP-FERT5.fs \
-	OSM8ULP-FERT1.fs
+	OSM8ULP-FERT1.fs \
+	OSM8ULP-FERT2.fs
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
 	lpddr4_pc_2g1056m2ch1cs_timing.fs \
 	lpddr4_osm_1g1056m2ch1cs_timing.fs \
+	lpddr4_osm_2g1056m2ch1cs_timing.fs \
 	lpddr4_sc_1g1056m2ch1cs_timing.fs
 
 # List of DRAM-INFO (TYPES) for DRAM-SETTINGS Container; only add those that have timings
