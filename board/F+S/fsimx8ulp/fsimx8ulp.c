@@ -308,9 +308,17 @@ int board_fix_fdt(void *fdt_blob)
 #if CONFIG_IS_ENABLED(OF_BOARD_SETUP)
 int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 {
+	u64 dram_base[CONFIG_NR_DRAM_BANKS];
+	u64 dram_size[CONFIG_NR_DRAM_BANKS];
+	int i;
+
+	for(i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+		dram_base[i] = gd->bd->bi_dram[i].start;
+		dram_size[i] = gd->bd->bi_dram[i].size;
+	}
+
 	fdt_common_fixup(fdt_blob);
-	return fdt_fixup_memory(fdt_blob,
-			CFG_SYS_SDRAM_BASE, gd->bd->bi_dram[0].size);
+	return fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
 }
 #endif
 
