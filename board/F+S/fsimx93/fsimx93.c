@@ -14,7 +14,6 @@
 
 #include <common.h>
 #include <env.h>
-#include <efi_loader.h>
 #include <init.h>
 #include <miiphy.h>
 #include <netdev.h>
@@ -30,6 +29,7 @@
 #include <usb.h>
 #include <dwc3-uboot.h>
 #include <asm/gpio.h>
+#include <fdt_support.h>
 #include <hang.h>
 
 #include "fsimx93.h"
@@ -96,26 +96,6 @@ const struct fs_board_info board_info[] = {
 	},
 };
 
-#if CONFIG_IS_ENABLED(EFI_HAVE_CAPSULE_SUPPORT)
-#define IMX_BOOT_IMAGE_GUID \
-	EFI_GUID(0xbc550d86, 0xda26, 0x4b70, 0xac, 0x05, \
-		 0x2a, 0x44, 0x8e, 0xda, 0x6f, 0x21)
-
-struct efi_fw_image fw_images[] = {
-	{
-		.image_type_id = IMX_BOOT_IMAGE_GUID,
-		.fw_name = u"PICOCOREMX93-RAW",
-		.image_index = 1,
-	},
-};
-
-struct efi_capsule_update_info update_info = {
-	.dfu_string = "mmc 0=flash-bin raw 0 0x2000 mmcpart 1",
-	.num_images = ARRAY_SIZE(fw_images),
-	.images = fw_images,
-};
-
-#endif /* EFI_HAVE_CAPSULE_SUPPORT */
 
 /* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
 
@@ -423,7 +403,7 @@ void fs_ethaddr_init(void)
 int board_init(void)
 {
 #if CONFIG_IS_ENABLED(FEC_MXC)
-		setup_fec();
+	setup_fec();
 #endif
 
 	/* Copy NBoot args to variables and prepare command prompt string */
