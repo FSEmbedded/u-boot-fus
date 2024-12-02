@@ -411,7 +411,7 @@ int board_late_init(void)
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	env_set("board_name", fsimx8ulp_get_board_name());
-	env_set("board_rev", "fsimx93");
+	env_set("board_rev", "fsimx8ulp");
 #endif
 
 	debug("FEATURES=0x%x\n", info->features);

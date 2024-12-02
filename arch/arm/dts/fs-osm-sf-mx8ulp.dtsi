@@ -28,7 +28,7 @@ osm_usb_a: &usbotg1 {};
 osm_usb_b: &usbotg2 {};
 emmc: &usdhc0 {};
 osm_sdio_a: &usdhc1{};
-osm_dsi_pwm: &tpm7 {};
+// osm_dsi_pwm: &tpm7 {};
 
 / {
 	model = "F+S OSM-SF-MX8ULP";
@@ -51,7 +51,7 @@ osm_dsi_pwm: &tpm7 {};
 		// i2c3 = &osm_i2c_cam;
 		mmc0 = &emmc;
 		mmc1 = &osm_sdio_a;
-		spi0 = &osm_spi_a;
+		// spi0 = &osm_spi_a;
 		/* spi b via m33 */
 		// spi1 = &osm_spi_b;
 		// gpio0 = &rp_gpioa;
@@ -65,7 +65,7 @@ osm_dsi_pwm: &tpm7 {};
 		usb0 = &osm_usb_a;
 		usb1 = &osm_usb_b;
 		rtc0 = &ext_rtc;
-		pwm0 = &osm_dsi_pwm;
+		// pwm0 = &osm_dsi_pwm;
 		/* pwm 1,2,3,4,5 via m33 */
 		// isi0 = &isi_0;
 		// csi0 = &mipi_csi0;

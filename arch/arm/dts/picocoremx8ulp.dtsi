@@ -705,8 +705,8 @@ pc_spi_a: &lpspi4 {};
 
 	pinctrl_ethphy: ethphygrp {
 		fsl,pins = <
-			MX8ULP_PAD_PTE2__PTE2		   0x3  //INT
-			MX8ULP_PAD_PTF31__PTF31		 0x3  //RST  
+			MX8ULP_PAD_PTE2__PTE2		0x3  //INT
+			MX8ULP_PAD_PTF31__PTF31		0x3  //RST  
 		>;
 	};
 

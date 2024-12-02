@@ -21,7 +21,7 @@
 		board-name = "FS-OSM-SF-MX8ULP";
 		board-fdt = "fs-osm-sf-mx8ulp-adp-osm-bb";
 
-        /* DRAM: B.ICDRAM.30 */
+		/* DRAM: B.ICDRAM.30 */
 		dram-type = "lpddr4";
 		dram-timing = "lpddr4_osm_2g1056m2ch1cs";
 		dram-size = <0x800>;		/* In MiB */

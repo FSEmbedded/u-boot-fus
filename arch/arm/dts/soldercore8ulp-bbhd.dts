@@ -7,14 +7,7 @@
  */
 /dts-v1/;
 
-#define CONFIG_SOLDERCORE8ULP_EMMC
-#define CONFIG_SOLDERCORE8ULP_ETH_ADP
-#define CONFIG_SOLDERCORE8ULP_UART
-#define CONFIG_SOLDERCORE8ULP_USB0
-#define CONFIG_SOLDERCORE8ULP_USB1
-#define CONFIG_SOLDERCORE8ULP_EPDC
-
-#include "fsimx8ulp.dtsi"
+#include "soldercore8ulp.dtsi"
 
 / {
 	model = "F&S SolderCore8ULP";
