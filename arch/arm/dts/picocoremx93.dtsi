@@ -9,13 +9,31 @@
 
 /dts-v1/;
 
+#include "imx93.dtsi"
 #include <dt-bindings/usb/pd.h>
 #include <dt-bindings/pwm/pwm.h>
-#ifdef CONFIG_PICOCOREMX93_EXT_RTC
-#include <dt-bindings/rtc/nxp,pcf85263.h>
-#endif
-#include "imx93.dtsi"
-//#include <fsversion.h>
+// #include <dt-bindings/rtc/pcf85363.h>
+// #include <fsversion.h>
+
+pc_i2c_a: &lpi2c1 {};
+pc_i2c_b: &lpi2c8 {};
+pc_i2c_c: &lpi2c5 {};
+pc_i2c_d: &lpi2c2 {};
+pc_uart_a: &lpuart7 {};
+pc_uart_b: &lpuart6 {};
+pc_uart_c: &lpuart1 {};
+pc_uart_d: &lpuart2 {};
+pc_eth_a: &eqos {};
+pc_eth_b: &fec {};
+pc_usb_1: &usbotg1 {};
+pc_usb_2: &usbotg2 {};
+emmc: &usdhc1 {};
+pc_sdio_a: &usdhc2 {};
+pc_sdio_b: &usdhc3 {};
+pc_sdio_c: &usdhc1 {};
+pc_spi_a: &lpspi6 {};
+pc_spi_b: &lpspi1 {};
+pc_sai: &sai3	{};
 
 &ele_fw2 {
 	memory-region = <&ele_reserved>;
@@ -33,12 +51,30 @@
 	aliases {
 		ethernet0 = &eqos;
 		ethernet1 = &fec;
-		spi0 = &lpspi3;
-		spi1 = &lpspi6;
-#ifdef CONFIG_PICOCOREMX93_EXT_RTC
-		rtc0 = &rtc85263;
+		i2c0 = &pc_i2c_a;
+		i2c1 = &pc_i2c_b;
+		i2c2 = &pc_i2c_c;
+		i2c3 = &pc_i2c_d;
+		/delete-property/ i2c4;
+		/delete-property/ i2c5;
+		/delete-property/ i2c6;
+		/delete-property/ i2c7;
+		mmc0 = &emmc;
+		mmc1 = &pc_sdio_a;
+		mmc2 = &pc_sdio_b;
+		serial0 = &pc_uart_a;
+		serial1 = &pc_uart_b;
+		serial2 = &pc_uart_c;
+		serial3 = &pc_uart_d;
+		/delete-property/ serial4;
+		/delete-property/ serial5;
+		/delete-property/ serial6;
+		/delete-property/ serial7;
+		spi0 = &pc_spi_a;
+		spi1 = &pc_spi_b;
+		rtc0 = &ext_rtc;
 		rtc1 = &bbnsm_rtc;
-#endif
+		adc  = &adc1;
 	};
 
 	/* -------------------- BOARD INFO -------------------- */
@@ -259,7 +295,7 @@
 	sound_sgtl5000: sound-sgtl5000 {
 		compatible = "fsl,imx-audio-sgtl5000";
 		model = "imx-sgtl5000";
-		audio-cpu = <&sai3>;
+		audio-cpu = <&pc_sai>;
 		audio-codec = <&sgtl5000>;
 		audio-routing =
 			"LINE_IN", "Line In Jack",
@@ -272,7 +308,7 @@
 };
 
 #ifdef CONFIG_PICOCOREMX93_I2S_A
-&sai3 {
+&pc_sai {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
 	assigned-clocks = <&clk IMX93_CLK_SAI3>;
@@ -554,16 +590,13 @@
 		};
 	};
 
-#ifdef CONFIG_PICOCOREMX93_EXT_RTC
-	rtc85263: rtc85263@51 {
+	ext_rtc: rtc85263@51 {
 		compatible = "nxp,pcf85263";
 		reg = <0x51>;
-		clock-out = <PCF85263_CLK_OUT_32p768kHz>;
-
-		quartz-load-capacitance = <PCF85263_QUARTZCAP_12p5pF>;
-		quartz-drive-strength = <PCF85263_QUARTZDRIVE_LOW>;
+		// clock-out = <PCF85363_COF_32768Hz>;
+		// quartz-load-femtofarads = <PCF85363_CAP_12p5pF>;
+		// quartz-drive-strength = <PCF85363_OSC_DRIVE_LOW>;
 	};
-#endif
 
 #ifdef CONFIG_PICOCOREMX93_SGTL5000_AUDIO
 	sgtl5000: sgtl5000@a {
@@ -742,7 +775,7 @@
 };
 
 /* SD_C - eMMC */
-emmc: &usdhc1 {
+&emmc {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
@@ -753,7 +786,7 @@ emmc: &usdhc1 {
 };
 
 #ifdef CONFIG_PICOCOREMX93_SD_A
-pc_sdio_a: &usdhc2 {
+&pc_sdio_a {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
@@ -767,7 +800,7 @@ pc_sdio_a: &usdhc2 {
 #endif /* CONFIG_PICOCOREMX93_SD_A */
 
 #ifdef CONFIG_PICOCOREMX93_SD_B
-pc_sdio_b: &usdhc3 {
+&pc_sdio_b {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc3>, <&pinctrl_usdhc3_wlan>;
 	pinctrl-1 = <&pinctrl_usdhc3_100mhz>, <&pinctrl_usdhc3_wlan>;
