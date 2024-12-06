@@ -17,6 +17,13 @@
 #include <dt-bindings/pwm/pwm.h>
 #include "imx93.dtsi"
 
+#define OSM_GPIO_A_0_PIN 30
+#define OSM_GPIO_A_1_PIN 29
+#define OSM_GPIO_A_2_PIN 15
+#define OSM_GPIO_A_3_PIN 14
+#define OSM_GPIO_A_4_PIN 13
+#define OSM_GPIO_A_5_PIN 12
+
 osm_eth_a: &eqos {};
 osm_eth_b: &fec {};
 osm_uart_con: &lpuart1 {};
@@ -26,6 +33,7 @@ osm_uart_d: &lpuart8 {};
 osm_i2c_int: &lpi2c2 {};
 osm_i2c_a: &lpi2c1 {};
 osm_i2c_b: &lpi2c3 {};
+osm_i2c_cam: &lpi2c5{};
 osm_spi_a: &flexspi1 {};
 osm_spi_b: &lpspi3{};
 osm_usb_a: &usbotg1 {};
@@ -40,9 +48,6 @@ osm_pwm_1: &tpm3 {};
 osm_i2s_a: &sai3 {};
 osm_can_a: &flexcan1 {};
 osm_can_b: &flexcan2 {};
-
-osm_gpio_a25: &gpio2 {};
-osm_gpio_a01: &gpio3 {};
 
 / {
 	model = "F+S OSM-SF-MX93";
@@ -67,7 +72,7 @@ osm_gpio_a01: &gpio3 {};
 		i2c0 = &osm_i2c_int;
 		i2c1 = &osm_i2c_a;
 		i2c2 = &osm_i2c_b;
-		/delete-property/ i2c3;
+		i2c3 = &osm_i2c_cam;
 		/delete-property/ i2c4;
 		/delete-property/ i2c5;
 		/delete-property/ i2c6;
@@ -203,7 +208,7 @@ osm_gpio_a01: &gpio3 {};
 		reg_sdio_a_pwr: regulator-sdioa-en@2 {
 			compatible = "regulator-fixed";
 			reg = <2>;
-			regulator-name = "sdio-pwr";
+			regulator-name = "sdio-a-pwr";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_sdio_pwr_en>;
 			gpio = <&gpio3 7 GPIO_ACTIVE_HIGH>;
@@ -211,6 +216,7 @@ osm_gpio_a01: &gpio3 {};
 			regulator-max-microvolt = <3300000>;
 			vin-supply = <&reg_carrier_pwr>;
 			enable-active-high;
+			off-on-delay-us = <12000>;
 		};
 
 		reg_disp_vdd_en: regulator_disp_vdd_en@3 {
@@ -246,8 +252,8 @@ osm_gpio_a01: &gpio3 {};
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_carrier_en>;
 			gpio = <&gpio1 11 GPIO_ACTIVE_HIGH>;
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
 			enable-active-high;
 			regulator-always-on;
 			regulator-boot-on;
@@ -359,29 +365,40 @@ osm_uart_b: &lpuart5 {
 		"","";
 };
 
-&osm_gpio_a25 {
+&gpio1 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_gpio1>;
+	pinctrl-1 = <&pinctrl_gpio1>;
+	gpio-line-names = \
+		"","","","","",
+		"","","","","",
+		"USB_A_OC","","","","",
+		"","","","","",
+		"","","","","",
+		"","","","","",
+		"","";
+	status = "okay";
+};
+
+&gpio2 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_gpio2>;
 	pinctrl-1 = <&pinctrl_gpio2>;
 	status = "okay";
 	gpio-line-names = \
-		"","","","","","","", 
-		"OSM_DISP_EN",
-		"","","","",
-		"OSM_GPIO_A_5",
-		"OSM_GPIO_A_4",
-		"OSM_GPIO_A_3",
-		"OSM_GPIO_A_2",
-		"","",
-		"OSM_USB_B_EN",
-		"OSM_USB_A_EN",
-		"","","","",
-		"OSM_SPI_CS1",
-		"OSM_SDIO_A_WP",
-		"","","","","","";
+		"","","","","",
+		"","","OSM_DISP_EN","","",
+		"","","OSM_GPIO_A_5","OSM_GPIO_A_4","OSM_GPIO_A_3",
+		"OSM_GPIO_A_2","","","OSM_USB_B_EN","OSM_USB_A_EN",
+		"","","","","OSM_SPI_CS1",
+		"OSM_SDIO_A_WP","","USB_B_OC","","",
+		"","";
 };
 
-&osm_gpio_a01 {
+&gpio3 {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_gpio3>;
+	pinctrl-1 = <&pinctrl_gpio3>;
 	gpio-line-names = \
 		"","","","","",
 		"","",
@@ -394,6 +411,7 @@ osm_uart_b: &lpuart5 {
 		"OSM_GPIO_A_1",
 		"OSM_GPIO_A_0",
 		"";
+	status = "okay";
 };
 
 &gpio4 {
@@ -537,6 +555,14 @@ osm_uart_b: &lpuart5 {
 	status = "disabled";
 };
 
+&osm_i2c_cam {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c5>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "disabled";
+};
+
 /* SPI declerations */
 &osm_spi_a {
 	 pinctrl-names = "default";
@@ -557,6 +583,7 @@ osm_uart_b: &lpuart5 {
 	disable-over-current;
 	samsung,picophy-pre-emp-curr-control = <3>;
 	samsung,picophy-dc-vol-level-adjust = <7>;
+
 	status = "disabled";
 };
 
@@ -585,6 +612,7 @@ osm_uart_b: &lpuart5 {
 &osm_i2s_a {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
+	status = "disabled";
 };
 
 /* SDIO decleration */
@@ -609,8 +637,8 @@ osm_uart_b: &lpuart5 {
 	pinctrl-2 = <&pinctrl_usdhc2_200mhz>;
 	vmmc-supply = <&reg_sdio_a_pwr>;
 	bus-width = <4>;
-	keep-power-in-suspend;
 	wp-gpios = <&gpio2 25 GPIO_ACTIVE_HIGH>;
+	status = "disabled";
 };
 
 
@@ -711,10 +739,14 @@ osm_uart_b: &lpuart5 {
 		>;
 	};
 
+	pinctrl_gpio1: gpio1grp {
+		fsl,pins = <
+			MX93_PAD_PDM_BIT_STREAM1__GPIO1_IO10	0x31e
+		>;
+	};
+
 	pinctrl_gpio2: gpio2grp {
 		fsl,pins = <
-			MX93_PAD_DAP_TCLK_SWCLK__JTAG_MUX_TCK		0x31e
-			MX93_PAD_DAP_TMS_SWDIO__JTAG_MUX_TMS		0x31e
 #if !defined(CONFIG_OSMSFMX93_UARTD)
 			MX93_PAD_GPIO_IO12__GPIO2_IO12			0x31e
 			MX93_PAD_GPIO_IO13__GPIO2_IO13			0x31e
@@ -723,6 +755,7 @@ osm_uart_b: &lpuart5 {
 			MX93_PAD_GPIO_IO14__GPIO2_IO14			0x31e
 			MX93_PAD_GPIO_IO15__GPIO2_IO15			0x31e
 #endif
+			MX93_PAD_GPIO_IO27__GPIO2_IO27			0x31e
 		>;
 	};
 
@@ -757,6 +790,13 @@ osm_uart_b: &lpuart5 {
 		fsl,pins = <
 			MX93_PAD_GPIO_IO29__LPI2C3_SCL		0x40000b9e
 			MX93_PAD_GPIO_IO28__LPI2C3_SDA		0x40000b9e
+		>;
+	};
+
+	pinctrl_lpi2c5: lpi2c5grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO22__LPI2C5_SDA		0x40000b9e
+			MX93_PAD_GPIO_IO23__LPI2C5_SCL		0x40000b9e
 		>;
 	};
 
