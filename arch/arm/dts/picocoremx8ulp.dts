@@ -19,28 +19,31 @@
 /* Set baseboard revision as 3-digit number, e.g. 110 for board rev. 1.10 */
 #define CONFIG_PICOCOREBBDSI_BOARD_REVISION	140
 
-/* M33 Configs*/
-// #define SUPPORT_M33
+/* Cortex-M support */
+#define SUPPORT_RPMSG
 
-// #if defined(SUPPORT_M33)
-// #define SUPPORT_RPMSG
-// #endif
+/* Network*/
+/* WLAN/BLUETOOTH */
+#define CONFIG_PICOCOREMX8ULP_WLAN
 
-// #if defined(SUPPORT_M33) &&\
-//     defined(SUPPORT_RPMSG)
-// #define CONFIG_PICOCOREMX8ULP_AUDIO_RTD
-// #define CONFIG_RPMSG_GPIOA
-// #define CONFIG_RPMSG_GPIOB
-// #else
+/* AUDIO */
 // #define CONFIG_PICOCOREMX8ULP_AUDIO_APD
-// #endif
+/* LPAUDIO is currently not supported */
+// #define CONFIG_PICOCOREMX8ULP_AUDIO_RTD
 
-/* common Configs */
-// #define CONFIG_PICOCOREMX8ULP_WLAN
-
-// #if !defined(CONFIG_PICOCOREMX8ULP_WLAN)
-// #define CONFIG_PICOCOREMX8ULP_SD_A_CD
-// #define CONFIG_PICOCOREMX8ULP_SD_A_WP
-// #endif
+/*
+ * SD_A - External SD port with Card Detect (CD) and Write Protect (WP)
+ * On picocoremx8ulp SKIT: external port is Micro-SD card slot with CD but without WP
+ */
+#if !defined(CONFIG_PICOCOREMX8ULP_WLAN)
+#define CONFIG_PICOCOREMX8ULP_SD_A
+#define CONFIG_PICOCOREMX8ULP_SD_A_CD
+#define CONFIG_PICOCOREMX8ULP_SD_A_WP
+#endif
 
 #include "picocoremx8ulp.dtsi"
+
+/ {
+	model = "F&S PicoCoreMX8ULP";
+	compatible = "fus,picocoremx8ulp", "fus,fsimx8ulp", "fsl,imx8ulp";
+};
