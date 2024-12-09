@@ -4471,7 +4471,7 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 			puts("WARNING: Load U-Boot and then re-run fsimage save!\n");
 		}
 	}else{
-		ni_new->uboot.size = fs_image_get_size((void *)uboot_addr, true);
+		ni_new->uboot.size = fs_image_get_size(tmp_fsh, true);
 	}
 
 	/* load U-Boot from Flash, if needed */
