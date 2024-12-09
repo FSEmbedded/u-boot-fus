@@ -443,10 +443,10 @@ int board_late_init(void)
 	/* Set mac addresses for corresponding boards */
 	fs_ethaddr_init();
 
-	env_set("sec_boot", "no");
-#ifdef CONFIG_AHAB_BOOT
-	env_set("sec_boot", "yes");
-#endif
+	if(fs_board_is_closed())
+		env_set("sec_boot", "yes");
+	else
+		env_set("sec_boot", "no");
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	env_set("board_name", fsimx93_get_board_name());
