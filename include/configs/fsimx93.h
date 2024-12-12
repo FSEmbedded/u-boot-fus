@@ -256,4 +256,8 @@
 #define NS_ARCH_ARM64 1
 #endif
 
+#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
+#define CFG_FS_DEVICEINFO_ADDR 0x80000000
+#endif
+
 #endif /* __FSIMX93_H */

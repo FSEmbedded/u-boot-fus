@@ -21,6 +21,10 @@
 #include <vxworks.h>
 #include <tee/optee.h>
 
+#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
+#include "../board/F+S/common/fs_deviceinfo_common.h"
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 static int do_bootm_standalone(int flag, struct bootm_info *bmi)
@@ -38,6 +42,11 @@ static int do_bootm_standalone(int flag, struct bootm_info *bmi)
 	 * do_bootm_linux directly.
 	 */
 	if (!strncmp(bmi->images->fit_uname_os,"uefi",4)) {
+#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
+		// prepare fs_device
+		fs_deviceinfo_prepare();
+		fs_deviceinfo_assemble();
+#endif // CONFIG_FS_DEVICEINFO_COMMON
 		do_bootm_linux(BOOTM_STATE_OS_GO, bmi);
 	}
 #endif // CONFIG_FS_WINIOT_SUPPORT
