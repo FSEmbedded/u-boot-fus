@@ -115,9 +115,14 @@ static void prepare_usb(void){
 }
 
 static void prepare_rtc(void){
-	struct udevice *dev;
+	struct udevice *dev = NULL;
 	uint8_t buf[1] = { 0x2 };
+
 	i2c_get_chip_for_busnum(0, 0x51, 1, &dev);
+
+	if(!dev)
+		return;
+
 	dm_i2c_write(dev, 0x25, buf, 1);
 }
 
