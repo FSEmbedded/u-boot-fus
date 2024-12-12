@@ -110,4 +110,10 @@ config USB_TCPC
 	help
 	  Enable USB type-c port controller (TCPC) driver
 
+config FS_WINIOT_SUPPORT
+	bool "Windows IoT support"
+	help
+	  Allow booting Windows IoT UEFI images. Calls do_bootm_linux
+	  in bootm cmd if UEFI is detected.
+
 endif
