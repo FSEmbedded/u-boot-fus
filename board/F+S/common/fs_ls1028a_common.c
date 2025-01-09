@@ -99,6 +99,7 @@ static inline uint32_t get_gal1_features(enum board_rev brev, enum board_config 
 				features |= FEAT_GAL_RS485B;
 				break;
 			case FERT2:
+			case FERT4:
 				features |= FEAT_GAL_RS485B;
 				break;
 			case FERT3:
