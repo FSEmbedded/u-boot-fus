@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015 Freescale Semiconductor, Inc.
+ * Copyright 2021 NXP
  */
 
 #include <common.h>
@@ -9,6 +10,7 @@
 #include <fsl_validate.h>
 #include <fsl_secboot_err.h>
 #include <fsl_sfp.h>
+#include <log.h>
 #include <dm/root.h>
 
 #if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_FRAMEWORK)
@@ -113,11 +115,6 @@ void spl_validate_uboot(uint32_t hdr_addr, uintptr_t img_addr)
 #ifdef CONFIG_FSL_CORENET
 	if (pamu_init() < 0)
 		fsl_secboot_handle_error(ERROR_ESBC_PAMU_INIT);
-#endif
-
-#ifdef CONFIG_FSL_CAAM
-	if (sec_init() < 0)
-		fsl_secboot_handle_error(ERROR_ESBC_SEC_INIT);
 #endif
 
 /*

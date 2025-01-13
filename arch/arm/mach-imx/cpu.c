@@ -8,6 +8,10 @@
 
 #include <bootm.h>
 #include <common.h>
+#include <dm.h>
+#include <init.h>
+#include <log.h>
+#include <net.h>
 #include <netdev.h>
 #include <linux/errno.h>
 #include <asm/io.h>
@@ -114,16 +118,18 @@ const char *get_imx_type(u32 imxtype)
 		return "8MP Lite[4]";	/* Quad-core Lite version of the imx8mp */
 	case MXC_CPU_IMX8MP6:
 		return "8MP[6]";	/* Quad-core version of the imx8mp, NPU fused */
+	case MXC_CPU_IMX8MPUL:
+		return "8MP UltraLite";	/* Quad-core UltraLite version of the imx8mp */
 	case MXC_CPU_IMX8MN:
-		return "8MNano Quad";/* Quad-core version of the imx8mn */
+		return "8MNano Quad"; /* Quad-core version */
 	case MXC_CPU_IMX8MND:
-		return "8MNano Dual";/* Dual-core version of the imx8mn */
+		return "8MNano Dual"; /* Dual-core version */
 	case MXC_CPU_IMX8MNS:
-		return "8MNano Solo";/* Single-core version of the imx8mn */
+		return "8MNano Solo"; /* Single-core version */
 	case MXC_CPU_IMX8MNL:
-		return "8MNano QuadLite";/* Quad-core Lite version of the imx8mn */
+		return "8MNano QuadLite"; /* Quad-core Lite version */
 	case MXC_CPU_IMX8MNDL:
-		return "8MNano DualLite";/* Dual-core Lite version of the imx8mn */
+		return "8MNano DualLite"; /* Dual-core Lite version */
 	case MXC_CPU_IMX8MNSL:
 		return "8MNano SoloLite";/* Single-core Lite version of the imx8mn */
 	case MXC_CPU_IMX8MNUQ:
@@ -228,7 +234,16 @@ int print_cpuinfo(void)
 		break;
 	}
 	printf("CPU:   %s temperature grade (%dC to %dC)", temp, minc, maxc);
-#if defined(CONFIG_IMX_THERMAL) || defined(CONFIG_NXP_TMU)
+
+/*
+ * 18.09.2024 KM: Further testing needed!
+ * In tests the early call of the uclass_get_device() did not
+ * create any problems for the device-tree. For now, we take
+ * the early call out, but this needs to be evaluated for
+ * newer U-Boot versions. (fsimx93 already uses this call)
+ * We initialize the thermal sensor in board_init().
+ */
+#if defined(CONFIG_IMX_THERMAL)// || defined(CONFIG_IMX_TMU)
 	{
 		struct udevice *thermal_dev;
 		int cpu_tmp;
@@ -267,7 +282,7 @@ int print_cpuinfo(void)
 #endif
 #endif
 
-int cpu_eth_init(bd_t *bis)
+int cpu_eth_init(struct bd_info *bis)
 {
 	int rc = -ENODEV;
 
@@ -283,7 +298,7 @@ int cpu_eth_init(bd_t *bis)
  * Initializes on-chip MMC controllers.
  * to override, implement board_mmc_init()
  */
-int cpu_mmc_init(bd_t *bis)
+int cpu_mmc_init(struct bd_info *bis)
 {
 	return fsl_esdhc_mmc_init(bis);
 }

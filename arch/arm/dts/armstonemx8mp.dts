@@ -22,6 +22,7 @@
 #define CONFIG_ARMSTONEMX8MP_USB_HOST
 
 #include <dt-bindings/usb/pd.h>
+#include "imx8mp-sec-def.h"
 #include "imx8mp.dtsi"
 
 / {
@@ -34,12 +35,6 @@
 		ethernet1 = &fec;
 	};
 
-	config {
-		/* Environment in MMC is in a Boot partition by default */
-		u-boot,mmc-env-offset = <0x138000>;
-		u-boot,mmc-env-offset-redundant = <0x13C000>;
-	};
-
 	chosen {
 		bootargs = "console=ttymxc1,115200";
 		stdout-path = &uart2;
@@ -50,16 +45,40 @@
 		reg = <0x0 0x40000000 0 0x80000000>;
 	};
 
-	reg_usb1_host_vbus: regulator-usb1-vbus {
+	reg_usb3_0_host_rst: regulator-usb3_0-rst {
 		compatible = "regulator-fixed";
-		regulator-name = "usb1_host_vbus";
+		regulator-name = "usb3_0_host_rst";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_usb1_pwr>;
+		pinctrl-0 = <&pinctrl_usb3_0_rst>;
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio1 6 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		regulator-always-on;
+		startup-delay-us = <100>;
+		off-on-delay-us = <12000>;
+		regulator-boot-on;
+	};
+
+	reg_vlcd_on: regulator-vlcd-on {
+		compatible = "regulator-fixed";
+		regulator-name = "vlcd_on";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_vlcd_on>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio5 16 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
+	};
+
+	reg_bl_on: regulator-bl-on {
+		compatible = "regulator-fixed";
+		regulator-name = "bl_on";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_bl_on>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio4 28 GPIO_ACTIVE_HIGH>;
+		regulator-boot-on;
 	};
 };
 
@@ -308,7 +327,17 @@
 	status = "okay";
 };
 
+&usb3_0 {
+	status = "okay";
+};
+
 &usb_dwc3_0 {
+	compatible = "fsl,imx8mq-dwc3", "snps,dwc3";
+	assigned-clocks = <&clk IMX8MP_CLK_HSIO_AXI>;
+	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_800M>;
+	assigned-clock-rates = <400000000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usb3_0_pwr>;
 	dr_mode = "host";
 	status = "okay";
 };
@@ -319,12 +348,19 @@
 	status = "okay";
 };
 
+&usb3_1 {
+	status = "okay";
+};
+
 &usb_dwc3_1 {
+	compatible = "fsl,imx8mq-dwc3", "snps,dwc3";
+	assigned-clocks = <&clk IMX8MP_CLK_HSIO_AXI>;
+	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_800M>;
+	assigned-clock-rates = <400000000>;
 	dr_mode = "otg";
 	hnp-disable;
 	srp-disable;
 	adp-disable;
-	usb-role-switch;
 	status = "okay";
 };
 #endif
@@ -432,8 +468,8 @@
 
 	pinctrl_i2c2: i2c2grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_I2C2_SCL__I2C2_SCL			0x400001c3
-			MX8MP_IOMUXC_I2C2_SDA__I2C2_SDA			0x400001c3
+			MX8MP_IOMUXC_ECSPI1_MISO__I2C2_SCL			0x400001c3
+			MX8MP_IOMUXC_ECSPI1_SS0__I2C2_SDA			0x400001c3
 		>;
 	};
 
@@ -460,8 +496,8 @@
 
 	pinctrl_i2c2_gpio: i2c2grp-gpio {
 		fsl,pins = <
-			MX8MP_IOMUXC_I2C2_SCL__GPIO5_IO16        	0x1c3
-			MX8MP_IOMUXC_I2C2_SDA__GPIO5_IO17        	0x1c3
+			MX8MP_IOMUXC_ECSPI1_MISO__GPIO5_IO08        0x1c3
+			MX8MP_IOMUXC_ECSPI1_SS0__GPIO5_IO09        	0x1c3
 		>;
 	};
 
@@ -499,9 +535,16 @@
 		>;
 	};
 
-	pinctrl_usb1_pwr: usb1grp {
+	pinctrl_usb3_0_pwr: usb0grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_GPIO1_IO12__GPIO1_IO12	0x19
+//###			MX8MP_IOMUXC_GPIO1_IO12__GPIO1_IO12	0x19
+			MX8MP_IOMUXC_GPIO1_IO12__USB1_OTG_PWR	0x19
+		>;
+	};
+
+	pinctrl_usb3_0_rst: usb0grp-rst {
+		fsl,pins = <
+			MX8MP_IOMUXC_GPIO1_IO06__GPIO1_IO06	0x19
 		>;
 	};
 
@@ -626,6 +669,18 @@
 		fsl,pins = <
 			/* CD */
 			MX8MP_IOMUXC_GPIO1_IO14__GPIO1_IO14	0x1c4
+		>;
+	};
+
+	pinctrl_vlcd_on: vlcdgrp-on {
+		fsl,pins = <
+			MX8MP_IOMUXC_I2C2_SCL__GPIO5_IO16	0x19
+		>;
+	};
+
+	pinctrl_bl_on: blgrp-on {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI3_RXFS__GPIO4_IO28	0x19
 		>;
 	};
 

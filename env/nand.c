@@ -17,6 +17,7 @@
 #include <command.h>
 #include <env.h>
 #include <env_internal.h>
+#include <asm/global_data.h>
 #include <linux/stddef.h>
 #include <malloc.h>
 #include <memalign.h>
@@ -59,41 +60,53 @@ static env_t *env_ptr = (env_t *)CONFIG_NAND_ENV_DST;
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#if CONFIG_IS_ENABLED(OF_CONTROL)
-static loff_t nand_offset(int copy)
+__weak loff_t board_nand_get_env_offset(struct mtd_info *mtd, int copy)
 {
+	loff_t env_offset = CONFIG_ENV_NAND_OFFSET;
+
 #ifdef CONFIG_ENV_NAND_OFFSET_REDUND
-	if (copy) {
-		return fdtdec_get_config_int(
-			gd->fdt_blob, "u-boot,nand-env-offset-redundant",
-			env_get_offset(CONFIG_ENV_NAND_OFFSET_REDUND));
-	}
+	if (copy)
+		env_offset = CONFIG_ENV_NAND_OFFSET_REDUND;
 #endif
-	return fdtdec_get_config_int(gd->fdt_blob, "u-boot,nand-env-offset",
-				     env_get_offset(CONFIG_ENV_NAND_OFFSET));
+
+	if (CONFIG_IS_ENABLED(OF_CONTROL)) {
+		const char *prop_name = "u-boot,nand-env-offset";
+#ifdef CONFIG_ENV_NAND_OFFSET_REDUND
+		if (copy)
+			prop_name = "u-boot,nand-env-offset-redundant";
+#endif
+		env_offset = fdtdec_get_config_int(gd->fdt_blob, prop_name,
+						   env_offset);
+	}
+
+	return env_offset;
 }
 
-static loff_t nand_range(void)
-{
-	return fdtdec_get_config_int(gd->fdt_blob, "u-boot,nand-env-range",
-				     CONFIG_ENV_NAND_RANGE);
-}
-#else
 static loff_t nand_offset(int copy)
 {
-#if defined(CONFIG_ENV_NAND_OFFSET_REDUND)
-	if (copy)
-		return env_get_offset(CONFIG_ENV_NAND_OFFSET_REDUND);
-#endif
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
 
-	return env_get_offset(CONFIG_ENV_NAND_OFFSET);
+	return board_nand_get_env_offset(mtd, copy);
+}
+
+__weak loff_t board_nand_get_env_range(struct mtd_info *mtd)
+{
+	loff_t env_range = CONFIG_ENV_NAND_RANGE;
+
+	if (CONFIG_IS_ENABLED(OF_CONTROL)) {
+		env_range = fdtdec_get_config_int(
+			gd->fdt_blob, "u-boot,nand-env-range", env_range);
+	}
+
+	return env_range;
 }
 
 static loff_t nand_range(void)
 {
-	return CONFIG_ENV_NAND_RANGE;
+	struct mtd_info *mtd = get_nand_dev_by_index(0);
+
+	return board_nand_get_env_range(mtd);
 }
-#endif
 
 /*
  * This is called before nand_init() so we can't read NAND to
@@ -343,7 +356,7 @@ static int env_nand_load(void)
 	read2_fail = readenv(nand_offset(1), (u_char *) tmp_env2);
 
 	ret = env_import_redund((char *)tmp_env1, read1_fail, (char *)tmp_env2,
-				read2_fail);
+				read2_fail, H_EXTERNAL);
 
 done:
 	free(tmp_env1);
@@ -370,7 +383,7 @@ static int env_nand_load(void)
 		return -EIO;
 	}
 
-	return env_import(buf, 1);
+	return env_import(buf, 1, H_EXTERNAL);
 #endif /* ! ENV_IS_EMBEDDED */
 
 	return 0;

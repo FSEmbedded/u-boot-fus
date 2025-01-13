@@ -123,6 +123,7 @@ int nand_unlock(struct mtd_info *mtd, loff_t start, size_t length,
 		int allexcept);
 int nand_get_lock_status(struct mtd_info *mtd, loff_t offset);
 
+u32 nand_spl_adjust_offset(u32 sector, u32 offs);
 int nand_spl_load_image(uint32_t offs, unsigned int size, void *dst);
 int nand_spl_read_block(int block, int offset, int len, void *dst);
 void nand_deselect(void);
@@ -154,5 +155,11 @@ void sunxi_nand_init(void);
  * returns pointer to the nand device info structure or NULL on failure.
  */
 struct mtd_info *get_nand_dev_by_index(int dev);
+
+/* Get offset where the given copy of the environment starts */
+loff_t board_nand_get_env_offset(struct mtd_info *mtd, int copy);
+
+/* Get the range of the environment in NAND, typically erase block aligned */
+loff_t board_nand_get_env_range(struct mtd_info *mtd);
 
 #endif /* _NAND_H_ */

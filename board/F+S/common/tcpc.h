@@ -7,8 +7,6 @@
 #ifndef __TCPCI_H
 #define __TCPCI_H
 
-#include <dm.h>
-
 #define TCPC_VENDOR_ID			0x0
 #define TCPC_PRODUCT_ID			0x2
 
@@ -25,6 +23,8 @@
 #define TCPC_ALERT_RX_STATUS		BIT(2)
 #define TCPC_ALERT_POWER_STATUS		BIT(1)
 #define TCPC_ALERT_CC_STATUS		BIT(0)
+
+#define TCPC_FAULT_STATUS_MASK		0x15
 
 #define TCPC_TCPC_CTRL				0x19
 #define TCPC_TCPC_CTRL_BIST_MODE	BIT(1)

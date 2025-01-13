@@ -1,6 +1,62 @@
 History of Changes for N-Boot on F&S Boards and Modules
 -------------------------------------------------------
 
+nboot-fsimx8mm-2024.09 (09.09.2024)
+-----------------------------------------------
+Supported boards: PicoCoreMX8MM-LPDDR4 PicoCoreMX8MMr2-LPDDR4
+                  PicoCoreMX8MX-DDR3L OSM8MM
+
+ATF-Version: atf-f+s
+			 git commit  2465c76ca021a5f53f3fc75c153c9c45772c8c1d
+
+nboot-fsimx8mm-2024.01 (12.01.2024)
+-----------------------------------------------
+Supported boards: PicoCoreMX8MM-LPDDR4 PicoCoreMX8MMr2-LPDDR4
+                  PicoCoreMX8MX-DDR3L
+
+ATF-Version: atf-f+s
+			 git commit  fa25831ab255c0cf73631e6f9ed5289428900347
+
+DDR Training Firmware Version: 8.10.1
+
+nboot-fsimx8mm-2023.10.1 (20.12.2023)
+-----------------------------------------------
+Supported boards: PicoCoreMX8MM-LPDDR4 PicoCoreMX8MMr2-LPDDR4
+                  PicoCoreMX8MX-DDR3L
+
+ATF-Version: atf-f+s
+			 git commit  fa25831ab255c0cf73631e6f9ed5289428900347
+
+DDR Training Firmware Version: 8.10.1
+
+nboot-fsimx8mm-2023.10 (24.10.2023)
+-----------------------------------------------
+Supported boards: PicoCoreMX8MM-LPDDR4 PicoCoreMX8MMr2-LPDDR4
+                  PicoCoreMX8MX-DDR3L
+
+ATF-Version: atf-f+s
+			 git commit  fa25831ab255c0cf73631e6f9ed5289428900347
+
+DDR Training Firmware Version: 8.10.1
+
+nboot-fsimx8mm-2022.09.1 (23.09.2022)
+-----------------------------------------------
+Supported boards: PicoCoreMX8MM PicoCoreMX8MMr2 PicoCoreMX8MX
+
+ATF-Version: atf-f+s
+			 git commit  a168b8509a0d952a7ae9d15f5ee641569a766e77
+			 (Add domain permission for UART2 on M7)
+
+nboot-fsimx8mm-2022.09 (05.09.2022)
+-----------------------------------------------
+Supported boards: PicoCoreMX8MM PicoCoreMX8MMr2 PicoCoreMX8MX
+
+ATF-Version: atf-f+s
+			 git commit  a168b8509a0d952a7ae9d15f5ee641569a766e77
+			 (Add domain permission for UART2 on M7)
+
+DDR Training Firmware Version: 8.10.1
+
 nboot-fsimx8mm-2021.04.1 (25.08.2022)
 -----------------------------------------------
 Supported boards: PicoCoreMX8MM PicoCoreMX8MMr2 PicoCoreMX8MX

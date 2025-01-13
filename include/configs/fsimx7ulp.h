@@ -79,8 +79,7 @@
 /* set by defconfig */
 /*#define CONFIG_SYS_TEXT_BASE	0x67800000*/
 
-#define CONFIG_LOADADDR		0x60800000
-#define CONFIG_SYS_LOAD_ADDR	CONFIG_LOADADDR
+#define CONFIG_SYS_LOAD_ADDR	0x60800000
 #define CONFIG_BOARD_SIZE_LIMIT 0xC0000	/* max size of u-boot-dtb.imx */
 
 /* Define U-Boot offset in emmc */
@@ -126,16 +125,6 @@
 #define CONFIG_STACKSIZE_FIQ	(128)
 #endif
 
-/* Memory test checks all RAM before U-Boot (i.e. leaves last MB with U-Boot
-   untested) ### If not set, test from beginning of RAM to before stack. */
-#if 0
-#define CONFIG_SYS_MEMTEST_START CONFIG_SYS_SDRAM_BASE
-#define CONFIG_SYS_MEMTEST_END	(CONFIG_SYS_SDRAM_BASE + OUR_UBOOT_OFFS)
-#endif
-/* ### TODO: check if needed NXP */
-#define CONFIG_SYS_MEMTEST_START	PHYS_SDRAM
-#define CONFIG_SYS_MEMTEST_END		(CONFIG_SYS_MEMTEST_START + \
-				    	(PHYS_SDRAM_SIZE >> 1))
 
 /*****************************************************************************
  * Clock Settings and Timers
@@ -241,11 +230,6 @@
 #define CONFIG_SYS_FSL_ESDHC_ADDR 	0
 #define CONFIG_SYS_FSL_USDHC_NUM       	1
 
-#ifdef CONFIG_ENV_IS_IN_MMC
-#define CONFIG_SYS_MMC_ENV_DEV	0
-#define CONFIG_SYS_MMC_ENV_PART	1 /* DCD, UBoot and UbootEnv in BootPart */
-#endif
-
 
 /*****************************************************************************
  * NOR Flash
@@ -257,7 +241,6 @@
  * SPI Flash
  *****************************************************************************/
 #ifdef CONFIG_FSL_QSPI
-#define CONFIG_SYS_FSL_QSPI_AHB
 #define FSL_QSPI_FLASH_NUM	1
 #define FSL_QSPI_FLASH_SIZE	SZ_64M
 #define QSPI0_BASE_ADDR		0x410A5000
@@ -337,7 +320,7 @@
 /*****************************************************************************
  * M4 specific configuration
  *****************************************************************************/
-#define M4_BOOTROM_BASE_ADDR	TCML_BASE
+#define MCU_BOOTROM_BASE_ADDR	TCML_BASE
 
 
 /*****************************************************************************

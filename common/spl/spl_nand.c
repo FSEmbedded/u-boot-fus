@@ -5,11 +5,18 @@
  */
 #include <common.h>
 #include <config.h>
+#include <fdt_support.h>
+#include <image.h>
+#include <log.h>
 #include <spl.h>
 #include <asm/io.h>
 #include <nand.h>
 #include <linux/libfdt_env.h>
 #include <fdt.h>
+
+#ifdef CONFIG_FS_BOARD_CFG
+#include "../../board/F+S/common/fs_image_common.h"
+#endif
 
 uint32_t __weak spl_nand_get_uboot_raw_page(void)
 {
@@ -41,41 +48,69 @@ static int spl_nand_load_image(struct spl_image_info *spl_image,
 static ulong spl_nand_fit_read(struct spl_load_info *load, ulong offs,
 			       ulong size, void *dst)
 {
-	int ret;
+	ulong sector;
+	int err;
 
-	ret = nand_spl_load_image(offs, size, dst);
-	if (!ret)
-		return size;
-	else
+	sector = *(int *)load->priv;
+	offs = sector + nand_spl_adjust_offset(sector, offs - sector);
+	err = nand_spl_load_image(offs, size, dst);
+	if (err)
 		return 0;
+
+	return size;
 }
 
 static int spl_nand_load_element(struct spl_image_info *spl_image,
 				 int offset, struct image_header *header)
 {
 	int err;
+	int extra_offset = 0;
+	int hsize = sizeof(*header);
 
-	err = nand_spl_load_image(offset, sizeof(*header), (void *)header);
+#ifdef CONFIG_FS_BOARD_CFG
+	/* Load more to have the F&S header, too, if prepended */
+	hsize += FSH_SIZE;
+#endif
+	err = nand_spl_load_image(offset, hsize, (void *)header);
 	if (err)
 		return err;
+
+#ifdef CONFIG_FS_BOARD_CFG
+	/* Allow U-Boot image to be prepended with F&S header */
+	extra_offset = spl_check_fs_header(header);
+	if (extra_offset < 0)
+		return -ENOENT;
+
+	/* In case of signed U-Boot, load U-Boot image completely */
+	if ((extra_offset > 0) && fs_image_is_signed((void *)header)) {
+		u32 size;
+		void *addr = fs_image_get_ivt_info((void *)header, &size);
+
+		if (addr && size) {
+			err = nand_spl_load_image(offset, size, addr);
+			if (err)
+				return err;
+		}
+		return secure_spl_load_simple_fit(spl_image, addr, size);
+	}
+	header = (void *)header + extra_offset;
+#endif
 
 	if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) &&
 	    image_get_magic(header) == FDT_MAGIC) {
 		struct spl_load_info load;
 
 		debug("Found FIT\n");
-		load.dev = NULL;
-		load.priv = NULL;
-		load.filename = NULL;
+		memset(&load, 0, sizeof(load));
+		load.priv = &offset;
 		load.bl_len = 1;
 		load.read = spl_nand_fit_read;
+		load.extra_offset = extra_offset;
 		return spl_load_simple_fit(spl_image, &load, offset, header);
 	} else if (IS_ENABLED(CONFIG_SPL_LOAD_IMX_CONTAINER)) {
 		struct spl_load_info load;
 
-		load.dev = NULL;
-		load.priv = NULL;
-		load.filename = NULL;
+		memset(&load, 0, sizeof(load));
 		load.bl_len = 1;
 		load.read = spl_nand_fit_read;
 		return spl_load_imx_container(spl_image, &load, offset);

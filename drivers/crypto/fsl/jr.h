@@ -8,7 +8,9 @@
 #define __JR_H
 
 #include <linux/compiler.h>
+#include "fsl_sec.h"
 #include "type.h"
+#include <misc.h>
 
 #define JR_SIZE 4
 /* Timeout currently defined as 10 sec */
@@ -34,6 +36,14 @@
 #define JRNSLIODN_MASK		0x0fff0000
 #define JRSLIODN_SHIFT		0
 #define JRSLIODN_MASK		0x00000fff
+
+#ifdef CONFIG_IMX8ULP
+#define JRDID_MS_PRIM_DID	7
+#else
+#define JRDID_MS_PRIM_DID	1
+#endif
+#define JRDID_MS_PRIM_TZ	(1 << 4)
+#define JRDID_MS_TZ_OWN		(1 << 15)
 
 #define JQ_DEQ_ERR		-1
 #define JQ_DEQ_TO_ERR		-2
@@ -102,7 +112,17 @@ struct result {
 	uint32_t status;
 };
 
+struct caam_regs {
+	ccsr_sec_t *sec;
+	struct jr_regs *regs;
+	u8 jrid;
+	struct jobring jr[CONFIG_SYS_FSL_MAX_NUM_OF_SEC];
+};
+
 void caam_jr_strstatus(u32 status);
 int run_descriptor_jr(uint32_t *desc);
 
+#ifdef CONFIG_RNG_SELF_TEST
+void rng_self_test(void);
+#endif
 #endif

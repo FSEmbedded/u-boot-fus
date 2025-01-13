@@ -82,7 +82,15 @@ struct bb_miiphy_bus {
 extern struct bb_miiphy_bus bb_miiphy_buses[];
 extern int bb_miiphy_buses_num;
 
-void bb_miiphy_init(void);
+/**
+ * bb_miiphy_init() - Initialize bit-banged MII bus driver
+ *
+ * It is called during the generic post-relocation init sequence.
+ *
+ * Return: 0 if OK
+ */
+int bb_miiphy_init(void);
+
 int bb_miiphy_read(struct mii_dev *miidev, int addr, int devad, int reg);
 int bb_miiphy_write(struct mii_dev *miidev, int addr, int devad, int reg,
 		    u16 value);
@@ -177,6 +185,19 @@ struct phy_device *dm_mdio_phy_connect(struct udevice *mdiodev, int phyaddr,
  * @return pointer to phy_device, or 0 on error
  */
 struct phy_device *dm_eth_phy_connect(struct udevice *ethdev);
+
+/**
+ * dm_eth_phy_connect_index - Connect an Eth device to the #phy_index PHY based on device tree
+ * This means that the phy-handle reference can now hold multiple PHYs.
+ *
+ * Picks up the DT phy-handle and phy-mode from ethernet device node and
+ * connects the ethernet device to the linked PHY.
+ *
+ * @ethdev: ethernet device
+ *
+ * @return pointer to phy_device, or 0 on error
+ */
+struct phy_device *dm_eth_phy_connect_index(struct udevice *ethdev, int phy_index);
 
 #endif
 

@@ -22,14 +22,20 @@
 #include <common.h>
 #include <cpu_func.h>
 #include <dm.h>
-#include <asm/byteorder.h>
-#include <usb.h>
+#include <dm/device_compat.h>
+#include <log.h>
 #include <malloc.h>
+#include <usb.h>
+#include <usb/xhci.h>
 #include <watchdog.h>
+#include <asm/byteorder.h>
 #include <asm/cache.h>
 #include <asm/unaligned.h>
+#include <linux/bitops.h>
+#include <linux/bug.h>
+#include <linux/delay.h>
 #include <linux/errno.h>
-#include <usb/xhci.h>
+#include <linux/iopoll.h>
 
 #ifndef CONFIG_USB_MAX_CONTROLLER_COUNT
 #define CONFIG_USB_MAX_CONTROLLER_COUNT 1
@@ -139,23 +145,19 @@ struct xhci_ctrl *xhci_get_ctrl(struct usb_device *udev)
  * @param usec	time to wait till
  * @return 0 if handshake is success else < 0 on failure
  */
-static int handshake(uint32_t volatile *ptr, uint32_t mask,
-					uint32_t done, int usec)
+static int
+handshake(uint32_t volatile *ptr, uint32_t mask, uint32_t done, int usec)
 {
 	uint32_t result;
+	int ret;
 
-	do {
-		result = xhci_readl(ptr);
-		if (result == ~(uint32_t)0)
-			return -ENODEV;
-		result &= mask;
-		if (result == done)
-			return 0;
-		usec--;
-		udelay(1);
-	} while (usec > 0);
+	ret = readx_poll_sleep_timeout(xhci_readl, ptr, result,
+				 (result & mask) == done || result == U32_MAX,
+				 1, usec);
+	if (result == U32_MAX)		/* card removed */
+		return -ENODEV;
 
-	return -ETIMEDOUT;
+	return ret;
 }
 
 /**
@@ -169,7 +171,7 @@ static int xhci_start(struct xhci_hcor *hcor)
 	u32 temp;
 	int ret;
 
-	puts("Starting the controller\n");
+	debug("Starting the controller\n");
 	temp = xhci_readl(&hcor->or_usbcmd);
 	temp |= (CMD_RUN);
 	xhci_writel(&hcor->or_usbcmd, temp);
@@ -489,9 +491,12 @@ static int xhci_configure_endpoints(struct usb_device *udev, bool ctx_change)
 	in_ctx = virt_dev->in_ctx;
 
 	xhci_flush_cache((uintptr_t)in_ctx->bytes, in_ctx->size);
-	xhci_queue_command(ctrl, in_ctx->bytes, udev->slot_id, 0,
+	xhci_queue_command(ctrl, in_ctx->dma, udev->slot_id, 0,
 			   ctx_change ? TRB_EVAL_CONTEXT : TRB_CONFIG_EP);
 	event = xhci_wait_for_event(ctrl, TRB_COMPLETION);
+	if (!event)
+		return -ETIMEDOUT;
+
 	BUG_ON(TRB_TO_SLOT_ID(le32_to_cpu(event->event_cmd.flags))
 		!= udev->slot_id);
 
@@ -602,7 +607,7 @@ static int xhci_set_configuration(struct usb_device *udev)
 		ep_ctx[ep_index] = xhci_get_ep_ctx(ctrl, in_ctx, ep_index);
 
 		/* Allocate the ep rings */
-		virt_dev->eps[ep_index].ring = xhci_ring_alloc(1, true);
+		virt_dev->eps[ep_index].ring = xhci_ring_alloc(ctrl, 1, true);
 		if (!virt_dev->eps[ep_index].ring)
 			return -ENOMEM;
 
@@ -614,8 +619,7 @@ static int xhci_set_configuration(struct usb_device *udev)
 			cpu_to_le32(EP_MAX_ESIT_PAYLOAD_HI(max_esit_payload) |
 			EP_INTERVAL(interval) | EP_MULT(mult));
 
-		ep_ctx[ep_index]->ep_info2 =
-			cpu_to_le32(ep_type << EP_TYPE_SHIFT);
+		ep_ctx[ep_index]->ep_info2 = cpu_to_le32(EP_TYPE(ep_type));
 		ep_ctx[ep_index]->ep_info2 |=
 			cpu_to_le32(MAX_PACKET
 			(get_unaligned(&endpt_desc->wMaxPacketSize)));
@@ -627,8 +631,8 @@ static int xhci_set_configuration(struct usb_device *udev)
 			cpu_to_le32(MAX_BURST(max_burst) |
 			ERROR_COUNT(err_count));
 
-		trb_64 = (uintptr_t)
-				virt_dev->eps[ep_index].ring->enqueue;
+		trb_64 = xhci_trb_virt_to_dma(virt_dev->eps[ep_index].ring->enq_seg,
+				virt_dev->eps[ep_index].ring->enqueue);
 		ep_ctx[ep_index]->deq = cpu_to_le64(trb_64 |
 				virt_dev->eps[ep_index].ring->cycle_state);
 
@@ -641,6 +645,16 @@ static int xhci_set_configuration(struct usb_device *udev)
 		ep_ctx[ep_index]->tx_info =
 			cpu_to_le32(EP_MAX_ESIT_PAYLOAD_LO(max_esit_payload) |
 			EP_AVG_TRB_LENGTH(avg_trb_len));
+
+		/*
+		 * The MediaTek xHCI defines some extra SW parameters which
+		 * are put into reserved DWs in Slot and Endpoint Contexts
+		 * for synchronous endpoints.
+		 */
+		if (ctrl->quirks & XHCI_MTK_HOST) {
+			ep_ctx[ep_index]->reserved[0] =
+				cpu_to_le32(EP_BPKTS(1) | EP_BBM(1));
+		}
 	}
 
 	return xhci_configure_endpoints(udev, false);
@@ -676,8 +690,12 @@ static int xhci_address_device(struct usb_device *udev, int root_portnr)
 	ctrl_ctx->add_flags = cpu_to_le32(SLOT_FLAG | EP0_FLAG);
 	ctrl_ctx->drop_flags = 0;
 
-	xhci_queue_command(ctrl, (void *)ctrl_ctx, slot_id, 0, TRB_ADDR_DEV);
+	xhci_queue_command(ctrl, virt_dev->in_ctx->dma,
+			   slot_id, 0, TRB_ADDR_DEV);
 	event = xhci_wait_for_event(ctrl, TRB_COMPLETION);
+	if (!event)
+		return -ETIMEDOUT;
+
 	BUG_ON(TRB_TO_SLOT_ID(le32_to_cpu(event->event_cmd.flags)) != slot_id);
 
 	switch (GET_COMP_CODE(le32_to_cpu(event->event_cmd.status))) {
@@ -751,8 +769,11 @@ static int _xhci_alloc_device(struct usb_device *udev)
 		return 0;
 	}
 
-	xhci_queue_command(ctrl, NULL, 0, 0, TRB_ENABLE_SLOT);
+	xhci_queue_command(ctrl, 0, 0, 0, TRB_ENABLE_SLOT);
 	event = xhci_wait_for_event(ctrl, TRB_COMPLETION);
+	if (!event)
+		return -ETIMEDOUT;
+
 	BUG_ON(GET_COMP_CODE(le32_to_cpu(event->event_cmd.status))
 		!= COMP_SUCCESS);
 
@@ -819,8 +840,7 @@ int xhci_check_maxpacket(struct usb_device *udev)
 				ctrl->devs[slot_id]->out_ctx, ep_index);
 		in_ctx = ctrl->devs[slot_id]->in_ctx;
 		ep_ctx = xhci_get_ep_ctx(ctrl, in_ctx, ep_index);
-		ep_ctx->ep_info2 &= cpu_to_le32(~((0xffff & MAX_PACKET_MASK)
-						<< MAX_PACKET_SHIFT));
+		ep_ctx->ep_info2 &= cpu_to_le32(~MAX_PACKET(MAX_PACKET_MASK));
 		ep_ctx->ep_info2 |= cpu_to_le32(MAX_PACKET(max_packet_size));
 
 		/*
@@ -1244,9 +1264,8 @@ static int xhci_lowlevel_init(struct xhci_ctrl *ctrl)
 		return -ENOMEM;
 
 	reg = xhci_readl(&hccr->cr_hcsparams1);
-	descriptor.hub.bNbrPorts = ((reg & HCS_MAX_PORTS_MASK) >>
-						HCS_MAX_PORTS_SHIFT);
-	printf("Register %x NbrPorts %d\n", reg, descriptor.hub.bNbrPorts);
+	descriptor.hub.bNbrPorts = HCS_MAX_PORTS(reg);
+	debug("Register %x NbrPorts %d\n", reg, descriptor.hub.bNbrPorts);
 
 	/* Port Indicators */
 	reg = xhci_readl(&hccr->cr_hccparams);

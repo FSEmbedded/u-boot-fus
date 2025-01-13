@@ -144,9 +144,14 @@ void board_fastboot_setup(void)
 			env_set("bootcmd", boot_dev_part);
 		break;
 	case USB_BOOT:
-		printf("Detect USB boot. Will enter fastboot mode!\n");
+		printf("Fastb: Detect USB boot. Will enter fastboot mode!\n");
 		if (!env_get("bootcmd"))
 			env_set("bootcmd", "fastboot 0");
+		break;
+	case USB2_BOOT:
+		printf("Fastb: Detect USB boot. Will enter fastboot mode!\n");
+		if (!env_get("bootcmd"))
+			env_set("bootcmd", "fastboot 1");
 		break;
 	default:
 		if (!env_get("bootcmd"))
@@ -182,9 +187,19 @@ void board_fastboot_setup(void)
 	} else if (is_imx8qm()) {
 		if (!env_get("soc_type"))
 			env_set("soc_type", "imx8qm");
+		if (is_soc_rev(CHIP_REV_A))
+			env_set("soc_rev", "reva");
+		else if (is_soc_rev(CHIP_REV_B))
+			env_set("soc_rev", "revb");
 	} else if (is_imx8qxp()) {
 		if (!env_get("soc_type"))
 			env_set("soc_type", "imx8qxp");
+		if (is_soc_rev(CHIP_REV_A))
+			env_set("soc_rev", "reva");
+		else if (is_soc_rev(CHIP_REV_B))
+			env_set("soc_rev", "revb");
+		else if (is_soc_rev(CHIP_REV_C))
+			env_set("soc_rev", "revc");
 	} else if (is_imx8mq()) {
 		if (!env_get("soc_type"))
 			env_set("soc_type", "imx8mq");
@@ -197,6 +212,9 @@ void board_fastboot_setup(void)
 	} else if (is_imx8mp()) {
 		if (!env_get("soc_type"))
 			env_set("soc_type", "imx8mp");
+	} else if (is_imx8ulp()) {
+		if (!env_get("soc_type"))
+			env_set("soc_type", "imx8ulp");
 	}
 }
 
@@ -355,9 +373,11 @@ void fastboot_setup(void)
 	struct tag_serialnr serialnr;
 	char serial[17];
 
-	get_board_serial(&serialnr);
-	sprintf(serial, "%08x%08x", serialnr.high, serialnr.low);
-	env_set("serial#", serial);
+	if (!env_get("serial#")) {
+		get_board_serial(&serialnr);
+		sprintf(serial, "%08x%08x", serialnr.high, serialnr.low);
+		env_set("serial#", serial);
+	}
 
 	/*execute board relevant initilizations for preparing fastboot */
 	board_fastboot_setup();

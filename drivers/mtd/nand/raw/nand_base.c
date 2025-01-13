@@ -32,9 +32,13 @@
 #if CONFIG_IS_ENABLED(OF_CONTROL)
 #include <fdtdec.h>
 #endif
+#include <log.h>
 #include <malloc.h>
 #include <watchdog.h>
 #include <dm/devres.h>
+#include <linux/bitops.h>
+#include <linux/bug.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/compat.h>
 #include <linux/mtd/mtd.h>
@@ -3331,7 +3335,7 @@ static int nand_do_write_ops(struct mtd_info *mtd, loff_t to,
 		writelen -= bytes;
 	} while (writelen);
 
-			chip->select_chip(mtd, -1);
+	chip->select_chip(mtd, -1);
 
 	ops->retlen = ops->len - writelen;
 	if (unlikely(oob))
@@ -4664,6 +4668,7 @@ ident_done:
 EXPORT_SYMBOL(nand_get_flash_type);
 
 #if CONFIG_IS_ENABLED(OF_CONTROL)
+#include <asm/global_data.h>
 DECLARE_GLOBAL_DATA_PTR;
 
 static int nand_dt_init(struct mtd_info *mtd, struct nand_chip *chip, int node)

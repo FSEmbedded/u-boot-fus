@@ -6,6 +6,7 @@
 #include <common.h>
 #include <i2c.h>
 #include <time.h>
+#include <linux/delay.h>
 #include "tcpc.h"
 
 #ifdef DEBUG
@@ -229,6 +230,20 @@ int tcpc_clear_alert(struct tcpc_port *port, uint16_t clear_mask)
 	}
 
 	return 0;
+}
+
+int tcpc_fault_status_mask(struct tcpc_port *port, uint8_t fault_mask)
+{
+	int err = 0;
+
+	if (!port)
+		return -EINVAL;
+
+	err = dm_i2c_write(port->i2c_dev, TCPC_FAULT_STATUS_MASK, &fault_mask, 1);
+	if (err)
+		tcpc_log(port, "%s dm_i2c_write failed, err %d\n", __func__, err);
+
+	return err;
 }
 
 int tcpc_send_command(struct tcpc_port *port, uint8_t command)
@@ -832,9 +847,18 @@ static int tcpc_pd_sink_disable(struct tcpc_port *port)
 	}
 
 	if ((valb & TCPC_POWER_STATUS_VBUS_PRES) && (valb & TCPC_POWER_STATUS_SINKING_VBUS)) {
-		dm_i2c_read(port->i2c_dev, TCPC_POWER_CTRL, (uint8_t *)&valb, 1);
+		err = dm_i2c_read(port->i2c_dev, TCPC_POWER_CTRL, (uint8_t *)&valb, 1);
+		if (err) {
+			tcpc_log(port, "%s dm_i2c_read failed, err %d\n", __func__, err);
+			return -EIO;
+		}
+
 		valb &= ~TCPC_POWER_CTRL_AUTO_DISCH_DISCO; /* disable AutoDischargeDisconnect */
-		dm_i2c_write(port->i2c_dev, TCPC_POWER_CTRL, (const uint8_t *)&valb, 1);
+		err = dm_i2c_write(port->i2c_dev, TCPC_POWER_CTRL, (const uint8_t *)&valb, 1);
+		if (err) {
+			tcpc_log(port, "%s dm_i2c_write failed, err %d\n", __func__, err);
+			return -EIO;
+		}
 
 		tcpc_disable_sink_vbus(port);
 	}
@@ -902,9 +926,18 @@ static int tcpc_pd_sink_init(struct tcpc_port *port)
 		port->pd_state = ATTACHED;
 	}
 
-	dm_i2c_read(port->i2c_dev, TCPC_POWER_CTRL, (uint8_t *)&valb, 1);
+	err = dm_i2c_read(port->i2c_dev, TCPC_POWER_CTRL, (uint8_t *)&valb, 1);
+	if (err) {
+		tcpc_log(port, "%s dm_i2c_read failed, err %d\n", __func__, err);
+		return -EIO;
+	}
+
 	valb &= ~TCPC_POWER_CTRL_AUTO_DISCH_DISCO; /* disable AutoDischargeDisconnect */
-	dm_i2c_write(port->i2c_dev, TCPC_POWER_CTRL, (const uint8_t *)&valb, 1);
+	err = dm_i2c_write(port->i2c_dev, TCPC_POWER_CTRL, (const uint8_t *)&valb, 1);
+	if (err) {
+		tcpc_log(port, "%s dm_i2c_write failed, err %d\n", __func__, err);
+		return -EIO;
+	}
 
 	if (port->cfg.switch_setup_func)
 		port->cfg.switch_setup_func(port);
@@ -1008,6 +1041,9 @@ int tcpc_init(struct tcpc_port *port, struct tcpc_port_config config, ss_mux_sel
 	} else {
 		tcpc_pd_sink_disable(port);
 	}
+
+	/* Mask all fault status */
+	tcpc_fault_status_mask(port, 0);
 
 	tcpc_clear_alert(port, 0xffff);
 

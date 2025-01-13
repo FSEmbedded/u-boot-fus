@@ -5,7 +5,6 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-#define DEBUG
 
 #include <common.h>
 #include <spl.h>
@@ -17,10 +16,12 @@
 #include <asm/arch/imx8mn_pins.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/arch/clock.h>
+#include <fdt_support.h>		/* fdt_getprop_u32_default_node() */
 #include <power/pmic.h>
 #include <power/bd71837.h>
 #include <asm/mach-imx/gpio.h>
 #include <asm/mach-imx/mxc_i2c.h>
+#include <init.h>			/* arch_cpu_init() */
 #include <mmc.h>
 #include <nand.h>
 #include <asm/arch/ddr.h>
@@ -45,13 +46,16 @@ static const char *board_names[] = {
 };
 
 static unsigned int board_type;
-static unsigned int board_rev;
 static const char *board_name;
 static const char *board_fdt;
 static enum boot_device used_boot_dev;	/* Boot device used for NAND/MMC */
 static bool boot_dev_init_done;
 static unsigned int uboot_offs;
+static unsigned int uboot_offs_redundant; /* offset of redundant UBoot */
+static unsigned int uboot_part;
+static unsigned int uboot_part_redundant; /* partition of redundant UBoot */
 static bool secondary;			/* 0: primary, 1: secondary SPL */
+static int uboot_try; /* 0: first try, 1: second try */
 
 #ifdef CONFIG_POWER
 #define I2C_PMIC_8MN	3
@@ -220,11 +224,6 @@ static iomux_v3_cfg_t const nand_pads[] = {
 				    | IMX8MN_PAD_NAND_READY_B__RAWNAND_READY_B,
 };
 
-static void fs_spl_init_nand_pads(void)
-{
-	imx_iomux_v3_setup_multiple_pads(nand_pads, ARRAY_SIZE(nand_pads));
-	boot_dev_init_done = true;
-}
 #endif /* CONFIG_NAND_MXS */
 
 #ifdef CONFIG_MMC
@@ -250,19 +249,12 @@ static iomux_v3_cfg_t const emmc_pads[] = {
 	MUX_PAD_CTRL(USDHC_GPIO_PAD_CTRL) | IMX8MN_PAD_NAND_READY_B__GPIO3_IO16,
 };
 
-static void fs_spl_init_emmc_pads(void)
-{
-	/* Setup USDHC3 on NAND pads */
-	imx_iomux_v3_setup_multiple_pads(emmc_pads, ARRAY_SIZE(emmc_pads));
-	boot_dev_init_done = true;
-}
-
 int board_mmc_getcd(struct mmc *mmc)
 {
 	return 1;			/* eMMC always present */
 }
 
-int board_mmc_init(bd_t *bd)
+int board_mmc_init(struct bd_info *bd)
 {
 	struct fsl_esdhc_cfg esdhc;
 
@@ -290,8 +282,7 @@ int board_mmc_init(bd_t *bd)
 #endif /* CONFIG_MMC */
 
 /* Configure (and optionally start) the given boot device */
-static int fs_spl_init_boot_dev(enum boot_device boot_dev, bool start,
-				const char *type)
+static int fs_spl_init_boot_dev(enum boot_device boot_dev, const char *type)
 {
 	if (boot_dev_init_done)
 		return 0;
@@ -300,26 +291,21 @@ static int fs_spl_init_boot_dev(enum boot_device boot_dev, bool start,
 	switch (boot_dev) {
 #ifdef CONFIG_NAND_MXS
 	case NAND_BOOT:
-		fs_spl_init_nand_pads();
-		if (start) {
-			init_nand_clk();
-			nand_init();
-		}
+		imx_iomux_v3_setup_multiple_pads(nand_pads, ARRAY_SIZE(nand_pads));
+		init_nand_clk();
+		nand_init();
 		break;
 #endif
 #ifdef CONFIG_MMC
 	case MMC3_BOOT:
-		fs_spl_init_emmc_pads();
-		if (start) {
-			init_clk_usdhc(2);
-			mmc_initialize(NULL);
-		}
+		imx_iomux_v3_setup_multiple_pads(emmc_pads, ARRAY_SIZE(emmc_pads));
+		init_clk_usdhc(2);
+		mmc_initialize(NULL);
 		break;
 		//### TODO: Also have setups for MMC1_BOOT and MMC2_BOOT
 #endif
 	case USB_BOOT:
-		/* Nothing to do */
-		break;
+		return -ENODEV;
 
 	default:
 		printf("Can not handle %s boot device %s\n", type,
@@ -327,6 +313,7 @@ static int fs_spl_init_boot_dev(enum boot_device boot_dev, bool start,
 		return -ENODEV;
 	}
 
+	boot_dev_init_done = true;
 	return 0;
 }
 
@@ -346,7 +333,7 @@ static void fs_board_early_init(void)
 	switch (board_type)
 	{
 	case BT_PICOCOREMX8MN:
-		if (board_rev < 130)
+		if (fs_image_get_board_rev() < 130)
 			imx_iomux_v3_setup_pad(lvds_rst_8mn_120_pads);
 		else
 			imx_iomux_v3_setup_pad(lvds_rst_8mn_130_pads);
@@ -359,18 +346,31 @@ static void fs_board_early_init(void)
 	}
 }
 
-/* Do the basic board setup when we have our final BOARD-CFG */
-static void basic_init(void)
+void mmc_get_parts()
 {
-	void *fdt = fs_image_get_cfg_addr(false);
-	int offs = fs_image_get_cfg_offs(fdt);
+	if(uboot_offs == uboot_offs_redundant){
+		uboot_part = 1;
+		uboot_part_redundant = 2;
+	}
+	else{
+		uboot_part = 0;
+		uboot_part_redundant = 0;
+	}
+}
+
+/* Do the basic board setup when we have our final BOARD-CFG */
+static void basic_init(const char *layout_name)
+{
+	void *fdt = fs_image_get_cfg_fdt();
+	int offs = fs_image_get_board_cfg_offs(fdt);
+	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	int i;
 	char c;
 	int index;
 	const char *boot_dev_name;
 	enum boot_device boot_dev;
 
-	board_name = fdt_getprop(fdt, offs, "board-name", NULL);
+	board_name = fs_image_getprop(fdt, offs, rev_offs, "board-name", NULL);
 	for (i = 0; i < ARRAY_SIZE(board_names); i++) {
 		if (!strcmp(board_name, board_names[i]))
 			break;
@@ -383,7 +383,7 @@ static void basic_init(void)
 	 * Linux device tree name is defined by executing U-Boot's environment
 	 * variable set_bootfdt.
 	 */
-	board_fdt = fdt_getprop(fdt, offs, "board-fdt", NULL);
+	board_fdt = fs_image_getprop(fdt, offs, rev_offs, "board-fdt", NULL);
 	if (!board_fdt) {
 		static char board_name_lc[32];
 
@@ -398,31 +398,61 @@ static void basic_init(void)
 		board_fdt = (const char *)&board_name_lc[0];
 	}
 
-	board_rev = fdt_getprop_u32_default_node(fdt, offs, 0,
-						 "board-rev", 100);
 	config_uart(board_type);
 	if (secondary)
 		puts("Warning! Running secondary SPL, please check if"
 		     " primary SPL is damaged.\n");
 
-	boot_dev_name = fdt_getprop(fdt, offs, "boot-dev", NULL);
+	boot_dev_name = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
 	boot_dev = fs_board_get_boot_dev_from_name(boot_dev_name);
 
-	/* Get U-Boot offset */
+	printf("BOARD-ID: %s\n", fs_image_get_board_id());
+
+	/* Get U-Boot offset; not necessary in SDP mode */
+	if (layout_name) {
+		int layout;
 #ifdef CONFIG_FS_UPDATE_SUPPORT
-	index = 0;			/* ### TODO: Select slot A or B */
+		index = 0;		/* ### TODO: Select slot A or B */
 #else
-	index = 0;
+		index = 0;
 #endif
-	offs = fs_image_get_info_offs(fdt);
-	uboot_offs = fdt_getprop_u32_default_node(fdt, offs, index,
-						  "uboot-start", 0);
+		offs = fs_image_get_nboot_info_offs(fdt);
+		layout = fdt_subnode_offset(fdt, offs, layout_name);
+		uboot_offs = fdt_getprop_u32_default_node(fdt, layout, index,
+							  "uboot-start", 0);
+		uboot_offs_redundant = fdt_getprop_u32_default_node(
+					fdt, layout, index + 1,"uboot-start",
+								uboot_offs);
+
+		/* Only relevant for mmc, but does no harm for Nand */
+		mmc_get_parts();
+	}
 
 	/* We need to have the boot device pads active when starting U-Boot */
-	fs_spl_init_boot_dev(boot_dev, false, "BOARD-CFG");
+	fs_spl_init_boot_dev(boot_dev, "BOARD-CFG");
 
 	fs_board_early_init();
 	power_init_board();
+}
+
+int spl_mmc_emmc_boot_partition(struct mmc *mmc)
+{
+	int part = 0;
+
+	if(uboot_try == 0)
+		part = uboot_part;
+	else
+		part = uboot_part_redundant;
+
+	return part;
+}
+
+int check_if_secondary()
+{
+	uint32_t * csf_addr = (uint32_t *)*(uint32_t**)(CONFIG_SPL_TEXT_BASE - 0x28);
+	uint32_t * copy_addr = csf_addr - 1;
+	int copy_val = *copy_addr;
+	return copy_val;
 }
 
 void board_init_f(ulong dummy)
@@ -465,12 +495,13 @@ void board_init_f(ulong dummy)
 			secondary = true;
 	}
 #endif
+	secondary = check_if_secondary();
 
 	/* Try loading from the current boot dev. If this fails, try USB. */
 	boot_dev = get_boot_device();
-	printf("### boot_dev=0x%x\n", boot_dev);
+
 	if (boot_dev != USB_BOOT) {
-		if (fs_spl_init_boot_dev(boot_dev, true, "current")
+		if (fs_spl_init_boot_dev(boot_dev, "current")
 		    || fs_image_load_system(boot_dev, secondary, basic_init))
 			boot_dev = USB_BOOT;
 	}
@@ -479,13 +510,17 @@ void board_init_f(ulong dummy)
 
 		/* Try loading a BOARD-CFG from the fused boot device first */
 		boot_dev = fs_board_get_boot_dev_from_fuses();
-		if (!fs_spl_init_boot_dev(boot_dev, true, "fused")
+		if (!fs_spl_init_boot_dev(boot_dev, "fused")
 		    && !fs_image_load_system(boot_dev, secondary, NULL))
 			need_cfg = false;
 
 		/* Load the system from USB with Serial Download Protocol */
 		fs_image_all_sdp(need_cfg, basic_init);
 	}
+
+	/* If running on secondary SPL, mark BOARD-CFG to pass info to U-Boot */
+	if (secondary)
+		fs_image_mark_secondary();
 
 	/* At this point we have a valid system configuration */
 	board_init_r(NULL, 0);
@@ -510,7 +545,7 @@ void spl_board_init(void)
 		restore_boot_params();
 	}
 #endif
-	puts("Normal Boot\n");
+	debug("Normal Boot\n");
 }
 
 /* Return the offset where U-Boot starts in NAND */
@@ -522,13 +557,15 @@ uint32_t spl_nand_get_uboot_raw_page(void)
 /* Return the sector number where U-Boot starts in eMMC (User HW partition) */
 unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
 {
-	return uboot_offs / 512;
-}
+	int offs;
 
-/* U-Boot is always loaded from the User HW partition */
-int spl_mmc_emmc_boot_partition(struct mmc *mmc)
-{
-	return 0;
+	if(uboot_try == 0)
+		offs = uboot_offs / 512;
+	else
+		offs = uboot_offs_redundant / 512;
+
+	uboot_try++;
+	return offs;
 }
 
 /*

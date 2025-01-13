@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright 2019 NXP
+ * Copyright 2019, 2021 NXP
  */
 
 #ifndef __LS1028A_RDB_H
@@ -38,10 +38,10 @@
 #define QIXIS_LBMAP_ALTBANK		0x00
 #define QIXIS_LBMAP_SD			0x00
 #define QIXIS_LBMAP_EMMC		0x00
-#define QIXIS_LBMAP_QSPI		0x00
+#define QIXIS_LBMAP_XSPI		0x00
 #define QIXIS_RCW_SRC_SD		0xf8
 #define QIXIS_RCW_SRC_EMMC		0xf9
-#define QIXIS_RCW_SRC_QSPI		0xff
+#define QIXIS_RCW_SRC_XSPI		0xff
 #define QIXIS_RST_CTL_RESET		0x31
 #define QIXIS_RCFG_CTL_RECONFIG_IDLE	0x10
 #define QIXIS_RCFG_CTL_RECONFIG_START	0x11
@@ -59,9 +59,6 @@
 #endif
 
 /* SATA */
-#ifndef CONFIG_CMD_EXT2
-#define CONFIG_CMD_EXT2
-#endif
 #define CONFIG_SYS_SCSI_MAX_SCSI_ID		1
 #define CONFIG_SYS_SCSI_MAX_LUN			1
 #define CONFIG_SYS_SCSI_MAX_DEVICE		(CONFIG_SYS_SCSI_MAX_SCSI_ID * \
@@ -81,7 +78,6 @@
 	"ramdisk_addr=0x800000\0"		\
 	"ramdisk_size=0x2000000\0"		\
 	"bootm_size=0x10000000\0"		\
-	"fdt_addr=0x00f00000\0"                 \
 	"kernel_addr=0x01000000\0"              \
 	"scriptaddr=0x80000000\0"               \
 	"scripthdraddr=0x80080000\0"		\
@@ -90,6 +86,7 @@
 	"load_addr=0xa0000000\0"            \
 	"kernel_addr_r=0x81000000\0"            \
 	"fdt_addr_r=0x90000000\0"               \
+	"fdt_addr=0x90000000\0"                 \
 	"ramdisk_addr_r=0xa0000000\0"           \
 	"kernel_start=0x1000000\0"		\
 	"kernelheader_start=0x600000\0"		\
@@ -115,13 +112,6 @@
 			"run scan_dev_for_boot; "            \
 		  "fi; "                                   \
 		"done\0"                                   \
-	"scan_dev_for_boot="				  \
-		"echo Scanning ${devtype} "		  \
-				"${devnum}:${distro_bootpart}...; "  \
-		"for prefix in ${boot_prefixes}; do "	  \
-			"run scan_dev_for_scripts; "	  \
-		"done;"					  \
-		"\0"					  \
 	"boot_a_script="				  \
 		"load ${devtype} ${devnum}:${distro_bootpart} "  \
 			"${scriptaddr} ${prefix}${script}; "    \

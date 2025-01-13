@@ -10,7 +10,7 @@
 
 #include <command.h>
 #include <common.h>
-#include <environment.h>
+#include <env.h>
 #include <mapmem.h>
 #include <memalign.h>
 #ifdef CONFIG_IMX_CAAM_MFG_PROT
@@ -21,8 +21,6 @@
 #include <asm/io.h>
 #include <asm/arch/sci/sci.h>
 #endif
-
-DECLARE_GLOBAL_DATA_PTR;
 
 /**
  * do_mfgprot() - Handle the "mfgprot" command-line command
@@ -36,7 +34,7 @@ DECLARE_GLOBAL_DATA_PTR;
  */
 #ifdef CONFIG_IMX_CAAM_MFG_PROT
 
-static int do_mfgprot(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
+static int do_mfgprot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	u8 *m_ptr, *dgst_ptr, *c_ptr, *d_ptr, *dst_ptr;
 	char *pubk, *sign, *sel;
@@ -150,7 +148,7 @@ free_m:
 #define SCU_SEC_SECURE_RAM_BASE			(0x20800000UL)
 #define SEC_SECURE_RAM_BASE			(0x31800000UL)
 
-static int do_mfgprot(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
+static int do_mfgprot(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	u8 *m_ptr, *sign_ptr, *dst_ptr;
 	char *pubk, *sign, *sel;

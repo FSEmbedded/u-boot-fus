@@ -8,15 +8,13 @@
 
 /dts-v1/;
 
-#include ".nboot-info-mmc.dtsi.tmp"
+#include "nboot-info.dtsi"
 
 / {
 	board-cfg {
-		board-cfg-version = <1>;	/* Increment on changes */
 		board-name = "PicoCoreMX8MN-DDR3L";
-		board-rev = <110>;		/* Rev 1.10 */
 
-		/* DRAM: 512MB Micron */
+		/* DRAM: 512MB Micron B.ICDRAM.34 */
 		dram-type = "ddr3l";
 		dram-timing = "ddr3l_2x_k4b2g1646fbym";
 		dram-size = <0x200>;		/* In MiB */

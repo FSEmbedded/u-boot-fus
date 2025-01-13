@@ -7,10 +7,13 @@
  */
 
 #include <common.h>
+#include <log.h>
 #include <usb.h>
 #include <errno.h>
 #include <wait_bit.h>
+#include <asm/global_data.h>
 #include <linux/compiler.h>
+#include <linux/delay.h>
 #include <usb/ehci-ci.h>
 #include <usb/usb_mx6_common.h>
 #include <asm/io.h>
@@ -23,12 +26,12 @@
 #include <asm/mach-types.h>
 #include <power/regulator.h>
 #include <linux/usb/otg.h>
-#include <asm/arch/sys_proto.h>
 
 #include "ehci.h"
 #if CONFIG_IS_ENABLED(POWER_DOMAIN)
 #include <power-domain.h>
 #endif
+#include <clk.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -96,6 +99,8 @@ int ehci_hcd_init(int index, enum usb_init_type init,
 	u32 controller_spacing = 0x200;
 #elif defined(CONFIG_USB_EHCI_MX7) || defined(CONFIG_MX7ULP) || defined(CONFIG_IMX8)
 	u32 controller_spacing = 0x10000;
+#elif defined(CONFIG_IMX8ULP)
+	u32 controller_spacing = 0x20000;
 #endif
 	struct usb_ehci *ehci = (struct usb_ehci *)(ulong)(USB_BASE_ADDR +
 		(controller_spacing * index));
@@ -104,12 +109,13 @@ int ehci_hcd_init(int index, enum usb_init_type init,
 	if (index > 3)
 		return -EINVAL;
 
-#if defined(CONFIG_MX6)
-	if (mx6_usb_fused((u32)ehci)) {
-		printf("USB@0x%x is fused, disable it\n", (u32)ehci);
-		return -ENODEV;
+	if (CONFIG_IS_ENABLED(IMX_MODULE_FUSE)) {
+		if (usb_fused((ulong)ehci)) {
+			printf("SoC fuse indicates USB@0x%lx is unavailable.\n",
+			       (ulong)ehci);
+			return	-ENODEV;
+		}
 	}
-#endif
 
 	ret = ehci_mx6_common_init(ehci, index);
 	if (ret)
@@ -190,8 +196,8 @@ static int mx6_init_after_reset(struct ehci_ctrl *dev)
 		ret = regulator_set_enable(priv->vbus_supply,
 					   (type == USB_INIT_DEVICE) ?
 					   false : true);
-		if (ret) {
-			puts("Error enabling VBUS supply\n");
+		if (ret && ret != -ENOSYS) {
+			printf("Error enabling VBUS supply (ret=%i)\n", ret);
 			return ret;
 		}
 	}
@@ -243,7 +249,7 @@ static int ehci_usb_phy_mode(struct udevice *dev)
 	void *__iomem phy_ctrl, *__iomem phy_status;
 	u32 val;
 
-	if (is_mx6() || is_mx7ulp() || is_imx8()) {
+	if (is_mx6() || is_mx7ulp() || is_imx8() || is_imx8ulp()) {
 		phy_ctrl = (void __iomem *)(priv->phy_base + USBPHY_CTRL);
 		val = readl(phy_ctrl);
 
@@ -278,27 +284,46 @@ static int ehci_get_usb_phy(struct udevice *dev)
 	 * About fsl,usbphy, Refer to
 	 * Documentation/devicetree/bindings/usb/ci-hdrc-usb2.txt.
 	 */
-	if (is_mx6() || is_mx7ulp() || is_imx8()) {
+	if (is_mx6() || is_mx7ulp() || is_imx8() || is_imx8ulp()) {
 		phy_off = fdtdec_lookup_phandle(blob,
 						offset,
 						"fsl,usbphy");
 		if (phy_off < 0)
 			return -EINVAL;
 
-		addr = (void __iomem *)fdtdec_get_addr(blob, phy_off,
-						       "reg");
+		addr = (void __iomem *)fdtdec_get_addr_size_auto_noparent(blob, phy_off,
+						       "reg", 0, NULL, false);
 		if ((fdt_addr_t)addr == FDT_ADDR_T_NONE)
 			return -EINVAL;
 
+
+		struct udevice __maybe_unused phy_dev;
+		dev_set_ofnode(&phy_dev, offset_to_ofnode(phy_off));
+
 		/* Need to power on the PHY before access it */
 #if CONFIG_IS_ENABLED(POWER_DOMAIN)
-		struct udevice phy_dev;
 		struct power_domain pd;
 
-		phy_dev.node = offset_to_ofnode(phy_off);
 		if (!power_domain_get(&phy_dev, &pd)) {
 			if (power_domain_on(&pd))
 				return -EINVAL;
+		}
+#endif
+
+#if CONFIG_IS_ENABLED(CLK)
+		int ret;
+		struct clk phy_clk;
+
+		ret = clk_get_by_index(&phy_dev, 0, &phy_clk);
+		if (ret) {
+			printf("Failed to get phy_clk\n");
+			return ret;
+		}
+
+		ret = clk_enable(&phy_clk);
+		if (ret) {
+			printf("Failed to enable phy_clk\n");
+			return ret;
 		}
 #endif
 		priv->phy_base = addr;
@@ -311,9 +336,9 @@ static int ehci_get_usb_phy(struct udevice *dev)
 	return 0;
 }
 
-static int ehci_usb_ofdata_to_platdata(struct udevice *dev)
+static int ehci_usb_of_to_plat(struct udevice *dev)
 {
-	struct usb_platdata *plat = dev_get_platdata(dev);
+	struct usb_plat *plat = dev_get_plat(dev);
 	struct ehci_mx6_priv_data *priv = dev_get_priv(dev);
 	enum usb_dr_mode dr_mode;
 	const struct fdt_property *extcon;
@@ -322,21 +347,22 @@ static int ehci_usb_ofdata_to_platdata(struct udevice *dev)
 			"extcon", NULL);
 	if (extcon) {
 		priv->init_type = board_ehci_usb_phy_mode(dev);
-		goto check_type;
+		if ( priv->init_type != USB_INIT_UNKNOWN)
+			goto check_type;
 	}
 
-	dr_mode = usb_get_dr_mode(dev_of_offset(dev));
+	dr_mode = usb_get_dr_mode(dev_ofnode(dev));
 
 	switch (dr_mode) {
 	case USB_DR_MODE_HOST:
-		plat->init_type = USB_INIT_HOST;
+		priv->init_type = USB_INIT_HOST;
 		break;
 	case USB_DR_MODE_PERIPHERAL:
-		plat->init_type = USB_INIT_DEVICE;
+		priv->init_type = USB_INIT_DEVICE;
 		break;
 	case USB_DR_MODE_OTG:
 	case USB_DR_MODE_UNKNOWN:
-		plat->init_type = USB_INIT_UNKNOWN;
+		priv->init_type = USB_INIT_UNKNOWN;
 		break;
 	};
 
@@ -381,14 +407,16 @@ static int ehci_usb_bind(struct udevice *dev)
 	 */
 	u32 controller_spacing;
 
-	if (dev->req_seq == -1) {
+	if (dev_seq(dev) == -1) {
 		if (IS_ENABLED(CONFIG_MX6))
 			controller_spacing = 0x200;
+		else if (IS_ENABLED(CONFIG_IMX8ULP))
+			controller_spacing = 0x20000;
 		else
 			controller_spacing = 0x10000;
 		fdt_addr_t addr = devfdt_get_addr_index(dev, 0);
 
-		dev->req_seq = (addr - USB_BASE_ADDR) / controller_spacing;
+		dev->seq_ = (addr - USB_BASE_ADDR) / controller_spacing;
 	}
 
 	return 0;
@@ -396,23 +424,24 @@ static int ehci_usb_bind(struct udevice *dev)
 
 static int ehci_usb_probe(struct udevice *dev)
 {
-	struct usb_platdata *plat = dev_get_platdata(dev);
-	struct usb_ehci *ehci = (struct usb_ehci *)devfdt_get_addr(dev);
+	struct usb_plat *plat = dev_get_plat(dev);
+	struct usb_ehci *ehci = dev_read_addr_ptr(dev);
 	struct ehci_mx6_priv_data *priv = dev_get_priv(dev);
 	enum usb_init_type type = priv->init_type;
 	struct ehci_hccr *hccr;
 	struct ehci_hcor *hcor;
 	int ret;
 
-#if defined(CONFIG_MX6)
-	if (mx6_usb_fused((u32)ehci)) {
-		printf("USB@0x%x is fused, disable it\n", (u32)ehci);
-		return -ENODEV;
+	if (CONFIG_IS_ENABLED(IMX_MODULE_FUSE)) {
+		if (usb_fused((ulong)ehci)) {
+			printf("SoC fuse indicates USB@0x%lx is unavailable.\n",
+			       (ulong)ehci);
+			return -ENODEV;
+		}
 	}
-#endif
 
 	priv->ehci = ehci;
-	priv->portnr = dev->req_seq;
+	priv->portnr = dev_seq(dev);
 
 	/* Init usb board level according to the requested init type */
 	ret = board_usb_init(priv->portnr, type);
@@ -455,8 +484,8 @@ static int ehci_usb_probe(struct udevice *dev)
 		ret = regulator_set_enable(priv->vbus_supply,
 					   (priv->init_type == USB_INIT_DEVICE) ?
 					   false : true);
-		if (ret) {
-			puts("Error enabling VBUS supply\n");
+		if (ret && ret != -ENOSYS) {
+			printf("Error enabling VBUS supply (ret=%i)\n", ret);
 			return ret;
 		}
 	}
@@ -480,13 +509,13 @@ static int ehci_usb_probe(struct udevice *dev)
 int ehci_usb_remove(struct udevice *dev)
 {
 	struct ehci_mx6_priv_data *priv = dev_get_priv(dev);
-	struct usb_platdata *plat = dev_get_platdata(dev);
+	struct usb_plat *plat = dev_get_plat(dev);
 
 	ehci_deregister(dev);
 
 	plat->init_type = 0; /* Clean the requested usb type to host mode */
 
-	return board_usb_cleanup(dev->req_seq, priv->init_type);
+	return board_usb_cleanup(dev_seq(dev), priv->init_type);
 }
 
 static const struct udevice_id mx6_usb_ids[] = {
@@ -498,13 +527,13 @@ U_BOOT_DRIVER(usb_mx6) = {
 	.name	= "ehci_mx6",
 	.id	= UCLASS_USB,
 	.of_match = mx6_usb_ids,
-	.ofdata_to_platdata = ehci_usb_ofdata_to_platdata,
+	.of_to_plat = ehci_usb_of_to_plat,
 	.bind	= ehci_usb_bind,
 	.probe	= ehci_usb_probe,
 	.remove = ehci_usb_remove,
 	.ops	= &ehci_usb_ops,
-	.platdata_auto_alloc_size = sizeof(struct usb_platdata),
-	.priv_auto_alloc_size = sizeof(struct ehci_mx6_priv_data),
+	.plat_auto	= sizeof(struct usb_plat),
+	.priv_auto	= sizeof(struct ehci_mx6_priv_data),
 	.flags	= DM_FLAG_ALLOC_PRIV_DMA,
 };
 #endif

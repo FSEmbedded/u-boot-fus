@@ -14,13 +14,9 @@
 
 #include <config.h>
 
-#if defined(CONFIG_ARCH_IMX8) || defined(CONFIG_ARCH_IMX8M)
-#define HAVE_BOARD_CFG			/* Use BOARD-CFG, no fs_nboot_args */
-#endif
-
 #include <asm/mach-imx/boot_mode.h>	/* enum boot_device */
 
-#ifndef HAVE_BOARD_CFG
+#ifndef CONFIG_FS_BOARD_CFG
 
 #define FSHWCONFIG_ARGS_ID 0x4E424F54	/* Magic number for dwID: 'NBOT' */ 
 struct fs_nboot_args {
@@ -63,19 +59,15 @@ struct fs_nboot_args *fs_board_get_nboot_args(void);
 
 #else
 
-struct cfg_info {
-	unsigned int board_type;
-	unsigned int board_rev;
-	enum boot_device boot_dev;
-	unsigned int features;
-	unsigned int dram_size;
-	unsigned int dram_chips;
-};
+#include <fs_cfg_info.h>		/* struct cfg_info */
 
 /* Get the offset of the Secondary Boot Image from fuses */
 u32 fs_board_get_secondary_offset(void);
 
-#endif /* !HAVE_BOARD_CFG */
+/* Get Pointer to struct cfg_info */
+struct cfg_info *fs_board_get_cfg_info(void);
+
+#endif /* !CONFIG_FS_BOARD_CFG */
 
 #define BI_FLAGS_UBIONLY (1 << 0)
 
@@ -100,11 +92,11 @@ enum boot_device fs_board_get_boot_dev(void);
 /* Get the boot device number from the string */
 enum boot_device fs_board_get_boot_dev_from_name(const char *name);
 
+/* Get the boot device that is programmed in the fuses. */
+enum boot_device fs_board_get_boot_dev_from_fuses(void);
+
 /* Get the string from the boot device number */
 const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev);
-
-/* Get Pointer to struct cfg_info */
-struct cfg_info *fs_board_get_cfg_info(void);
 
 /* Get the board features */
 unsigned int fs_board_get_features(void);
@@ -128,8 +120,10 @@ void fs_board_init_common(const struct fs_board_info *board_info);
 /* Set up all board specific variables */
 void fs_board_late_init_common(const char *serial_name);
 
-/* Get the boot device that is programmed in the fuses. */
-enum boot_device fs_board_get_boot_dev_from_fuses(void);
+#ifdef CONFIG_FS_SELFTEST
+/* Get dram_result for bdinfo */
+char * get_dram_result(void);
+#endif
 
 #ifdef CONFIG_CMD_SELFTEST
 /* Get dram_result for bdinfo */

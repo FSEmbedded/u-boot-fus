@@ -7,6 +7,8 @@
  */
 #include <common.h>
 #include <dm.h>
+#include <log.h>
+#include <part.h>
 #include <spl.h>
 #include <linux/compiler.h>
 #include <errno.h>
@@ -14,6 +16,10 @@
 #include <errno.h>
 #include <mmc.h>
 #include <image.h>
+
+#ifdef CONFIG_FS_BOARD_CFG
+#include "../../board/F+S/common/fs_image_common.h"
+#endif
 
 static int mmc_load_legacy(struct spl_image_info *spl_image, struct mmc *mmc,
 			   ulong sector, struct image_header *header)
@@ -77,34 +83,60 @@ int mmc_load_image_raw_sector(struct spl_image_info *spl_image,
 	struct image_header *header;
 	struct blk_desc *bd = mmc_get_blk_desc(mmc);
 	int ret = 0;
+	int extra_offset = 0;
 
 	header = spl_get_load_buffer(-sizeof(*header), bd->blksz);
 
 	/* read image header to find the image size & load address */
 	count = blk_dread(bd, sector, 1, header);
+
 	debug("hdr read sector %lx, count=%lu\n", sector, count);
 	if (count == 0) {
 		ret = -EIO;
 		goto end;
 	}
 
+#ifdef CONFIG_FS_BOARD_CFG
+	/* Allow U-Boot image to be prepended with F&S header */
+	extra_offset = spl_check_fs_header(header);
+	if (extra_offset < 0)
+		return -1;
+
+	/* In case of signed U-Boot, load U-Boot image completely */
+	if ((extra_offset > 0) && fs_image_is_signed((void *)header)) {
+		u32 size;
+		void *addr = fs_image_get_ivt_info((void *)header, &size);
+
+		if (addr && size) {
+			u32 blocks = (size + bd->blksz - 1) / bd->blksz;
+			count = blk_dread(bd, sector, blocks, addr);
+			if (count != blocks) {
+				ret = -EIO;
+				goto end;
+			}
+		}
+		return secure_spl_load_simple_fit(spl_image, addr, size);
+	}
+
+	header = (void *)header + extra_offset;
+#endif
+
 	if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) &&
 	    image_get_magic(header) == FDT_MAGIC) {
 		struct spl_load_info load;
 
 		debug("Found FIT\n");
+		memset(&load, 0, sizeof(load));
 		load.dev = mmc;
-		load.priv = NULL;
-		load.filename = NULL;
 		load.bl_len = mmc->read_bl_len;
 		load.read = h_spl_load_read;
+		load.extra_offset = extra_offset;
 		ret = spl_load_simple_fit(spl_image, &load, sector, header);
 	} else if (IS_ENABLED(CONFIG_SPL_LOAD_IMX_CONTAINER)) {
 		struct spl_load_info load;
 
+		memset(&load, 0, sizeof(load));
 		load.dev = mmc;
-		load.priv = NULL;
-		load.filename = NULL;
 		load.bl_len = mmc->read_bl_len;
 		load.read = h_spl_load_read;
 
@@ -179,7 +211,7 @@ static int mmc_load_image_raw_partition(struct spl_image_info *spl_image,
 					struct mmc *mmc, int partition,
 					unsigned long sector)
 {
-	disk_partition_t info;
+	struct disk_partition info;
 	int err;
 
 #ifdef CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION_TYPE
@@ -309,7 +341,7 @@ static int spl_mmc_do_fs_boot(struct spl_image_info *spl_image, struct mmc *mmc,
 }
 #endif
 
-u32 __weak spl_boot_mode(const u32 boot_device)
+u32 __weak spl_mmc_boot_mode(const u32 boot_device)
 {
 #if defined(CONFIG_SPL_FS_FAT) || defined(CONFIG_SPL_FS_EXT4)
 	return MMCSD_MODE_FS;
@@ -321,8 +353,7 @@ u32 __weak spl_boot_mode(const u32 boot_device)
 }
 
 #ifdef CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION
-__weak
-int spl_boot_partition(const u32 boot_device)
+int __weak spl_mmc_boot_partition(const u32 boot_device)
 {
 	return CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_PARTITION;
 }
@@ -338,12 +369,6 @@ int __weak spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	int part = 0;
 
-#ifdef CONFIG_DUAL_BOOTLOADER
-	/* Bootloader is stored in eMMC user partition for
-	 * dual bootloader.
-	 */
-	part = 0;
-#else
 #ifdef CONFIG_SYS_MMCSD_RAW_MODE_EMMC_BOOT_PARTITION
 	part = CONFIG_SYS_MMCSD_RAW_MODE_EMMC_BOOT_PARTITION;
 #else
@@ -352,6 +377,12 @@ int __weak spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	 * 1 and 2 match up to boot0 / boot1 and 7 is user data
 	 * which is the first physical partition (0).
 	 */
+#ifdef CONFIG_DUAL_BOOTLOADER
+		/* Bootloader is stored in eMMC user partition for
+		 * dual bootloader.
+		 */
+		part = 0;
+#else
 	part = (mmc->part_config >> 3) & PART_ACCESS_MASK;
 
 	if (part == 7)
@@ -389,7 +420,7 @@ int spl_mmc_load(struct spl_image_info *spl_image,
 		}
 	}
 
-	boot_mode = spl_boot_mode(bootdev->boot_device);
+	boot_mode = spl_mmc_boot_mode(bootdev->boot_device);
 	err = -EINVAL;
 	switch (boot_mode) {
 	case MMCSD_MODE_EMMCBOOT:
@@ -464,7 +495,7 @@ int spl_mmc_load_image(struct spl_image_info *spl_image,
 			    NULL,
 #endif
 #ifdef CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_PARTITION
-			    spl_boot_partition(bootdev->boot_device),
+			    spl_mmc_boot_partition(bootdev->boot_device),
 #else
 			    0,
 #endif
@@ -475,6 +506,19 @@ int spl_mmc_load_image(struct spl_image_info *spl_image,
 #endif
 }
 
-SPL_LOAD_IMAGE_METHOD("MMC1", 0, BOOT_DEVICE_MMC1, spl_mmc_load_image);
+int spl_mmc_load_image_redundant(struct spl_image_info *spl_image,
+		       struct spl_boot_device *bootdev)
+{
+	int err;
+	err = spl_mmc_load_image(spl_image, bootdev);
+	if(!err)
+		return err;
+	printf("WARNING: Loading UBoot from primary partition failed, try secondary\n");
+	printf("         Saving the UBoot again may fix this issue.\n");
+	fs_image_mark_secondary_uboot();
+	return spl_mmc_load_image(spl_image, bootdev);
+}
+
+SPL_LOAD_IMAGE_METHOD("MMC1", 0, BOOT_DEVICE_MMC1, spl_mmc_load_image_redundant);
 SPL_LOAD_IMAGE_METHOD("MMC2", 0, BOOT_DEVICE_MMC2, spl_mmc_load_image);
 SPL_LOAD_IMAGE_METHOD("MMC2_2", 0, BOOT_DEVICE_MMC2_2, spl_mmc_load_image);

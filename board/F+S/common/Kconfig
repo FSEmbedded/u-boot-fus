@@ -8,15 +8,15 @@ config ADDFSHEADER
 	bool
 	default y
 
+config FS_NBOOT_ARGS
+	bool
+
+config FS_BOARD_CFG
+	bool
+
 config FS_BOARD_COMMON
 	bool
 	default y
-
-config FS_BOARD_OFFS
-	int
-	default 16 if TARGET_FSIMX6UL
-	default 8  if TARGET_FSIMX6SX
-	default 0
 
 config FS_BOARD_MODE_RO
 	bool "Load rootfs read-only (F&S)"
@@ -65,13 +65,25 @@ config FS_USB_PWR_USBNC
 
 config FS_SPL_MEMTEST_COMMON
 	bool "Activate memory test in SPL"
-	depends on TARGET_FSIMX8MP
+	depends on TARGET_FSIMX8MP || TARGET_FSIMX8MM
 	select SPL_CACHE_SUPPORT
 	select LIB_RAND
+	select SPL_ALLOC_BD
 	default n
 	help
         Run a DRAM test in SPL. The board will have to be resettet after
         the test.
+
+config FS_SELFTEST
+	bool "Activate F&S U-boot selftest"
+	depends on TARGET_FSIMX8MP || TARGET_FSIMX8MM || TARGET_FSIMX8MN
+	default n
+	help
+        Runs a quick DRAM test and checks the CPU type. Writes the result to bdinfo.
+		The DRAM test will write values all over the memory, so only use this, if you
+		are sure, that nothing will get coruppted!
+		Also sets the bootdely and all update checks to 0, so the U-boot can start as
+		quick as possible
 
 config FS_DISP_COMMON
 	bool
@@ -89,6 +101,5 @@ config USB_TCPC
 	default n if TARGET_FSIMX8MP
 	help
 	  Enable USB type-c port controller (TCPC) driver
-
 
 endif

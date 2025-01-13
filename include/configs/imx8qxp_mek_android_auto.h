@@ -17,10 +17,6 @@
 #endif
 #endif
 
-#define CONFIG_ANDROID_AB_SUPPORT
-#ifdef CONFIG_ANDROID_AB_SUPPORT
-#define CONFIG_SYSTEM_RAMDISK_SUPPORT
-#endif
 #define FSL_FASTBOOT_FB_DEV "mmc"
 
 #undef CONFIG_EXTRA_ENV_SETTINGS
@@ -31,40 +27,11 @@
 	"fdt_high=0xffffffffffffffff\0"	  \
 	"initrd_high=0xffffffffffffffff\0" \
 
-/* Undefine some macros to save boot time */
-#undef CONFIG_ARCH_MISC_INIT
-#undef CONFIG_FSL_HSIO
-#undef CONFIG_CMD_PCI
-#undef CONFIG_PCI
-#undef CONFIG_PCIE_IMX8X
-#undef CONFIG_PCI_PNP
-#undef CONFIG_PCI_SCAN_SHOW
-#undef CONFIG_CMD_FUSE
-#undef CONFIG_MII
-#undef CONFIG_FEC_MXC
-#undef CONFIG_PHYLIB
-#undef CONFIG_PHY_ATHEROS
-#undef CONFIG_SYS_LONGHELP
-#undef CONFIG_AUTO_COMPLETE
-#undef CONFIG_USB_HOST_ETHER
-#undef CONFIG_USB_FUNCTION_MASS_STORAGE
-#undef CONFIG_CMD_USB
-#undef CONFIG_CMD_USB_MASS_STORAGE
-#undef CONFIG_FAT_WRITE
-
 #ifdef CONFIG_IMX_TRUSTY_OS
 #define NS_ARCH_ARM64 1
 #define AVB_RPMB
 #define KEYSLOT_HWPARTITION_ID	2
 #define KEYSLOT_BLKS		0x3FFF
-
-#ifdef CONFIG_ID_ATTESTATION
-#define ATTESTATION_ID_BRAND "Android"
-#define ATTESTATION_ID_DEVICE "mek_8q"
-#define ATTESTATION_ID_MANUFACTURER "nxp"
-#define ATTESTATION_ID_MODEL "MEK-MX8Q"
-#endif
-
 #endif
 
 #ifdef CONFIG_DUAL_BOOTLOADER
@@ -73,13 +40,6 @@
 #define BOOTLOADER_RBIDX_LEN     0x08
 #define BOOTLOADER_RBIDX_INITVAL 0
 #define CONFIG_SYS_SPL_PTE_RAM_BASE 0x801F8000
-#endif
-
-#ifdef CONFIG_SPL_BUILD
-#undef CONFIG_BLK
-#define CONFIG_FSL_CAAM_KB
-#define CONFIG_SPL_CRYPTO_SUPPORT
-#define CONFIG_SYS_FSL_SEC_LE
 #endif
 
 #endif /* IMX8QXP_MEK_ANDROID_AUTO_H */

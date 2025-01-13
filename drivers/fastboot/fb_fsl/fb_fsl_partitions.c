@@ -62,7 +62,7 @@ static ulong bootloader_mmc_offset(void)
 		else
 		/* target device is SD card, bootloader offset is 0x8000 */
 			return 0x8000;
-	} else if (is_imx8mn() || is_imx8mp() || is_imx8dxl()) {
+	} else if (is_imx8mn() || is_imx8mp() || is_imx8dxl() || is_imx8ulp()) {
 		/* target device is eMMC boot0 partition, bootloader offset is 0x0 */
 		if (env_get_ulong("emmc_dev", 10, 2) == fastboot_devinfo.dev_id)
 			return 0;
@@ -94,7 +94,7 @@ static int _fastboot_parts_add_ptable_entry(int ptable_index,
 				      struct blk_desc *dev_desc,
 				      struct fastboot_ptentry *ptable)
 {
-	disk_partition_t info;
+	struct disk_partition info;
 
 	if (part_get_info(dev_desc,
 			       mmc_dos_partition_index, &info)) {
@@ -142,6 +142,8 @@ static int _fastboot_parts_load_from_ptable(void)
 	int boot_partition = FASTBOOT_MMC_NONE_PARTITION_ID;
 	int user_partition = FASTBOOT_MMC_NONE_PARTITION_ID;
 
+	unsigned long boot_loader_psize = ANDROID_BOOTLOADER_SIZE;
+
 	struct mmc *mmc;
 	struct blk_desc *dev_desc;
 	struct fastboot_ptentry ptable[MAX_PTN];
@@ -150,7 +152,7 @@ static int _fastboot_parts_load_from_ptable(void)
 	if (fastboot_devinfo.type == DEV_SATA) {
 #ifdef CONFIG_DM_SCSI
 		int sata_device_no = fastboot_devinfo.dev_id;
-		puts("flash target is SATA\n");
+		puts("Fastb: flash target is SATA\n");
 		scsi_scan(false);
 		dev_desc = blk_get_dev("scsi", sata_device_no);
 #else /*! CONFIG_SATA*/
@@ -160,7 +162,7 @@ static int _fastboot_parts_load_from_ptable(void)
 	} else if (fastboot_devinfo.type == DEV_MMC) {
 		int mmc_no = fastboot_devinfo.dev_id;
 
-		printf("flash target is MMC:%d\n", mmc_no);
+		printf("Fastb: flash target is MMC:%d\n", mmc_no);
 		mmc = find_mmc_device(mmc_no);
 
 		if (mmc == NULL) {
@@ -184,9 +186,10 @@ static int _fastboot_parts_load_from_ptable(void)
 		if (mmc->part_config != MMCPART_NOAVAILABLE) {
 			boot_partition = FASTBOOT_MMC_BOOT_PARTITION_ID;
 			user_partition = FASTBOOT_MMC_USER_PARTITION_ID;
+			boot_loader_psize = mmc->capacity_boot;
 		}
 	} else {
-		printf("Can't setup partition table on this device %d\n",
+		printf("Fastb: Can't setup partition table on this device %d\n",
 			fastboot_devinfo.type);
 		return -1;
 	}
@@ -214,7 +217,7 @@ static int _fastboot_parts_load_from_ptable(void)
 #ifdef CONFIG_FLASH_MCUFIRMWARE_SUPPORT
 	strcpy(ptable[PTN_MCU_OS_INDEX].name, FASTBOOT_MCU_FIRMWARE_PARTITION);
 	ptable[PTN_MCU_OS_INDEX].start = ANDROID_MCU_FIRMWARE_START / dev_desc->blksz;
-	ptable[PTN_MCU_OS_INDEX].length = ANDROID_MCU_FIRMWARE_SIZE / dev_desc->blksz;
+	ptable[PTN_MCU_OS_INDEX].length = ANDROID_MCU_OS_PARTITION_SIZE / dev_desc->blksz;
 	ptable[PTN_MCU_OS_INDEX].flags = FASTBOOT_PTENTRY_FLAGS_UNERASEABLE;
 	ptable[PTN_MCU_OS_INDEX].partition_id = user_partition;
 	strcpy(ptable[PTN_MCU_OS_INDEX].fstype, "raw");
@@ -231,7 +234,8 @@ static int _fastboot_parts_load_from_ptable(void)
 	ptable[PTN_BOOTLOADER_INDEX].start =
 				bootloader_mmc_offset() / dev_desc->blksz;
 	ptable[PTN_BOOTLOADER_INDEX].length =
-				 ANDROID_BOOTLOADER_SIZE / dev_desc->blksz;
+				 boot_loader_psize / dev_desc->blksz;
+
 	ptable[PTN_BOOTLOADER_INDEX].partition_id = boot_partition;
 	ptable[PTN_BOOTLOADER_INDEX].flags = FASTBOOT_PTENTRY_FLAGS_UNERASEABLE;
 	strcpy(ptable[PTN_BOOTLOADER_INDEX].fstype, "raw");

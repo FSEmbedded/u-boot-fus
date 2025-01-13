@@ -38,6 +38,8 @@
 #include <mipi_dsi_panel.h>
 #include <asm/mach-imx/video.h>
 #include <env_internal.h>		/* enum env_operation */
+#include <fdt_support.h>		/* fdt_subnode_offset(), ... */
+#include <hang.h>			/* hang() */
 #include <serial.h>			/* get_serial_device() */
 #include "../common/fs_fdt_common.h"	/* fs_fdt_set_val(), ... */
 #include "../common/fs_board_common.h"	/* fs_board_*() */
@@ -153,65 +155,95 @@ static iomux_v3_cfg_t const wdog_pads[] = {
 };
 
 /* Parse the FDT of the BOARD-CFG in OCRAM and create binary info in OCRAM */
-static void fs_spl_setup_cfg_info(void)
+static void fs_setup_cfg_info(void)
 {
-	void *fdt = fs_image_get_cfg_addr(false);
-	int offs = fs_image_get_cfg_offs(fdt);
+	void *fdt;
+	int offs;
+	int rev_offs;
 	int i;
-	struct cfg_info *cfg = fs_board_get_cfg_info();
+	struct cfg_info *info;
 	const char *tmp;
 	unsigned int features;
+	u32 flags = 0;
 
-	memset(cfg, 0, sizeof(struct cfg_info));
+	/*
+	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
+	 * is fatal. However no output is possible this early, so simply stop.
+	 * If the BOARD-CFG is not at the expected location in OCRAM but is
+	 * found somewhere else, output a warning later in board_late_init().
+	 */
+	if (!fs_image_find_cfg_in_ocram())
+		hang();
 
-	//###nbootargs.dwDbgSerPortPA = UART1_BASE_ADDR;
+	/*
+	 * The flag if running from Primary or Secondary SPL and UBoot is
+	 * misusing a byte in the BOARD-CFG in OCRAM, so we have to remove this
+	 * before validating the BOARD-CFG.
+	 */
+	if (fs_image_is_secondary())
+		flags |= CI_FLAGS_SECONDARY;
 
-	tmp = fdt_getprop(fdt, offs, "board-name", NULL);
+	if (fs_image_is_secondary_uboot())
+		flags |= CI_FLAGS_SECONDARY_UBOOT;
+
+	/* Make sure that the BOARD-CFG in OCRAM is still valid */
+	if (!fs_image_is_ocram_cfg_valid())
+		hang();
+
+	info = fs_board_get_cfg_info();
+	memset(info, 0, sizeof(struct cfg_info));
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
+						    &info->board_rev);
+
+	/* Parse BOARD-CFG entries and set according entries and flags */
+	tmp = fs_image_getprop(fdt, offs, rev_offs, "board-name", NULL);
 	for (i = 0; i < ARRAY_SIZE(board_info) - 1; i++) {
 		if (!strcmp(tmp, board_info[i].name))
 			break;
 	}
-	cfg->board_type = i;
+	info->board_type = i;
 
-	tmp = fdt_getprop(fdt, offs, "boot-dev", NULL);
-	cfg->boot_dev = fs_board_get_boot_dev_from_name(tmp);
+	tmp = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
+	info->boot_dev = fs_board_get_boot_dev_from_name(tmp);
 
-	cfg->board_rev = fdt_getprop_u32_default_node(fdt, offs, 0,
-						      "board-rev", 100);
-	cfg->dram_chips = fdt_getprop_u32_default_node(fdt, offs, 0,
-						       "dram-chips", 1);
-	cfg->dram_size = fdt_getprop_u32_default_node(fdt, offs, 0,
-						      "dram-size", 0x400);
+	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
+						"dram-chips", 1);
+	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
+					       "dram-size", 0x400);
+	info->flags = flags;
 
 	features = 0;
-	if (fdt_getprop(fdt, offs, "have-nand", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-nand", NULL))
 		features |= FEAT_NAND;
-	if (fdt_getprop(fdt, offs, "have-emmc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
 		features |= FEAT_EMMC;
-	if (fdt_getprop(fdt, offs, "have-sgtl5000", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sgtl5000", NULL))
 		features |= FEAT_SGTL5000;
-	if (fdt_getprop(fdt, offs, "have-eth-phy", NULL)) {
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy", NULL)) {
 		features |= FEAT_ETH_A;
-		if (cfg->board_type == BT_PICOCOREMX8MX)
+		if (info->board_type == BT_PICOCOREMX8MX)
 			features |= FEAT_ETH_B;
 	}
-	if (fdt_getprop(fdt, offs, "have-wlan", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if (fdt_getprop(fdt, offs, "have-lvds", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
 		features |= FEAT_LVDS;
-	if (fdt_getprop(fdt, offs, "have-mipi-dsi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
 		features |= FEAT_MIPI_DSI;
-	if (fdt_getprop(fdt, offs, "have-rtc-pcf85063", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-rtc-pcf85063", NULL))
 		features |= FEAT_RTC85063;
-	if (fdt_getprop(fdt, offs, "have-rtc-pcf85263", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-rtc-pcf85263", NULL))
 		features |= FEAT_RTC85263;
-	if (fdt_getprop(fdt, offs, "have-security", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-security", NULL))
 		features |= FEAT_SEC_CHIP;
-	if (fdt_getprop(fdt, offs, "have-can", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-can", NULL))
 		features |= FEAT_CAN;
-	if (fdt_getprop(fdt, offs, "have-eeprom", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
-	cfg->features = features;
+	info->features = features;
 }
 
 /* Do some very early board specific setup */
@@ -219,7 +251,7 @@ int board_early_init_f(void)
 {
 	struct wdog_regs *wdog = (struct wdog_regs*) WDOG1_BASE_ADDR;
 
-	fs_spl_setup_cfg_info();
+	fs_setup_cfg_info();
 
 	imx_iomux_v3_setup_multiple_pads(wdog_pads, ARRAY_SIZE(wdog_pads));
 
@@ -249,11 +281,86 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	return ENVL_UNKNOWN;
 }
 
+#ifdef CONFIG_NAND_MXS
+static void fs_nand_get_env_info(struct mtd_info *mtd, struct cfg_info *info)
+{
+	void *fdt;
+	int offs;
+	int layout;
+	unsigned int align;
+	int err;
+
+	if (info->flags & CI_FLAGS_HAVE_ENV)
+		return;
+
+	/*
+	 * To find the environment location, we must access the BOARD-CFG in
+	 * OCRAM. However this is not a safe resource, because it can be
+	 * modified at any time. This is why we copy all relevant info to
+	 * struct cfg_info right early in fs_setup_cfg_info() where we checked
+	 * that the BOARD-CFG is valid. But at this early stage, the flash
+	 * environment is not running yet and we cannot determine writesize
+	 * and erasesize. So it is not possible to get the environment
+	 * addresses there.
+	 *
+	 * Therefore we use a cache method. The first time we are called here,
+	 * which is still in board_init_f(), we can assume that the BOARD-CFG
+	 * is still valid. So access the BOARD-CFG, determine the environment
+	 * location and store the start addresses for both copies in the
+	 * cfg_info. From then on, we can use the cfg_info when we are called.
+	 *
+	 * If the environment location is not contained in nboot-info, it was
+	 * located in the device tree of the previous U-Boot and NBoot didn't
+	 * know anything about it. We have a list of known places where the
+	 * environment was located in the past, so we take the first one
+	 * (=newest) of these. As the NAND list only has one entry, this
+	 * should be OK.
+	 */
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_nboot_info_offs(fdt);
+	align = mtd->erasesize;
+
+	layout = fdt_subnode_offset(fdt, offs, "nand");
+	if (layout < 0)
+		layout = offs;
+
+	err = fs_image_get_fdt_val(fdt, layout, "env-start", align,
+				   2, info->env_start);
+	if (err == -ENOENT) {
+		/* This is an old version, use the old known position */
+		err = fs_image_get_known_env_nand(0, info->env_start, NULL);
+	}
+	if (err) {
+		info->env_start[0] = CONFIG_ENV_NAND_OFFSET;
+		info->env_start[1] = CONFIG_ENV_NAND_OFFSET_REDUND;
+	}
+
+	info->flags |= CI_FLAGS_HAVE_ENV;
+}
+
+/* Return environment information if in NAND */
+loff_t board_nand_get_env_offset(struct mtd_info *mtd, int copy)
+{
+	struct cfg_info *info = fs_board_get_cfg_info();
+
+	fs_nand_get_env_info(mtd, info);
+
+	return info->env_start[copy];
+}
+
+loff_t board_nand_get_env_range(struct mtd_info *mtd)
+{
+	return CONFIG_ENV_NAND_RANGE;
+}
+#endif
+
 /* Check board type */
 int checkboard(void)
 {
 	unsigned int board_type = fs_board_get_type();
-	unsigned int board_rev = fs_board_get_rev();
+	struct cfg_info *info = fs_board_get_cfg_info();
+	unsigned int board_rev = info->board_rev;
 	unsigned int features = fs_board_get_features();
 
 	printf ("Board: %s Rev %u.%02u (", board_info[board_type].name,
@@ -269,7 +376,7 @@ int checkboard(void)
 	if (features & FEAT_NAND)
 		puts("NAND, ");
 
-	printf ("%dx DRAM)\n", fs_board_get_cfg_info()->dram_chips);
+	printf ("%dx DRAM)\n", info->dram_chips);
 
 	return 0;
 }
@@ -1003,7 +1110,7 @@ int board_ehci_usb_phy_mode(struct udevice *dev)
 	struct tcpc_port *port_ptr = &port;
 
 	if (port.i2c_dev) {
-		if (dev->seq == 0) {
+		if (dev_seq(dev) == 0) {
 
 			tcpc_setup_ufp_mode(port_ptr);
 
@@ -1102,6 +1209,11 @@ int board_late_init(void)
          */
 	if (fs_board_get_type() == BT_PICOCOREMX8MX)
 		env_set("platform", "picocoremx8mx-nano");
+#endif
+
+	env_set("tee", "no");
+#ifdef CONFIG_IMX_OPTEE
+	env_set("tee", "yes");
 #endif
 
 	/* Set up all board specific variables */
@@ -1349,7 +1461,7 @@ int board_fix_fdt(void *fdt)
 }
 
 /* Do any additional board-specific modifications on Linux device tree */
-int ft_board_setup(void *fdt, bd_t *bd)
+int ft_board_setup(void *fdt, struct bd_info *bd)
 {
 	const char *envvar;
 	int offs;
@@ -1415,9 +1527,9 @@ int ft_board_setup(void *fdt, bd_t *bd)
 
 	/*
 	 * Set linux,cma size depending on RAM size. Keep default (320MB) from
-	 * device tree if < 1GB, increase to 640MB otherwise.
+	 * device tree if <= 1GB, increase to 640MB otherwise.
 	 */
-	if (fs_board_get_cfg_info()->dram_size >= 1023)	{
+	if (fs_board_get_cfg_info()->dram_size > 1024)	{
 		fdt32_t tmp[2];
 
 		tmp[0] = cpu_to_fdt32(0x0);

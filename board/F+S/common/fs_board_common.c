@@ -10,21 +10,25 @@
  */
 
 #include <config.h>
+#include <env.h>			/* env_get() */
+#include <command.h>			/* run_command() */
 #include <common.h>			/* types, get_board_name(), ... */
 #include <serial.h>			/* get_serial_device() */
 #include <stdio_dev.h>			/* DEV_NAME_SIZE */
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
+#include <linux/delay.h>
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
+#include <dm/uclass.h>				/* uclass_get_device() */
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"
-#ifdef CONFIG_CMD_SELFTEST
+#ifdef CONFIG_FS_SELFTEST
 #include "fs_dram_test.h"
 #endif
 #include <fuse.h>			/* fuse_read() */
 #include <update.h>			/* enum update_action */
 
-#ifdef HAVE_BOARD_CFG
+#ifdef CONFIG_FS_BOARD_CFG
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
 
@@ -38,14 +42,14 @@ static char fs_sys_prompt[32];
 /* Store a pointer to the current board info */
 static const struct fs_board_info *current_bi;
 
-#ifdef CONFIG_CMD_SELFTEST
+#ifdef CONFIG_FS_SELFTEST
 /* Store DRAM test result for bdinfo */
 static char dram_result[64] = "FAILED (Not run)";
 #endif
 
 /* ------------- Functions using fs_nboot_args ----------------------------- */
 
-#ifndef HAVE_BOARD_CFG
+#ifndef CONFIG_FS_BOARD_CFG
 
 /* Addresses of arguments coming from NBoot and going to Linux */
 #define NBOOT_ARGS_BASE (CONFIG_SYS_SDRAM_BASE + 0x00001000)
@@ -95,10 +99,19 @@ struct fs_nboot_args *fs_board_get_nboot_args(void)
 /* Get board type (zero-based) */
 unsigned int fs_board_get_type(void)
 {
-	int BoardType = fs_board_get_nboot_args()->chBoardType - CONFIG_FS_BOARD_OFFS;
+	int BoardType = fs_board_get_nboot_args()->chBoardType;
 #ifdef CONFIG_TARGET_FSIMX6
 	if (BoardType >= 29)
-		BoardType -= 21;
+		BoardType -= (29 - 8);
+#elif CONFIG_TARGET_FSIMX6SX
+	if (BoardType == 25)
+		BoardType -= (25 - 7);
+	else if (BoardType >= 32)
+		BoardType -= (32 - 8);
+	else
+		BoardType -= 8;
+#elif CONFIG_TARGET_FSIMX6UL
+	BoardType -= 16;
 #endif
 	return BoardType;
 }
@@ -144,16 +157,18 @@ void board_nand_state(struct mtd_info *mtd, unsigned int state)
 	/* Save state to pass it to Linux later */
 	nboot_args.chECCstate |= (unsigned char)state;
 }
-#endif /* !HAVE_BOARD_CFG */
+#endif /* !CONFIG_FS_BOARD_CFG */
 
 /* ------------- Functions using BOARD-CFG --------------------------------- */
 
-#ifdef HAVE_BOARD_CFG
+#ifdef CONFIG_FS_BOARD_CFG
 
 /* Get Pointer to struct cfg_info */
 struct cfg_info *fs_board_get_cfg_info(void)
 {
-	return (struct cfg_info *)CONFIG_SPL_BSS_START_ADDR;
+	DECLARE_GLOBAL_DATA_PTR;
+
+	return (struct cfg_info *)&gd->cfg_info;
 }
 
 /* Get the boot device from BOARD-CFG) */
@@ -189,12 +204,12 @@ const char *fs_board_get_nboot_version(void)
 /* Set RAM size; optee will be subtracted in dram_init() */
 int board_phys_sdram_size(phys_size_t *size)
 {
-	*size = fs_board_get_cfg_info()->dram_size << 20;
+	*size = (phys_size_t)fs_board_get_cfg_info()->dram_size << 20;
 
 	return 0;
 }
 
-#endif /* HAVE_BOARD_CFG */
+#endif /* CONFIG_FS_BOARD_CFG */
 
 /* ------------- Generic functions ----------------------------------------- */
 
@@ -229,7 +244,7 @@ enum update_action board_check_for_recover(void)
 {
 	char *recover_gpio;
 
-#ifndef HAVE_BOARD_CFG
+#ifndef CONFIG_FS_BOARD_CFG
 	/* On some platforms, the check for recovery is already done in NBoot.
 	   Then the ACTION_RECOVER bit in the dwAction value is set. */
 	if (nboot_args.dwAction & ACTION_RECOVER)
@@ -277,6 +292,10 @@ enum update_action board_check_for_recover(void)
 		}
 	}
 
+	/* Skip check for update when going for fastboot */
+	if (is_boot_from_usb())
+		return UPDATE_ACTION_NONE;
+
 	return UPDATE_ACTION_UPDATE;
 }
 #endif /* CONFIG_CMD_UPDATE */
@@ -285,7 +304,7 @@ enum update_action board_check_for_recover(void)
 void fs_board_init_common(const struct fs_board_info *board_info)
 {
 	DECLARE_GLOBAL_DATA_PTR;
-#ifndef HAVE_BOARD_CFG
+#ifndef CONFIG_FS_BOARD_CFG
 	struct fs_nboot_args *pargs = (struct fs_nboot_args *)NBOOT_ARGS_BASE;
 
 	/* Save a copy of the NBoot args */
@@ -305,6 +324,11 @@ void fs_board_init_common(const struct fs_board_info *board_info)
 
 	/* Prepare the command prompt */
 	sprintf(fs_sys_prompt, "%s # ", board_info->name);
+
+#ifdef CONFIG_IMX_TMU
+	/* Initialize thermal sensor */
+	uclass_get_device(UCLASS_THERMAL, 0, NULL);
+#endif
 }
 
 #ifdef CONFIG_BOARD_LATE_INIT
@@ -330,7 +354,7 @@ static void setup_var(const char *varname, const char *content, int runvar)
 		run_command(content, 0);
 }
 
-/* Set up all board specific variables */
+/* Show NBoot version and set up all board specific variables */
 void fs_board_late_init_common(const char *serial_name)
 {
 	const char *envvar;
@@ -347,8 +371,26 @@ void fs_board_late_init_common(const char *serial_name)
 	const char *bd_auxcore;
 #endif
 	char var_name[20];
+	bool conflict = false;
 
-#ifdef CONFIG_CMD_SELFTEST
+#ifdef CONFIG_FS_BOARD_CFG
+	ulong found_cfg = (ulong)fs_image_get_cfg_addr();
+	ulong expected_cfg = (ulong)fs_image_get_regular_cfg_addr();
+
+	printf("CFG:   Found at 0x%lx", found_cfg);
+	if (found_cfg != expected_cfg) {
+		printf(" *** Warning - expected at 0x%lx", expected_cfg);
+		conflict = true;
+	}
+	putc('\n');
+#endif
+
+	printf("NBoot: %s", fs_board_get_nboot_version());
+	if (conflict)
+		puts(" *** Warning - not compatible with current U-Boot!");
+	putc('\n');
+
+#ifdef CONFIG_FS_SELFTEST
 	/* Save dram_result for bdinfo */
 	fs_test_ram(dram_result);
 #endif
@@ -456,7 +498,7 @@ void fs_board_late_init_common(const char *serial_name)
 	}
 
 	/* Set some variables with a direct value */
-#if defined(CONFIG_FUS_COMMON_CMD_OPTIONS) && defined(CONFIG_CMD_SELFTEST)
+#if defined(CONFIG_FS_SELFTEST)
 	env_set("bootdelay", "0");
 	env_set("updatecheck", "");
 	env_set("installcheck", "");
@@ -550,7 +592,7 @@ char *get_sys_prompt(void)
 	return fs_sys_prompt;
 }
 
-#ifdef CONFIG_CMD_SELFTEST
+#ifdef CONFIG_FS_SELFTEST
 /* Return dram_result for bdinfo */
 char *get_dram_result(void)
 {
@@ -569,6 +611,7 @@ struct boot_dev_name {
 
 const struct boot_dev_name boot_dev_names[] = {
 	{USB_BOOT,  "USB"},
+	{USB2_BOOT, "USB2"},
 	{NAND_BOOT, "NAND"},
 	{MMC1_BOOT, "MMC1"},
 	{MMC2_BOOT, "MMC2"},
@@ -603,7 +646,7 @@ const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev)
 	return "(unknown)";
 }
 
-#ifdef HAVE_BOARD_CFG
+#ifdef CONFIG_FS_BOARD_CFG
 
 #include <fdtdec.h>
 
@@ -773,6 +816,8 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	force_alt_usdhc = val & BOOT_CFG_FORCE_ALT_USDHC;
 	alt = (val & BOOT_CFG_ALT_SEL_MASK) >> BOOT_CFG_ALT_SEL_SHIFT;
 	switch ((val & BOOT_CFG_DEVSEL_MASK) >> BOOT_CFG_DEVSEL_SHIFT) {
+	case 0x1: // USB0 / USB1
+		boot_dev = get_boot_device();
 	case 0x2: // eMMC(SD3)
 		boot_dev = MMC3_BOOT;
 		if (force_alt_usdhc)
@@ -823,4 +868,4 @@ u32 fs_board_get_secondary_offset(void)
 
 #endif /* CONFIG_IMX8 CONFIG_IMX8MM CONFIG_IMX8MN */
 
-#endif /* HAVE_BOARD_CFG */
+#endif /* CONFIG_FS_BOARD_CFG */

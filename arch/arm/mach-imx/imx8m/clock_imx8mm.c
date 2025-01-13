@@ -6,12 +6,17 @@
  */
 
 #include <common.h>
+#include <command.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/sys_proto.h>
+#include <asm/global_data.h>
 #include <asm/io.h>
 #include <div64.h>
 #include <errno.h>
+#include <linux/bitops.h>
+#include <linux/delay.h>
+#include <log.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -338,8 +343,8 @@ void enable_display_clk(unsigned char enable)
 		/* Set Video PLL to 594Mhz, p = 1, m = 99,  k = 0, s = 2 */
 		fracpll_configure(ANATOP_VIDEO_PLL, VIDEO_PLL_RATE);
 
-		/* 500Mhz */
-		clock_set_target_val(MEDIA_AXI_CLK_ROOT, CLK_ROOT_ON | CLK_ROOT_SOURCE_SEL(1) | CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV2));
+		/* 400Mhz */
+		clock_set_target_val(MEDIA_AXI_CLK_ROOT, CLK_ROOT_ON | CLK_ROOT_SOURCE_SEL(2) | CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV2));
 
 		/* 200Mhz */
 		clock_set_target_val(MEDIA_APB_CLK_ROOT, CLK_ROOT_ON | CLK_ROOT_SOURCE_SEL(2) |CLK_ROOT_PRE_DIV(CLK_ROOT_PRE_DIV4));
@@ -380,6 +385,17 @@ void enable_display_clk(unsigned char enable)
 	}
 }
 #endif
+
+u32 get_dsi_phy_ref_clk(void)
+{
+#ifdef CONFIG_IMX8MP
+	return get_root_clk(MEDIA_MIPI_PHY1_REF_CLK_ROOT);
+#elif defined(CONFIG_IMX8MN)
+	return get_root_clk(DISPLAY_DSI_PHY_REF_CLK_ROOT);
+#else
+	return get_root_clk(MIPI_DSI_PHY_REF_CLK_ROOT);
+#endif
+}
 
 void init_uart_clk(u32 index)
 {
@@ -525,7 +541,7 @@ int clock_init(void)
 	writel(val_cfg0, &ana_pll->sys_pll2_gnrl_ctl);
 
 	/* Configure ARM at 1.2GHz */
-	clock_set_target_val(ARM_A53_CLK_ROOT, CLK_ROOT_ON | \
+	clock_set_target_val(ARM_A53_CLK_ROOT, CLK_ROOT_ON |
 			     CLK_ROOT_SOURCE_SEL(2));
 
 	intpll_configure(ANATOP_ARM_PLL, MHZ(1200));
@@ -630,7 +646,7 @@ int set_clk_eqos(enum enet_freq type)
 	return 0;
 }
 
-int imx_eqos_txclk_set_rate(u32 rate)
+int imx_eqos_txclk_set_rate(unsigned long rate)
 {
 	u32 val;
 	u32 eqos_post_div;
@@ -1103,7 +1119,7 @@ void enable_usboh3_clk(unsigned char enable)
  * Dump some clockes.
  */
 #ifndef CONFIG_SPL_BUILD
-int do_mscale_showclocks(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+int do_mscale_showclocks(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 {
 	u32 freq;
 

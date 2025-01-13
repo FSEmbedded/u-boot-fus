@@ -16,16 +16,17 @@
 #include <common.h>			/* types, get_board_name(), ... */
 #include <version.h>			/* version_string[] */
 #include <cli.h>			/* get_board_name() */
+#include <net.h>			/* eth_env_get_enetaddr_by_index() */
 #include <fdt_support.h>		/* do_fixup_by_path_u32(), ... */
 #include <asm/arch/sys_proto.h>		/* get_reset_cause() */
 #include "fs_fdt_common.h"		/* Own interface */
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
 #include "fs_image_common.h"	/* fs_image_*() */
-#ifdef CONFIG_CMD_SELFTEST
+#ifdef CONFIG_FS_SELFTEST
 #include "fs_processor_info.h"	/* fs_get_processorInfo() */
 #endif
-/* Set a generic value, if it was not already set in the device tree */
 
+/* Set a generic value, if it was not already set in the device tree */
 void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
 		    int len, int force)
 {
@@ -167,24 +168,23 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 
 	/* Add board-config to bdinfo node */
 #ifdef CONFIG_FUS_BOARDCFG_ADDR
-	void *fdt_cfg = fs_image_get_cfg_addr(false);
-	int offs_cfg = fs_image_get_cfg_offs(fdt_cfg);
+	void *fdt_cfg = fs_image_get_cfg_fdt();
+	int offs_cfg = fs_image_get_board_cfg_offs(fdt_cfg);
 	int offs_bdinfo_cfg = fdt_add_subnode(fdt, offs, "board-cfg");
 	fdt_overlay_apply_node(fdt, offs_bdinfo_cfg, fdt_cfg, offs_cfg);
 
-	char id[MAX_DESCR_LEN + 1];
-	fs_image_get_board_id(id);
-	fs_fdt_set_string(fdt, offs, "board-id", id, 1);
+	fs_image_set_board_id_from_cfg();
+	fs_fdt_set_string(fdt, offs, "board-id", fs_image_get_board_id(), 1);
 #endif
 
-#ifdef CONFIG_CMD_SELFTEST
+#ifdef CONFIG_FS_SELFTEST
 	char cpu_info[128];
 	fs_get_processorInfo(cpu_info);
 	fs_fdt_set_string(fdt, offs, "cpu_info", cpu_info, 1);
 	fs_fdt_set_string(fdt, offs, "dram_test_result", get_dram_result(), 1);
 #endif
 
-#ifndef HAVE_BOARD_CFG
+#ifndef CONFIG_FS_BOARD_CFG
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 
 	/* NAND info, names and features */
@@ -200,7 +200,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_u32str(fdt, offs, "features1", pargs->chFeatures1, 1);
 	fs_fdt_set_u32str(fdt, offs, "features2", pargs->chFeatures2, 1);
 	fs_fdt_set_u32str(fdt, offs, "nand_state", pargs->chECCstate, 1);
-#endif /* !HAVE_BOARD_CFG */
+#endif /* !CONFIG_FS_BOARD_CFG */
 	fs_fdt_set_string(fdt, offs, "boot_dev",
 		fs_board_get_name_from_boot_dev(fs_board_get_boot_dev()), 1);
 	fs_fdt_set_string(fdt, offs, "board_name", get_board_name(), 0);

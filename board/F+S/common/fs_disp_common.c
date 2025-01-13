@@ -14,6 +14,9 @@
 #if defined(CONFIG_VIDEO_IPUV3) || defined(CONFIG_VIDEO_MXS)
 
 #include <common.h>			/* types */
+#include <command.h>			/* run_command() */
+#include <env.h>			/* env_get() */
+#include <linux/delay.h>		/* mdelay() */
 #include <asm/gpio.h>			/* gpio_direction_output() */
 #include <i2c.h>			/* i2c_set_bus_num(), i2c_reg_read() */
 #include "fs_disp_common.h"		/* Own interface */
@@ -173,7 +176,10 @@ void fs_disp_set_vcfl(int port, int on, int gpio)
 	if (!on)
 		vcfl_users &= ~(1 << index);
 	if (!vcfl_users) {
-		gpio_direction_output(gpio, on);
+		if (displays[index].flags & FS_DISP_FLAGS_LVDS_VCFL_INV)
+			gpio_direction_output(gpio, !on);
+		else
+			gpio_direction_output(gpio, on);
 		if (on)
 			mdelay(1);
 	}
@@ -217,6 +223,10 @@ static void show_dispflags(unsigned int flags)
 	}
 	if (flags & FS_DISP_FLAGS_LVDS_BL_INV) {
 		strcpy(p, ",bl_inv");
+		p += strlen(p);
+	}
+	if (flags & FS_DISP_FLAGS_LVDS_VCFL_INV) {
+		strcpy(p, ",vcfl_inv");
 		p += strlen(p);
 	}
 
@@ -327,6 +337,9 @@ static int parse_dispflags(unsigned int *flags, unsigned int flags_mask)
 			break;
 		if ((flags_mask & FS_DISP_FLAGS_LVDS_BL_INV)
 		    && parse_flag("bl_inv", flags, FS_DISP_FLAGS_LVDS_BL_INV))
+			break;
+		if ((flags_mask & FS_DISP_FLAGS_LVDS_VCFL_INV)
+		    && parse_flag("vcfl_inv", flags, FS_DISP_FLAGS_LVDS_VCFL_INV))
 			break;
 
 		if (!*parse_pos)

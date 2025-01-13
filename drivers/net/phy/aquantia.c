@@ -3,12 +3,16 @@
  * Aquantia PHY drivers
  *
  * Copyright 2014 Freescale Semiconductor, Inc.
- * Copyright 2018 NXP
+ * Copyright 2018, 2021 NXP
  */
 #include <config.h>
 #include <common.h>
 #include <dm.h>
+#include <log.h>
+#include <net.h>
 #include <phy.h>
+#include <linux/bitops.h>
+#include <linux/delay.h>
 #include <u-boot/crc.h>
 #include <malloc.h>
 #include <asm/byteorder.h>
@@ -550,8 +554,9 @@ int aquantia_config(struct phy_device *phydev)
 
 int aquantia_startup(struct phy_device *phydev)
 {
-	u32 reg, speed;
+	u32 speed;
 	int i = 0;
+	int reg;
 
 	phydev->duplex = DUPLEX_FULL;
 
@@ -676,6 +681,20 @@ struct phy_driver aqr112_driver = {
 	.data = AQUANTIA_GEN3,
 };
 
+struct phy_driver aqr113c_driver = {
+	.name = "Aquantia AQR113C",
+	.uid = 0x31c31c12,
+	.mask = 0xfffffff0,
+	.features = PHY_10G_FEATURES,
+	.mmds = (MDIO_MMD_PMAPMD | MDIO_MMD_PCS |
+		 MDIO_MMD_PHYXS | MDIO_MMD_AN |
+		 MDIO_MMD_VEND1),
+	.config = &aquantia_config,
+	.startup = &aquantia_startup,
+	.shutdown = &gen10g_shutdown,
+	.data = AQUANTIA_GEN3,
+};
+
 struct phy_driver aqr405_driver = {
 	.name = "Aquantia AQR405",
 	.uid = 0x3a1b4b2,
@@ -712,6 +731,7 @@ int phy_aquantia_init(void)
 	phy_register(&aqr106_driver);
 	phy_register(&aqr107_driver);
 	phy_register(&aqr112_driver);
+	phy_register(&aqr113c_driver);
 	phy_register(&aqr405_driver);
 	phy_register(&aqr412_driver);
 

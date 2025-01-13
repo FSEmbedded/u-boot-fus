@@ -12,9 +12,11 @@ endif
 ifeq ($(SOC),$(filter $(SOC),imx8m))
 ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
+obj-$(CONFIG_CMD_PROVISION_KEY) += cmd_prov_key.o
 endif
 obj-$(CONFIG_ENV_IS_IN_MMC) += mmc_env.o
 obj-$(CONFIG_FEC_MXC) += mac.o
+obj-$(CONFIG_DWC_ETH_QOS) += mac.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
 obj-$(CONFIG_IMX_HAB) += hab.o
 obj-y += cpu.o
@@ -28,21 +30,25 @@ endif
 obj-$(CONFIG_GPT_TIMER) += timer.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
 endif
-ifeq ($(SOC),$(filter $(SOC),mx7 mx6 mxs mx7ulp imx8m imx8 imxrt))
+ifeq ($(SOC),$(filter $(SOC),mx7 mx6 mxs mx7ulp imx8m imx8 imxrt imx8ulp))
 obj-y	+= misc.o
 obj-$(CONFIG_CMD_PRIBLOB) += priblob.o
 obj-$(CONFIG_SPL_BUILD)	+= spl.o
 endif
-ifeq ($(SOC),$(filter $(SOC),imx8m imx8))
+ifeq ($(SOC),$(filter $(SOC),imx8m imx8 imx8ulp))
 obj-y	+= dt_optee.o
+obj-$(CONFIG_IMX_HAB) += hab.o
+obj-$(CONFIG_FS_SECURE_BOOT) += checkboot.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx7))
 obj-y 	+= cpu.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
 obj-y += mmc_env.o
 endif
-ifeq ($(SOC),$(filter $(SOC),mx7 imx8))
+ifeq ($(SOC),$(filter $(SOC),mx7 imx8 imx8m))
+ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_FSL_MFGPROT) += cmd_mfgprot.o
+endif
 endif
 ifeq ($(SOC),$(filter $(SOC),mx5 mx6 mx7))
 obj-$(CONFIG_IMX_VIDEO_SKIP) += video.o
@@ -72,7 +78,6 @@ endif
 ifeq ($(SOC),$(filter $(SOC),imx8))
 ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
-obj-y  += misc.o
 endif
 endif
 ifneq ($(CONFIG_SPL_BUILD),y)
@@ -82,7 +87,12 @@ obj-$(CONFIG_BLINK_IMX) += blink_timer.o
 obj-$(CONFIG_USE_IRQ) += interrupts.o
 obj-$(CONFIG_CMD_DEKBLOB) += cmd_dek.o
 obj-$(CONFIG_CMD_NANDBCB) += cmd_nandbcb.o
+obj-$(CONFIG_CMD_QSPIHDR) += cmd_qspihdr.o
 obj-$(CONFIG_IMX_VSERVICE) += imx_vservice.o
+endif
+
+ifeq ($(CONFIG_SPL_BUILD),y)
+obj-$(CONFIG_SPL_LOAD_IMX_CONTAINER) += image-container.o parse-container.o
 endif
 
 PLUGIN = board/$(BOARDDIR)/plugin
@@ -272,10 +282,10 @@ append = cat $(filter-out $< $(PHONY), $^) >> $@
 quiet_cmd_pad_cat = CAT     $@
 cmd_pad_cat = $(cmd_objcopy) && $(append) || rm -f $@
 
-u-boot-with-spl.imx: SPL u-boot.uim FORCE
+u-boot-with-spl.imx: SPL $(if $(CONFIG_OF_SEPARATE),u-boot.img,u-boot.uim) FORCE
 	$(call if_changed,pad_cat)
 
-u-boot-with-nand-spl.imx: spl/u-boot-nand-spl.imx u-boot.uim FORCE
+u-boot-with-nand-spl.imx: spl/u-boot-nand-spl.imx $(if $(CONFIG_OF_SEPARATE),u-boot.img,u-boot.uim) FORCE
 	$(call if_changed,pad_cat)
 
 quiet_cmd_u-boot-nand-spl_imx = GEN     $@
@@ -288,12 +298,13 @@ endif
 
 targets += $(addprefix ../../../,SPL spl/u-boot-spl.cfgout u-boot-dtb.cfgout u-boot.cfgout u-boot.uim spl/u-boot-nand-spl.imx)
 
-obj-$(CONFIG_ARM64) += lowlevel.o sip.o
+obj-$(CONFIG_ARM64) += lowlevel.o
 
 obj-$(CONFIG_MX5) += mx5/
 obj-$(CONFIG_MX6) += mx6/
 obj-$(CONFIG_MX7) += mx7/
 obj-$(CONFIG_ARCH_MX7ULP) += mx7ulp/
+obj-$(CONFIG_ARCH_IMX8ULP) += imx8ulp/
 obj-$(CONFIG_IMX8M) += imx8m/
 obj-$(CONFIG_ARCH_IMX8) += imx8/
 obj-$(CONFIG_ARCH_IMXRT) += imxrt/
