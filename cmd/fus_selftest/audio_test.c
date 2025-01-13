@@ -164,7 +164,7 @@ int test_audio(char *szStrBuffer)
 	/* Init codec */
 	printf("I2S I2C interface.....");
 
-	struct dm_i2c_chip *chip = dev_get_parent_platdata(dev);
+	struct dm_i2c_chip *chip = dev_get_parent_plat(dev);
 	struct udevice *bus = dev_get_parent(dev);
 
 

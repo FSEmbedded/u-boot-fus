@@ -1,6 +1,7 @@
 #include <common.h>
 #include <spi.h>
 #include <dm.h>
+#include <linux/delay.h>
 #include "drv_spi.h"
 
 static struct spi_slave *slave;
@@ -18,7 +19,7 @@ int8_t DRV_SPI_Initialize(struct udevice *dev)
 		int mode = 0;
 		int ret = 0;
 
-		bus= dev->req_seq;
+		bus= dev->seq_;
 
 		cs = dev_read_u32_default(dev, "cs", -1);
 		max_hz = dev_read_u32_default(dev, "spi-max-frequency", 0);

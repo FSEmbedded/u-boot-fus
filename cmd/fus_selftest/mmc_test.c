@@ -7,6 +7,7 @@
 #include "common/fus_sdio.h"
 #include "serial_test.h" // mute_debug_port()
 #include <asm/gpio.h>
+#include <linux/delay.h>
 
 
 
@@ -43,7 +44,7 @@ int test_mmc(char * szStrBuffer){
 
 		struct mmc *mmc;
 
-		mmc = find_mmc_device(dev->seq);
+		mmc = find_mmc_device(dev->seq_);
 
 		if (!mmc) {
 			return 1;

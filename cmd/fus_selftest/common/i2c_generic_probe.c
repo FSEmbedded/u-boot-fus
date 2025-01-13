@@ -2,6 +2,7 @@
 #include <dm.h>
 #include <dm/pinctrl.h>
 #include <asm/gpio.h>
+#include <linux/delay.h>
 #include <malloc.h>
 
 static int i2c_generic_probe(struct udevice *dev)

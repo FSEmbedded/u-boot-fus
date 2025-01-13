@@ -1,9 +1,10 @@
 #include <common.h>
 #include <dm/device.h>
 #include <dm.h>
+#include <linux/delay.h>
 #include <asm/arch/clock.h>
 #include <asm/io.h>
-#include <asm/arch/imx-regs-imx8mm.h> // LPUART_BASE_ADDR
+#include <asm/arch/imx-regs.h> // LPUART_BASE_ADDR
 #include <asm/mach-imx/iomux-v3.h>
 #include "../common/fus_sai.h"
 #include "../common/fsl_sgtl5000.h"
@@ -35,7 +36,6 @@
 
 #define LOCK_STATUS 	BIT(31)
 #define LOCK_SEL_MASK	BIT(29)
-#define CLKE_MASK	BIT(11)
 #define RST_MASK	BIT(9)
 #define BYPASS_MASK	BIT(4)
 #define	MDIV_SHIFT	12
@@ -56,14 +56,6 @@
 		.kdiv	=	(_k),				\
 	}
 
-struct imx_int_pll_rate_table {
-	u32 rate;
-	int mdiv;
-	int pdiv;
-	int sdiv;
-	int kdiv;
-};
-
 static struct imx_int_pll_rate_table imx8mm_fracpll_tbl[] = {
 		PLL_1443X_RATE(393216000, 262, 2, 3, 9437)
 };
@@ -76,7 +68,7 @@ static int fracpll_configure_audioPll1(void)
 
 	rate = &imx8mm_fracpll_tbl[0];
 
-	pll_base = (void __iomem *)AUDIO_PLL1_GNRL_CTL;
+	pll_base = (void __iomem *)0x30360000;
 	/* Bypass clock and set lock to pll output lock */
 	tmp = readl(pll_base);
 	tmp |= BYPASS_MASK;

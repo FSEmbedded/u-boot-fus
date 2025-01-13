@@ -34,7 +34,7 @@ int test_rtc_start(void){
 
 	if (ret == 0) {
 
-		struct dm_i2c_chip *chip = dev_get_parent_platdata(dev);
+		struct dm_i2c_chip *chip = dev_get_parent_plat(dev);
 		struct udevice *bus = dev_get_parent(dev);
 		struct rtc_ops *ops = rtc_get_ops(dev);
 

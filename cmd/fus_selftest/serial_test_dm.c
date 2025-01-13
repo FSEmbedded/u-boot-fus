@@ -11,6 +11,7 @@
 #include <dm.h>
 #include <dm/device-internal.h>
 #include <asm/gpio.h>
+#include <linux/delay.h>
 #include <serial.h>
 #ifndef CONFIG_DM_SERIAL
 #include "serial_test.h"
@@ -80,7 +81,7 @@ void init_rs485_cts(struct udevice *dev)
 	if (!gpio_request_by_name(dev, "rs485-cts-pin", 0, rs485_cts, 0))
 	{
 		char label[32];
-		sprintf(label,"SERIAL%d_RS485_CTS",dev->seq);
+		sprintf(label,"SERIAL%d_RS485_CTS",dev->seq_);
 		dm_gpio_free(dev, rs485_cts);
 		dm_gpio_request(rs485_cts, label);
 		dm_gpio_set_dir_flags(rs485_cts, GPIOD_IS_OUT);
@@ -186,13 +187,13 @@ int test_serial(char *szStrBuffer)
 		/* Clear reason-string */
 		szStrBuffer[0] = '\0';
 
-		dev->driver->ofdata_to_platdata(dev);
+		dev->driver->of_to_plat(dev);
 
 		device_probe(dev);
 
 		node = dev_of_offset(dev);
 
-		printf("SERIAL %d: (%s)\n", dev->seq, fdt_get_property(fdt, node, "port-name", NULL)->data);
+		printf("SERIAL %d: (%s)\n", dev->seq_, fdt_get_property(fdt, node, "port-name", NULL)->data);
 		// Wait for debug output to finish
 		if (fdt_get_property(fdt, node, "debug-port", NULL))
 			mdelay(1);

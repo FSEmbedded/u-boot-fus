@@ -41,11 +41,11 @@
 
 static char szStrBuffer[256];
 
-static int selftest_common(enum proto_t, cmd_tbl_t *, int, char * const []);
+static int selftest_common(struct cmd_tbl *, int, char * const []);
 
-static int do_selftest(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+static int do_selftest(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 {
-	return selftest_common(BOOTP, cmdtp, argc, argv);
+	return selftest_common(cmdtp, argc, argv);
 }
 
 // U_BOOT_CMD(_name, _maxargs, _rep, _cmd, _usage, _help)
@@ -87,7 +87,7 @@ void test_OkOrFail(const int result, const int bNewline,
     	printf("\n");
 }
 
-static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
+static int selftest_common(struct cmd_tbl *cmdtp, int argc,
 		char * const argv[])
 {
 	int ret = CMD_RET_SUCCESS;
@@ -131,7 +131,7 @@ static int selftest_common(enum proto_t proto, cmd_tbl_t *cmdtp, int argc,
 	if (has_feature(FEAT_EXT_RTC))
 		ret = test_rtc_start();
 #ifdef CONFIG_IMX8MM
-	ret = test_display(szStrBuffer);
+	//ret = test_display(szStrBuffer);
 #endif
 #ifdef CONFIG_ENV_IS_IN_NAND
 	if (has_feature(FEAT_NAND))

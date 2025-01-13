@@ -9,6 +9,7 @@
 #include <dm/pinctrl.h>
 #include <dm.h>
 #include <asm/gpio.h>
+#include <linux/delay.h>
 #include <malloc.h>
 #include "selftest.h"
 #include "pwm_test.h"
@@ -41,19 +42,19 @@ int test_pwm(char *szStrBuffer){
 		if (gpio_request_by_name(dev, "gpio", 0, test_gpio, GPIOD_IS_OUT))
 			continue;
 
-		size = ofnode_read_size(dev->node, "freqs");
+		size = ofnode_read_size(dev->node_, "freqs");
 		if (size <= 0)
 			continue;
 		size = size / sizeof(u32);
 		freqs = calloc(size,sizeof(u32));
-		ofnode_read_u32_array(dev->node, "freqs", freqs, size);
+		ofnode_read_u32_array(dev->node_, "freqs", freqs, size);
 
-		size = ofnode_read_size(dev->node, "times");
+		size = ofnode_read_size(dev->node_, "times");
 		if (size <= 0)
 			continue;
 		size = size / sizeof(u32);
 		times = calloc(size,sizeof(u32));
-		ofnode_read_u32_array(dev->node, "times", times, size);
+		ofnode_read_u32_array(dev->node_, "times", times, size);
 
 		for (i=0; i<size; i++) {
 			if (*(freqs+i)) {

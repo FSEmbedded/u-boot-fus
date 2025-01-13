@@ -69,7 +69,7 @@ static void usb_scan_bus(struct udevice *bus, bool recurse)
 
 	assert(recurse);	/* TODO: Support non-recusive */
 
-	printf("scanning bus %d for devices... ", bus->seq);
+	printf("scanning bus %d for devices... ", bus->seq_);
 	debug("\n");
 	ret = usb_scan_device(bus, 0, USB_SPEED_FULL, &dev);
 	if (ret)
@@ -111,10 +111,10 @@ static int usb_init_host(void)
 	if (ret)
 		return ret;
 
-	uc_priv = uc->priv;
+	uc_priv = uc->priv_;
 
 	uclass_foreach_dev(bus, uc) {
-		if (usb_get_dr_mode(dev_of_offset(bus)) != USB_DR_MODE_HOST)
+		if (usb_get_dr_mode(dev_ofnode(bus)) != USB_DR_MODE_HOST)
 			continue;
 		/* init low_level USB */
 		printf("USB%d:   ", count);
@@ -138,7 +138,7 @@ static int usb_init_host(void)
 	 * and configure them, first scan primary controllers.
 	 */
 	uclass_foreach_dev(bus, uc) {
-		if (usb_get_dr_mode(dev_of_offset(bus)) != USB_DR_MODE_HOST)
+		if (usb_get_dr_mode(dev_ofnode(bus)) != USB_DR_MODE_HOST)
 			continue;
 		if (!device_active(bus))
 			continue;
@@ -155,7 +155,7 @@ static int usb_init_host(void)
 	 */
 	if (uc_priv->companion_device_count) {
 		uclass_foreach_dev(bus, uc) {
-			if (usb_get_dr_mode(dev_of_offset(bus)) != USB_DR_MODE_HOST)
+			if (usb_get_dr_mode(dev_ofnode(bus)) != USB_DR_MODE_HOST)
 				continue;
 			if (!device_active(bus))
 				continue;
@@ -201,7 +201,7 @@ int test_USBHost( char * szStrBuffer )
 
 	for (uclass_find_first_device(UCLASS_USB, &bus); bus; uclass_find_next_device(&bus)) {
 
-		if (usb_get_dr_mode(dev_of_offset(bus)) != USB_DR_MODE_HOST)
+		if (usb_get_dr_mode(dev_ofnode(bus)) != USB_DR_MODE_HOST)
 			continue;
 
 		if (!device_active(bus))

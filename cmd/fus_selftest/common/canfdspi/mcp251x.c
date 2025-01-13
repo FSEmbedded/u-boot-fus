@@ -1,4 +1,5 @@
 #include <common.h>
+#include <linux/delay.h>
 
 #include "mcp251x.h"
 

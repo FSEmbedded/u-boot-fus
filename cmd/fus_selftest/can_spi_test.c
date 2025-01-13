@@ -1,6 +1,7 @@
 #include <common.h>
 #include <dm.h>
 #include <spi.h>
+#include <linux/delay.h>
 #include "can_spi_test.h"
 #include "selftest.h"
 

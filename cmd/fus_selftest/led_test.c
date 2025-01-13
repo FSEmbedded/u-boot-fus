@@ -11,6 +11,7 @@
 #include <dm.h>
 #include <dm/pinctrl.h>
 #include <asm/gpio.h>
+#include <linux/delay.h>
 #include <malloc.h>
 #include "led_test.h"
 #include "selftest.h"
@@ -144,7 +145,7 @@ int test_led(char *szStrBuffer)
 			pinctrl_select_state(dev,"ledgpio");
 		}
 
-		if (ofnode_get_property(dev->node, "is-inverted", NULL))
+		if (ofnode_get_property(dev->node_, "is-inverted", NULL))
 			inverted = true;
 
 		/* Test every GPIO-Bit */

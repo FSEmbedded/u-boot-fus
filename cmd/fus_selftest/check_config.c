@@ -24,7 +24,7 @@ int get_board_fert(char *fert)
 {
 	char id[MAX_DESCR_LEN + 1] = "\0";
 	char *tmp;
-	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr(true);
+	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr();
 
 	*fert = '\0';
 

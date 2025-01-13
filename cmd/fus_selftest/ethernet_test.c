@@ -15,6 +15,7 @@
 #include <malloc.h>
 #include "ethernet_test.h"
 #include <asm/gpio.h>
+#include <linux/delay.h>
 #include "serial_test.h" // mute_debug_port()
 #include "selftest.h"
 #include "common/ksz9893r.h" // ksz9893r_switch_port()

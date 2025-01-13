@@ -5,8 +5,9 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <dm.h>
 #include <asm/arch/imx8mm_pins.h> // Pins
-#include <asm/arch/imx-regs-imx8mm.h> // LPUART_BASE_ADDR
+#include <asm/arch/imx-regs.h> // LPUART_BASE_ADDR
 #include <asm/arch/clock.h>
 #include <asm/mach-imx/iomux-v3.h>
 #include <asm/io.h>			/* __raw_readl(), __raw_writel() */
@@ -18,7 +19,6 @@
 #else
 #include "../serial_test_dm.h" // dm serial
 #endif
-#include <dm.h>
 #include <dm/platform_data/serial_mxc.h>
 
 #define UART_LOOP		(1 <<  12)
@@ -87,10 +87,10 @@ struct mxc_uart {
 void set_loopback(void *dev, int on)
 {
 	struct udevice *pdev = (struct udevice *) dev;
-	struct mxc_serial_platdata *plat;
+	struct mxc_serial_plat *plat;
 	struct mxc_uart * base;
 
-	plat = pdev->platdata;
+	plat = dev_get_plat(dev);
 	base = plat->reg;
 
 	/* Set internal loopback mode */

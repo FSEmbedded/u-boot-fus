@@ -11,6 +11,7 @@
 #include <dm.h>
 #include <dm/pinctrl.h>
 #include <asm/gpio.h>
+#include <linux/delay.h>
 #include "relay_test.h"
 #include "selftest.h"
 #include <malloc.h>

@@ -9,6 +9,7 @@
 #include "dram_test.h"
 #include "selftest.h"
 #include "../../board/F+S/common/fs_board_common.h"/* fs_board_*() */
+#include <asm/global_data.h>
 #include <asm/arch/sys_proto.h>
 /* =============== SDRAM Test ============================================== */
 

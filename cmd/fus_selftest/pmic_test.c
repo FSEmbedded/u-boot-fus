@@ -25,7 +25,7 @@ int test_pmic(char *szStrBuffer){
 	if (uclass_get_device(UCLASS_PMIC,0,&dev) == 0) {
 
 		printf("PMIC..................");
-		struct dm_i2c_chip *chip = dev_get_parent_platdata(dev);
+		struct dm_i2c_chip *chip = dev_get_parent_plat(dev);
 		struct udevice *bus = dev_get_parent(dev);
 
 	  	ret = dm_i2c_probe(bus,chip->chip_addr,chip->flags,&devp);
