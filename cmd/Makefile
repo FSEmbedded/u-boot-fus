@@ -231,6 +231,9 @@ obj-$(CONFIG_CMD_BLOB) += blob.o
 # Android Verified Boot 2.0
 obj-$(CONFIG_CMD_AVB) += avb.o
 
+#F&S Selftest
+obj-$(CONFIG_FUS_COMMON_CMD_OPTIONS) += fus_selftest/
+
 # Foundries.IO SCP03
 obj-$(CONFIG_CMD_SCP03) += scp03.o
 
