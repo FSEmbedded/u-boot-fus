@@ -1275,7 +1275,7 @@ int gpio_request_list_by_name_nodev(ofnode node, const char *list_name,
 		ret = _gpio_request_by_name_nodev(node, list_name, count,
 						  &desc[count], flags, true);
 		if (ret == -ENOENT)
-			break;
+			continue;
 		else if (ret)
 			goto err;
 	}
@@ -1349,8 +1349,12 @@ int gpio_free_list(struct udevice *dev, struct gpio_desc *desc, int count)
 	int i;
 
 	/* For now, we don't do any checking of dev */
-	for (i = 0; i < count; i++)
+	for (i = 0; i < count; i++) {
+		if(desc[i].dev == NULL)
+			continue;
+
 		dm_gpio_free(dev, &desc[i]);
+	}
 
 	return 0;
 }
