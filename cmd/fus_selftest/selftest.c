@@ -39,7 +39,7 @@
 #include "processor_info.h"
 
 
-static char szStrBuffer[256];
+static char szStrBuffer[1024];
 
 static int selftest_common(struct cmd_tbl *, int, char * const []);
 

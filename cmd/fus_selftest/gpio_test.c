@@ -138,6 +138,9 @@ static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
 		case OUTPUT:
 		case INPUT:
 			for (int i = 0; i < size; i++) {
+				if(gpios[i].dev == NULL)
+					continue;
+
 				dev_read_string_index(dev, input ? in_pins_str : out_pins_str, i, &label);
 				dm_gpio_free(dev, (gpios+i));
 				dm_gpio_request((gpios+i), label);
@@ -152,6 +155,9 @@ static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
 			break;
 		case SET:
 			for (int i = 0; i < set_size; i++) {
+				if(gpios[i].dev == NULL)
+					continue;
+
 				dev_read_string_index(dev, set_pins_str, i, &label);
 				dm_gpio_free(dev, (gpios+i));
 				dm_gpio_request((gpios+i), label);
@@ -173,20 +179,39 @@ static int init_gpios(struct udevice *dev, struct gpio_desc *gpios, int input)
 
 static void free_gpios(struct udevice *dev, struct gpio_desc *gpios)
 {
-	for (int i = 0; i < size; i++)
+	for (int i = 0; i < size; i++){
+		if(gpios[i].dev == NULL)
+			continue;
+
 		dm_gpio_free(dev, (gpios+i));
+	}
 }
 
 static void free_set_gpios(struct udevice *dev, struct gpio_desc *gpios)
 {
-	for (int i = 0; i < set_size; i++)
+	for (int i = 0; i < set_size; i++){
+		if(gpios[i].dev == NULL)
+			continue;
+
 		dm_gpio_free(dev, (gpios+i));
+	}
+}
+
+static int check_matching_pair(struct gpio_desc *in_gpios, struct gpio_desc *out_gpios, int bit)
+{
+	if(in_gpios[bit].dev == NULL || out_gpios[bit].dev == NULL)
+		return -1;
+
+	return 0;
 }
 
 static void set_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 {
 	int val;
 	for (int i=0; i<size; i++) {
+		if(gpios[i].dev == NULL)
+			continue;
+
 		val = active_high ? (i == bit) : (i != bit);
 		dm_gpio_set_value((gpios+i),val);
 	}
@@ -194,30 +219,31 @@ static void set_test_bit(struct gpio_desc *gpios, int bit, int active_high)
 	mdelay(10);
 }
 
-static u32 cmp_test_bit(struct gpio_desc *gpios, int bit, int active_high)
+static void cmp_test_bit(struct gpio_desc *in_gpios, struct gpio_desc *out_gpios, int bit, int active_high, u64 *failmask)
 {
 	int cmp_val;
-	u32 failmask = 0;
 
 	for (int i=0; i<size; i++) {
+		uint fidx = (i < 64 ? 0:1);
+
+		if(check_matching_pair(in_gpios, out_gpios, i))
+			continue;
+
 		cmp_val = active_high ? (i == bit) : (i != bit);
-		if (cmp_val != dm_gpio_get_value(gpios+i))
-			failmask |= (1 << i);
+		if (cmp_val != dm_gpio_get_value(in_gpios+i)){
+			failmask[fidx] |= ((u64)1 << (i % 64));
+			debug("%s: HIT at %d\n", __func__, i);
+		};
 	}
 	/* Delay needed for longer loopbacks */
 	mdelay(10);
-
-	return failmask;
 }
 
-int test_gpio_dev(struct udevice *dev, char *name, u32 *failmask)
+int test_gpio_dev(struct udevice *dev, char *name, u64 *failmask)
 {
 	int i;
 	char variant[MAX_DESCR_LEN+1];
 	struct gpio_desc *in_gpios, *out_gpios, *set_gpios;
-
-	/* Init failmask */
-	*failmask = 0;
 
 	/* Init gpio names */
 	set_gpios_default(name);
@@ -262,13 +288,25 @@ int test_gpio_dev(struct udevice *dev, char *name, u32 *failmask)
 		/* Test every GPIO-Bit */
 		/* Active High: 001, 010, 100 */
 		for (i = 0; i < size; i++) {
+			debug("%s: Active HIGH: test %d of %d\n",__func__, i, size);
+			if(check_matching_pair(in_gpios, out_gpios, i))
+				continue;
+
 			set_test_bit(out_gpios, i, 1);
-			*failmask |= cmp_test_bit(in_gpios, i, 1);
+			cmp_test_bit(in_gpios, out_gpios, i, 1, failmask);
+			debug("%s: Failmask[0] = 0x%llx\n", __func__, failmask[0]);
+			debug("%s: Failmask[1] = 0x%llx\n", __func__, failmask[1]);
 		}
 		/* Active Low: 110, 101, 011 */
 		for (i = 0; i < size; i++) {
+			debug("%s: Active LOW: test %d of %d\n",__func__, i, size);
+			if(in_gpios[i].dev == NULL || out_gpios[i].dev == NULL)
+				continue;
+
 			set_test_bit(out_gpios, i, 0);
-			*failmask |= cmp_test_bit(in_gpios, i, 0);
+			cmp_test_bit(in_gpios, out_gpios, i, 0, failmask);
+			debug("%s: Failmask[0] = 0x%llx\n", __func__, failmask[0]);
+			debug("%s: Failmask[1] = 0x%llx\n", __func__, failmask[1]);
 		}
 
 		/* Free GPIOs */
@@ -320,7 +358,7 @@ static int __test_gpio(int uclass, char *name, char *szStrBuffer)
 
 	while (uclass_get_device(uclass,port,&dev) == 0) {
 
-		u32 failmask = 0;
+		u64 failmask[2] = {0};
 
 		if (skip_node(dev)) {
 			port++;
@@ -328,14 +366,15 @@ static int __test_gpio(int uclass, char *name, char *szStrBuffer)
 		}
 
 		/* If a size is returned, gpios exists */
-		if(test_gpio_dev(dev, name, &failmask))
+		if(test_gpio_dev(dev, name, failmask))
 			gpio_exists = 1;
 
-		if (failmask)
+		if (failmask[0] || failmask[1])
 				failed = 1;
 
-		for (i = 0; failmask; i++) {
-			if (failmask & (1 << i)) {
+		for (i = 0; failmask[0] || failmask[1]; i++) {
+			uint fidx = i < 64 ? 0:1;
+			if (failmask[fidx] & ((u64)1 << (i%64))) {
 				dev_read_string_index(dev, in_pins_str, i, &in_label);
 				dev_read_string_index(dev, out_pins_str, i, &out_label);
 				if (first_pins) {
@@ -344,7 +383,7 @@ static int __test_gpio(int uclass, char *name, char *szStrBuffer)
 				}
 				else
 					sprintf(szStrBuffer + strlen(szStrBuffer),", %s->%s", out_label, in_label);
-				failmask &= ~(1 << i);
+				failmask[fidx] &= ~((u64)1 << (i%64));
 			}
 		}
 
