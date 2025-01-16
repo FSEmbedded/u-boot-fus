@@ -17,17 +17,13 @@ int test_eeprom(char *szStrBuffer){
 	int ret = 0;
 	struct udevice *dev;
 	struct udevice *devp = NULL;
-	struct uclass *uc;
 	ofnode subnode;
 	u32 reg = 0;
 
 	/* Clear reason-string */
 	szStrBuffer[0] = '\0';
 
-	if (uclass_get(UCLASS_I2C, &uc))
-		return 1;
-
-	uclass_foreach_dev(dev, uc) {
+	uclass_foreach_dev_probe(UCLASS_I2C, dev) {
 
 		subnode = dev_read_subnode(dev, "eeprom");
 
