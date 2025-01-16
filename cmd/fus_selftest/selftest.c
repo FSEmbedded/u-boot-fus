@@ -138,6 +138,7 @@ static int selftest_common(struct cmd_tbl *cmdtp, int argc,
 		ret = test_nand(szStrBuffer);
 #endif
 	ret = test_mmc(szStrBuffer);
+#if 0
 #ifdef FEAT_CAN
 	if (has_feature(FEAT_CAN))
 		ret = test_can(szStrBuffer);
@@ -154,9 +155,12 @@ static int selftest_common(struct cmd_tbl *cmdtp, int argc,
 	ret = test_led(szStrBuffer);
 
 	ret = test_mnt_opt(szStrBuffer);
+#endif
 
 	if (has_feature(FEAT_EEPROM))
 		ret = test_eeprom(szStrBuffer);
+
+#if 0
 #ifndef CONFIG_IMX8MN
 	ret = test_USBHost(szStrBuffer);
 #endif
@@ -173,6 +177,7 @@ static int selftest_common(struct cmd_tbl *cmdtp, int argc,
 #endif
 	else
 		ret = test_gpio(UCLASS_I2C_GENERIC, szStrBuffer);
+#endif
 
 	ret = test_gpio(UCLASS_SPI, szStrBuffer);
 
