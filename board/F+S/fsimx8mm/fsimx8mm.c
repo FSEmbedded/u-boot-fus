@@ -286,6 +286,8 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_RTC85063;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-rtc-pcf85263", NULL))
 		features |= FEAT_RTC85263;
+	if (info->board_type == BT_OSM8MM)
+		features |= FEAT_RTC85263;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-security", NULL))
 		features |= FEAT_SEC_CHIP;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-can", NULL))
