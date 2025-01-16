@@ -1,0 +1,172 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+* Copyright 2024 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+/dts-v1/;
+
+#ifdef CONFIG_IMX8MM
+#include "fs-osm-sf-mx8mm-selftest.dts"
+#endif
+#ifdef CONFIG_IMX93
+#include "fs-osm-sf-mx93-selftest.dts"
+#include "fs-osm-sf-mx93-selftest-u-boot.dtsi"
+#endif
+
+#if 0
+&osm_can_a { status = "disabled"; };
+&osm_can_b { status = "disabled"; };
+&osm_eth_a { status = "disabled"; };
+&osm_eth_b { status = "disabled"; };
+&osm_i2c_b { status = "disabled"; };
+&osm_i2c_cam { status = "disabled"; };
+&osm_i2s_a { status = "disabled"; };
+&osm_i2s_b { status = "disabled"; };
+&osm_pwm_1 { status = "disabled"; };
+&osm_pwm_2 { status = "disabled"; };
+&osm_sdio_a { status = "disabled"; };
+&osm_spi_a { status = "disabled"; };
+&osm_spi_b { status = "disabled"; };
+&osm_uart_a { status = "disabled"; };
+&osm_uart_b { status = "disabled"; };
+&osm_uart_c { status = "disabled"; };
+&osm_uart_d { status = "disabled"; };
+&osm_usb_a { status = "disabled"; };
+#endif
+
+&emmc {
+    is-emmc;
+};
+
+/{
+	gpio-test {
+		compatible = "fus,test-gpio";
+		pinctrl-names = "gpiotest";
+		pinctrl-0 = <&pinctrl_osm_can_gpio>,
+					<&pinctrl_osm_eth_gpio>,
+					<&pinctrl_osm_gpio_gpio>,
+					<&pinctrl_osm_i2c_gpio>,
+					<&pinctrl_osm_pwm_gpio>,
+					<&pinctrl_osm_rgb_gpio>,
+					<&pinctrl_osm_sdio_gpio>,
+					<&pinctrl_osm_spi_gpio>,
+					<&pinctrl_osm_uart_gpio>,
+					<&pinctrl_osm_usb_gpio>;
+
+		port-name = "OSM-IO-TEST";
+
+out-pins =
+		"DISP_BL_EN",	"UART_B_CTS",		"ETH_A_MII_TX_EN",	"SDIO_B_CMD",
+		"GPIO_C_3",		"UART_D_TX",		"ETH_A_MII_TXD2",	"SDIO_B_CLK",
+		"GPIO_C_1",		"CAN_A_TX",			"ETH_A_MII_RXD3",	"SDIO_B_D2",
+		"GPIO_B_7",		"UART_A_TX",		"ETH_A_MII_RX_CLK",	"SDIO_B_D3",
+
+		"I2S_BITCLK",	"UART_A_CTS",		"ETH_A_MII_RXD1",	"SDIO_B_D6",
+		"GPIO_B_4",		"UART_C_TX",		"ETH_MDC",			"SDIO_B_CD",
+		"GPIO_B_2",		"CAN_B_TX",			"RGB_R0",			"SDIO_B_WP",
+		"SPI_B_CS1",	"PWM_1",			"RGB_R1",			"SDIO_A_CLK",
+
+		"GPIO_A_5",		"PWM_3",			"RGB_R4",			"SDIO_A_D0",
+		"GPIO_A_3",		"PWM_4",			"RGB_G0",			"SDIO_A_D3",
+		"GPIO_A_1",		"I2S_A_DATA_IN",	"RGB_G1",			"SDIO_A_WP",
+		"I2C_B_SCL",	"I2S_B_DATA_IN",	"RGB_G4",
+
+		"SPI_A_IO0",	"I2S_LRCLK",		"RGB_G5",
+		"SPI_A_IO2",	"ETH_B_MII_TX_CLK",	"RGB_B2",
+		"SPI_A_CS0",	"ETH_B_MII_TX_EN",	"RGB_B4",
+		"SPI_B_SDI",	"ETH_B_MII_TXD1",	"RGB_B5",
+
+		"SPI_B_CS0",	"ETH_B_MII_TXD2",	"RGB_HSYNC",
+		"USB_A_OC",		"ETH_B_MII_RX_CLK",	"RGB_DISP",
+		"ETH_B_MDC",	"ETH_B_MII_RX_DV",	"I2C_CAM_DAT",
+		"UART_B_TX",	"ETH_A_MII_TX_CLK",	"CAM_A_PWR";
+
+in-pins =
+		"DISP_VDD_EN",	"UART_B_RTS",		"ETH_A_MII_RXD0",	"SDIO_B_D1",
+		"GPIO_C_2",		"UART_D_RX",		"ETH_A_MII_TXD3",	"SDIO_B_D0",
+		"GPIO_C_0",		"CAN_A_RX",			"ETH_A_MII_RXD2",	"SDIO_B_D4",
+		"GPIO_B_6",		"UART_A_RX",		"ETH_A_MII_RX_DV",	"SDIO_B_D5",
+
+		"GPIO_B_5",		"UART_A_RTS",		"ETH_A_MII_TXD1",	"SDIO_B_D7",
+		"GPIO_B_3",		"UART_C_RX",		"ETH_MDIO",			"SDIO_B_PWR_EN",
+		"GPIO_B_1",		"CAN_B_RX",			"RGB_R2",			"SDIO_A_CMD",
+		"SPI_A_CS1",	"PWM_2",			"RGB_R3",			"SDIO_A_D1",
+
+		"GPIO_A_4",		"DISP_BL_PWM",		"RGB_R5",			"SDIO_A_D2",
+		"GPIO_A_2",		"PWM_5",			"RGB_G2",			"SDIO_A_CD",
+		"GPIO_A_0",		"I2S_A_DATA_OUT",	"RGB_G3",			"SDIO_A_PWR_EN",
+		"I2C_B_SDA",	"I2S_B_DATA_OUT",	"RGB_B1",
+
+		"SPI_A_IO1",	"I2S_MCLK",			"RGB_B0",
+		"SPI_A_IO3",	"ETH_B_MII_TXD0",	"RGB_B3",
+		"SPI_A_SCK",	"ETH_B_MII_RXD0",	"RGB_CLK",
+		"SPI_B_SDO",	"ETH_B_MII_TXD3",	"RGB_VSYNC",
+
+		"SPI_B_SCK",	"ETH_B_MII_RXD1",	"RGB_RESET",
+		"USB_A_EN",		"ETH_B_MII_RXD3",	"RGB_DE",
+		"ETH_B_MDIO",	"ETH_B_MII_RXD2",	"I2C_CAM_CK",
+		"UART_B_RX",	"ETH_A_MII_TXD0",	"CAM_A_RST";
+
+out-gpios =
+		gDISP_BL_EN,	gUART_B_CTS,		gETH_A_MII_TX_EN,	gSDIO_B_CMD,
+		gGPIO_C_3,		gUART_D_TX,			gETH_A_MII_TXD2,	gSDIO_B_CLK,
+		gGPIO_C_1,		gCAN_A_TX,			gETH_A_MII_RXD3,	gSDIO_B_D2,
+		gGPIO_B_7,		gUART_A_TX,			gETH_A_MII_RX_CLK,	gSDIO_B_D3,
+
+		gI2S_BITCLK,	gUART_A_CTS,		gETH_A_MII_RXD1,	gSDIO_B_D6,
+		gGPIO_B_4,		gUART_C_TX,			gETH_MDC,			gSDIO_B_CD,
+		gGPIO_B_2,		gCAN_B_TX,			gRGB_R0,			gSDIO_B_WP,
+		gSPI_B_CS1,		gPWM_1,				gRGB_R1,			gSDIO_A_CLK,
+
+		gGPIO_A_5,		gPWM_3,				gRGB_R4,			gSDIO_A_D0,
+		gGPIO_A_3,		gPWM_4,				gRGB_G0,			gSDIO_A_D3,
+		gGPIO_A_1,		gI2S_A_DATA_IN,		gRGB_G1,			gSDIO_A_WP,
+		gI2C_B_SCL,		gI2S_B_DATA_IN,		gRGB_G4,
+
+		gSPI_A_IO0,		gI2S_LRCLK,			gRGB_G5,
+		gSPI_A_IO2,		gETH_B_MII_TX_CLK,	gRGB_B2,
+		gSPI_A_CS0,		gETH_B_MII_TX_EN,	gRGB_B4,
+		gSPI_B_SDI,		gETH_B_MII_TXD1,	gRGB_B5,
+
+		gSPI_B_CS0,		gETH_B_MII_TXD2,	gRGB_HSYNC,
+		gUSB_A_OC,		gETH_B_MII_RX_CLK,	gRGB_DISP,
+		gETH_B_MDC,		gETH_B_MII_RX_DV,	gI2C_CAM_DAT,
+		gUART_B_TX,		gETH_A_MII_TX_CLK,	gCAM_A_PWR;
+
+in-gpios =
+		gDISP_VDD_EN,	gUART_B_RTS,		gETH_A_MII_RXD0,	gSDIO_B_D1,
+		gGPIO_C_2,		gUART_D_RX,			gETH_A_MII_TXD3,	gSDIO_B_D0,
+		gGPIO_C_0,		gCAN_A_RX,			gETH_A_MII_RXD2,	gSDIO_B_D4,
+		gGPIO_B_6,		gUART_A_RX,			gETH_A_MII_RX_DV,	gSDIO_B_D5,
+
+		gGPIO_B_5,		gUART_A_RTS,		gETH_A_MII_TXD1,	gSDIO_B_D7,
+		gGPIO_B_3,		gUART_C_RX,			gETH_MDIO,			gSDIO_B_PWR_EN,
+		gGPIO_B_1,		gCAN_B_RX,			gRGB_R2,			gSDIO_A_CMD,
+		gSPI_A_CS1,		gPWM_2,				gRGB_R3,			gSDIO_A_D1,
+
+		gGPIO_A_4,		gDISP_BL_PWM,		gRGB_R5,			gSDIO_A_D2,
+		gGPIO_A_2,		gPWM_5,				gRGB_G2,			gSDIO_A_CD,
+		gGPIO_A_0,		gI2S_A_DATA_OUT,	gRGB_G3,			gSDIO_A_PWR_EN,
+		gI2C_B_SDA,		gI2S_B_DATA_OUT,	gRGB_B1,
+
+		gSPI_A_IO1,		gI2S_MCLK,			gRGB_B0,
+		gSPI_A_IO3,		gETH_B_MII_TXD0,	gRGB_B3,
+		gSPI_A_SCK,		gETH_B_MII_RXD0,	gRGB_CLK,
+		gSPI_B_SDO,		gETH_B_MII_TXD3,	gRGB_VSYNC,
+
+		gSPI_B_SCK,		gETH_B_MII_RXD1,	gRGB_RESET,
+		gUSB_A_EN,		gETH_B_MII_RXD3,	gRGB_DE,
+		gETH_B_MDIO,	gETH_B_MII_RXD2,	gI2C_CAM_CK,
+		gUART_B_RX,		gETH_A_MII_TXD0,	gCAM_A_RST;
+		
+		status = "okay";
+	};
+};

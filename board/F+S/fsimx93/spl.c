@@ -150,7 +150,7 @@ int board_early_init_f(void)
 int board_fit_config_name_match(const char *name)
 {
 	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93, name);
-	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93, name);
+	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX93, name);
 
 	return -EINVAL;
 }
