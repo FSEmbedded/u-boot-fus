@@ -9,7 +9,7 @@
 /dts-v1/;
 
 /* Comment this out for OSM module without ADP-OSM-BB */
-#define CONFIG_ADP_OSM_BB
+//#define CONFIG_ADP_OSM_BB
 
 #ifdef CONFIG_ADP_OSM_BB
 #include "osm8mm-adp.dtsi"
@@ -137,7 +137,11 @@
 #undef CONFIG_OSM8MM_PWM_0
 #endif
 
+#ifdef CONFIG_CMD_SELFTEST
+#include "osm-selftest.dts"
+#else
 #include "osm8mm.dtsi"
+#endif
 
 / {
 	model = "F&S OSM8MM";
