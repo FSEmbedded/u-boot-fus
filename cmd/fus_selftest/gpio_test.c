@@ -82,7 +82,6 @@ void set_gpios_default(char *name)
 		strcat(out_pins_str, name);
 		strcat(pinctrl_str, name);
 	}
-
 }
 
 static int get_gpio_lists(struct udevice *dev, struct gpio_desc **in_gpios, struct gpio_desc **out_gpios)
@@ -393,14 +392,18 @@ static int __test_gpio(int uclass, char *name, char *szStrBuffer)
 	// mute_debug_port(0);
 
 	if (gpio_exists) {
-		if ( strlen(device_name)+3 < strlen(dots))
-		{
-			printf("%s%s%s", device_name, "-IO", &dots[strlen(device_name)+3]);
-		}
+		if (!strncmp(device_name,"GPIO",4))
+			printf("%s%s", device_name, &dots[strlen(device_name)]);
 		else
 		{
-			printf("Error, device name to long!");
-			return -1;
+			u32 new_length = strlen(device_name) + 2;
+			if (new_length < strlen(dots))
+				printf("%s%s%s", device_name, "IO", &dots[new_length]);
+			else
+			{
+				printf("Error, device name to long!");
+				return -1;
+			}
 		}
 		if (failed)
 			test_OkOrFail(-1, 1, szStrBuffer);
