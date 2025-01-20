@@ -121,7 +121,7 @@ static void set_core_data(struct udevice *dev)
 }
 
 #if IS_ENABLED(CONFIG_DM_THERMAL)
-static int cpu_imx_get_temp(struct cpu_imx_plat *plat)
+static __maybe_unused int cpu_imx_get_temp(struct cpu_imx_plat *plat)
 {
 	struct udevice *thermal_dev;
 	int cpu_tmp, ret;
@@ -168,38 +168,35 @@ static int cpu_imx_get_desc(const struct udevice *dev, char *buf, int size)
 
 	if (size < 100)
 		return -ENOSPC;
-
-	ret = snprintf(buf, size, "NXP i.MX%s Rev%s %s at %u MHz",
-		       plat->type, plat->rev, plat->name, plat->freq_mhz);
-
+	
 	if (IS_ENABLED(CONFIG_IMX9)) {
 		switch (get_cpu_temp_grade(&minc, &maxc)) {
 		case TEMP_AUTOMOTIVE:
-			grade = "Automotive temperature grade ";
+			grade = "Automotive";
 			break;
 		case TEMP_INDUSTRIAL:
-			grade = "Industrial temperature grade ";
+			grade = "Industrial";
 			break;
 		case TEMP_EXTCOMMERCIAL:
 			if (is_imx93())
-				grade = "Extended Industrial temperature grade ";
+				grade = "Extended Industrial";
 			else
-				grade = "Extended Consumer temperature grade ";
+				grade = "Extended Consumer";
 			break;
 		default:
-			grade = "Consumer temperature grade ";
+			grade = "Consumer";
 			break;
 		}
 
+	ret = snprintf(buf, size, "i.MX%s %s %u MHz Rev%s",
+	 	       plat->type, grade, plat->freq_mhz, plat->rev);
+
 		buf = buf + ret;
 		size = size - ret;
-		ret = snprintf(buf, size, "\nCPU:   %s (%dC to %dC)", grade, minc, maxc);
 	}
 
 	if (IS_ENABLED(CONFIG_DM_THERMAL)) {
 		temp = cpu_imx_get_temp(plat);
-		buf = buf + ret;
-		size = size - ret;
 		if (temp != 0xdeadbeef)
 			ret = snprintf(buf, size, " at %dC", temp);
 		else

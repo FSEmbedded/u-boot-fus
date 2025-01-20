@@ -91,7 +91,7 @@ int print_cpuinfo(void)
 		return ret;
 	}
 
-	printf("CPU:   %s\n", desc);
+	printf("CPU: %s\n", desc);
 
 	return 0;
 }

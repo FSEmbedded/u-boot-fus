@@ -172,7 +172,7 @@ static int print_resetinfo(void)
 }
 #endif
 
-#if defined(CONFIG_DISPLAY_CPUINFO) && CONFIG_IS_ENABLED(CPU)
+#if defined(CONFIG_DISPLAY_CPUINFO) && CONFIG_IS_ENABLED(CPU) && 0
 static int print_cpuinfo(void)
 {
 	struct udevice *dev;
@@ -916,7 +916,7 @@ static const init_fnc_t init_sequence_f[] = {
 #if defined(CONFIG_SYSRESET)
 	print_resetinfo,
 #endif
-#if defined(CONFIG_DISPLAY_CPUINFO)
+#if defined(CONFIG_DISPLAY_CPUINFO) && 0
 	print_cpuinfo,		/* display cpu info (and speed) */
 #endif
 #if defined(CONFIG_DTB_RESELECT)
