@@ -136,8 +136,12 @@
 #define gRGB_VSYNC			<0>
 #define gRGB_RESET			<0>
 
+/* ATTENTION: Do not test SDIO_B_WP -> SDIO_A_CMD,
+ * because they can have different voltage levels (1,8V/3,3V) */
+
 #define gSDIO_A_CLK			<&gpio2 13 0>
-#define gSDIO_A_CMD			<&gpio2 14 0>
+/* Leave SDIO_A_CMD not defined! */
+#define gSDIO_A_CMD			<0>
 #define gSDIO_A_D0			<&gpio2 15 0>
 #define gSDIO_A_D1			<&gpio2 16 0>
 #define gSDIO_A_D2			<&gpio2 17 0>
@@ -157,7 +161,8 @@
 #define gSDIO_B_D6			<&gpio3 4 0>
 #define gSDIO_B_D7			<&gpio3 5 0>
 #define gSDIO_B_CD			<&gpio4 22 0>
-#define gSDIO_B_WP			<&gpio4 23 0>
+/* Leave SDIO_B_WP not defined! */
+#define gSDIO_B_WP			<0>
 #define gSDIO_B_PWR_EN		<&gpio3 16 0>
 
 #define gSPI_A_SCK			<&gpio3 0 0>
