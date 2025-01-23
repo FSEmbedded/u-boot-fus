@@ -10,6 +10,8 @@
 #include <asm/io.h>
 #include <fdt_support.h>
 #include <asm/arch-fsl-layerscape/soc.h>
+#include <version.h>
+#include <timestamp.h>
 
 #include "fs_ls1028a_common.h"
 #include "fs_eth_common.h"
@@ -419,12 +421,18 @@ void fs_fdt_board_setup(void *blob)
 
 	/* fixup /model */
 	fs_get_modelname(str_buf, MODELSTRLEN);
-	namelen = strlen(str_buf);
-	fs_fdt_setprop_by_path(blob, "/", "model", (const char *)str_buf, namelen);
+	namelen = strnlen(str_buf, MODELSTRLEN);
+	fs_fdt_setprop_by_path(blob, "/", "model", (const char *)str_buf, namelen + 1);
 
 	cpu_name(str_buf);
-	namelen = strlen(str_buf);
-	fs_fdt_setprop_by_path(blob, "/", "cpu-model", (const char *)str_buf, namelen);
+	namelen = strnlen(str_buf, MODELSTRLEN);
+	fs_fdt_setprop_by_path(blob, "/", "cpu-model", (const char *)str_buf, namelen + 1);
+
+	/* fixup U-Boot version */
+	namelen = strnlen(PLAIN_VERSION, MODELSTRLEN);
+	fs_fdt_setprop_by_path(blob, "/", "UBOOT", PLAIN_VERSION, namelen + 1);
+	namelen = strnlen(U_BOOT_DATE, MODELSTRLEN);
+	fs_fdt_setprop_by_path(blob, "/", "UBOOT_DATE", U_BOOT_DATE, namelen + 1);
 }
 
 void fs_linuxfdt_board_setup(void *blob){
@@ -443,6 +451,7 @@ void fs_linuxfdt_board_setup(void *blob){
 	if(features & FEAT_I2C_TEMP){
 		fs_fdt_enable_node_by_label(blob, "temp-sensor",1);
 	}
+
 }
 
 void fs_ubootfdt_board_setup(void *blob){
