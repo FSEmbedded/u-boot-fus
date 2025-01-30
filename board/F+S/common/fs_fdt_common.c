@@ -21,9 +21,10 @@
 #include "fs_fdt_common.h"		/* Own interface */
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
 #include <version_string.h>
-
-const char *get_reset_cause(void);
-const char *get_board_name(void);
+#include "fs_image_common.h"	/* fs_image_*() */
+// #ifdef CONFIG_CMD_SELFTEST
+// #include "fs_processor_info.h"	/* fs_get_processorInfo() */
+// #endif
 
 /* Set a generic value, if it was not already set in the device tree */
 void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
@@ -191,6 +192,25 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	char rev[6];
 	unsigned int board_rev = fs_board_get_rev();
 
+	/* Add board-config to bdinfo node */
+#ifdef CFG_FUS_BOARDCFG_ADDR
+	void *fdt_cfg = fs_image_get_cfg_fdt();
+	int offs_cfg = fs_image_get_board_cfg_offs(fdt_cfg);
+	int offs_bdinfo_cfg = fdt_add_subnode(fdt, offs, "board-cfg");
+	const char *id = fs_image_get_board_id();
+
+	fdt_overlay_apply_node(fdt, offs_bdinfo_cfg, fdt_cfg, offs_cfg);
+	fs_fdt_set_string(fdt, offs, "board-id", id, 1);
+#endif
+
+/* TODO: */
+// #ifdef CONFIG_CMD_SELFTEST
+// 	char cpu_info[128];
+// 	fs_get_processorInfo(cpu_info);
+// 	fs_fdt_set_string(fdt, offs, "cpu_info", cpu_info, 1);
+// 	fs_fdt_set_string(fdt, offs, "dram_test_result", get_dram_result(), 1);
+// #endif
+
 #ifndef CONFIG_FS_BOARD_CFG
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 
@@ -220,11 +240,9 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	!CONFIG_IS_ENABLED(ARCH_IMX8ULP)
 	fs_fdt_set_string(fdt, offs, "reset_cause", get_reset_cause(), 1);
 #endif
-#if 0 // TODO:
 	fs_fdt_set_string(fdt, offs, "nboot_version",
 			  fs_board_get_nboot_version(), 1);
 	fs_fdt_set_string(fdt, offs, "u-boot_version", version_string, 1);
-#endif
 }
 
 #endif /* CONFIG_OF_BOARD_SETUP */

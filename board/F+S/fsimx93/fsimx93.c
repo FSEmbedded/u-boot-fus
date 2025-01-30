@@ -358,7 +358,7 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 {
 	u64 dram_base[CONFIG_NR_DRAM_BANKS];
 	u64 dram_size[CONFIG_NR_DRAM_BANKS];
-	int i;
+	int i, ret, offs;
 
 	for(i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		dram_base[i] = gd->bd->bi_dram[i].start;
@@ -366,7 +366,19 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 	}
 
 	fdt_common_fixup(fdt_blob);
-	return fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
+	ret = fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
+
+	if(ret)
+		return ret;
+
+	/* fixup bdinfo */
+	offs = fs_fdt_path_offset(fdt_blob, "/bdinfo");
+	if (offs >= 0) {
+		/* Set common bdinfo entries */
+		fs_fdt_set_bdinfo(fdt_blob, offs);
+	}
+
+	return 0;
 }
 #endif
 
