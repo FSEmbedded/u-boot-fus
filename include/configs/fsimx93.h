@@ -114,6 +114,7 @@
 #define CFG_EXTRA_ENV_SETTINGS		\
 	BOOTENV \
 	AHAB_ENV \
+	"arch=fsimx93;\0" \
 	"prepare_mcore=setenv mcore_clk clk-imx93.mcore_booted;\0" \
 	"scriptaddr=0x83500000\0" \
 	"kernel_addr_r=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
