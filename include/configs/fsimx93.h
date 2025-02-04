@@ -59,11 +59,10 @@
 #define CFG_SYS_UBOOT_BASE	\
 	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
 
-#ifdef CONFIG_AHAB_BOOT
-#define AHAB_ENV "sec_boot=yes\0"
-#else
+// Gets overridden by UBoot if the Board is closed
 #define AHAB_ENV "sec_boot=no\0"
-#endif
+#define BOOT_OS "boot_os=booti ${loadaddr} - ${fdt_addr_r};\0"
+#define BOOT_OS_FIT "boot_os_fit=bootm 0x84000000#conf-${fdtfile};\0"
 
 #if defined(CONFIG_MTDIDS_DEFAULT)
 #define CFG_MTDPART_DEFAULT ""
@@ -128,7 +127,7 @@
 	"fdt_addr=0x83000000\0"			\
 	"fdt_high=0xffffffffffffffff\0"		\
 	"cntr_addr=0x98000000\0"			\
-	"cntr_file=os_cntr_signed.bin\0" \
+	"cntr_file=os_cntr_signed.cntr\0" \
 	"boot_fit=no\0" \
 	"fdtfile=undef\0" \
 	"set_bootfdt=setenv fdtfile ${platform}.dtb\0"			\
@@ -139,18 +138,28 @@
 	"mmcautodetect=yes\0" \
 	"mmcargs=setenv bootargs ${mcore_clk} console=${console} root=${mmcroot}\0 " \
 	"loadbootscript=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
+	"script=update_signed.scr \0" \
+	"loadsignedscript=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
 	"bootscript=echo Running bootscript from mmc ...; " \
 		"source\0" \
+	"signedscript=echo Authenticate signed script...;" \
+		"if auth_cntr ${loadaddr}; then " \
+			"echo Running script...;" \
+			"source;" \
+		"else " \
+			"echo Script cannot be authenticated, continue without script!;" \
+		"fi\0" \
 	"loadimage=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${image}\0" \
 	"loadfdt=fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr_r} ${fdtfile}\0" \
 	"loadcntr=fatload mmc ${mmcdev}:${mmcpart} ${cntr_addr} ${cntr_file}\0" \
 	"auth_os=auth_cntr ${cntr_addr}\0" \
-	"boot_os=booti ${loadaddr} - ${fdt_addr_r};\0" \
+	BOOT_OS \
+	BOOT_OS_FIT \
 	"mmcboot=echo Booting from mmc ...; " \
 		"run mmcargs; " \
 		"if test ${sec_boot} = yes; then " \
 			"if run auth_os; then " \
-				"run boot_os; " \
+				"run boot_os_fit; " \
 			"else " \
 				"echo ERR: failed to authenticate; " \
 			"fi; " \
@@ -178,7 +187,7 @@
 		"if test ${sec_boot} = yes; then " \
 			"${get_cmd} ${cntr_addr} ${cntr_file}; " \
 			"if run auth_os; then " \
-				"run boot_os; " \
+				"run boot_os_fit; " \
 			"else " \
 				"echo ERR: failed to authenticate; " \
 			"fi; " \
@@ -195,23 +204,23 @@
 			"fi;" \
 		"fi;\0" \
 	"bsp_bootcmd=echo Running BSP bootcmd ...; " \
-		"mmc dev ${mmcdev}; if mmc rescan; then " \
-		   "if run loadbootscript; then " \
-			   "run bootscript; " \
-		   "else " \
-			   "if test ${sec_boot} = yes; then " \
-				   "if run loadcntr; then " \
-					   "run mmcboot; " \
-				   "else run netboot; " \
-				   "fi; " \
-			    "else " \
-				   "if run loadimage; then " \
-					   "run mmcboot; " \
-				   "else run netboot; " \
-				   "fi; " \
-				"fi; " \
-		   "fi; " \
-	   "fi;"
+		"mmc dev ${mmcdev}; " \
+		"if mmc rescan; then " \
+			"if test ${sec_boot} = yes; then " \
+				"if run loadsignedscript; then " \
+		  			"run signedscript; " \
+	   			"fi; " \
+		   		"if run loadcntr; then " \
+			   		"run mmcboot; " \
+		   		"else run netboot; " \
+		   		"fi; " \
+		   	"else " \
+		   		"if run loadimage; then " \
+			   		"run mmcboot; " \
+		   		"else run netboot; " \
+		   		"fi; " \
+			"fi; " \
+		"fi;"
 
 /* Link Definitions */
 
