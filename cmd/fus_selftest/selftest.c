@@ -135,6 +135,12 @@ static int selftest_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 	if(has_feature(FEAT_EMMC))
 		ret = test_mmc(szStrBuffer);
 
+	if(has_feature(FEAT_EMMC) && ret){
+		printf("EMMC .................");
+		sprintf(szStrBuffer,"No Device Found!");
+		test_OkOrFail(-1,1,szStrBuffer);
+	}
+
 	if (has_feature(FEAT_EEPROM))
 		ret = test_eeprom(szStrBuffer);
 	
