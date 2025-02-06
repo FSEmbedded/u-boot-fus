@@ -47,6 +47,7 @@ BOARD_CONFIGS = \
 	PCore93-FERT3.fs \
 	PCore93-FERT4.fs \
 	PCore93-FERT5.fs \
+	PCore93-FERT6.fs \
 	OSM93-FERT1.fs \
 	OSM93-FERT2.fs \
 	OSM93-FERT21.fs \
