@@ -244,6 +244,15 @@ int board_early_init_f(void)
 
 static void fdt_pcore_fixup(void *fdt)
 {
+	uint features = fs_board_get_features();
+
+	if(!(features & FEAT_AUDIO_APD || features & FEAT_AUDIO_RTD)){
+		fs_fdt_enable(fdt, "sgtl5000", 0);
+	}
+
+	if(!(features & FEAT_WLAN)){
+		fs_fdt_enable(fdt, "mwifiex", 0);
+	}
 }
 
 static void fdt_osm_fixup(void *fdt)
