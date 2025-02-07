@@ -18,7 +18,7 @@
 		/* DRAM: B.ICDRAM.41*/
 		dram-type = "lpddr4";
 		dram-timing = "lpddr4_pc_1g1056m2ch1cs";
-		dram-size = <0x800>;		/* In MiB */
+		dram-size = <0x400>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
@@ -42,7 +42,8 @@
 		have-usb-1;
 		have-eth;
 		// have-eth-phy;
-		// have-audio;
+		// have-audio-apd;
+		// have-audio-rtd;
 		// have-wlan;
 
         PCoreMX8ULP-FERT2.110 {

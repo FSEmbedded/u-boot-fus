@@ -42,7 +42,8 @@
 		have-usb-1;
 		// have-eth;
 		// have-eth-phy;
-		// have-audio;
+		// have-audio-apd;
+		// have-audio-rtd;
 		have-wlan;
 
         PCoreMX8ULP-FERT6.110 {
