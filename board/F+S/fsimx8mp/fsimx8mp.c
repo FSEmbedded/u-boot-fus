@@ -1,10 +1,11 @@
 /*
  * fsimx8mp.c
  *
- * (C) Copyright 2021
+ * (C) Copyright 2025
  * Patrik Jakob, F&S Elektronik Systeme GmbH, jakob@fs-net.de
  * Anatol Derksen, F&S Elektronik Systeme GmbH, derksen@fs-net.de
  * Philipp Gerbach, F&S Elektronik Systeme GmbH, gerbach@fs-net.de
+ * Kay Müller, F&S Elektronik Systeme GmbH, mueller@fs-net.de
  *
  * Board specific functions for F&S boards based on Freescale i.MX8MP CPU
  *
@@ -46,11 +47,12 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define BT_PICOCOREMX8MP 	0
-#define BT_PICOCOREMX8MPr2 	1
-#define BT_ARMSTONEMX8MP 	2
-#define BT_EFUSMX8MP 		3
-#define BT_FSSMMX8MP 		4
+#define BT_PICOCOREMX8MP	0
+#define BT_PICOCOREMX8MPr2	1
+#define BT_ARMSTONEMX8MP	2
+#define BT_EFUSMX8MP		3
+#define BT_FSSMMX8MP		4
+#define BT_OSM8MP		5
 
 
 #define FEAT_ETH_A 	(1<<0)	/* 0: no LAN0,  1: has LAN0 */
@@ -150,6 +152,19 @@ const struct fs_board_info board_info[] = {
 	},
 	{	/* 4 (BT_FSSMMX8MP) */
 		.name = "FSSMMX8MP",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 5 (BT_OSM8MP) */
+		.name = "OSM8MP",
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -376,6 +391,7 @@ static int do_fdt_board_setup_common(void *fdt)
 			}
 			break;
 		case BT_FSSMMX8MP:
+		case BT_OSM8MP:
 			/* Disable eeprom node if it is not available */
 			if (!(features & FEAT_EEPROM)) {
 				fs_fdt_enable(fdt, "eeprom", 0);
@@ -682,6 +698,7 @@ void fs_ethaddr_init(void)
 	case BT_ARMSTONEMX8MP:
 	case BT_EFUSMX8MP:
 	case BT_FSSMMX8MP:
+	case BT_OSM8MP:
 		if (features2 & FEAT_ETH_A) {
 			fs_eth_set_ethaddr(eth_id++);
 		}
@@ -850,6 +867,12 @@ static int setup_typec(void)
 
 	/* fssmmx8mp does not support typec */
 	if(board_type == BT_FSSMMX8MP) {
+		port1.i2c_dev = NULL;
+		return ret;
+	}
+
+	/* osm8mp does not support typec */
+	if(board_type == BT_OSM8MP) {
 		port1.i2c_dev = NULL;
 		return ret;
 	}
@@ -1079,6 +1102,7 @@ int board_usb_gadget_port_auto(void)
 		case BT_EFUSMX8MP:
 			return 1;
 		case BT_FSSMMX8MP:
+		case BT_OSM8MP:
 			return 0;
 		}
 	}
@@ -1172,6 +1196,7 @@ ulong board_serial_base(void)
 	case BT_PICOCOREMX8MPr2:
 	case BT_ARMSTONEMX8MP:
 	case BT_FSSMMX8MP:
+	case BT_OSM8MP:
 	default:
 		break;
 	}

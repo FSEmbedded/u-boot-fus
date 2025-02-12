@@ -71,7 +71,8 @@ BOARD_CONFIGS = \
 	efusMX8MP-FERT13.fs \
 	SM8MP-FERT3.fs \
 	SM8MP-FERT4.fs \
-	SM8MP-FERT5.fs
+	SM8MP-FERT5.fs \
+	OSM8MPL-FERT2.fs
 
 
 # List of DRAM Timings for each DRAM-TYPE
@@ -84,6 +85,7 @@ RT_LPDDR4 := \
 	lpddr4_ef_2g1800m2ch1cs_timing.fs \
 	lpddr4_ef_1g1800m2ch1cs_timing.fs \
 	lpddr4_ef_1g2000m2ch1cs_timing.fs \
+	lpddr4_os_2g2000m2ch1cs_timing.fs \
 	lpddr4_pc_4g1500m2ch2cs_timing.fs \
 	lpddr4_pc_2g1500m2ch1cs_timing.fs \
 	lpddr4_pc_2g1300m2ch1cs_timing.fs \
