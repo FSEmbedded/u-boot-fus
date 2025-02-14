@@ -11,8 +11,19 @@
 #include <dt-bindings/usb/pd.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/rtc/nxp,pcf85263.h>
+#if 0
 #include "../freescale/imx8mp.dtsi"
 #include <fsversion.h>
+#else
+#include "imx8mp-sec-def.h"
+#include "imx8mp.dtsi"
+#define FS_LINUX_VERSION ""
+/ {
+	mipi_csi_0: mipi_csi_0 {};
+	sai2: sai2 {};
+	sai3: sai3 {};
+};
+#endif
 
 /* SOC-nodes to OSM-nodes */
 
@@ -631,6 +642,7 @@ osm_usb_b
 };
 #endif /* CONFIG_OSM8MP_CAN_B */
 
+#if 0
 &hdmi_blk_ctrl {
 	status = "disabled";
 };
@@ -749,6 +761,7 @@ osm_usb_b
 &sdma2 {
 	status = "okay";
 };
+#endif
 
 #ifdef CONFIG_OSM8MP_UART_CON
 &osm_uart_con { /* console */
@@ -804,6 +817,10 @@ osm_usb_b
 };
 
 &osm_usb_a {
+	compatible = "fsl,imx8mq-dwc3", "snps,dwc3";
+	assigned-clocks = <&clk IMX8MP_CLK_HSIO_AXI>;
+	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_800M>;
+	assigned-clock-rates = <400000000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_osm_usb_a>;
 	dr_mode = "otg";
@@ -828,6 +845,10 @@ osm_usb_b
 };
 
 &osm_usb_c {
+	compatible = "fsl,imx8mq-dwc3", "snps,dwc3";
+	assigned-clocks = <&clk IMX8MP_CLK_HSIO_AXI>;
+	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_800M>;
+	assigned-clock-rates = <400000000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_osm_usb_c>;
 	dr_mode = "host";
@@ -897,6 +918,7 @@ osm_usb_b
 	status = "okay";
 };
 
+#if 0
 &vpu_g1 {
 	status = "okay";
 };
@@ -970,6 +992,7 @@ osm_usb_b
 	status = "disabled";
 #endif
 };
+#endif
 
 &snvs_pwrkey {
 	status = "okay";
@@ -1466,7 +1489,11 @@ osm_usb_b
 #ifdef CONFIG_OSM8MP_USB_A
 	pinctrl_osm_usb_a: usb1grp {
 		fsl,pins = <
+#if 0
 			MX8MP_IOMUXC_GPIO1_IO12__USB1_PWR	0x4
+#else
+			MX8MP_IOMUXC_GPIO1_IO12__USB1_OTG_PWR	0x4
+#endif
 		>;
 	};
 #endif
@@ -1474,7 +1501,11 @@ osm_usb_b
 #ifdef CONFIG_OSM8MP_USB_C
 	pinctrl_osm_usb_c: usb2grp {
 		fsl,pins = <
+#if 0
 			MX8MP_IOMUXC_GPIO1_IO14__USB2_PWR	0x4
+#else
+			MX8MP_IOMUXC_GPIO1_IO14__USB2_OTG_PWR	0x4
+#endif
 		>;
 	};
 #endif

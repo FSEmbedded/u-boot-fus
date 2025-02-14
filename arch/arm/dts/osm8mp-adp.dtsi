@@ -244,6 +244,7 @@
 #endif
 	};
 
+#if 0
 	sound_sgtl5000: sound-sgtl5000 {
 		compatible = "fsl,imx-audio-sgtl5000";
 		model = "imx-sgtl5000";
@@ -257,6 +258,7 @@
 			"Line Out Jack", "LINE_OUT",
 			"Headphone Jack", "HP_OUT";
 	};
+#endif
 
 	/* SPI bitbanging driver */
 	osm_spi_a: spi {
@@ -298,6 +300,7 @@
 #endif
 #endif
 
+#if 0
 &clk {
 	assigned-clocks = <&clk IMX8MP_CLK_A53_SRC>,
 			  <&clk IMX8MP_CLK_A53_CORE>,
@@ -323,8 +326,10 @@
 
 	init-on-array = <IMX8MP_CLK_HSIO_ROOT>, <IMX8MP_CLK_CLKOUT1>;
 };
+#endif
 
 &osm_i2c_b {
+#if 0
 	sgtl5000: sgtl5000@a {
 		compatible = "fsl,sgtl5000";
 		reg = <0xa>;
@@ -334,6 +339,7 @@
 		VDDIO-supply = <&reg_sgtl5000_vddio>;
 		VDDD-supply = <&reg_sgtl5000_vddd>;
 	};
+#endif
 
 #ifdef CONFIG_OSM8MP_USB_A_USBC
 	/* USB-C */
@@ -478,6 +484,7 @@
 	};
 };
 
+#if 0
 &cameradev {
 	status = "okay";
 };
@@ -493,6 +500,7 @@
 &dewarp {
 	status = "okay";
 };
+#endif
 
 &iomuxc {
 #ifdef IMX8MP_TOUCH_INTERRUPT_PINCTRL
