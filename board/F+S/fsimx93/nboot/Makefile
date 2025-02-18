@@ -150,7 +150,7 @@ DRAM_IMAGE_ADDR = $(shell printf "%d" 0x204dc000)
 DRAM_TIMING_ADDR = $(shell expr ${DRAM_IMAGE_ADDR} + 64 )
 DRAM_TIMINGS_LDS = $(NBOOT_PATH)/.dram-timings.lds.tmp
 DRAM_TIMINGS_REPLACE_SED_CMD = \
-	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(shell printf "0x%lx" $(DRAM_TIMING_ADDR))/g"
+	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(shell printf "0x%x" $(DRAM_TIMING_ADDR))/g"
 
 $(DRAM_TIMINGS_LDS): $(obj)/dram-timings.lds
 	$(call cmd,sed,$(DRAM_TIMINGS_REPLACE_SED_CMD))
@@ -174,12 +174,12 @@ quiet_cmd_fsimg = FSIMG   $@
 cmd_fsimg = ${srctree}/scripts/addfsheader.sh $2 > $@
 
 $(NBOOT_PATH)/%_timing.fs: $(NBOOT_PATH)/.%_timing.bin.tmp
-	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40))) -t DRAM-TIMING -d $(*F) $< > $@)
+	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%x" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40))) -t DRAM-TIMING -d $(*F) $< > $@)
 
 $(NBOOT_PATH)/lpddr4_fw.fs: $(NBOOT_PATH)/.lpddr4_fw.tmp
 $(NBOOT_PATH)/lpddr4x_fw.fs: $(NBOOT_PATH)/.lpddr4x_fw.tmp
 $(NBOOT_PATH)/%_fw.fs: $(NBOOT_PATH)/.%_fw.tmp
-	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%lx" $$(($(CONFIG_SPL_FUS_DRAM_FW_ADDR) + 0x40))) -t DRAM-FW -d $(*F) $< > $@ )
+	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%x" $$(($(CONFIG_SPL_FUS_DRAM_FW_ADDR) + 0x40))) -t DRAM-FW -d $(*F) $< > $@ )
 
 LPDDR4_CFG = lpddr4_type.cfg
 LPDDR4X_CFG = lpddr4x_type.cfg
