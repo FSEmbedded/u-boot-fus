@@ -4459,7 +4459,7 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 		 * fs_handle_uboot(). When Infos are missing, than load complete
 		 * firmware into $loadaddr.
 		 */
-		if(ni_old.uboot.start && ni_old.uboot.size){
+		if(ni_old.uboot.start[0] && ni_old.uboot.size){
 			/* Since new U-Boot is not provided, we need to know the old size */
 			ni_new->uboot.size = ni_old.uboot.size;
 
