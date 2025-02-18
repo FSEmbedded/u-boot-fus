@@ -865,6 +865,11 @@ osm_usb_b
 	pinctrl-1 = <&pinctrl_osm_sdio_a_100mhz>, <&pinctrl_osm_sdio_a_gpio>;
 	pinctrl-2 = <&pinctrl_osm_sdio_a_200mhz>, <&pinctrl_osm_sdio_a_gpio>;
 	bus-width = <4>;
+	sd-uhs-sdr12;
+	sd-uhs-sdr25;
+	sd-uhs-sdr50;
+	sd-uhs-sdr104;
+	sd-uhs-ddr50;
 	status = "okay";
 };
 #endif
@@ -894,10 +899,10 @@ osm_usb_b
 	pinctrl-0 = <&pinctrl_osm_emmc>;
 	pinctrl-1 = <&pinctrl_osm_emmc_100mhz>;
 	pinctrl-2 = <&pinctrl_osm_emmc_200mhz>;
-	vmmc-supply = <&reg_vref_3v3>;
-	vqmmc-supply = <&reg_vref_1v8>;
 	bus-width = <8>;
 	non-removable;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
 	status = "okay";
 };
 
