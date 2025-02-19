@@ -20,7 +20,7 @@
 		/* DRAM: B.ICDRAM.52 */
 		dram-type = "lpddr4";
 		dram-timing = "lpddr4_pc_2g3200m1ch1cs";
-		dram-size = <0x400>;		/* In MiB */
+		dram-size = <0x800>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */

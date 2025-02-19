@@ -114,6 +114,7 @@
 #define CFG_EXTRA_ENV_SETTINGS		\
 	BOOTENV \
 	AHAB_ENV \
+	"arch=fsimx93;\0" \
 	"prepare_mcore=setenv mcore_clk clk-imx93.mcore_booted;\0" \
 	"scriptaddr=0x83500000\0" \
 	"kernel_addr_r=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
@@ -254,6 +255,10 @@
 
 #ifdef CONFIG_IMX_MATTER_TRUSTY
 #define NS_ARCH_ARM64 1
+#endif
+
+#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
+#define CFG_FS_DEVICEINFO_ADDR 0x80000000
 #endif
 
 #endif /* __FSIMX93_H */
