@@ -33,7 +33,7 @@ osm_uart_d: &lpuart8 {};
 osm_i2c_int: &lpi2c2 {};
 osm_i2c_a: &lpi2c1 {};
 osm_i2c_b: &lpi2c3 {};
-osm_i2c_cam: &lpi2c5{};
+osm_i2c_cam: &lpi2c5 {};
 osm_spi_a: &flexspi1 {};
 osm_spi_b: &lpspi3{};
 osm_usb_a: &usbotg1 {};
@@ -338,6 +338,7 @@ osm_uart_b: &lpuart5 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		clock-frequency = <5000000>;
+		status = "disabled";
 	};
 };
 
@@ -526,10 +527,9 @@ osm_uart_b: &lpuart5 {
 	rtc85263: rtc85263@51 {
 		compatible = "nxp,pcf85263";
 		reg = <0x51>;
-		// clock-out = <PCF85263_CLK_OUT_32p768kHz>;
-		// quartz-load-capacitance = <PCF85263_QUARTZCAP_12p5pF>;
-		// quartz-drive-strength = <PCF85263_QUARTZDRIVE_LOW>;
-
+		// clock-out = <PCF85363_COF_32768Hz>;
+		// quartz-load-femtofarads = <PCF85363_CAP_12p5pF>;
+		// quartz-drive-strength = <PCF85363_OSC_DRIVE_LOW>;
 	};
 };
 
@@ -541,8 +541,9 @@ osm_uart_b: &lpuart5 {
 	status = "disabled";
 
 	eeprom: eeprom@50 {
-		compatible = "atmel,24c02";
+		compatible = "onnn,n24s64b", "atmel,24c64";
 		reg = <0x50>;
+		size = <8192>;
 		pagesize = <32>;
 	};
 };
@@ -583,7 +584,6 @@ osm_uart_b: &lpuart5 {
 	disable-over-current;
 	samsung,picophy-pre-emp-curr-control = <3>;
 	samsung,picophy-dc-vol-level-adjust = <7>;
-
 	status = "disabled";
 };
 
@@ -980,7 +980,7 @@ osm_uart_b: &lpuart5 {
 
 	pinctrl_fec: fecgrp {
 		fsl,pins = <
-			MX93_PAD_ENET2_TD3__SAI2_RX_DATA00				0x57e
+			MX93_PAD_ENET2_TD3__ENET1_RGMII_TD3				0x57e
 			MX93_PAD_ENET2_TD2__ENET1_RGMII_TD2				0x57e
 			MX93_PAD_ENET2_TD1__ENET1_RGMII_TD1				0x57e
 			MX93_PAD_ENET2_TD0__ENET1_RGMII_TD0				0x57e

@@ -358,7 +358,7 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 {
 	u64 dram_base[CONFIG_NR_DRAM_BANKS];
 	u64 dram_size[CONFIG_NR_DRAM_BANKS];
-	int i;
+	int i, ret, offs;
 
 	for(i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		dram_base[i] = gd->bd->bi_dram[i].start;
@@ -366,7 +366,19 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 	}
 
 	fdt_common_fixup(fdt_blob);
-	return fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
+	ret = fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
+
+	if(ret)
+		return ret;
+
+	/* fixup bdinfo */
+	offs = fs_fdt_path_offset(fdt_blob, "/bdinfo");
+	if (offs >= 0) {
+		/* Set common bdinfo entries */
+		fs_fdt_set_bdinfo(fdt_blob, offs);
+	}
+
+	return 0;
 }
 #endif
 
@@ -417,6 +429,13 @@ static const char* fsimx93_get_board_name(void)
 	return board_info[gd->board_type].name;
 }
 
+static void fsimx93_get_board_rev(char *str, int len)
+{
+	uint rev = fs_image_get_board_rev();
+
+	snprintf(str, len, "REV%01d.%02d", rev / 100, rev % 100);
+}
+
 int board_late_init(void)
 {
 	struct cfg_info *info = fs_board_get_cfg_info();
@@ -449,8 +468,11 @@ int board_late_init(void)
 		env_set("sec_boot", "no");
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
+	char brev[MAX_DESCR_LEN] = {0};
+	fsimx93_get_board_rev(brev, MAX_DESCR_LEN);
+
 	env_set("board_name", fsimx93_get_board_name());
-	env_set("board_rev", "fsimx93");
+	env_set("board_rev", brev);
 #endif
 
 	debug("FEATURES=0x%x\n", info->features);

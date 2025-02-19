@@ -21,12 +21,35 @@
 #include <vxworks.h>
 #include <tee/optee.h>
 
+#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
+#include "../board/F+S/common/fs_deviceinfo_common.h"
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 static int do_bootm_standalone(int flag, struct bootm_info *bmi)
 {
 	struct bootm_headers *images = bmi->images;
 	int (*appl)(int, char *const[]);
+
+#if CONFIG_IS_ENABLED(FS_WINIOT_SUPPORT)
+	/* 
+	 * Fixup for uefi.fit / tianocore boot
+	 *
+	 * Tianocore UEFI requires that the boot_jump_linux() is called before
+	 * jumping into UEFI code. Pretending that uefi.fit is a linux kernel
+	 * image no longer works. Instead detect uefi.fit by name and call
+	 * do_bootm_linux directly.
+	 */
+	if (!strncmp(bmi->images->fit_uname_os,"uefi",4)) {
+#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
+		// prepare fs_device
+		fs_deviceinfo_prepare();
+		fs_deviceinfo_assemble();
+#endif // CONFIG_FS_DEVICEINFO_COMMON
+		do_bootm_linux(BOOTM_STATE_OS_GO, bmi);
+	}
+#endif // CONFIG_FS_WINIOT_SUPPORT
 
 	if (!env_get_autostart()) {
 		env_set_hex("filesize", images->os.image_len);

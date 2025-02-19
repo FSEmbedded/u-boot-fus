@@ -110,4 +110,19 @@ config USB_TCPC
 	help
 	  Enable USB type-c port controller (TCPC) driver
 
+config FS_WINIOT_SUPPORT
+	bool "Windows IoT support"
+	imply FS_DEVICEINFO_COMMON
+	help
+	  Allow booting Windows IoT UEFI images. Calls do_bootm_linux
+	  in bootm cmd if UEFI is detected.
+
+config FS_DEVICEINFO_COMMON
+        bool "Enable FS_DEVICEINFO for Windows"
+		depends on FS_WINIOT_SUPPORT
+        help
+          Enable shared struct in RAM for Windows. Contains MAC-addresses and other
+          board specific information which Windows needs. The memory address for the
+		  struct is controlled by CFG_FS_DEVICEINFO_ADDR, which is processor specific.
+		  
 endif

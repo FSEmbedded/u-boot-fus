@@ -6,47 +6,48 @@
  * published by the Free Software Foundation.
  */
 
+/* TODO: IN PREPARATION */
+
 /dts-v1/;
 
 #include "nboot-info.dtsi"
 
 / {
 	board-cfg {
-		board-name = "PicoCoreMX8ULP";
-		board-fdt = "picocoremx8ulp";
+		board-name = "PicoCoreMX93";
+		board-fdt = "picocoremx93";
 
-		/* DRAM: B.ICDRAM.41*/
+		/* DRAM: B.ICDRAM.53 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_1g1056m2ch1cs";
-		dram-size = <0x400>;		/* In MiB */
+		dram-timing = "lpddr4_pc_2g3200m1ch1cs";
+		dram-size = <0x800>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
 		boot-dev = "MMC1";
 
 		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
-        /* 1: MMC Bus widht | 2. Boot from Fuses */
-		fuse-bankword = <0x00040001 0x00030007>;
-		fuse-mask =     <0x00c00000 0x00008000>;
-		fuse-value =    <0x00c00000 0x00008000>;
+		fuse-bankword = <0x00030000>;
+		fuse-mask =     <0x20000002>;
+		fuse-value =    <0x20000002>;
 
 		/* Common board features */
-		have-ext-rtc;
 		have-emmc;
+		have-ext-rtc;
 		have-eeprom;
+		have-eth-a;
+		have-eth-b;
+		have-eth-phy-a;
+		have-eth-phy-b;
+		have-audio;
+		have-wlan;
 		have-sd-a;
-		have-rgb;
-		// have-mipi-dsi;
+		// have-sd-b;
+		have-mipi-dsi;
 		have-mipi-csi;
-		have-usb-0;
-		have-usb-1;
-		have-eth;
-		// have-eth-phy;
-		// have-audio-apd;
-		// have-audio-rtd;
-		// have-wlan;
+		have-lvds;
 
-        PCoreMX8ULP-FERT2.110 {
+        PCore93-FERT6.110 {
             board-rev = <110>;
         };
 	};
