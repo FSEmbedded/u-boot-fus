@@ -17,7 +17,7 @@ include spl/include/autoconf.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2024.08
+NBOOT_SUFFIX = 2025.02
 GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 
