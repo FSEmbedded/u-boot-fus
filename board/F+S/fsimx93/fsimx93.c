@@ -94,6 +94,19 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
+	{	/* 1 (BT_EFUSMX93) */
+		.name = "efusMX93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
 };
 
 
@@ -113,6 +126,7 @@ static int set_gd_board_type(void)
 
 	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
+	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
 
 	return -EINVAL;
 }
@@ -223,6 +237,7 @@ int board_early_init_f(void)
 			init_uart_clk(LPUART2_CLK_ROOT);
 			break;
 		case BT_OSMSFMX93:
+		case BT_EFUSMX93:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
@@ -264,6 +279,15 @@ static void fdt_pcore_fixup(void *fdt)
 
 static void fdt_osm_fixup(void *fdt)
 {
+}
+
+static void fdt_efus_fixup(void *fdt)
+{
+	uint features = fs_board_get_features();
+	if(!(features & FEAT_WLAN)) {
+		fs_fdt_enable(fdt, "wlan", 0);
+		fs_fdt_enable(fdt, "wlan_wake", 0);
+	}
 }
 
 static void fdt_thermal_fixup(void *fdt, bool verbose)
@@ -337,6 +361,9 @@ static void fdt_common_fixup(void *fdt)
 
 	if(gd->board_type == BT_OSMSFMX93)
 		fdt_osm_fixup(fdt);
+	
+	if(gd->board_type == BT_EFUSMX93)
+		fdt_efus_fixup(fdt);
 }
 
 #if CONFIG_IS_ENABLED(OF_BOARD_FIXUP)
@@ -403,6 +430,7 @@ void fs_ethaddr_init(void)
 	switch (gd->board_type)
 	{
 	case BT_PICOCOREMX93:
+	case BT_EFUSMX93:
 	case BT_OSMSFMX93:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);

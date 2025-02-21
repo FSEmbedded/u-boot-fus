@@ -112,6 +112,7 @@ static int set_gd_board_type(void)
 
 	SET_BOARD_TYPE("PCore93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
+	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
 
 	return -EINVAL;
 }
@@ -127,6 +128,7 @@ int board_early_init_f(void)
 			imx_iomux_v3_setup_multiple_pads(lpuart7_pads, ARRAY_SIZE(lpuart7_pads));
 			init_uart_clk(LPUART7_CLK_ROOT);
 			break;
+		case BT_EFUSMX93:
 		case BT_OSMSFMX93:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
@@ -151,6 +153,7 @@ int board_fit_config_name_match(const char *name)
 {
 	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93, name);
 	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93, name);
+	CHECK_BOARD_TYPE_AND_NAME("efusmx93", BT_EFUSMX93, name);
 
 	return -EINVAL;
 }

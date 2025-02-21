@@ -52,7 +52,10 @@ BOARD_CONFIGS = \
 	OSM93-FERT2.fs \
 	OSM93-FERT21.fs \
 	OSM93-FERT22.fs \
-	OSM93-FERT23.fs 
+	OSM93-FERT23.fs \
+	efusMX93-FERT1.fs \
+	efusMX93-FERT4.fs
+	
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
@@ -60,7 +63,10 @@ RT_LPDDR4 := \
 	lpddr4_pc_2g3200m1ch1cs_timing.fs \
 	lpddr4_osm_1g3200m1ch1cs_timing.fs \
 	lpddr4_osm_1g3733m1ch1cs_timing.fs \
-	lpddr4_osm_2g3733m1ch1cs_timing.fs 
+	lpddr4_osm_2g3733m1ch1cs_timing.fs \
+	lpddr4_ef_1g3200m1ch1cs_timing.fs \
+	lpddr4_ef_1g3733m1ch1cs_timing.fs \
+	lpddr4_ef_2g3733m1ch1cs_timing.fs
 	
 RT_LPDDR4X :=
 
