@@ -47,6 +47,7 @@
 #define GPIO_RGMII_RESET_NAME "gpio@22_19"
 #define GPIO_QSGMII_RESET_NAME "gpio@22_21"
 #define GPIO_USB_VBUS_EN "MPC@0232000018"
+#define GPIO_SFP_INT_LINK_LED "gpio@22_23"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -90,6 +91,10 @@ static void prepare_pci(void){
 
 /* Set GPIO Reset-Pins for Eth.-PHYs */
 static void prepare_eth(void){
+	/* Disable SFP_LINK_LED per default */
+	fs_set_gpio(GPIO_SFP_INT_LINK_LED, 1);
+
+	/* Reset QSGMII Phy */
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 1);
 
 	/* Realtek Phy needs some extra help to read the correct PHYAD[2:0] values.
@@ -107,6 +112,7 @@ static void prepare_eth(void){
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 1);
 	udelay(20000);  // min 10ms for reset needed
 	fs_set_gpio(GPIO_RGMII_RESET_NAME, 0);
+
 	fs_set_gpio(GPIO_QSGMII_RESET_NAME, 0);
 }
 
