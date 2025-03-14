@@ -25,6 +25,7 @@
 #include "fs_mmc_common.h"
 #include <fuse.h>			/* fuse_read() */
 #if !defined(CONFIG_TARGET_FSIMX93) && \
+	!defined(CONFIG_TARGET_FSIMX91) && \
 	!defined(CONFIG_TARGET_FSIMX8ULP)
 #include <update.h>			/* enum update_action */
 #endif
@@ -838,7 +839,7 @@ u32 fs_board_get_secondary_offset(void)
 	return val;
 }
 
-#elif   defined(CONFIG_IMX93)
+#elif   defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
 /* Definitions in boot_cfg (fuse bank 3, word 0) */
 #define BOOT_CFG_BOOT_MODE_SHIFT 0
 #define BOOT_CFG_BOOT_MODE_MASK GENMASK(3, BOOT_CFG_BOOT_MODE_SHIFT)

@@ -20,7 +20,11 @@
 #include <asm/global_data.h>
 #include <asm/arch-imx9/ccm_regs.h>
 #include <asm/arch/sys_proto.h>
+#if CONFIG_IS_ENABLED(IMX93)
 #include <asm/arch-imx9/imx93_pins.h>
+#elif CONFIG_IS_ENABLED(IMX91)
+#include <asm/arch-imx9/imx91_pins.h>
+#endif
 #include <asm/arch/clock.h>
 #include <power/pmic.h>
 #include "../common/tcpc.h"
@@ -66,7 +70,6 @@ DECLARE_GLOBAL_DATA_PTR;
 #endif
 
 /* --- Environment defines --- */
-
 const struct fs_board_info board_info[] = {
 	{	/* 0 (BT_PICOCOREMX93) */
 		.name = "PicoCoreMX93",
@@ -94,7 +97,7 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 1 (BT_EFUSMX93) */
+	{	/* 2 (BT_EFUSMX93) */
 		.name = "efusMX93",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -107,8 +110,46 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
+	{	/* 3 (BT_PICOCOREMX91) */
+		.name = "PicoCoreMX91",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 4 (BT_OSMSFMX91) */
+		.name = "FS-OSM-SF-MX91",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 5 (BT_EFUSMX91) */
+		.name = "efusMX91",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
 };
-
 
 /* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
 
@@ -127,6 +168,9 @@ static int set_gd_board_type(void)
 	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
 	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
+
+	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
+	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
 
 	return -EINVAL;
 }
@@ -233,11 +277,14 @@ int board_early_init_f(void)
 
 	switch(gd->board_type) {
 		case BT_PICOCOREMX93:
+		case BT_PICOCOREMX91:
 			imx_iomux_v3_setup_multiple_pads(lpuart2_pads, ARRAY_SIZE(lpuart2_pads));
 			init_uart_clk(LPUART2_CLK_ROOT);
 			break;
 		case BT_OSMSFMX93:
 		case BT_EFUSMX93:
+		case BT_OSMSFMX91:
+		case BT_EFUSMX91:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
@@ -432,6 +479,9 @@ void fs_ethaddr_init(void)
 	case BT_PICOCOREMX93:
 	case BT_EFUSMX93:
 	case BT_OSMSFMX93:
+	case BT_PICOCOREMX91:
+	case BT_EFUSMX91:
+	case BT_OSMSFMX91:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
 		break;
