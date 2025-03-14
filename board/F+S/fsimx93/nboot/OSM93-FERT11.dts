@@ -36,24 +36,23 @@
 		have-eeprom;
 		have-eth-a;
 		have-eth-b;
-		// have-uart-c;
-		// have-uart-d;
+		have-uart-c;
+		have-uart-d;
 		// have-mipi-dsi;
 		have-mipi-csi;
 		have-lvds;
 
-        OSM93-FERT1.100 {
-            board-rev = <100>;
-        };
+		OSM93-FERT11.100 {
+			board-rev = <100>;
+		};
 
-		OSM93-FERT1.110 {
-            board-rev = <110>;
-			
+		OSM93-FERT11.110 {
+			board-rev = <110>;
 			/* DRAM: B.ICDRAM.54 */
 			dram-type = "lpddr4";
 			dram-timing = "lpddr4_osm_1g3200m1ch1cs";
 			dram-size = <0x400>;		/* In MiB */
 			dram-chips = <1>;
-        };
+		};
 	};
 };
