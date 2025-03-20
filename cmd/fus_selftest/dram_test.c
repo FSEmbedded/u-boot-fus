@@ -43,7 +43,7 @@ static void getRamInfo(struct ramInfo *rI){
 
 	DECLARE_GLOBAL_DATA_PTR;
 
-#if defined(CONFIG_IMX8MM) || defined(CONFIG_IMX8MN) || defined (CONFIG_IMX8MP) || defined(CONFIG_IMX93)
+#if defined(CONFIG_IMX8MM) || defined(CONFIG_IMX8MN) || defined (CONFIG_IMX8MP) || defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
 	// HOTFIX: Assume rom_pointer[1] == 0x1
 	rI->ramSize = gd->ram_size;
 	// TODO: rom_pointer[1] changes to 0x0, so we would need to save the value from SPL and load it in UBoot

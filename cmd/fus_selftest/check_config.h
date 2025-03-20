@@ -41,7 +41,7 @@
 #define FEAT_EEPROM	(1<<10)	/* 0: no EEPROM,  1: has EEPROM */
 #endif
 
-#ifdef CONFIG_IMX93
+#if defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
 #define FEAT_EMMC 	BIT(0)
 #define FEAT_EXT_RTC 	BIT(1)
 #define FEAT_EEPROM	BIT(2)

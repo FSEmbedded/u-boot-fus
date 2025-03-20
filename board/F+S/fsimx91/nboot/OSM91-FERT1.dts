@@ -13,7 +13,7 @@
 / {
 	board-cfg {
 		board-name = "FS-OSM-SF-MX91";
-		board-fdt = "fs-osm-sf-mx91-adp-osm-bb";
+		board-fdt = "osm-selftest";
 
 		/* DRAM: B.ICDRAM.40 */
 		dram-type = "lpddr4";

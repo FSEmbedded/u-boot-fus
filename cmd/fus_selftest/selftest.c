@@ -123,7 +123,7 @@ static int selftest_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 	ret = test_ram(szStrBuffer);
 
 	return ret;
-#elif CONFIG_IMX93
+#elif defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
 	printf("Uboot Selftest running...\n");
 
 	print_cpuinfo();
