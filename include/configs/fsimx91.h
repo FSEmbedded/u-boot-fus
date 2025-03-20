@@ -12,34 +12,51 @@
 */
 
 /*
- * NOTE: SRAM2 is used as L2 Cache after SPL
+ * TCM layout (SPL)
+ * ----------------
+ * unused
+ *
  * OCRAM layout SPL/U-BOOT
  * ---------------------------------------------------------
- * 0x2201_0000 (SRAM0): 	Region reserved by ROM loader (64KB)
+ * 0x2048_0000: (Region reserved by ROM loader)(96KB)
+ * 0x2049_8000: BOARD-CFG            (8KB)	CONFIG_FUS_BOARDCFG_ADDR
+ * 0x2049_A000: SPL                  (<=208KB)  (loaded by ROM-Loader, address defined by ATF)
+ *     DRAM-FW: Training Firmware    (up to 96KB, immediately behind end of SPL)
  * --------
- * 0x2202_0000 (SRAM2): 	SPL		(<=128KiB) CONFIG_SPL_TEXT_BASE
- * 0x2204_0000 (SRAM2):		FDT		(32KiB)	CONFIG_SPL_MULTI_DTB_FIT_USER_DEF_ADDR
- * 0x2204_8000 (SRAM2):		DRAM_TIMING	(20KiB) CFG_SPL_DRAM_TIMING_ADDR 
- * 0x2205_DFFF (SRAM2): 	SPL_STACK	(68KiB)	CONFIG_SPL_STACK
- * 0x2205_E000 (SRAM2): 	BSS data	( 8KiB)	CONFIG_SPL_BSS_START_ADDR
- * 0x2206_0000 (SRAM2):		END
+ * CNTR_LOAD_AREA:
+ * 0x204c0000 : DRAM-FW              (82KB)     (Load Image, validate and copy to &_end)
+ * 0x204dc000 : DRAM Timing Data     (16KB)     CFG_SPL_DRAM_TIMING_ADDR
+ *                                              (ddr_init() copies to SAVED_DRAM_TIMING_BASE)
  * --------
- * 0x2004_0000 (SSRAM_P5): 	EARLY_AHAB_BASE/ATF	(192KiB)     CFG_SPL_ATF_ADDR
- * 0x2005_5000 (SSRAM_P5): 	SAVED_DRAM_TIMING_BASE	(16KB)
- * --------
- * 0x2100_E000 (SRAM1):	CFG_FUS_BOARDCFG_ADDR (8KiB)
- * --------
- */
+ * 0x204E_0000: EARLY_AHAB_BASE/ATF  (96KB)     CFG_SPL_ATF_ADDR
+ * 0x2051_9DD0: SPL_STACK            (135KB)    (MALLOC_F, GLOBAL_DATA) CONFIG_SPL_STACK
+ * 0x2051_A000: BSS data             (8KB)      CONFIG_SPL_BSS_START_ADDR
+ * 0x2051_C000: SAVED_DRAM_TIMING_BASE  (16KB)
+ * 0x2051_FFFF: END (93)
+*/
 
-#ifndef __FSIMX8ULP_H
-#define __FSIMX8ULP_H
+#ifndef __FSIMX91_H
+#define __FSIMX91_H
 
 #include <linux/sizes.h>
 #include <linux/stringify.h>
 #include <asm/arch/imx-regs.h>
 #include "imx_env.h"
 
-#define CFG_SYS_UBOOT_BASE \
+/* RAM Layout */
+#define CFG_SYS_OCRAM_BASE 0x20498000
+#define CFG_SYS_OCRAM_SIZE 0x88000
+#define CFG_FUS_BOARDCFG_ADDR CFG_SYS_OCRAM_BASE
+#define CFG_SPL_DRAM_TIMING_ADDR 0x204DC000
+#define CFG_SPL_ATF_ADDR 0x204E0000
+#define CFG_SPL_TEE_ADDR 0x96000000
+
+// /* eMMC Layout */
+// /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */
+// #define CFG_FUS_BOARDCFG_MMC0	0x00048000
+// #define CFG_FUS_BOARDCFG_MMC1	0x00448000
+
+#define CFG_SYS_UBOOT_BASE	\
 	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
 
 #ifdef CONFIG_AHAB_BOOT
@@ -53,33 +70,52 @@
 #endif
 
 /* ENET Config */
-#if defined(CONFIG_FEC_MXC)
-#define PHY_ANEG_TIMEOUT		20000
+/* ENET1 */
+#define CONFIG_SYS_DISCOVER_PHY
+
+#if defined(CONFIG_CMD_NET)
+#define CONFIG_ETHPRIME                 "eth0" /* Set qos to primary since we use its MDIO */
+#define FDT_SEQ_MACADDR_FROM_ENV
+
+#define CONFIG_FEC_XCV_TYPE             RGMII
+#define FEC_QUIRK_ENET_MAC
+
+//#define DWC_NET_PHYADDR					4
+#ifdef CONFIG_DWC_ETH_QOS
+#define CONFIG_SYS_NONCACHED_MEMORY	(1 * SZ_1M) /* 1M */
+#endif
+
+#define PHY_ANEG_TIMEOUT 20000
+
+#define CONFIG_PHY_ATHEROS
+#define CONFIG_NETMASK		255.255.255.0
+#define CONFIG_IPADDR		10.0.0.252
+#define CONFIG_SERVERIP		10.0.0.122
+#define CONFIG_GATEWAYIP	10.0.0.5
+#define CONFIG_ROOTPATH		"/rootfs"
+
 #endif
 
 #ifdef CONFIG_DISTRO_DEFAULTS
 #define BOOT_TARGET_DEVICES(func) \
-	func(USB, usb, 0) \
-	func(MMC, mmc, 0)
+	func(MMC, mmc, 0) \
+	func(MMC, mmc, 1) \
+	func(USB, usb, 0)
 
 #include <config_distro_bootcmd.h>
 #else
 #define BOOTENV
 #endif
 
-#define CFG_MFG_ENV_SETTINGS \
-	CFG_MFG_ENV_SETTINGS_DEFAULT \
-	"initrd_addr=0x83800000\0" \
-	"initrd_high=0xffffffffffffffff\0" \
-	"emmc_dev=0\0"\
-	"sd_dev=2\0"
+#define MTDIDS_DEFAULT		""
+#define MTDPART_DEFAULT		""
 
 /* Initial environment variables */
 #define CFG_EXTRA_ENV_SETTINGS		\
-	CFG_MFG_ENV_SETTINGS \
 	BOOTENV \
 	AHAB_ENV \
 	"arch=" CONFIG_SYS_BOARD "\0" \
+	"prepare_mcore=setenv mcore_clk clk-imx93.mcore_booted;\0" \
 	"scriptaddr=0x83500000\0" \
 	"kernel_addr_r=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
 	"image=Image\0" \
@@ -101,7 +137,7 @@
 	"mmcpart=1\0" \
 	"mmcroot=/dev/mmcblk0p2 rootwait rw\0" \
 	"mmcautodetect=yes\0" \
-	"mmcargs=setenv bootargs ${jh_clk} console=${console} root=${mmcroot}\0 " \
+	"mmcargs=setenv bootargs ${mcore_clk} console=${console} root=${mmcroot}\0 " \
 	"loadbootscript=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
 	"bootscript=echo Running bootscript from mmc ...; " \
 		"source\0" \
@@ -129,9 +165,9 @@
 				"fi; " \
 			"fi;" \
 		"fi;\0" \
-	"netargs=setenv bootargs ${jh_clk} console=${console} " \
+	"netargs=setenv bootargs ${mcore_clk} console=${console} " \
 		"root=/dev/nfs " \
-		"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp\0" \
+		"ip=dhcp nfsroot=${serveriploadaddrc}:${nfsroot},v3,tcp\0" \
 	"netboot=echo Booting from net ...; " \
 		"run netargs;  " \
 		"if test ${ip_dyn} = yes; then " \
@@ -179,25 +215,27 @@
 
 /* Link Definitions */
 
-#define CFG_SYS_INIT_RAM_ADDR	0x80000000
-#define CFG_SYS_INIT_RAM_SIZE	0x80000
-#define CFG_SYS_OCRAM_BASE	0x22020000
-#define CFG_SYS_OCRAM_SIZE	0x40000
-#define CFG_FUS_BOARDCFG_ADDR	0x2100e000
-#define CFG_SPL_DRAM_TIMING_ADDR	0x22048000
+#define CFG_SYS_INIT_RAM_ADDR		0x80000000
+#define CFG_SYS_INIT_RAM_SIZE		0x200000
 
 #define CFG_SYS_SDRAM_BASE		0x80000000
-#define CFG_SPL_ATF_ADDR		0x20040000
-#define CFG_SPL_FUS_EARLY_AHAB_BASE	CFG_SPL_ATF_ADDR
+#define CFG_SPL_FUS_EARLY_AHAB_BASE	0x204e0000
 #define PHYS_SDRAM			0x80000000
+#define PHYS_SDRAM_SIZE			0x40000000 /* 1GB DDR */
 
-/**
- * The real DRAM Size is determinied by BOARD-CFG.
- * PHYS_SDRAM_SIZE is used for xrdc configs and imx8ulp_arm64_mem_map.
- * The Value in imx8ulp_arm64_mem_map is overwritten during dram_init()
- * with the size from BOARD-CFG.
- */
-#define PHYS_SDRAM_SIZE			0x40000000 /* 1GB DRAM-Region */
+#define CFG_SYS_FSL_USDHC_NUM	2
+
+/* TODO: */
+/* have to define for F&S serial_mxc driver */
+#define UART1_BASE		0x44380000
+#define UART2_BASE		0x44390000
+#define UART3_BASE		0x42570000
+#define UART4_BASE		0x42580000
+#define UART5_BASE		0x42590000
+#define UART6_BASE		0x425a0000
+#define UART7_BASE		0x42690000
+#define UART8_BASE		0x426a0000
+#define UART9_BASE		0xFFFFFFFF
 
 /* Monitor Command Prompt */
 
@@ -209,9 +247,18 @@
 #endif
 
 /* Using ULP WDOG for reset */
-#define WDOG_BASE_ADDR			WDG3_RBASE
+#define WDOG_BASE_ADDR          WDG3_BASE_ADDR
 
-/* USB Configs */
-#define CONFIG_USB_MAX_CONTROLLER_COUNT 2
-
+#if defined(CONFIG_CMD_NET)
+#define PHY_ANEG_TIMEOUT 20000
 #endif
+
+#ifdef CONFIG_IMX_MATTER_TRUSTY
+#define NS_ARCH_ARM64 1
+#endif
+
+#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
+#define CFG_FS_DEVICEINFO_ADDR 0x80000000
+#endif
+
+#endif /* __FSIMX91_H */

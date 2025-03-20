@@ -20,7 +20,11 @@
 #include <asm/global_data.h>
 #include <asm/arch-imx9/ccm_regs.h>
 #include <asm/arch/sys_proto.h>
+#if CONFIG_IS_ENABLED(IMX93)
 #include <asm/arch-imx9/imx93_pins.h>
+#elif CONFIG_IS_ENABLED(IMX91)
+#include <asm/arch-imx9/imx91_pins.h>
+#endif
 #include <asm/arch/clock.h>
 #include <power/pmic.h>
 #include "../common/tcpc.h"
@@ -66,7 +70,6 @@ DECLARE_GLOBAL_DATA_PTR;
 #endif
 
 /* --- Environment defines --- */
-
 const struct fs_board_info board_info[] = {
 	{	/* 0 (BT_PICOCOREMX93) */
 		.name = "PicoCoreMX93",
@@ -94,8 +97,59 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
+	{	/* 2 (BT_EFUSMX93) */
+		.name = "efusMX93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 3 (BT_PICOCOREMX91) */
+		.name = "PicoCoreMX91",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 4 (BT_OSMSFMX91) */
+		.name = "FS-OSM-SF-MX91",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 5 (BT_EFUSMX91) */
+		.name = "efusMX91",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
 };
-
 
 /* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
 
@@ -113,6 +167,10 @@ static int set_gd_board_type(void)
 
 	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
+	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
+
+	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
+	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
 
 	return -EINVAL;
 }
@@ -219,10 +277,14 @@ int board_early_init_f(void)
 
 	switch(gd->board_type) {
 		case BT_PICOCOREMX93:
+		case BT_PICOCOREMX91:
 			imx_iomux_v3_setup_multiple_pads(lpuart2_pads, ARRAY_SIZE(lpuart2_pads));
 			init_uart_clk(LPUART2_CLK_ROOT);
 			break;
 		case BT_OSMSFMX93:
+		case BT_EFUSMX93:
+		case BT_OSMSFMX91:
+		case BT_EFUSMX91:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
@@ -264,6 +326,15 @@ static void fdt_pcore_fixup(void *fdt)
 
 static void fdt_osm_fixup(void *fdt)
 {
+}
+
+static void fdt_efus_fixup(void *fdt)
+{
+	uint features = fs_board_get_features();
+	if(!(features & FEAT_WLAN)) {
+		fs_fdt_enable(fdt, "wlan", 0);
+		fs_fdt_enable(fdt, "wlan_wake", 0);
+	}
 }
 
 static void fdt_thermal_fixup(void *fdt, bool verbose)
@@ -337,6 +408,9 @@ static void fdt_common_fixup(void *fdt)
 
 	if(gd->board_type == BT_OSMSFMX93)
 		fdt_osm_fixup(fdt);
+	
+	if(gd->board_type == BT_EFUSMX93)
+		fdt_efus_fixup(fdt);
 }
 
 #if CONFIG_IS_ENABLED(OF_BOARD_FIXUP)
@@ -403,7 +477,11 @@ void fs_ethaddr_init(void)
 	switch (gd->board_type)
 	{
 	case BT_PICOCOREMX93:
+	case BT_EFUSMX93:
 	case BT_OSMSFMX93:
+	case BT_PICOCOREMX91:
+	case BT_EFUSMX91:
+	case BT_OSMSFMX91:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
 		break;
@@ -438,6 +516,7 @@ static void fsimx93_get_board_rev(char *str, int len)
 
 int board_late_init(void)
 {
+	enum boot_device boot_dev = get_boot_device();
 	struct cfg_info *info = fs_board_get_cfg_info();
 	void *fdt;
 	int offs;
@@ -466,6 +545,10 @@ int board_late_init(void)
 		env_set("sec_boot", "yes");
 	else
 		env_set("sec_boot", "no");
+
+	/* Skip autoboot during USB-Boot*/
+	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
+		env_set_ulong("bootdelay", 0);
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	char brev[MAX_DESCR_LEN] = {0};

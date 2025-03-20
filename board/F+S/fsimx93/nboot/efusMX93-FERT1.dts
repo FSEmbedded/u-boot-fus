@@ -12,17 +12,16 @@
 
 / {
 	board-cfg {
-		board-name = "FS-OSM-SF-MX93";
-		board-fdt = "osm-selftest";
+		board-name = "efusMX93";
+		board-fdt = "efusmx93";
 
 		/* DRAM: B.ICDRAM.40 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_osm_1g3733m1ch1cs";
+		dram-timing = "lpddr4_ef_1g3200m1ch1cs";
 		dram-size = <0x400>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
-
 		boot-dev = "MMC1";
 
 		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
@@ -36,24 +35,16 @@
 		have-eeprom;
 		have-eth-a;
 		have-eth-b;
-		// have-uart-c;
-		// have-uart-d;
-		// have-mipi-dsi;
+		have-eth-phy-a;
+		have-eth-phy-b;
+		// have-wlan;
+		have-sd-a;
+		have-sd-b;
 		have-mipi-csi;
 		have-lvds;
 
-        OSM93-FERT1.100 {
+        efusMX93-FERT1.100 {
             board-rev = <100>;
-        };
-
-		OSM93-FERT1.110 {
-            board-rev = <110>;
-			
-			/* DRAM: B.ICDRAM.54 */
-			dram-type = "lpddr4";
-			dram-timing = "lpddr4_osm_1g3200m1ch1cs";
-			dram-size = <0x400>;		/* In MiB */
-			dram-chips = <1>;
         };
 	};
 };

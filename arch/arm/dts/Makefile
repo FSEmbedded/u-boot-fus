@@ -1203,6 +1203,7 @@ dtb-$(CONFIG_ARCH_IMX9) += \
 	imx93-phyboard-segin.dtb \
 	picocoremx93.dtb \
 	fs-osm-sf-mx93-adp-osm-bb.dtb \
+	fs-osm-sf-mx91-adp-osm-bb.dtb \
 	osm-selftest.dtb
 
 dtb-$(CONFIG_ARCH_IMXRT) += imxrt1050-evk.dtb \

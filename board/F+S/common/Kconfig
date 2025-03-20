@@ -36,13 +36,15 @@ config FS_IMAGE_COMMON
 				TARGET_FSIMX8MP || \
 				TARGET_FSIMX8X || \
 				TARGET_FSIMX8ULP || \
-				TARGET_FSIMX93
+				TARGET_FSIMX93 || \
+				TARGET_FSIMX91
 
 config FS_CNTR_COMMON
 	bool "build fs_cntr_common"
 	select FS_IMAGE_COMMON
 	default y if TARGET_FSIMX8ULP || \
-				TARGET_FSIMX93
+				TARGET_FSIMX93 || \
+				TARGET_FSIMX91
 
 config FS_BOOTROM
 	bool "build fs_bootrom"
@@ -74,7 +76,7 @@ config FS_USB_COMMON
 config FS_USB_PWR_USBNC
 	bool "Use USB PWR function from host controller"
 	depends on FS_USB_COMMON
-	default y if !TARGET_FSIMX8ULP && !TARGET_FSIMX93
+	default y if !TARGET_FSIMX8ULP && !TARGET_FSIMX93 && !TARGET_FSIMX93
 	help
 	  The VBUS power for a USB host port can either be switched
 	  automatically in hardware by the dedicated USB controller

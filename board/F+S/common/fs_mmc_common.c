@@ -25,6 +25,7 @@
 	!defined(CONFIG_IMX8MN) &&\
 	!defined(CONFIG_ARCH_MX7ULP) &&\
 	!defined(CONFIG_IMX93) &&\
+	!defined(CONFIG_IMX91) &&\
 	!defined(CONFIG_IMX8ULP)
 #include <asm/arch/crm_regs.h>		/* struct mxc_ccm_reg */
 #endif

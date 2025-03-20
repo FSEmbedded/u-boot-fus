@@ -408,6 +408,7 @@ static void fsimx8ulp_get_board_rev(char *str, int len)
 
 int board_late_init(void)
 {
+	enum boot_device boot_dev = get_boot_device();
 	struct cfg_info *info = fs_board_get_cfg_info();
 	void *fdt;
 	int offs;
@@ -436,6 +437,10 @@ int board_late_init(void)
 		env_set("sec_boot", "yes");
 	else
 		env_set("sec_boot", "no");
+
+	/* Skip autoboot during USB-Boot*/
+	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
+		env_set_ulong("bootdelay", 0);
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	char brev[MAX_DESCR_LEN] = {0};

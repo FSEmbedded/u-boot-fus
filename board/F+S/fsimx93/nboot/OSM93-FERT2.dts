@@ -36,8 +36,8 @@
 		have-eeprom;
 		have-eth-a;
 		have-eth-b;
-		have-uart-c;
-		have-uart-d;
+		// have-uart-c;
+		// have-uart-d;
 		// have-mipi-dsi;
 		have-mipi-csi;
 		have-lvds;

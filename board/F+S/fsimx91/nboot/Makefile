@@ -17,7 +17,7 @@ include spl/include/autoconf.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2025.02
+NBOOT_SUFFIX = 2025.03
 GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 
@@ -43,30 +43,13 @@ NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 # revisions .130, .120 and .100. Boards with revision .121 or .120 in their
 # BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
-	PCore93-FERT2.fs \
-	PCore93-FERT3.fs \
-	PCore93-FERT4.fs \
-	PCore93-FERT5.fs \
-	PCore93-FERT6.fs \
-	OSM93-FERT1.fs \
-	OSM93-FERT2.fs \
-	OSM93-FERT21.fs \
-	OSM93-FERT22.fs \
-	OSM93-FERT23.fs \
-	efusMX93-FERT1.fs \
-	efusMX93-FERT4.fs
-	
+	OSM91-FERT1.fs
+
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
-	lpddr4_pc_1g3200m1ch1cs_timing.fs \
-	lpddr4_pc_2g3200m1ch1cs_timing.fs \
-	lpddr4_osm_1g3200m1ch1cs_timing.fs \
-	lpddr4_osm_1g3733m1ch1cs_timing.fs \
-	lpddr4_osm_2g3733m1ch1cs_timing.fs \
-	lpddr4_ef_1g3200m1ch1cs_timing.fs \
-	lpddr4_ef_1g3733m1ch1cs_timing.fs \
-	lpddr4_ef_2g3733m1ch1cs_timing.fs
+	lpddr4_osm_1g2400m1ch1cs_timing.fs
+
 	
 RT_LPDDR4X :=
 

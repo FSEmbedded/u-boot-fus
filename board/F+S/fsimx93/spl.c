@@ -23,7 +23,11 @@
 #include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/sections.h>
+#if defined(CONFIG_TARGET_FSIMX93)
 #include <asm/arch/imx93_pins.h>
+#elif defined(CONFIG_TARGET_FSIMX91)
+#include <asm/arch/imx91_pins.h>
+#endif
 #include <asm/arch/mu.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
@@ -110,8 +114,14 @@ static int set_gd_board_type(void)
 	ptr = strchr(board_id, '-');
 	len = (int)(ptr - board_id);
 
-	SET_BOARD_TYPE("PCore93", BT_PICOCOREMX93, board_id, len);
+#if defined(CONFIG_TARGET_FSIMX93)
+	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
+	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
+#elif defined(CONFIG_TARGET_FSIMX91)
+	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
+	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
+#endif
 
 	return -EINVAL;
 }
@@ -127,6 +137,7 @@ int board_early_init_f(void)
 			imx_iomux_v3_setup_multiple_pads(lpuart7_pads, ARRAY_SIZE(lpuart7_pads));
 			init_uart_clk(LPUART7_CLK_ROOT);
 			break;
+		case BT_EFUSMX93:
 		case BT_OSMSFMX93:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
@@ -149,8 +160,14 @@ int board_early_init_f(void)
 #if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
 int board_fit_config_name_match(const char *name)
 {
+#if defined(CONFIG_TARGET_FSIMX93)
 	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93, name);
 	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX93, name);
+	CHECK_BOARD_TYPE_AND_NAME("efusmx93", BT_EFUSMX93, name);
+#elif defined(CONFIG_TARGET_FSIMX91)
+	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX91, name);
+	CHECK_BOARD_TYPE_AND_NAME("efusmx91", BT_EFUSMX91, name);
+#endif
 
 	return -EINVAL;
 }
@@ -164,12 +181,10 @@ int power_init_board(void)
 	unsigned int val = 0, buck_val;
 
 	ret = pmic_get("pmic@25", &dev);
-	if (ret == -ENODEV) {
-		puts("No pca9450@25\n");
-		return 0;
-	}
-	if (ret != 0)
+	if (ret != 0) {
+		puts("ERROR: Get PMIC PCA9451A failed!\n");
 		return ret;
+	}
 
 	/* BUCKxOUT_DVS0/1 control BUCK123 output */
 	pmic_reg_write(dev, PCA9450_BUCK123_DVS, 0x29);
@@ -286,10 +301,12 @@ void board_init_f(ulong dummy)
 	/* DDR initialization */
 	spl_dram_init();
 
+#if defined(CONFIG_TARGET_FSIMX93)
 	/* Put M33 into CPUWAIT for following kick */
 	ret = m33_prepare();
 	if (!ret)
 		printf("M33 prepare ok\n");
+#endif
 
 	board_init_r(NULL, 0);
 }
