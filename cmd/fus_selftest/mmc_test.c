@@ -57,10 +57,10 @@ int test_mmc(char * szStrBuffer){
 		node = dev_of_offset(dev);
 
 		if (fdt_get_property(fdt, node, "is-sdcard", NULL))
-			printf("SD card ..............");
+			printf("SD card...............");
 		else if (fdt_get_property(fdt, node, "is-emmc", NULL))
 			if (has_feature(FEAT_EMMC))
-				printf("EMMC .................");
+				printf("EMMC..................");
 			else
 				continue;
 		else if (fdt_get_property(fdt, node, "is-wlan", NULL))
@@ -73,7 +73,7 @@ int test_mmc(char * szStrBuffer){
 					dm_gpio_set_value(&desc,1);
 					mdelay(500);
 				}
-				printf("WLAN .................");
+				printf("WLAN..................");
 			}
 			else
 				continue;
