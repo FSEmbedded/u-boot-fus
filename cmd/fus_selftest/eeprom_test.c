@@ -33,10 +33,9 @@ int test_eeprom(char *szStrBuffer){
 		ofnode_read_u32(subnode, "reg", &reg);
 
 	  	ret = dm_i2c_probe(dev,reg,0x0,&devp);
-		if (!ret){
-			printf("EEPROM................");
-			test_OkOrFail(ret, 1, szStrBuffer);
-		}
+
+		printf("EEPROM................");
+		test_OkOrFail(ret, 1, szStrBuffer);
 
 		return ret;
 	}
