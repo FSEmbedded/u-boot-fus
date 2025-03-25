@@ -367,9 +367,6 @@
 
 /* NAND stuff */
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
-/* Chips per device; all chips must be the same type; if different types
-   are necessary, they must be implemented as different NAND devices */
-#define CONFIG_SYS_NAND_MAX_CHIPS	1
 #define CONFIG_SYS_NAND_BASE		0x40000000
 #define CONFIG_SYS_NAND_5_ADDR_CYCLE
 #define CONFIG_SYS_NAND_ONFI_DETECTION

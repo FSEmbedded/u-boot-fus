@@ -117,11 +117,6 @@
 #define CONFIG_SYS_INIT_SP_ADDR \
 	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
 
-/* Size of malloc() pool (heap). Command "ubi part" needs quite a large heap
-   if the source MTD partition is large. The size should be large enough to
-   also contain a copy of the environment. */
-#define CONFIG_SYS_MALLOC_LEN	(10 * 1024 * 1024)
-
 /* Allocate 2048KB protected RAM at end of RAM (device tree, etc.) */
 #define CONFIG_PRAM		2048
 
@@ -142,8 +137,6 @@
 /************************************************************************
  * Clock Settings and Timers
  ************************************************************************/
-/* Basic input clocks */
-#define CONFIG_SYS_MX6_HCLK	24000000
 
 
 /************************************************************************
@@ -167,8 +160,6 @@
 /************************************************************************
  * I2C
  ************************************************************************/
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_SPEED	100000
 #define CONFIG_SYS_SPD_BUS_NUM	1
 
 
@@ -192,8 +183,6 @@
 /************************************************************************
  * Ethernet
  ************************************************************************/
-#define CONFIG_FEC_MXC_25M_REF_CLK	/* Output 25 MHz reference clock */
-
 /* PHY */
 #define CONFIG_SYS_DISCOVER_PHY
 #define CONFIG_SYS_FAULT_ECHO_LINK_DOWN
@@ -203,7 +192,7 @@
 /*#define CONFIG_PHY_ATHEROS_NO_EEE*/
 
 /* Ethernet switch SJA1105 */
-#define CONFIG_MXC_SPI
+//####define CONFIG_MXC_SPI
 
 
 /************************************************************************
@@ -261,10 +250,6 @@
 #define CONFIG_SYS_MAX_NAND_DEVICE	2
 #endif
 
-/* Chips per device; all chips must be the same type; if different types
-   are necessary, they must be implemented as different NAND devices */
-#define CONFIG_SYS_NAND_MAX_CHIPS	1
-
 /* Define if you want to support nand chips that comply to ONFI spec */
 #define CONFIG_SYS_NAND_ONFI_DETECTION
 
@@ -291,10 +276,10 @@
 /************************************************************************
  * Display (LCD)
  ************************************************************************/
-#define CONFIG_VIDEO_LOGO		/* Allow a logo on the console... */
+//####define CONFIG_VIDEO_LOGO		/* Allow a logo on the console... */
 #define CONFIG_VIDEO_BMP_LOGO		/* ...as BMP image... */
-#define CONFIG_BMP_16BPP		/* ...with 16 bits per pixel */
-#define CONFIG_SPLASH_SCREEN		/* Support splash screen */
+//####define CONFIG_BMP_16BPP		/* ...with 16 bits per pixel */
+//####define CONFIG_SPLASH_SCREEN	/* Support splash screen */
 
 
 /************************************************************************

@@ -712,13 +712,8 @@ Free Space:
 #define CONFIG_ENV_SPI_MAX_HZ	CONFIG_SF_DEFAULT_SPEED
 #endif
 
-#define CONFIG_SYS_MMC_IMG_LOAD_PART	1
-
 #define CONFIG_MMCROOT			"/dev/mmcblk0p2"  /* USDHC2 */
 #define CONFIG_SYS_FSL_USDHC_NUM	2
-
-/* Size of malloc() pool */
-#define CONFIG_SYS_MALLOC_LEN		((CONFIG_ENV_SIZE + (32 * 1024)) * 1024)
 
 #define CONFIG_SYS_OCRAM_BASE		0x00100000
 #define CONFIG_SYS_OCRAM_SIZE		0x00040000

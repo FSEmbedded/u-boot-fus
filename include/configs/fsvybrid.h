@@ -129,11 +129,6 @@
 #define CONFIG_SYS_INIT_SP_ADDR \
 	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
 
-/* Size of malloc() pool (heap). Command "ubi part" needs quite a large heap
-   if the source MTD partition is large. The size should be large enough to
-   also contain a copy of the environment. */
-#define CONFIG_SYS_MALLOC_LEN	(2 * 1024 * 1024)
-
 /* Allocate 2048KB protected RAM at end of RAM (Framebuffers, etc.) */
 #define CONFIG_PRAM		2048
 
@@ -262,10 +257,6 @@
 #else
 #define CONFIG_SYS_MAX_NAND_DEVICE	2
 #endif
-
-/* Chips per device; all chips must be the same type; if different types
-   are necessary, they must be implemented as different NAND devices */
-#define CONFIG_SYS_NAND_MAX_CHIPS	1
 
 /* Our NAND layout has a continuous set of OOB data, so we only need one
    oobfree entry (plus one empty entry to mark the end of the list). And when

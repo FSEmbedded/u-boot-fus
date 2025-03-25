@@ -116,7 +116,6 @@
 
 #define CONFIG_SPL_MAX_SIZE		(140 * 1024)
 #define CONFIG_SYS_MONITOR_LEN		(512 * 1024)
-#define CONFIG_SYS_MMCSD_FS_BOOT_PARTITION	1
 
 /* Address in OCRAM where BOARD-CFG is loaded to; U-Boot must know this, too */
 #define CONFIG_FUS_BOARDCFG_ADDR	0x910000
@@ -133,7 +132,6 @@
 #define CONFIG_SPL_STACK		0x91fff0
 #define CONFIG_SPL_LIBCOMMON_SUPPORT
 #define CONFIG_SPL_LIBGENERIC_SUPPORT
-#define CONFIG_SPL_GPIO_SUPPORT
 
 /* Offsets in NAND where BOARD-CFG and FIRMWARE are stored */
 #define CONFIG_FUS_BOARDCFG_NAND0	0x00180000
@@ -163,20 +161,11 @@
 #define CONFIG_SPL_ABORT_ON_RAW_IMAGE /* For RAW image gives a error info not panic */
 
 #define CONFIG_I2C_SUPPORT
-#undef CONFIG_DM_MMC
 #undef CONFIG_DM_PMIC
 #undef CONFIG_DM_PMIC_PFUZE100
 
-#define CONFIG_POWER
-#define CONFIG_POWER_I2C
 #define CONFIG_POWER_BD71837
 /* #define CONFIG_DM_PMIC_BD71837 */
-
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_MXC_I2C1		/* enable I2C bus 0 */
-#define CONFIG_SYS_I2C_MXC_I2C2		/* enable I2C bus 1 */
-#define CONFIG_SYS_I2C_MXC_I2C3		/* enable I2C bus 2 */
-#define CONFIG_SYS_I2C_MXC_I2C4		/* enable I2C bus 3 */
 
 #define CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 
@@ -617,8 +606,6 @@
 	" ${network} ${rootfs} ${mode} ${init} ${extra} ${rauc_cmd}\0"
 
 /* Link Definitions */
-#define CONFIG_SYS_LOAD_ADDR		0x40480000
-
 #define CONFIG_SYS_INIT_RAM_ADDR	0x40000000
 #define CONFIG_SYS_INIT_RAM_SIZE	0x80000
 #define CONFIG_SYS_INIT_SP_OFFSET				\
@@ -639,9 +626,6 @@
  * See also MMC and NAND layout above.
  */
 #define CONFIG_ENV_OVERWRITE			/* Allow overwriting ethaddr */
-
-/* Size of malloc() pool */
-#define CONFIG_SYS_MALLOC_LEN	((CONFIG_ENV_SIZE + (2*1024) + (16*1024)) * 1024)
 
 #define CONFIG_SYS_SDRAM_BASE		0x40000000
 #define CONFIG_SYS_OCRAM_BASE		0x00900000
@@ -678,15 +662,6 @@
 
 #define CONFIG_SYS_FSL_ESDHC_ADDR       0
 
-#ifndef CONFIG_DM_I2C
-#define CONFIG_SYS_I2C
-#endif
-#define CONFIG_SYS_I2C_MXC_I2C1		/* enable I2C bus 0 */
-#define CONFIG_SYS_I2C_MXC_I2C2		/* enable I2C bus 1 */
-#define CONFIG_SYS_I2C_MXC_I2C3		/* enable I2C bus 2 */
-#define CONFIG_SYS_I2C_MXC_I2C4		/* enable I2C bus 3 */
-#define CONFIG_SYS_I2C_SPEED		400000
-
 /* USB configs */
 #ifndef CONFIG_SPL_BUILD
 #define CONFIG_USBD_HS
@@ -706,9 +681,6 @@
 
 /* NAND stuff */
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
-/* Chips per device; all chips must be the same type; if different types
-   are necessary, they must be implemented as different NAND devices */
-#define CONFIG_SYS_NAND_MAX_CHIPS	1
 #define CONFIG_SYS_NAND_BASE		0x40000000
 #define CONFIG_SYS_NAND_5_ADDR_CYCLE
 #define CONFIG_SYS_NAND_ONFI_DETECTION

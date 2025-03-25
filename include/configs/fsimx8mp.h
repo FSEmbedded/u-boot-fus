@@ -124,11 +124,8 @@
 
 #define CONFIG_SPL_ABORT_ON_RAW_IMAGE
 
-#define CONFIG_POWER
 #define CONFIG_POWER_I2C
 #define CONFIG_POWER_PCA9450
-
-#define CONFIG_SYS_I2C
 
 #endif
 
@@ -582,9 +579,6 @@
 /* Fallback values if values in the device tree are missing/damaged */
 //#define CONFIG_ENV_OFFSET_REDUND 0x104000
 
-/* Size of malloc() pool */
-#define CONFIG_SYS_MALLOC_LEN		SZ_32M
-
 /* Totally 1GB LPDDR4 */
 #define CONFIG_SYS_SDRAM_BASE		0x40000000
 #define CONFIG_SYS_OCRAM_BASE		0x00900000
@@ -622,8 +616,6 @@
 #define CONFIG_FSL_USDHC
 #define CONFIG_SYS_FSL_ESDHC_ADDR	0
 
-#define CONFIG_SYS_MMC_IMG_LOAD_PART	1
-
 #ifdef CONFIG_FSL_FSPI
 #define FSL_FSPI_FLASH_SIZE		SZ_256M
 #define FSL_FSPI_FLASH_NUM		1
@@ -633,7 +625,6 @@
 
 #define CONFIG_SYS_FSL_FSPI_AHB
 #endif
-#define CONFIG_SYS_I2C_SPEED		100000
 
 /* USB configs */
 #define CONFIG_USBD_HS
