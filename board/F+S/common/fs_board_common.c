@@ -18,7 +18,9 @@
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/delay.h>
+#ifndef CONFIG_FS_BOARD_CFG
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
+#endif
 #include <dm/uclass.h>				/* uclass_get_device() */
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"

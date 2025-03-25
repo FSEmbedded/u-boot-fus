@@ -24,6 +24,10 @@
 #include <net.h>
 #include <watchdog.h>
 
+#ifndef CONFIG_BOOTFILE
+#define CONFIG_BOOTFILE "uImage"
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 /************************************************************************
@@ -219,6 +223,23 @@ ulong env_get_ulong(const char *name, int base, ulong default_val)
 	const char *str = env_get(name);
 
 	return str ? simple_strtoul(str, NULL, base) : default_val;
+}
+
+const char *env_get_bootfile(void)
+{
+	const char *p;
+
+	p = env_get("bootfile");
+	if (p)
+		return p;
+	return CONFIG_BOOTFILE;
+}
+
+const char *env_parse_bootfile(const char *buffer)
+{
+	if ((buffer[0] == '.') && (buffer[1] == 0))
+		return env_get_bootfile();
+	return buffer;
 }
 
 /*

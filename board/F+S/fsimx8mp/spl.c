@@ -129,12 +129,12 @@ int power_init_board(void)
 	}
 
 	setup_i2c(bus, CONFIG_SYS_I2C_SPEED, 0x30, pi2c_pad_info);
-	ret = power_pca9450_init(bus);
+	ret = power_pca9450_init(bus, 0x25);
 
 	if (ret)
 		printf("power init failed");
 	p = pmic_get("PCA9450");
-	if(!p)
+	if (!p)
 		printf("PMIC structure is NULL.\n");
 	pmic_probe(p);
 
@@ -159,7 +159,7 @@ int power_init_board(void)
 		void *fdt = fs_image_get_cfg_fdt();
 		int offs = fs_image_get_board_cfg_offs(fdt);
 		int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
-		if(fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL)){
+		if (fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL)) {
 			/* Force I2C level translator enable, if we have temp sensors */
 			pmic_reg_write(p, PCA9450_CONFIG2, 0x3);
 		}
@@ -409,13 +409,12 @@ static int fs_spl_init_boot_dev(enum boot_device boot_dev, const char *type)
 	return 0;
 }
 
-void mmc_get_parts()
+static void mmc_get_parts(void)
 {
-	if(uboot_offs == uboot_offs_redundant){
+	if (uboot_offs == uboot_offs_redundant){
 		uboot_part = 1;
 		uboot_part_redundant = 2;
-	}
-	else{
+	} else {
 		uboot_part = 0;
 		uboot_part_redundant = 0;
 	}
@@ -501,7 +500,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	int part = 0;
 
-	if(uboot_try == 0)
+	if (uboot_try == 0)
 		part = uboot_part;
 	else
 		part = uboot_part_redundant;
@@ -509,7 +508,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	return part;
 }
 
-int check_if_secondary()
+int check_if_secondary(void)
 {
 	return is_imx8m_running_secondary_boot_image();
 }
@@ -669,7 +668,7 @@ unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
 {
 	int offs;
 
-	if(uboot_try == 0)
+	if (uboot_try == 0)
 		offs = uboot_offs / 512;
 	else
 		offs = uboot_offs_redundant / 512;
@@ -765,7 +764,7 @@ iomux_v3_cfg_t usb2_oc_pad = (MX8MP_PAD_GPIO1_IO15__USB2_OTG_OC | MUX_PAD_CTRL(N
 
 int board_usb_init(int index, enum usb_init_type init)
 {
-	if(usb_initialized)
+	if (usb_initialized)
 		return 0;
 
 	debug("USB%d: %s init.\n", index, (init)?"otg":"host");

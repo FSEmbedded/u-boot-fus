@@ -86,11 +86,13 @@ static void mxs_lcd_init(phys_addr_t reg_base, struct display_timing *timings,
 	uint32_t ctrl2;
 	uint32_t vdctrl0;
 
-#if !(CONFIG_IS_ENABLED(CLK)/* && IS_ENABLED(CONFIG_IMX8)*/)
+#if CONFIG_IS_ENABLED(DM_VIDEO)
+#if !(CONFIG_IS_ENABLED(CLK) && IS_ENABLED(CONFIG_IMX8))
 	/* Kick in the LCDIF clock */
 	/* ### Clock configuration is board specific, handle outside of the
            driver. Clocks should all be set and started when coming here. */
 	mxs_set_lcdclk((u32)reg_base, timings->pixelclock.typ / 1000);
+#endif
 #endif
 
 	/* Restart the LCDIF block */

@@ -118,7 +118,6 @@ dumpimage-mkimage-objs := aisimage.o \
 			imximage.o \
 			imx8image.o \
 			imx8mimage.o \
-			kwbimage.o \
 			lib/md5.o \
 			lpc32xximage.o \
 			mxsimage.o \
@@ -149,6 +148,10 @@ dumpimage-mkimage-objs := aisimage.o \
 			$(ECDSA_OBJS-y) \
 			$(RSA_OBJS-y) \
 			$(AES_OBJS-y)
+
+ifneq ($(CONFIG_TOOLS_LIBCRYPTO),)
+dumpimage-mkimage-objs += kwbimage.o
+endif
 
 dumpimage-objs := $(dumpimage-mkimage-objs) dumpimage.o
 mkimage-objs   := $(dumpimage-mkimage-objs) mkimage.o

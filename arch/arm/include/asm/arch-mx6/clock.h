@@ -9,11 +9,7 @@
 
 #include <linux/types.h>
 
-#ifdef CONFIG_SYS_MX6_HCLK
-#define MXC_HCLK	CONFIG_SYS_MX6_HCLK
-#else
 #define MXC_HCLK	24000000
-#endif
 
 #ifdef CONFIG_SYS_MX6_CLK32
 #define MXC_CLK32	CONFIG_SYS_MX6_CLK32
@@ -89,6 +85,7 @@ void enable_ipu_clock(void);
 void disable_ipu_clock(void);
 void enable_ldb_di_clk(int channel);
 int enable_fec_anatop_clock(int fec_id, enum enet_freq freq);
+int enable_fec_anatop_clock_ref(int fec_id, enum enet_freq freq, bool ref_en);
 void enable_enet_clk(unsigned char enable);
 int enable_lcdif_clock(u32 base_addr, bool enable);
 int enable_lvds_clock(u32 lcd_base_addr);

@@ -245,6 +245,15 @@ enum boot_device fs_board_get_boot_dev(void)
 	return NAND_BOOT;
 }
 
+/* We dont want to use the common "is_usb_boot" function, which returns true
+ * if we are e.g. transfer an U-Boot via NetDCU-USB-Loader in N-Boot and
+ * execute the image. We booted from fuse so fuse should be checked and not
+ * some flags. Therefore we return always false.
+ */
+bool is_boot_from_usb(void) {
+	return false;
+}
+
 /* Check board type */
 int checkboard(void)
 {

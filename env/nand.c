@@ -25,7 +25,7 @@
 #include <search.h>
 #include <errno.h>
 #include <u-boot/crc.h>
-#include <fdtdec.h>
+#include <dm/ofnode.h>
 
 #if defined(CONFIG_CMD_SAVEENV) && defined(CONFIG_CMD_NAND) && \
 		!defined(CONFIG_SPL_BUILD)
@@ -75,8 +75,7 @@ __weak loff_t board_nand_get_env_offset(struct mtd_info *mtd, int copy)
 		if (copy)
 			prop_name = "u-boot,nand-env-offset-redundant";
 #endif
-		env_offset = fdtdec_get_config_int(gd->fdt_blob, prop_name,
-						   env_offset);
+		env_offset = ofnode_conf_read_int(prop_name, env_offset);
 	}
 
 	return env_offset;
@@ -94,8 +93,8 @@ __weak loff_t board_nand_get_env_range(struct mtd_info *mtd)
 	loff_t env_range = CONFIG_ENV_NAND_RANGE;
 
 	if (CONFIG_IS_ENABLED(OF_CONTROL)) {
-		env_range = fdtdec_get_config_int(
-			gd->fdt_blob, "u-boot,nand-env-range", env_range);
+		env_range = ofnode_conf_read_int("u-boot,nand-env-range",
+						 env_range);
 	}
 
 	return env_range;

@@ -346,13 +346,12 @@ static void fs_board_early_init(void)
 	}
 }
 
-void mmc_get_parts()
+static void mmc_get_parts(void)
 {
-	if(uboot_offs == uboot_offs_redundant){
+	if (uboot_offs == uboot_offs_redundant){
 		uboot_part = 1;
 		uboot_part_redundant = 2;
-	}
-	else{
+	} else {
 		uboot_part = 0;
 		uboot_part_redundant = 0;
 	}
@@ -439,7 +438,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	int part = 0;
 
-	if(uboot_try == 0)
+	if (uboot_try == 0)
 		part = uboot_part;
 	else
 		part = uboot_part_redundant;
@@ -447,7 +446,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	return part;
 }
 
-int check_if_secondary()
+int check_if_secondary(void)
 {
 	uint32_t * csf_addr = (uint32_t *)*(uint32_t**)(CONFIG_SPL_TEXT_BASE - 0x28);
 	uint32_t * copy_addr = csf_addr - 1;
@@ -559,7 +558,7 @@ unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
 {
 	int offs;
 
-	if(uboot_try == 0)
+	if (uboot_try == 0)
 		offs = uboot_offs / 512;
 	else
 		offs = uboot_offs_redundant / 512;

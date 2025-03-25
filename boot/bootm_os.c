@@ -29,7 +29,8 @@ static int do_bootm_standalone(int flag, int argc, char *const argv[],
 	int (*appl)(int, char *const[]);
 
 	if (!env_get_autostart()) {
-		env_set_hex("filesize", images->os.image_len);
+		set_fileaddr(images->os.image_start);
+		env_set_fileinfo(images->os.image_len);
 		return 0;
 	}
 	appl = (int (*)(int, char * const []))images->ep;

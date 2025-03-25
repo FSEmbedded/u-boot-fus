@@ -418,9 +418,14 @@ int default_spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	return part;
 }
 
-int __weak spl_mmc_emmc_boot_partition(struct mmc *mmc)
+int __weak arch_spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	return default_spl_mmc_emmc_boot_partition(mmc);
+}
+
+int __weak spl_mmc_emmc_boot_partition(struct mmc *mmc)
+{
+	return arch_spl_mmc_emmc_boot_partition(mmc);
 }
 
 int spl_mmc_load(struct spl_image_info *spl_image,

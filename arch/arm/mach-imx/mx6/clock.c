@@ -829,7 +829,7 @@ void mxs_set_vadcclk()
 #endif
 
 #ifdef CONFIG_FEC_MXC
-int enable_fec_anatop_clock(int fec_id, enum enet_freq freq)
+int enable_fec_anatop_clock_ref(int fec_id, enum enet_freq freq, bool ref_en)
 {
 	u32 reg = 0;
 	s32 timeout = 100000;
@@ -873,9 +873,8 @@ int enable_fec_anatop_clock(int fec_id, enum enet_freq freq)
 	else
 		reg |= BM_ANADIG_PLL_ENET2_ENABLE;
 	reg &= ~BM_ANADIG_PLL_ENET_BYPASS;
-#ifdef CONFIG_FEC_MXC_25M_REF_CLK
-	reg |= BM_ANADIG_PLL_ENET_REF_25M_ENABLE;
-#endif
+	if (ref_en)
+		reg |= BM_ANADIG_PLL_ENET_REF_25M_ENABLE;
 	writel(reg, &anatop->pll_enet);
 
 #ifdef CONFIG_MX6SX
@@ -905,6 +904,12 @@ int enable_fec_anatop_clock(int fec_id, enum enet_freq freq)
 	writel(reg, &imx_ccm->CCGR3);
 #endif
 	return 0;
+}
+
+
+int enable_fec_anatop_clock(int fec_id, enum enet_freq freq)
+{
+	return enable_fec_anatop_clock_ref(fec_id, freq, false);
 }
 #endif
 

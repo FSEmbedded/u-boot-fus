@@ -750,7 +750,7 @@ bool is_imx8m_running_secondary_boot_image(void)
 }
 #endif
 
-int spl_mmc_emmc_boot_partition(struct mmc *mmc)
+int arch_spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	u32 *rom_log_addr = (u32 *)0x9e0;
 	u32 *rom_log;

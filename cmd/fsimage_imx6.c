@@ -25,6 +25,7 @@
 #ifdef CONFIG_FS_SECURE_BOOT
 #include <asm/mach-imx/hab.h>
 #endif
+#include <asm/cache.h>			/* ARCH_DMA_MINALIGN */
 
 /* Structure to hold regions in NAND/eMMC for an image */
 struct storage_info {

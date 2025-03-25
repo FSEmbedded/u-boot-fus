@@ -153,7 +153,6 @@ struct fsl_esdhc_priv {
 #if !CONFIG_IS_ENABLED(DM_MMC)
 	struct mmc *mmc;
 #endif
-#if CONFIG_IS_ENABLED(DM_MMC)
 	struct udevice *dev;
 	int broken_cd;
 #ifdef MMC_SUPPORTS_TUNING
@@ -163,7 +162,6 @@ struct fsl_esdhc_priv {
 	u32 strobe_dll_delay_target;
 	u32 signal_voltage;
 	u32 signal_voltage_switch_extra_delay_ms;
-#endif
 #endif
 	struct udevice *vqmmc_dev;
 	struct udevice *vmmc_dev;
@@ -219,7 +217,7 @@ static uint esdhc_xfertyp(struct mmc_cmd *cmd, struct mmc_data *data)
 static void esdhc_pio_read_write(struct fsl_esdhc_priv *priv,
 				 struct mmc_data *data)
 {
-	struct fsl_esdhc *regs = (struct fsl_esdhc *)priv->esdhc.esdhc_base
+	struct fsl_esdhc *regs = (struct fsl_esdhc *)priv->esdhc.esdhc_base;
 	uint blocks;
 	char *buffer;
 	uint databuf;
@@ -1061,8 +1059,10 @@ static int esdhc_getcd_common(struct fsl_esdhc_priv *priv)
 	struct fsl_esdhc *regs = (struct fsl_esdhc *)priv->esdhc.esdhc_base;
 	int timeout = 1000;
 
+#if 0
 	if (IS_ENABLED(CONFIG_ESDHC_DETECT_QUIRK))
 		return 1;
+#endif
 
 	if (CONFIG_IS_ENABLED(DM_MMC)) {
 		if (priv->broken_cd)
@@ -1072,6 +1072,7 @@ static int esdhc_getcd_common(struct fsl_esdhc_priv *priv)
 			return dm_gpio_get_value(&priv->cd_gpio);
 #endif
 	}
+
 
 	while (!(esdhc_read32(&regs->prsstat) & PRSSTAT_CINS) && --timeout)
 		udelay(1000);
@@ -1207,14 +1208,13 @@ static int fsl_esdhc_init(struct fsl_esdhc_priv *priv,
 	cfg->ops = &esdhc_ops;
 #endif
 
-#ifdef CONFIG_SYS_FSL_ESDHC_HAS_DDR_MODE
-	cfg->host_caps |= MMC_MODE_DDR_52MHz;
-#endif
+	if (IS_ENABLED(CONFIG_SYS_FSL_ESDHC_HAS_DDR_MODE))
+		cfg->host_caps |= MMC_MODE_DDR_52MHz;
 
-	if (caps & ESDHC_HOSTCAPBLT_HSS)
+	if (caps & HOSTCAPBLT_HSS)
 		cfg->host_caps |= MMC_MODE_HS_52MHz | MMC_MODE_HS;
 
-	cfg->host_caps |= priv->caps;
+//###	cfg->host_caps |= priv->caps;
 
 	cfg->f_min = 400000;
 	cfg->f_max = min(priv->esdhc.sdhc_clk, (u32)200000000);
@@ -1223,6 +1223,7 @@ static int fsl_esdhc_init(struct fsl_esdhc_priv *priv,
 
 	esdhc_write32(&regs->dllctrl, 0);
 	if (priv->esdhc.flags & ESDHC_FLAG_USDHC) {
+#ifdef MMC_SUPPORTS_TUNING
 		if (priv->esdhc.flags & ESDHC_FLAG_STD_TUNING) {
 			u32 val = esdhc_read32(&regs->tuning_ctrl);
 
@@ -1254,19 +1255,20 @@ static int fsl_esdhc_init(struct fsl_esdhc_priv *priv,
 			cfg->host_caps |= UHS_CAPS;
 
 		if (CONFIG_IS_ENABLED(MMC_HS200_SUPPORT)) {
-			if (priv->flags & ESDHC_FLAG_HS200)
+			if (priv->esdhc.flags & ESDHC_FLAG_HS200)
 				cfg->host_caps |= MMC_CAP(MMC_HS_200);
 		}
 
 		if (CONFIG_IS_ENABLED(MMC_HS400_SUPPORT)) {
-			if (priv->flags & ESDHC_FLAG_HS400)
+			if (priv->esdhc.flags & ESDHC_FLAG_HS400)
 				cfg->host_caps |= MMC_CAP(MMC_HS_400);
 		}
 
 		if (CONFIG_IS_ENABLED(MMC_HS400_ES_SUPPORT)) {
-			if (priv->flags & ESDHC_FLAG_HS400_ES)
+			if (priv->esdhc.flags & ESDHC_FLAG_HS400_ES)
 				cfg->host_caps |= MMC_CAP(MMC_HS_400_ES);
 		}
+#endif
 	}
 	return 0;
 }
@@ -1422,8 +1424,10 @@ static int fsl_esdhc_of_to_plat(struct udevice *dev)
 	val = fdtdec_get_int(fdt, node, "fsl,signal-voltage-switch-extra-delay-ms", 0);
 	priv->signal_voltage_switch_extra_delay_ms = val;
 
-	if (dev_read_bool(dev, "broken-cd"))
-		priv->broken_cd = 1;
+	if (CONFIG_IS_ENABLED(DM_MMC)) {
+		if (dev_read_bool(dev, "broken-cd"))
+			priv->broken_cd = 1;
+	}
 
 	if (dev_read_prop(dev, "fsl,wp-controller", NULL)) {
 		priv->esdhc.wp_enable = 1;

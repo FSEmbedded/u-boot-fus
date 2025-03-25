@@ -52,7 +52,7 @@
 #include <asm/mach-imx/iomux-v3.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/arch/crm_regs.h>		/* CCM_CCGR1, nandf clock settings */
-#include <asm/arch/clock.h>		/* enable_fec_anatop_clock(), ... */
+#include <asm/arch/clock.h>		/* enable_fec_anatop_clock_ref(), ... */
 
 #include <linux/delay.h>		/* mdelay() */
 #include <linux/mtd/rawnand.h>		/* struct mtd_info, struct nand_chip */
@@ -2115,7 +2115,7 @@ int board_eth_init(struct bd_info *bd)
 
 	/*
 	 * Set IOMUX for ports, enable clocks and reset PHYs. On i.MX6 SoloX,
-	 * the ENET clock is ungated in enable_fec_anatop_clock().
+	 * the ENET clock is ungated in enable_fec_anatop_clock_ref().
 	 */
 	switch (board_type) {
 	case BT_EFUSA9X:
@@ -2135,7 +2135,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET1 (FEC0) PLL */
-			ret = enable_fec_anatop_clock(0, ENET_125MHZ);
+			ret = enable_fec_anatop_clock_ref(0, ENET_125MHZ, true);
 			if (ret < 0)
 				return ret;
 		}
@@ -2151,7 +2151,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET2 (FEC1) PLL */
-			ret = enable_fec_anatop_clock(1, ENET_125MHZ);
+			ret = enable_fec_anatop_clock_ref(1, ENET_125MHZ, true);
 			if (ret < 0)
 				return ret;
 		}
@@ -2191,7 +2191,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET1 (FEC0) PLL */
-			ret = enable_fec_anatop_clock(0, ENET_50MHZ);
+			ret = enable_fec_anatop_clock_ref(0, ENET_50MHZ, true);
 			if (ret < 0)
 				return ret;
 		}
@@ -2214,7 +2214,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET2 (FEC1) PLL */
-			ret = enable_fec_anatop_clock(1, ENET_50MHZ);
+			ret = enable_fec_anatop_clock_ref(1, ENET_50MHZ, true);
 			if (ret < 0)
 				return ret;
 		}
@@ -2258,7 +2258,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET1 (FEC0) PLL */
-			ret = enable_fec_anatop_clock(0, ENET_50MHZ);
+			ret = enable_fec_anatop_clock_ref(0, ENET_50MHZ, true);
 			if (ret < 0)
 				return ret;
 		}
@@ -2281,7 +2281,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET2 (FEC1) PLL */
-			ret = enable_fec_anatop_clock(1, ENET_50MHZ);
+			ret = enable_fec_anatop_clock_ref(1, ENET_50MHZ, true);
 			if (ret < 0)
 				return ret;
 		}
@@ -2327,7 +2327,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET1 (FEC0) PLL */
-			ret = enable_fec_anatop_clock(0, ENET_125MHZ);
+			ret = enable_fec_anatop_clock_ref(0, ENET_125MHZ, true);
 			if (ret < 0)
 				return ret;
 		}
@@ -2343,7 +2343,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET2 (FEC1) PLL */
-			ret = enable_fec_anatop_clock(1, ENET_125MHZ);
+			ret = enable_fec_anatop_clock_ref(1, ENET_125MHZ, true);
 			if (ret < 0)
 				return 0;
 		}
@@ -2414,7 +2414,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET1 (FEC0) PLL */
-			ret = enable_fec_anatop_clock(0, ENET_125MHZ);
+			ret = enable_fec_anatop_clock_ref(0, ENET_125MHZ, true);
 			if (ret < 0)
 				return ret;
 		}
@@ -2430,7 +2430,7 @@ int board_eth_init(struct bd_info *bd)
 			writel(gpr1, &iomux_regs->gpr[1]);
 
 			/* Activate ENET2 (FEC1) PLL */
-			ret = enable_fec_anatop_clock(1, ENET_125MHZ);
+			ret = enable_fec_anatop_clock_ref(1, ENET_125MHZ, true);
 			if (ret < 0)
 				return ret;
 		}

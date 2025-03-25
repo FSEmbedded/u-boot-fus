@@ -140,7 +140,9 @@
 #include <command.h>
 #include <mmc.h>
 #include <nand.h>
+#ifdef CONFIG_NAND_MXS
 #include <mxs_nand.h>			/* mxs_nand_mode_fcb_62bit(), ... */
+#endif
 #include <console.h>			/* confirm_yesno() */
 #include <jffs2/jffs2.h>		/* struct mtd_device + part_info */
 #include <fuse.h>			/* fuse_read() */

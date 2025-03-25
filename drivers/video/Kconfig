@@ -16,7 +16,7 @@ config DM_VIDEO
 
 config VIDEO_LOGO
 	bool "Show the U-Boot logo on the display"
-	depends on DM_VIDEO
+	depends on VIDEO || DM_VIDEO
 	default y if !SPLASH_SCREEN
 	select VIDEO_BMP_RLE8
 	help
@@ -1071,7 +1071,7 @@ config VIDEO_BMP_RLE8
 
 config BMP_16BPP
 	bool "16-bit-per-pixel BMP image support"
-	depends on DM_VIDEO || LCD
+	depends on VIDEO || DM_VIDEO || LCD
 	help
 	  Support display of bitmaps file with 16-bit-per-pixel
 
