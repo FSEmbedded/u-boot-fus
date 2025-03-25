@@ -468,7 +468,7 @@ static struct phy_driver genphy_driver = {
 	.shutdown	= genphy_shutdown,
 };
 
-int genphy_init(void)
+static int genphy_init(void)
 {
 	return phy_register(&genphy_driver);
 }
@@ -536,6 +536,9 @@ int phy_init(void)
 #endif
 #ifdef CONFIG_PHY_NATSEMI
 	phy_natsemi_init();
+#endif
+#ifdef CONFIG_NXP_C45_TJA11XX_PHY
+	phy_nxp_tja11xx_init();
 #endif
 #ifdef CONFIG_PHY_REALTEK
 	phy_realtek_init();
@@ -961,9 +964,9 @@ static struct phy_device *phy_connect_gmii2rgmii(struct mii_dev *bus,
 						 phy_interface_t interface)
 {
 	struct phy_device *phydev = NULL;
-	ofnode node = dev_ofnode(dev);
+	ofnode node;
 
-	while (ofnode_valid(node)) {
+	ofnode_for_each_subnode(node, dev_ofnode(dev)) {
 		node = ofnode_by_compatible(node, "xlnx,gmii-to-rgmii-1.0");
 		if (ofnode_valid(node)) {
 			phydev = phy_device_create(bus, 0,

@@ -722,7 +722,7 @@ int set_lvds_clk(void *addr, unsigned int di, unsigned int ldb_di,
 		tmp_khz = (pll_base_clock * 18 + divider/2) / divider;
 		if (!freq_is_accurate(tmp_khz, freq_khz))
 			divider = 0;	/* Result exceeds requested accuracy */
-		}
+	}
 
 	if (divider) {
 		/* PLL2_PFDn is OK, set clock divider and ungate PFD */
@@ -740,7 +740,7 @@ int set_lvds_clk(void *addr, unsigned int di, unsigned int ldb_di,
 		if (ret) {
 			printf("Can not set display freq %ukHz\n", freq_khz);
 			return ret;	/* Not possible with PLL5 */
-	}
+		}
 		enable_video_pll();
 	}
 

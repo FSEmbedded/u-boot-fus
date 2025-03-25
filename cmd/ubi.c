@@ -648,14 +648,14 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	if (!strncmp(argv[1], "write", 5) && (argc >= 5) && (argc <= 6)) {
 		addr = parse_loadaddr(argv[2], NULL);
-		size = simple_strtoul(argv[4], NULL, 16);
+		size = hextoul(argv[4], NULL);
 
 		if (!strncmp(argv[1], "write.part", 10)) {
 			printf("Writing partly data to volume %s ... ", argv[3]);
 			if (argc > 5) {
 				size_t full_size;
 
-				full_size = simple_strtoul(argv[5], NULL, 16);
+				full_size = hextoul(argv[5], NULL);
 				ret = ubi_volume_begin_write(argv[3],
 						(void *)addr, size, full_size);
 			} else {
@@ -678,7 +678,7 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			addr = parse_loadaddr(argv[2], NULL);
 		else
 			addr = get_loadaddr();
-		size = (argc > 4) ? simple_strtoul(argv[4], NULL, 16) : 0;
+		size = (argc > 4) ? hextoul(argv[4], NULL) : 0;
 
 		printf("Reading from volume %s ... ", argv[3]);
 		ret = ubi_volume_read(argv[3], (char *)addr, size, &loaded);
@@ -689,7 +689,7 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		}
 
 		return ret;
-		}
+	}
 
 	return CMD_RET_USAGE;
 }

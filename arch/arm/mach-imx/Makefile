@@ -41,7 +41,7 @@ obj-$(CONFIG_IMX_HAB) += hab.o
 obj-$(CONFIG_FS_SECURE_BOOT) += checkboot.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx7))
-obj-y 	+= cpu.o
+obj-y	+= cpu.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
 obj-y += mmc_env.o
 endif
@@ -54,7 +54,7 @@ ifeq ($(SOC),$(filter $(SOC),mx5 mx6 mx7))
 obj-$(CONFIG_IMX_VIDEO_SKIP) += video.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx6 mx7))
-obj-y 	+= cache.o init.o
+obj-y	+= cache.o init.o
 obj-$(CONFIG_FEC_MXC) += mac.o
 obj-$(CONFIG_IMX_RDC) += rdc-sema.o
 ifneq ($(CONFIG_SPL_BUILD),y)
@@ -113,7 +113,7 @@ $(PLUGIN).bin:
 endif
 
 quiet_cmd_cpp_cfg = CFGS    $@
-      cmd_cpp_cfg = $(CPP) $(cpp_flags) -x c -o $@ $<
+      cmd_cpp_cfg = $(CPP) $(cpp_flags) -D__ASSEMBLY__ -x c -o $@ $<
 
 # mkimage source config file
 IMX_CONFIG = $(CONFIG_IMX_CONFIG:"%"=%)
@@ -137,8 +137,7 @@ endif
 DEPFILE_EXISTS := $(shell $(CPP) $(cpp_flags) -x c -o u-boot-dtb.cfgout $(srctree)/$(IMX_CONFIG); if [ -f u-boot-dtb.cfgout ]; then $(CNTR_DEPFILES) u-boot-dtb.cfgout; echo $$?; fi)
 else ifeq ($(CONFIG_ARCH_IMX8M), y)
 IMAGE_TYPE := imx8mimage
-IMX8M_DEPFILES := $(srctree)/tools/imx8m_image.sh
-DEPFILE_EXISTS := $(shell $(CPP) $(cpp_flags) -x c -o spl/u-boot-spl.cfgout $(srctree)/$(IMX_CONFIG);if [ -f spl/u-boot-spl.cfgout ]; then $(IMX8M_DEPFILES) spl/u-boot-spl.cfgout 0; echo $$?; fi)
+DEPFILE_EXISTS := 0
 else
 IMAGE_TYPE := imximage
 DEPFILE_EXISTS := 0
@@ -224,10 +223,11 @@ MKIMAGEFLAGS_flash.bin = -n spl/u-boot-spl.cfgout \
 		   -T $(IMAGE_TYPE) -e $(CONFIG_SPL_TEXT_BASE)
 flash.bin: MKIMAGEOUTPUT = flash.log
 
+spl/u-boot-spl.cfgout: $(IMX_CONFIG) FORCE
+	$(Q)mkdir -p $(dir $@)
+	$(call if_changed_dep,cpp_cfg)
+
 spl/u-boot-spl-ddr.bin: spl/u-boot-spl.bin spl/u-boot-spl.cfgout FORCE
-ifeq ($(DEPFILE_EXISTS),0)
-	$(IMX8M_DEPFILES) spl/u-boot-spl.cfgout 1
-endif
 
 flash.bin: spl/u-boot-spl-ddr.bin u-boot.itb FORCE
 	$(call if_changed,mkimage)

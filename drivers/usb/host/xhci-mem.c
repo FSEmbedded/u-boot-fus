@@ -32,7 +32,7 @@
  *
  * @param addr	pointer to memory region to be flushed
  * @param len	the length of the cache line to be flushed
- * @return none
+ * Return: none
  */
 void xhci_flush_cache(uintptr_t addr, u32 len)
 {
@@ -47,7 +47,7 @@ void xhci_flush_cache(uintptr_t addr, u32 len)
  *
  * @param addr	pointer to memory region to be invalidates
  * @param len	the length of the cache line to be invalidated
- * @return none
+ * Return: none
  */
 void xhci_inval_cache(uintptr_t addr, u32 len)
 {
@@ -62,7 +62,7 @@ void xhci_inval_cache(uintptr_t addr, u32 len)
  * frees the "segment" pointer passed
  *
  * @param ptr	pointer to "segement" to be freed
- * @return none
+ * Return: none
  */
 static void xhci_segment_free(struct xhci_ctrl *ctrl, struct xhci_segment *seg)
 {
@@ -77,7 +77,7 @@ static void xhci_segment_free(struct xhci_ctrl *ctrl, struct xhci_segment *seg)
  * frees the "ring" pointer passed
  *
  * @param ptr	pointer to "ring" to be freed
- * @return none
+ * Return: none
  */
 static void xhci_ring_free(struct xhci_ctrl *ctrl, struct xhci_ring *ring)
 {
@@ -102,7 +102,7 @@ static void xhci_ring_free(struct xhci_ctrl *ctrl, struct xhci_ring *ring)
  * Free the scratchpad buffer array and scratchpad buffers
  *
  * @ctrl	host controller data structure
- * @return	none
+ * Return:	none
  */
 static void xhci_scratchpad_free(struct xhci_ctrl *ctrl)
 {
@@ -129,7 +129,7 @@ static void xhci_scratchpad_free(struct xhci_ctrl *ctrl)
  * frees the "xhci_container_ctx" pointer passed
  *
  * @param ptr	pointer to "xhci_container_ctx" to be freed
- * @return none
+ * Return: none
  */
 static void xhci_free_container_ctx(struct xhci_ctrl *ctrl,
 				    struct xhci_container_ctx *ctx)
@@ -143,7 +143,7 @@ static void xhci_free_container_ctx(struct xhci_ctrl *ctrl,
  * frees the virtual devices for "xhci_ctrl" pointer passed
  *
  * @param ptr	pointer to "xhci_ctrl" whose virtual devices are to be freed
- * @return none
+ * Return: none
  */
 static void xhci_free_virt_devices(struct xhci_ctrl *ctrl)
 {
@@ -181,7 +181,7 @@ static void xhci_free_virt_devices(struct xhci_ctrl *ctrl)
  * frees all the memory allocated
  *
  * @param ptr	pointer to "xhci_ctrl" to be cleaned up
- * @return none
+ * Return: none
  */
 void xhci_cleanup(struct xhci_ctrl *ctrl)
 {
@@ -195,8 +195,6 @@ void xhci_cleanup(struct xhci_ctrl *ctrl)
 	xhci_dma_unmap(ctrl, ctrl->dcbaa->dma,
 		       sizeof(struct xhci_device_context_array));
 	free(ctrl->dcbaa);
-	if (reset_valid(&ctrl->reset))
-		reset_free(&ctrl->reset);
 	memset(ctrl, '\0', sizeof(struct xhci_ctrl));
 }
 
@@ -204,7 +202,7 @@ void xhci_cleanup(struct xhci_ctrl *ctrl)
  * Malloc the aligned memory
  *
  * @param size	size of memory to be allocated
- * @return allocates the memory and returns the aligned pointer
+ * Return: allocates the memory and returns the aligned pointer
  */
 static void *xhci_malloc(unsigned int size)
 {
@@ -229,7 +227,7 @@ static void *xhci_malloc(unsigned int size)
  * @param prev	pointer to the previous segment
  * @param next	pointer to the next segment
  * @param link_trbs	flag to indicate whether to link the trbs or NOT
- * @return none
+ * Return: none
  */
 static void xhci_link_segments(struct xhci_ctrl *ctrl, struct xhci_segment *prev,
 			       struct xhci_segment *next, bool link_trbs)
@@ -258,7 +256,7 @@ static void xhci_link_segments(struct xhci_ctrl *ctrl, struct xhci_segment *prev
  * Initialises the Ring's enqueue,dequeue,enq_seg pointers
  *
  * @param ring	pointer to the RING to be intialised
- * @return none
+ * Return: none
  */
 static void xhci_initialize_ring_info(struct xhci_ring *ring)
 {
@@ -286,7 +284,7 @@ static void xhci_initialize_ring_info(struct xhci_ring *ring)
  * "All components of all Command and Transfer TRBs shall be initialized to '0'"
  *
  * @param	none
- * @return pointer to the newly allocated SEGMENT
+ * Return: pointer to the newly allocated SEGMENT
  */
 static struct xhci_segment *xhci_segment_alloc(struct xhci_ctrl *ctrl)
 {
@@ -316,7 +314,7 @@ static struct xhci_segment *xhci_segment_alloc(struct xhci_ctrl *ctrl)
  *
  * @param num_segs	number of segments in the ring
  * @param link_trbs	flag to indicate whether to link the trbs or NOT
- * @return pointer to the newly created RING
+ * Return: pointer to the newly created RING
  */
 struct xhci_ring *xhci_ring_alloc(struct xhci_ctrl *ctrl, unsigned int num_segs,
 				  bool link_trbs)
@@ -362,7 +360,7 @@ struct xhci_ring *xhci_ring_alloc(struct xhci_ctrl *ctrl, unsigned int num_segs,
  * Set up the scratchpad buffer array and scratchpad buffers
  *
  * @ctrl	host controller data structure
- * @return	-ENOMEM if buffer allocation fails, 0 on success
+ * Return:	-ENOMEM if buffer allocation fails, 0 on success
  */
 static int xhci_scratchpad_alloc(struct xhci_ctrl *ctrl)
 {
@@ -438,7 +436,7 @@ fail_sp:
  *
  * @param ctrl	Host controller data structure
  * @param type type of XHCI Container Context
- * @return NULL if failed else pointer to the context on success
+ * Return: NULL if failed else pointer to the context on success
  */
 static struct xhci_container_ctx
 		*xhci_alloc_container_ctx(struct xhci_ctrl *ctrl, int type)
@@ -451,9 +449,9 @@ static struct xhci_container_ctx
 	BUG_ON((type != XHCI_CTX_TYPE_DEVICE) && (type != XHCI_CTX_TYPE_INPUT));
 	ctx->type = type;
 	ctx->size = (MAX_EP_CTX_NUM + 1) *
-			CTX_SIZE(readl(&ctrl->hccr->cr_hccparams));
+			CTX_SIZE(xhci_readl(&ctrl->hccr->cr_hccparams));
 	if (type == XHCI_CTX_TYPE_INPUT)
-		ctx->size += CTX_SIZE(readl(&ctrl->hccr->cr_hccparams));
+		ctx->size += CTX_SIZE(xhci_readl(&ctrl->hccr->cr_hccparams));
 
 	ctx->bytes = xhci_malloc(ctx->size);
 	ctx->dma = xhci_dma_map(ctrl, ctx->bytes, ctx->size);
@@ -465,7 +463,7 @@ static struct xhci_container_ctx
  * Allocating virtual device
  *
  * @param udev	pointer to USB deivce structure
- * @return 0 on success else -1 on failure
+ * Return: 0 on success else -1 on failure
  */
 int xhci_alloc_virt_device(struct xhci_ctrl *ctrl, unsigned int slot_id)
 {
@@ -524,7 +522,7 @@ int xhci_alloc_virt_device(struct xhci_ctrl *ctrl, unsigned int slot_id)
  * @param ctrl	Host controller data structure
  * @param hccr	pointer to HOST Controller Control Registers
  * @param hcor	pointer to HOST Controller Operational Registers
- * @return 0 if successful else -1 on failure
+ * Return: 0 if successful else -1 on failure
  */
 int xhci_mem_init(struct xhci_ctrl *ctrl, struct xhci_hccr *hccr,
 					struct xhci_hcor *hcor)
@@ -635,7 +633,7 @@ int xhci_mem_init(struct xhci_ctrl *ctrl, struct xhci_hccr *hccr,
  * Give the input control context for the passed container context
  *
  * @param ctx	pointer to the context
- * @return pointer to the Input control context data
+ * Return: pointer to the Input control context data
  */
 struct xhci_input_control_ctx
 		*xhci_get_input_control_ctx(struct xhci_container_ctx *ctx)
@@ -649,7 +647,7 @@ struct xhci_input_control_ctx
  *
  * @param ctrl	Host controller data structure
  * @param ctx	pointer to the context
- * @return pointer to the slot control context data
+ * Return: pointer to the slot control context data
  */
 struct xhci_slot_ctx *xhci_get_slot_ctx(struct xhci_ctrl *ctrl,
 				struct xhci_container_ctx *ctx)
@@ -658,7 +656,7 @@ struct xhci_slot_ctx *xhci_get_slot_ctx(struct xhci_ctrl *ctrl,
 		return (struct xhci_slot_ctx *)ctx->bytes;
 
 	return (struct xhci_slot_ctx *)
-		(ctx->bytes + CTX_SIZE(readl(&ctrl->hccr->cr_hccparams)));
+		(ctx->bytes + CTX_SIZE(xhci_readl(&ctrl->hccr->cr_hccparams)));
 }
 
 /**
@@ -667,7 +665,7 @@ struct xhci_slot_ctx *xhci_get_slot_ctx(struct xhci_ctrl *ctrl,
  * @param ctrl	Host controller data structure
  * @param ctx	context container
  * @param ep_index	index of the endpoint
- * @return pointer to the End point context
+ * Return: pointer to the End point context
  */
 struct xhci_ep_ctx *xhci_get_ep_ctx(struct xhci_ctrl *ctrl,
 				    struct xhci_container_ctx *ctx,
@@ -680,7 +678,7 @@ struct xhci_ep_ctx *xhci_get_ep_ctx(struct xhci_ctrl *ctrl,
 
 	return (struct xhci_ep_ctx *)
 		(ctx->bytes +
-		(ep_index * CTX_SIZE(readl(&ctrl->hccr->cr_hccparams))));
+		(ep_index * CTX_SIZE(xhci_readl(&ctrl->hccr->cr_hccparams))));
 }
 
 /**
@@ -692,7 +690,7 @@ struct xhci_ep_ctx *xhci_get_ep_ctx(struct xhci_ctrl *ctrl,
  * @param in_ctx contains the input context
  * @param out_ctx contains the input context
  * @param ep_index index of the end point
- * @return none
+ * Return: none
  */
 void xhci_endpoint_copy(struct xhci_ctrl *ctrl,
 			struct xhci_container_ctx *in_ctx,
@@ -721,7 +719,7 @@ void xhci_endpoint_copy(struct xhci_ctrl *ctrl,
  * @param ctrl	Host controller data structure
  * @param in_ctx contains the inpout context
  * @param out_ctx contains the inpout context
- * @return none
+ * Return: none
  */
 void xhci_slot_copy(struct xhci_ctrl *ctrl, struct xhci_container_ctx *in_ctx,
 					struct xhci_container_ctx *out_ctx)
@@ -742,7 +740,7 @@ void xhci_slot_copy(struct xhci_ctrl *ctrl, struct xhci_container_ctx *in_ctx,
  * Setup an xHCI virtual device for a Set Address command
  *
  * @param udev pointer to the Device Data Structure
- * @return returns negative value on failure else 0 on success
+ * Return: returns negative value on failure else 0 on success
  */
 void xhci_setup_addressable_virt_dev(struct xhci_ctrl *ctrl,
 				     struct usb_device *udev, int hop_portnr)

@@ -127,8 +127,6 @@ int bb_miiphy_write(struct mii_dev *miidev, int addr, int devad, int reg,
 #define ESTATUS_1000XF		0x8000
 #define ESTATUS_1000XH		0x4000
 
-#ifdef CONFIG_DM_MDIO
-
 /**
  * struct mdio_perdev_priv - Per-device class data for MDIO DM
  *
@@ -168,7 +166,7 @@ void dm_mdio_probe_devices(void);
  * @ethdev: ethernet device to connect to the PHY
  * @interface: MAC-PHY protocol
  *
- * @return pointer to phy_device, or 0 on error
+ * Return: pointer to phy_device, or 0 on error
  */
 struct phy_device *dm_mdio_phy_connect(struct udevice *mdiodev, int phyaddr,
 				       struct udevice *ethdev,
@@ -182,7 +180,7 @@ struct phy_device *dm_mdio_phy_connect(struct udevice *mdiodev, int phyaddr,
  *
  * @ethdev: ethernet device
  *
- * @return pointer to phy_device, or 0 on error
+ * Return: pointer to phy_device, or 0 on error
  */
 struct phy_device *dm_eth_phy_connect(struct udevice *ethdev);
 
@@ -199,10 +197,6 @@ struct phy_device *dm_eth_phy_connect(struct udevice *ethdev);
  */
 struct phy_device *dm_eth_phy_connect_index(struct udevice *ethdev, int phy_index);
 
-#endif
-
-#ifdef CONFIG_DM_MDIO_MUX
-
 /* indicates none of the child buses is selected */
 #define MDIO_MUX_SELECT_NONE	-1
 
@@ -218,7 +212,5 @@ struct mdio_mux_ops {
 };
 
 #define mdio_mux_get_ops(dev) ((struct mdio_mux_ops *)(dev)->driver->ops)
-
-#endif
 
 #endif

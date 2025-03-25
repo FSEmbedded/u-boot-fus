@@ -105,9 +105,9 @@ extern env_t embedded_environment;
 #endif /* ENV_IS_EMBEDDED */
 
 #ifdef DEFAULT_ENV_IS_RW
-extern unsigned char default_environment[];
+extern char default_environment[];
 #else
-extern const unsigned char default_environment[];
+extern const char default_environment[];
 #endif
 
 #ifndef DO_DEPS_ONLY
@@ -205,6 +205,7 @@ struct env_driver {
 #endif
 
 #define ENV_SAVE_PTR(x) (CONFIG_IS_ENABLED(SAVEENV) ? (x) : NULL)
+#define ENV_ERASE_PTR(x) (CONFIG_IS_ENABLED(CMD_ERASEENV) ? (x) : NULL)
 
 extern struct hsearch_data env_htab;
 
@@ -214,7 +215,7 @@ extern struct hsearch_data env_htab;
  * It is a weak function allowing board to overidde the default interface for
  * U-Boot env in EXT4: CONFIG_ENV_EXT4_INTERFACE
  *
- * @return string of interface, empty if not supported
+ * Return: string of interface, empty if not supported
  */
 const char *env_ext4_get_intf(void);
 
@@ -224,7 +225,7 @@ const char *env_ext4_get_intf(void);
  * It is a weak function allowing board to overidde the default device and
  * partition used for U-Boot env in EXT4: CONFIG_ENV_EXT4_DEVICE_AND_PART
  *
- * @return string of device and partition
+ * Return: string of device and partition
  */
 const char *env_ext4_get_dev_part(void);
 
@@ -236,7 +237,7 @@ const char *env_ext4_get_dev_part(void);
  * @op: operations performed on the environment
  * @prio: priority between the multiple environments, 0 being the
  *        highest priority
- * @return  an enum env_location value on success, or -ve error code.
+ * Return:  an enum env_location value on success, or -ve error code.
  */
 enum env_location env_get_location(enum env_operation op, int prio);
 #endif /* DO_DEPS_ONLY */

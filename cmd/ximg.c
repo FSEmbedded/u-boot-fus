@@ -60,7 +60,7 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	addr = (argc > 1) ? parse_loadaddr(argv[1], NULL) : get_loadaddr();
 	if (argc > 2) {
-		part = simple_strtoul(argv[2], NULL, 16);
+		part = hextoul(argv[2], NULL);
 #if defined(CONFIG_FIT)
 		uname = argv[2];
 #endif

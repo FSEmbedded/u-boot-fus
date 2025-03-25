@@ -76,6 +76,7 @@
 #include <video.h>
 #include <asm/global_data.h>
 #include <linux/compiler.h>
+#include <version_string.h>
 
 #if defined(CONFIG_VIDEO_MXS)
 #define VIDEO_FB_16BPP_WORD_SWAP
@@ -2016,7 +2017,7 @@ void video_clear(void)
 #endif
 }
 
-static int cfb_video_init(void)
+static int cfg_video_init(void)
 {
 	unsigned char color8;
 
@@ -2132,42 +2133,50 @@ __weak int board_video_skip(void)
 	return 0;
 }
 
-static struct stdio_dev console_dev = {
-	.name = "vga",
-//###	.ext = DEV_EXT_VIDEO,	/* Video extensions */
-	.putc = cfb_video_putc,	/* 'putc' function */
-	.puts = cfb_video_puts,	/* 'puts' function */
-	.flags = DEV_FLAGS_OUTPUT,
-	.tstc = NULL,	/* 'tstc' function */
-	.getc = NULL,	/* 'getc' function */
-};
-
 int drv_video_init(void)
 {
+	struct stdio_dev console_dev;
+	bool have_keyboard;
+	bool __maybe_unused keyboard_ok = false;
 
 	/* Check if video initialization should be skipped */
 	if (board_video_skip())
 		return 0;
 
 	/* Init video chip - returns with framebuffer cleared */
-	if (cfb_video_init() == -1)
+	if (cfg_video_init() == -1)
 		return 0;
 
 	if (board_cfb_skip())
 		return 0;
 
-#ifndef CONFIG_VGA_AS_SINGLE_DEVICE
-#ifdef CONFIG_OF_CONTROL
-	if (!fdtdec_get_config_bool(gd->fdt_blob, "u-boot,no-keyboard")
+#if defined(CONFIG_VGA_AS_SINGLE_DEVICE)
+	have_keyboard = false;
+#elif defined(CONFIG_OF_CONTROL)
+	have_keyboard = !ofnode_conf_read_bool("u-boot,no-keyboard");
+#else
+	have_keyboard = true;
 #endif
-	{
+	if (have_keyboard) {
 		debug("KBD: Keyboard init ...\n");
-		if (VIDEO_KBD_INIT_FCT != -1) {
-			/* Also init input part of console device */
-			console_dev.flags |= DEV_FLAGS_INPUT;
-			console_dev.tstc = VIDEO_TSTC_FCT;
-			console_dev.getc = VIDEO_GETC_FCT;
-		}
+#if !defined(CONFIG_VGA_AS_SINGLE_DEVICE)
+		keyboard_ok = !(VIDEO_KBD_INIT_FCT == -1);
+#endif
+	}
+
+	/* Init vga device */
+	memset(&console_dev, 0, sizeof(console_dev));
+	strcpy(console_dev.name, "vga");
+	console_dev.flags = DEV_FLAGS_OUTPUT;
+	console_dev.putc = cfb_video_putc;	/* 'putc' function */
+	console_dev.puts = cfb_video_puts;	/* 'puts' function */
+
+#if !defined(CONFIG_VGA_AS_SINGLE_DEVICE)
+	if (have_keyboard && keyboard_ok) {
+		/* Also init console device */
+		console_dev.flags |= DEV_FLAGS_INPUT;
+		console_dev.tstc = VIDEO_TSTC_FCT;	/* 'tstc' function */
+		console_dev.getc = VIDEO_GETC_FCT;	/* 'getc' function */
 	}
 #endif
 

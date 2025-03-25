@@ -41,6 +41,11 @@
 #include <spi.h>
 #include <spi-mem.h>
 #include <asm/io.h>
+#ifdef CONFIG_FSL_LAYERSCAPE
+#include <asm/arch/clock.h>
+#include <asm/arch/soc.h>
+#include <asm/arch/speed.h>
+#endif
 #include <linux/bitops.h>
 #include <linux/kernel.h>
 #include <linux/sizes.h>
@@ -314,8 +319,8 @@
 #define POLL_TOUT		5000
 #define NXP_FSPI_MAX_CHIPSELECT		4
 
-/* access memory via IPS only due to this errata */
-#define NXP_FSPI_QUIRK_ERR050601    BIT(0)
+/* Access flash memory using IP bus only */
+#define FSPI_QUIRK_USE_IP_ONLY		BIT(0)
 
 struct nxp_fspi_devtype_data {
 	unsigned int rxfifo;
@@ -325,7 +330,7 @@ struct nxp_fspi_devtype_data {
 	bool little_endian;
 };
 
-static const struct nxp_fspi_devtype_data lx2160a_data = {
+static struct nxp_fspi_devtype_data lx2160a_data = {
 	.rxfifo = SZ_512,       /* (64  * 64 bits)  */
 	.txfifo = SZ_1K,        /* (128 * 64 bits)  */
 	.ahb_buf_size = SZ_2K,  /* (256 * 64 bits)  */
@@ -333,7 +338,7 @@ static const struct nxp_fspi_devtype_data lx2160a_data = {
 	.little_endian = true,  /* little-endian    */
 };
 
-static const struct nxp_fspi_devtype_data imx8mm_data = {
+static struct nxp_fspi_devtype_data imx8mm_data = {
 	.rxfifo = SZ_512,       /* (64  * 64 bits)  */
 	.txfifo = SZ_1K,        /* (128 * 64 bits)  */
 	.ahb_buf_size = SZ_2K,  /* (256 * 64 bits)  */
@@ -353,7 +358,7 @@ static const struct nxp_fspi_devtype_data imx8dxl_data = {
 	.rxfifo = SZ_512,       /* (64  * 64 bits)  */
 	.txfifo = SZ_1K,        /* (128 * 64 bits)  */
 	.ahb_buf_size = SZ_2K,  /* (256 * 64 bits)  */
-	.quirks = NXP_FSPI_QUIRK_ERR050601,
+	.quirks = FSPI_QUIRK_USE_IP_ONLY,
 	.little_endian = true,  /* little-endian    */
 };
 
@@ -373,11 +378,15 @@ struct nxp_fspi {
 	u32 memmap_phy_size;
 	u32 dll_slvdly;
 	struct clk clk, clk_en;
-	const struct nxp_fspi_devtype_data *devtype_data;
+	struct nxp_fspi_devtype_data *devtype_data;
 #define FSPI_DTR_ODD_ADDR       (1 << 0)
 	int flags;
-
 };
+
+static inline int needs_ip_only(struct nxp_fspi *f)
+{
+	return f->devtype_data->quirks & FSPI_QUIRK_USE_IP_ONLY;
+}
 
 /*
  * R/W functions for big- or little-endian registers:
@@ -400,11 +409,6 @@ static u32 fspi_readl(struct nxp_fspi *f, void __iomem *addr)
 		return in_le32(addr);
 	else
 		return in_be32(addr);
-}
-
-static inline int nxp_fspi_ips_access_only(struct nxp_fspi *f)
-{
-	return f->devtype_data->quirks & NXP_FSPI_QUIRK_ERR050601;
 }
 
 static int nxp_fspi_check_buswidth(struct nxp_fspi *f, u8 width)
@@ -474,7 +478,7 @@ static bool nxp_fspi_supports_op(struct spi_slave *slave,
 	    op->data.nbytes > f->devtype_data->txfifo)
 		return false;
 
-	return true;
+	return spi_mem_default_supports_op(slave, op);
 }
 
 /* Instead of busy looping invoke readl_poll_sleep_timeout functionality. */
@@ -578,15 +582,14 @@ static void nxp_fspi_prepare_lut(struct nxp_fspi *f,
 	for (i = 0; i < ARRAY_SIZE(lutval); i++)
 		fspi_writel(f, lutval[i], base + FSPI_LUT_REG(i));
 
-
 	if (op->data.nbytes && op->data.dir == SPI_MEM_DATA_IN &&
 		op->addr.nbytes) {
 		for (i = 0; i < ARRAY_SIZE(lutval); i++)
 			fspi_writel(f, lutval[i], base + FSPI_AHB_LUT_REG(i));
 	}
 
-	dev_dbg(f->dev, "CMD[%x] lutval[0:%x \t 1:%x \t 2:%x \t 3:%x]\n",
-		op->cmd.opcode, lutval[0], lutval[1], lutval[2], lutval[3]);
+	dev_dbg(f->dev, "CMD[%x] lutval[0:%x \t 1:%x \t 2:%x \t 3:%x], size: 0x%08x\n",
+		op->cmd.opcode, lutval[0], lutval[1], lutval[2], lutval[3], op->data.nbytes);
 
 	/* lock LUT */
 	fspi_writel(f, FSPI_LUTKEY_VALUE, f->iobase + FSPI_LUTKEY);
@@ -886,13 +889,14 @@ static int nxp_fspi_exec_op(struct spi_slave *slave,
 
 	nxp_fspi_prepare_lut(f, op);
 	/*
-	 * If we have large chunks of data, we read them through the AHB bus
-	 * by accessing the mapped memory. In all other cases we use
-	 * IP commands to access the flash.
+	 * If we have large chunks of data, we read them through the AHB bus by
+	 * accessing the mapped memory. In all other cases we use IP commands
+	 * to access the flash. Read via AHB bus may be corrupted due to
+	 * existence of an errata and therefore discard AHB read in such cases.
 	 */
-	if (!nxp_fspi_ips_access_only(f) &&
-		op->data.nbytes > (f->devtype_data->rxfifo - 4) &&
-	    op->data.dir == SPI_MEM_DATA_IN) {
+	if (op->data.nbytes > (f->devtype_data->rxfifo - 4) &&
+	    op->data.dir == SPI_MEM_DATA_IN &&
+	    !needs_ip_only(f)) {
 		nxp_fspi_read_ahb(f, op);
 	} else {
 		if (op->data.nbytes && op->data.dir == SPI_MEM_DATA_OUT)
@@ -930,26 +934,54 @@ static int nxp_fspi_adjust_op_size(struct spi_slave *slave,
 			op->data.nbytes = f->devtype_data->ahb_buf_size;
 		else if (op->data.nbytes > (f->devtype_data->rxfifo - 4))
 			op->data.nbytes = ALIGN_DOWN(op->data.nbytes, 8);
+	}
 
-		/* dxl won't use ahb to access data, limit to rxfifo size */
-		if (nxp_fspi_ips_access_only(f) &&
-			op->data.nbytes > f->devtype_data->rxfifo) {
-			/*
-			 * adjust size to to odd number so the OCTAL DTR
-			 * read with odd address only triggers once, when
-			 * reading large chunks of data
-			 */
-			if (f->flags & FSPI_DTR_ODD_ADDR) {
-				op->data.nbytes = f->devtype_data->rxfifo
-						  - 4 - 1;
-			} else {
-				op->data.nbytes = f->devtype_data->rxfifo;
-			}
+	/* Limit data bytes to RX FIFO in case of IP read only */
+	if (needs_ip_only(f) &&
+	    op->data.dir == SPI_MEM_DATA_IN &&
+	    op->data.nbytes > f->devtype_data->rxfifo) {
+		/*
+		 * adjust size to to odd number so the OCTAL DTR
+		 * read with odd address only triggers once, when
+		 * reading large chunks of data
+		 */
+		if (f->flags & FSPI_DTR_ODD_ADDR) {
+			op->data.nbytes = f->devtype_data->rxfifo
+					  - 4 - 1;
+		} else {
+			op->data.nbytes = f->devtype_data->rxfifo;
 		}
 	}
 
 	return 0;
 }
+
+#ifdef CONFIG_FSL_LAYERSCAPE
+static void erratum_err050568(struct nxp_fspi *f)
+{
+	struct sys_info sysinfo;
+	u32 svr = 0, freq = 0;
+
+	/* Check for LS1028A variants */
+	svr = SVR_SOC_VER(get_svr());
+	if (svr != SVR_LS1017A ||
+	    svr != SVR_LS1018A ||
+	    svr != SVR_LS1027A ||
+	    svr != SVR_LS1028A) {
+		dev_dbg(f->dev, "Errata applicable only for LS1028A variants\n");
+		return;
+	}
+
+	/* Read PLL frequency */
+	get_sys_info(&sysinfo);
+	freq = sysinfo.freq_systembus / 1000000; /* Convert to MHz */
+	dev_dbg(f->dev, "svr: %08x, Frequency: %dMhz\n", svr, freq);
+
+	/* Use IP bus only if PLL is 300MHz */
+	if (freq == 300)
+		f->devtype_data->quirks |= FSPI_QUIRK_USE_IP_ONLY;
+}
+#endif
 
 static int nxp_fspi_default_setup(struct nxp_fspi *f)
 {
@@ -969,6 +1001,17 @@ static int nxp_fspi_default_setup(struct nxp_fspi *f)
 	ret = nxp_fspi_clk_prep_enable(f);
 	if (ret)
 		return ret;
+#endif
+
+#ifdef CONFIG_FSL_LAYERSCAPE
+	/*
+	 * ERR050568: Flash access by FlexSPI AHB command may not work with
+	 * platform frequency equal to 300 MHz on LS1028A.
+	 * LS1028A reuses LX2160A compatible entry. Make errata applicable for
+	 * Layerscape LS1028A platform family.
+	 */
+	if (device_is_compatible(f->dev, "nxp,lx2160a-fspi"))
+		erratum_err050568(f);
 #endif
 
 	/* Reset the module */

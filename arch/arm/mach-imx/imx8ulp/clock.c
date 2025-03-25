@@ -432,7 +432,7 @@ void reset_lcdclk(void)
 	pcc_reset_peripheral(5, DCNANO_PCC5_SLOT, true);
 }
 
-void mxs_set_lcdclk(uint32_t base_addr, uint32_t freq_in_khz)
+void mxs_set_lcdclk(u32 base_addr, u32 freq_in_khz)
 {
 	u8 pcd, best_pcd = 0;
 	u32 frac, rate, parent_rate, pfd, div;

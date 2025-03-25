@@ -831,7 +831,7 @@ static void sdp_handle_in_ep(void)
 						    (void *)header);
 			} else {
 				/* In SPL, allow jumps to U-Boot images */
-				spl_parse_image_header(&spl_image, header);
+				spl_parse_image_header(&spl_image, NULL, header);
 			}
 			jump_to_image_no_args(&spl_image);
 #else

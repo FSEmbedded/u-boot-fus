@@ -37,7 +37,7 @@ static int fs_type = FS_TYPE_ANY;
 static inline int fs_probe_unsupported(struct blk_desc *fs_dev_desc,
 				      struct disk_partition *fs_partition)
 {
-	log_err("** Unrecognized filesystem type **\n");
+	log_debug("Unrecognized filesystem type\n");
 	return -1;
 }
 
@@ -395,8 +395,8 @@ int fs_set_blk_dev(const char *ifname, const char *dev_part_str, int fstype)
 	}
 #endif
 
-	part = blk_get_device_part_str(ifname, dev_part_str, &fs_dev_desc,
-					&fs_partition, 1);
+	part = part_get_info_by_dev_and_name_or_num(ifname, dev_part_str, &fs_dev_desc,
+						    &fs_partition, 1);
 	if (part < 0)
 		return -1;
 
@@ -737,11 +737,11 @@ int do_load(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[],
 		return 1;
 	}
 	if (argc >= 6)
-		bytes = simple_strtoul(argv[5], NULL, 16);
+		bytes = hextoul(argv[5], NULL);
 	else
 		bytes = 0;
 	if (argc >= 7)
-		pos = simple_strtoul(argv[6], NULL, 16);
+		pos = hextoul(argv[6], NULL);
 	else
 		pos = 0;
 
@@ -816,11 +816,11 @@ int do_save(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[],
 	if (fs_set_blk_dev(argv[1], argv[2], fstype))
 		return 1;
 
-	addr = simple_strtoul(argv[3], NULL, 16);
+	addr = hextoul(argv[3], NULL);
 	filename = argv[4];
-	bytes = simple_strtoul(argv[5], NULL, 16);
+	bytes = hextoul(argv[5], NULL);
 	if (argc >= 7)
-		pos = simple_strtoul(argv[6], NULL, 16);
+		pos = hextoul(argv[6], NULL);
 	else
 		pos = 0;
 

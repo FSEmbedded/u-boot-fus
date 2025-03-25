@@ -211,7 +211,7 @@ ENTRY(memcpy)
 		orr	r10, r10, ip, lspush #\push
 		mov	ip, ip, lspull #\pull
 		orr	ip, ip, lr, lspush #\push
-		str8w	r0, r3, r4, r5, r6, r7, r8, r10, ip, , abort=19f
+		str8w	r0, r3, r4, r5, r6, r7, r8, r10, ip, abort=19f
 		bge	12b
 	PLD(	cmn	r2, #96			)
 	PLD(	bge	13b			)

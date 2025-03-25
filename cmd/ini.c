@@ -241,8 +241,8 @@ static int do_ini(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		file_address = (char *)get_loadaddr();
 	else
 		file_address = (char *)parse_loadaddr(argv[2], NULL);
-	file_size = (size_t)simple_strtoul(
-		argc < 4 ? env_get("filesize") : argv[3], NULL, 16);
+	file_size = (size_t)hextoul(argc < 4 ? env_get("filesize") : argv[3],
+				     NULL);
 
 	return ini_parse(file_address, file_size, ini_handler, (void *)section);
 }

@@ -5,7 +5,7 @@
  * Author:	Priyanka Jain <priyanka.jain@nxp.com>
  *		Sriram Dash <sriram.dash@nxp.com>
  *
- * Copyright 2018-2021 NXP
+ * Copyright 2018-2022 NXP
  *
  */
 
@@ -148,7 +148,7 @@
 	status = "okay";
 
 	rtc@51 {
-		compatible = "pcf2127-rtc";
+		compatible = "nxp,pcf2129";
 		reg = <0x51>;
 	};
 };

@@ -181,7 +181,6 @@ int xrdc_config_pdac(u32 bridge, u32 index, u32 dom, u32 perm)
 	return 0;
 }
 
-
 int release_rdc(enum rdc_type type)
 {
 	ulong s_mu_base = 0x27020000UL;
@@ -354,7 +353,7 @@ int trdc_mrc_region_set_access(u32 mrc_x, u32 dom_x, u32 addr_start, u32 addr_en
 	struct mrc_rgn_dom *mrc_dom;
 	u32 *desc_w;
 	u32 start, end;
-	u32 i, free = 8;;
+	u32 i, free = 8;
 	bool vld, hit = false;
 
 	mrc_dom = &trdc_base->mrc_dom[mrc_x][dom_x];

@@ -16,11 +16,11 @@ static int do_zip(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	switch (argc) {
 		case 5:
-			dst_len = simple_strtoul(argv[4], NULL, 16);
+			dst_len = hextoul(argv[4], NULL);
 			/* fall through */
 		case 4:
 			src = parse_loadaddr(argv[1], NULL);
-			src_len = simple_strtoul(argv[2], NULL, 16);
+			src_len = hextoul(argv[2], NULL);
 			dst = parse_loadaddr(argv[3], NULL);
 			break;
 		default:

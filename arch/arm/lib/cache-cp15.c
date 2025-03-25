@@ -22,10 +22,6 @@ __weak void arm_init_before_mmu(void)
 {
 }
 
-__weak void arm_init_domains(void)
-{
-}
-
 static void set_section_phys(int section, phys_addr_t phys,
 			     enum dcache_option option)
 {
@@ -95,12 +91,6 @@ void mmu_set_region_dcache_behaviour_phys(phys_addr_t start, phys_addr_t phys,
 	stoppt = (unsigned long)&page_table[end];
 	stoppt = ALIGN(stoppt, CONFIG_SYS_CACHELINE_SIZE);
 	mmu_page_table_flush(startpt, stoppt);
-}
-
-void mmu_set_region_dcache_behaviour(phys_addr_t start, size_t size,
-				     enum dcache_option option)
-{
-	mmu_set_region_dcache_behaviour_phys(start, start, size, option);
 }
 
 __weak void dram_bank_mmu_setup(int bank)
@@ -210,8 +200,6 @@ static inline void mmu_setup(void)
 	asm volatile("mcr p15, 0, %0, c3, c0, 0"
 		     : : "r" (0x55555555));
 
-	arm_init_domains();
-
 	/* and enable the mmu */
 	reg = get_cr();	/* get control reg. */
 	set_cr(reg | CR_M);
@@ -320,6 +308,12 @@ int dcache_status(void)
 {
 	return 0;					/* always off */
 }
+
+void mmu_set_region_dcache_behaviour(phys_addr_t start, size_t size,
+				     enum dcache_option option)
+{
+}
+
 #else
 void dcache_enable(void)
 {
@@ -334,5 +328,11 @@ void dcache_disable(void)
 int dcache_status(void)
 {
 	return (get_cr() & CR_C) != 0;
+}
+
+void mmu_set_region_dcache_behaviour(phys_addr_t start, size_t size,
+				     enum dcache_option option)
+{
+	mmu_set_region_dcache_behaviour_phys(start, start, size, option);
 }
 #endif

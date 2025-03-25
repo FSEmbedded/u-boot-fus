@@ -46,7 +46,7 @@
 
 extern int mmc_switch(struct mmc *mmc, u8 set, u8 index, u8 value);
 
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC_SUPPORT)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC)
 int spl_get_mmc_dev(void)
 {
 	u32 dev_no = spl_boot_device();
@@ -75,7 +75,7 @@ static u8 skeymod[] = {
 struct mmc *get_mmc(void) {
 	int mmc_dev_no;
 	struct mmc *mmc;
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC_SUPPORT)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC)
 	mmc_dev_no = spl_get_mmc_dev();
 #else
 	mmc_dev_no = mmc_get_env_dev();
@@ -103,7 +103,7 @@ int read_keyslot_package(struct keyslot_package* kp) {
 	unsigned char* fill = NULL;
 	int ret = 0;
 	/* load tee from boot1 of eMMC. */
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC_SUPPORT)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC)
 	int mmcc = spl_get_mmc_dev();
 #else
 	int mmcc = mmc_get_env_dev();
@@ -192,7 +192,7 @@ bool rpmbkey_is_set(void)
 	struct blk_desc *desc = NULL;
 
 	/* Get current mmc device. */
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC_SUPPORT)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC)
 	mmcc = spl_get_mmc_dev();
 #else
 	mmcc = mmc_get_env_dev();
@@ -483,7 +483,7 @@ fail:
 }
 
 int rpmb_init(void) {
-#if !defined(CONFIG_SPL_BUILD) || !defined(CONFIG_DUAL_BOOTLOADER)
+#if !defined(CONFIG_SPL_BUILD) || !defined(CONFIG_IMX_TRUSTY_OS)
 	int i;
 #endif
 	kblb_hdr_t hdr;
@@ -502,7 +502,7 @@ int rpmb_init(void) {
 	 * RPMB which is different from the rollback index for vbmeta and
 	 * ATX key versions.
 	 */
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_DUAL_BOOTLOADER)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_IMX_TRUSTY_OS)
 	if (rpmb_read(mmc_dev, (uint8_t *)&hdr, sizeof(hdr),
 			BOOTLOADER_RBIDX_OFFSET) != 0) {
 #else
@@ -516,7 +516,7 @@ int rpmb_init(void) {
 	else
 		printf("initialize rollback index...\n");
 	/* init rollback index */
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_DUAL_BOOTLOADER)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_IMX_TRUSTY_OS)
 	offset = BOOTLOADER_RBIDX_START;
 	rbidx_len = BOOTLOADER_RBIDX_LEN;
 	rbidx = malloc(rbidx_len);
@@ -536,7 +536,7 @@ int rpmb_init(void) {
 	}
 	if (rbidx != NULL)
 		free(rbidx);
-#else /* CONFIG_SPL_BUILD && CONFIG_DUAL_BOOTLOADER */
+#else /* CONFIG_SPL_BUILD && CONFIG_IMX_TRUSTY_OS */
 	offset = AVB_RBIDX_START;
 	rbidx_len = AVB_RBIDX_LEN;
 	rbidx = malloc(rbidx_len);
@@ -582,11 +582,11 @@ int rpmb_init(void) {
 	if (rbidx != NULL)
 		free(rbidx);
 #endif
-#endif /* CONFIG_SPL_BUILD && CONFIG_DUAL_BOOTLOADER */
+#endif /* CONFIG_SPL_BUILD && CONFIG_IMX_TRUSTY_OS */
 
 	/* init hdr */
 	memcpy(hdr.magic, AVB_KBLB_MAGIC, AVB_KBLB_MAGIC_LEN);
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_DUAL_BOOTLOADER)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_IMX_TRUSTY_OS)
 	if (rpmb_write(mmc_dev, (uint8_t *)&hdr, sizeof(hdr),
 			BOOTLOADER_RBIDX_OFFSET) != 0) {
 #else
@@ -611,7 +611,7 @@ int gen_rpmb_key(struct keyslot_package *kp) {
 
 	int ret = -1;
 	/* load tee from boot1 of eMMC. */
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC_SUPPORT)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC)
 	int mmcc = spl_get_mmc_dev();
 #else
 	int mmcc = mmc_get_env_dev();
@@ -1171,11 +1171,11 @@ extern struct imx_sec_config_fuse_t const imx_sec_config_fuse;
 bool hab_is_enabled(void)
 {
 #ifdef CONFIG_ARCH_IMX8
-	int err;
+	sc_err_t err;
 	uint16_t lc;
 
 	err = sc_seco_chip_info(-1, &lc, NULL, NULL, NULL);
-	if (err) {
+	if (err != SC_ERR_NONE) {
 		printf("Error in get lifecycle\n");
 		return false;
 	}
@@ -1226,7 +1226,7 @@ int do_rpmb_key_set(uint8_t *key, uint32_t key_size)
 	memcpy(rpmb_key, key, RPMBKEY_LENGTH);
 
 	/* Get current mmc device. */
-#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC_SUPPORT)
+#if defined(CONFIG_SPL_BUILD) && defined(CONFIG_SPL_MMC)
 	mmcc = spl_get_mmc_dev();
 #else
 	mmcc = mmc_get_env_dev();

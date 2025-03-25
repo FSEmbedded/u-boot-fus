@@ -19,9 +19,12 @@
 #include <part.h>
 #include <search.h>
 #include <errno.h>
+#include <dm/ofnode.h>
 
 #define __STR(X) #X
 #define STR(X) __STR(X)
+
+DECLARE_GLOBAL_DATA_PTR;
 
 /*
  * We do not want to break exisiting configs, so if the MMC specific values
@@ -34,7 +37,17 @@
 #define CONFIG_ENV_MMC_OFFSET_REDUND CONFIG_ENV_OFFSET_REDUND
 #endif
 
-DECLARE_GLOBAL_DATA_PTR;
+/*
+ * In case the environment is redundant, stored in eMMC hardware boot
+ * partition and the environment and redundant environment offsets are
+ * identical, store the environment and redundant environment in both
+ * eMMC boot partitions, one copy in each.
+ * */
+#if (defined(CONFIG_SYS_REDUNDAND_ENVIRONMENT) && \
+     (CONFIG_SYS_MMC_ENV_PART == 1) && \
+     (CONFIG_ENV_MMC_OFFSET == CONFIG_ENV_MMC_OFFSET_REDUND))
+#define ENV_MMC_HWPART_REDUND
+#endif
 
 #if CONFIG_IS_ENABLED(OF_CONTROL)
 static inline int mmc_offset_try_partition(const char *str, int copy, s64 *val)
@@ -84,7 +97,7 @@ static inline s64 mmc_offset(int copy)
 	int err;
 
 	/* look for the partition in mmc CONFIG_SYS_MMC_ENV_DEV */
-	str = fdtdec_get_config_string(gd->fdt_blob, dt_prop.partition);
+	str = ofnode_conf_read_str(dt_prop.partition);
 	if (str) {
 		/* try to place the environment at end of the partition */
 		err = mmc_offset_try_partition(str, copy, &val);
@@ -101,7 +114,7 @@ static inline s64 mmc_offset(int copy)
 		propname = dt_prop.offset_redund;
 	}
 #endif
-	return fdtdec_get_config_int(gd->fdt_blob, propname, defvalue);
+	return ofnode_conf_read_int(propname, defvalue);
 }
 #else
 static inline s64 mmc_offset(int copy)
@@ -142,7 +155,11 @@ __weak uint mmc_get_env_part(struct mmc *mmc)
 
 __weak uint board_mmc_get_env_part(struct mmc *mmc, int copy)
 {
+#ifdef ENV_MMC_HWPART_REDUND
+	return copy + 1;
+#else
 	return mmc_get_env_part(mmc);
+#endif
 }
 
 static unsigned char env_mmc_orig_hwpart;
@@ -260,7 +277,6 @@ fini:
 	return ret;
 }
 
-#if defined(CONFIG_CMD_ERASEENV)
 static inline int erase_env(struct mmc *mmc, unsigned long size,
 			    unsigned long offset)
 {
@@ -303,7 +319,6 @@ static int env_mmc_erase(void)
 
 	return ret;
 }
-#endif /* CONFIG_CMD_ERASEENV */
 #endif /* CONFIG_CMD_SAVEENV && !CONFIG_SPL_BUILD */
 
 static inline int read_env(struct mmc *mmc, unsigned long size,
@@ -414,8 +429,6 @@ U_BOOT_ENV_LOCATION(mmc) = {
 	.load		= env_mmc_load,
 #ifndef CONFIG_SPL_BUILD
 	.save		= env_save_ptr(env_mmc_save),
-#if defined(CONFIG_CMD_ERASEENV)
-	.erase		= env_mmc_erase,
-#endif
+	.erase		= ENV_ERASE_PTR(env_mmc_erase)
 #endif
 };

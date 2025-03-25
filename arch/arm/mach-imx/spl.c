@@ -94,9 +94,9 @@ u32 spl_boot_device(void)
 	/* BOOT_CFG1[7:4] - see IMX6DQRM Table 8-8 */
 	switch ((reg & IMX6_BMODE_MASK) >> IMX6_BMODE_SHIFT) {
 	 /* EIM: See 8.5.1, Table 8-9 */
-	case IMX6_BMODE_EMI:
+	case IMX6_BMODE_EIM:
 		/* BOOT_CFG1[3]: NOR/OneNAND Selection */
-		switch ((reg & IMX6_BMODE_EMI_MASK) >> IMX6_BMODE_EMI_SHIFT) {
+		switch ((reg & IMX6_BMODE_EIM_MASK) >> IMX6_BMODE_EIM_SHIFT) {
 		case IMX6_BMODE_ONENAND:
 			return BOOT_DEVICE_ONENAND;
 		case IMX6_BMODE_NOR:
@@ -197,7 +197,7 @@ int g_dnl_get_board_bcd_device_number(int gcnum)
 }
 #endif
 
-#if defined(CONFIG_SPL_MMC_SUPPORT)
+#if defined(CONFIG_SPL_MMC)
 /* called from spl_mmc to see type of boot mode for storage (RAW or FAT) */
 u32 spl_mmc_boot_mode(const u32 boot_device)
 {
@@ -323,7 +323,7 @@ ulong board_spl_fit_size_align(ulong size)
 }
 #endif
 
-void* board_spl_fit_buffer_addr(ulong fit_size, int sectors, int bl_len)
+void *board_spl_fit_buffer_addr(ulong fit_size, int sectors, int bl_len)
 {
 	int align_len = ARCH_DMA_MINALIGN - 1;
 
@@ -348,6 +348,39 @@ int dram_init_banksize(void)
 	return 0;
 }
 #endif
+
+/*
+ * read the address where the IVT header must sit
+ * from IVT image header, loaded from SPL into
+ * an malloced buffer and copy the IVT header
+ * to this address
+ */
+void *spl_load_simple_fit_fix_load(const void *fit)
+{
+	struct ivt *ivt;
+	unsigned long new;
+	unsigned long offset;
+	unsigned long size;
+	u8 *tmp = (u8 *)fit;
+
+	offset = ALIGN(fdt_totalsize(fit), 0x1000);
+	size = ALIGN(fdt_totalsize(fit), 4);
+	size = board_spl_fit_size_align(size);
+	tmp += offset;
+	ivt = (struct ivt *)tmp;
+	if (ivt->hdr.magic != IVT_HEADER_MAGIC) {
+		debug("no IVT header found\n");
+		return (void *)fit;
+	}
+	debug("%s: ivt: %p offset: %lx size: %lx\n", __func__, ivt, offset, size);
+	debug("%s: ivt self: %x\n", __func__, ivt->self);
+	new = ivt->self;
+	new -= offset;
+	debug("%s: new %lx\n", __func__, new);
+	memcpy((void *)new, fit, size);
+
+	return (void *)new;
+}
 
 #if defined(CONFIG_IMX8MP) || defined(CONFIG_IMX8MN)
 int board_handle_rdc_config(void *fdt_addr, const char *config_name, void *dst_addr)
@@ -405,8 +438,7 @@ exit:
 void board_spl_fit_post_load(const void *fit, struct spl_image_info *spl_image)
 {
 #ifndef CONFIG_FS_SECURE_BOOT
-#if defined(CONFIG_IMX_HAB) && !defined(CONFIG_SPL_FIT_SIGNATURE)
-	if (!(spl_image->flags & SPL_FIT_BYPASS_POST_LOAD)) {
+	if (IS_ENABLED(CONFIG_IMX_HAB) && !(spl_image->flags & SPL_FIT_BYPASS_POST_LOAD)) {
 		u32 offset = ALIGN(fdt_totalsize(fit), 0x1000);
 
 		if (imx_hab_authenticate_image((uintptr_t)fit,
@@ -415,7 +447,6 @@ void board_spl_fit_post_load(const void *fit, struct spl_image_info *spl_image)
 			panic("spl: ERROR:  image authentication unsuccessful\n");
 		}
 	}
-#endif
 #endif
 #if defined(CONFIG_IMX8MP) || defined(CONFIG_IMX8MN)
 #define MCU_RDC_MAGIC "mcu_rdc"
@@ -431,10 +462,15 @@ void board_spl_fit_post_load(const void *fit, struct spl_image_info *spl_image)
 }
 
 #ifdef CONFIG_IMX_TRUSTY_OS
+int check_rollback_index(struct spl_image_info *spl_image, struct mmc *mmc);
 int check_rpmb_blob(struct mmc *mmc);
 
-int mmc_image_load_late(struct mmc *mmc)
+int mmc_image_load_late(struct spl_image_info *spl_image, struct mmc *mmc)
 {
+	/* Check the rollback index of next stage image */
+	if (check_rollback_index(spl_image, mmc) < 0)
+		return -1;
+
 	/* Check the rpmb key blob for trusty enabled platfrom. */
 	return check_rpmb_blob(mmc);
 }
