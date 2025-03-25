@@ -854,10 +854,13 @@ void ss_mux_select(enum typec_cc_polarity pol)
 		gpio_direction_output(USB_TYPEC_SEL, 1);
 }
 
+void ss_mux_dummy(enum typec_cc_polarity pol) {}
+
 static int setup_typec(void)
 {
 	int ret = 0;
 	unsigned int board_type = fs_board_get_type();
+	ss_mux_sel ss_sel_func = &ss_mux_select;
 
 	/* efusmx8mp does not support typec */
 	if(board_type == BT_EFUSMX8MP) {
@@ -871,21 +874,24 @@ static int setup_typec(void)
 		return ret;
 	}
 
-	/* osm8mp does not support typec */
-	if(board_type == BT_OSM8MP) {
-		port1.i2c_dev = NULL;
-		return ret;
-	}
+	/* ADP_OSM_BB with BBDSI does not support ss_mux */
+	if(board_type == BT_OSM8MP)
+		ss_sel_func = &ss_mux_dummy;
 
-	imx_iomux_v3_setup_multiple_pads(ss_mux_gpio, ARRAY_SIZE(ss_mux_gpio));
-	gpio_request(USB_TYPEC_SEL, "typec_sel");
-	gpio_request(USB_TYPEC_EN, "typec_en");
-	gpio_direction_output(USB_TYPEC_EN, 0);
+	if (ss_sel_func != &ss_mux_dummy) {
+		imx_iomux_v3_setup_multiple_pads(ss_mux_gpio, ARRAY_SIZE(ss_mux_gpio));
+		gpio_request(USB_TYPEC_SEL, "typec_sel");
+		gpio_request(USB_TYPEC_EN, "typec_en");
+		gpio_direction_output(USB_TYPEC_EN, 0);
+	}
 
 	switch(board_type) {
 	default:
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
+	case BT_OSM8MP:
+		/* OSM order is different for i2c4/i2c_b:
+		 * i2c_int(0), i2c_a(1), i2c_b(2), osm_i2c_cam_pci(3) */
 		port1_config.i2c_bus = 2; /* i2c3 */
 		break;
 	case BT_ARMSTONEMX8MP:
@@ -893,7 +899,7 @@ static int setup_typec(void)
 		break;
 	}
 
-	ret = tcpc_init(&port1, port1_config, &ss_mux_select);
+	ret = tcpc_init(&port1, port1_config, ss_sel_func);
 	if (ret) {
 		debug("%s: tcpc port init failed, err=%d\n",
 		       __func__, ret);
