@@ -467,6 +467,10 @@ osm_usb_b
 
 #ifdef CONFIG_OSM8MP_ETH_A
 &osm_eth_a {
+	/delete-property/ assigned-clocks;
+	/delete-property/ assigned-clock-parents;
+	/delete-property/ assigned-clock-rates;
+	compatible = "fsl,imx-eqos";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_osm_eth_a>;
 	snps,force_thresh_dma_mode;
