@@ -46,6 +46,10 @@ static int selftest_common(enum proto_t, struct cmd_tbl *, int, char * const [])
 
 static int do_selftest(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 {
+	/* Drop argv[0] ("selftest") */
+	argc--;
+	argv++;
+
 	return selftest_common(BOOTP, cmdtp, argc, argv);
 }
 
@@ -54,7 +58,7 @@ static int do_selftest(struct cmd_tbl *cmdtp, int flag, int argc, char * const a
 U_BOOT_CMD(
 	selftest,	2,	1,	do_selftest,
 	"run selftest on F&S boards",
-	"[display|none]"
+	"[linux]"
 );
 
 
@@ -92,11 +96,12 @@ static int selftest_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 		char * const argv[])
 {
 	int ret = CMD_RET_SUCCESS;
+	bool linux_selftest = false;
 
+	if(!strcmp(argv[0], "linux"))
+		linux_selftest = true;
 
-
-
-#ifdef CONFIG_IMX8MP
+#if defined(CONFIG_IMX8MP)
 
 	printf("Uboot Selftest running...\n");
 
@@ -124,13 +129,21 @@ static int selftest_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 
 	return ret;
 #elif defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
-	printf("Uboot Selftest running...\n");
+	if(!linux_selftest)
+		printf("Uboot Selftest running...\n");
 
-	print_cpuinfo();
+	print_cpuinfo(linux_selftest);
+
+	ret = test_ram(szStrBuffer, linux_selftest);
+
+	/**
+	 * Further interface tests are running in Linux
+	 */
+	if(linux_selftest)
+		return ret;
+
 	if (has_feature(FEAT_EXT_RTC))
 		ret = test_rtc_start();
-	
-	ret = test_ram(szStrBuffer);
 
 	if(has_feature(FEAT_EMMC))
 		ret = test_mmc(szStrBuffer);

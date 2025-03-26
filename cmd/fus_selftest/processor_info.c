@@ -4,15 +4,14 @@
 #include <imx_thermal.h>
 #include <dm.h>
 #include <cpu.h>
+#include <env.h>
 
-
- struct cpuinfo {
+struct cpuinfo {
 	u32 freq;
 	const char *temp;
 	const char *type;
 	u32 rev_h, rev_l;
 };
-
 
 static int get_processorInfo_soc(struct cpuinfo *ci){
 
@@ -54,7 +53,6 @@ static int get_processorInfo_soc(struct cpuinfo *ci){
 #endif
 }
 
-
 int get_processorInfo (void){
 
 	struct cpuinfo ci;
@@ -71,10 +69,11 @@ int get_processorInfo (void){
 
 }
 
-int print_cpuinfo(void)
+int print_cpuinfo(bool silent)
 {
 	struct udevice *dev;
-	char desc[512];
+	char cpu_str[512];
+	char *desc;
 	int ret;
 
 	dev = cpu_get_current_dev();
@@ -84,14 +83,20 @@ int print_cpuinfo(void)
 		return -ENODEV;
 	}
 
-	ret = cpu_get_desc(dev, desc, sizeof(desc));
+	snprintf(cpu_str, 512, "CPU: ");
+	desc = &cpu_str[5];
+
+	ret = cpu_get_desc(dev, desc, sizeof(cpu_str) - 5);
 	if (ret) {
 		debug("%s: Could not get CPU description (err = %d)\n",
 		      dev->name, ret);
 		return ret;
 	}
 
-	printf("CPU: %s\n", desc);
+	if(!silent)
+		printf("%s\n", cpu_str);
+
+	env_set("cpu_info", cpu_str);
 
 	return 0;
 }

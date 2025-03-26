@@ -203,13 +203,18 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_string(fdt, offs, "board-id", id, 1);
 #endif
 
-/* TODO: */
-// #ifdef CONFIG_CMD_SELFTEST
-// 	char cpu_info[128];
-// 	fs_get_processorInfo(cpu_info);
-// 	fs_fdt_set_string(fdt, offs, "cpu_info", cpu_info, 1);
-// 	fs_fdt_set_string(fdt, offs, "dram_test_result", get_dram_result(), 1);
-// #endif
+#ifdef CONFIG_CMD_SELFTEST
+	{
+		char *env;
+		env = env_get("cpu_info");
+		if(env)
+			fs_fdt_set_string(fdt, offs, "cpu_info", env, 1);
+
+		env = env_get("dram_test_result");
+		if(env)
+			fs_fdt_set_string(fdt, offs, "dram_test_result", env, 1);
+	}
+#endif
 
 #ifndef CONFIG_FS_BOARD_CFG
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();

@@ -9,7 +9,7 @@
 #define CMD_FUS_SELFTEST_DRAM_TEST_H_
 
 
-int test_ram(char * szStrBuffer);
+int test_ram(char * szStrBuffer, bool silent);
 
 
 #endif /* CMD_FUS_SELFTEST_DRAM_TEST_H_ */

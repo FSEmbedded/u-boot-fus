@@ -232,7 +232,7 @@ static u64 TestRamCheck(volatile u8 *pchRam, u64 dwlInvert,
 *** we really test the RAM and not the data cache.                          ***
 ******************************************************************************/
 
-int test_ram(char * szStrBuffer)
+int test_ram(char * szStrBuffer, bool silent)
 {
     volatile u8 *pchRam;                /* Uncached RAM, BYTE access */
     u64 *pdwlRam;                   /* Uncached RAM, 64bit access */
@@ -320,7 +320,8 @@ int test_ram(char * szStrBuffer)
 	pMemInfo->nRowBankRepeat -= skip_area;
 
 	/* Print RAM size */
-	printf("DRAM %s...........",pMemInfo->pchRamSize);
+	if(!silent)
+		printf("DRAM %s...........",pMemInfo->pchRamSize);
 
 	/* Write increasing values to increasing addresses */
 	pdwlRam = ((u64 *)&pchRam[pMemInfo->dwRowOffset]) - pMemInfo->nColRepeat;
@@ -375,7 +376,14 @@ int test_ram(char * szStrBuffer)
 		sprintf(szStrBuffer,"Bad address: 0x%llX",dwBadAddress);
 		err = -1;
 	}
-	test_OkOrFail(err,1,szStrBuffer);
+
+	if(!silent)
+		test_OkOrFail(err,1,szStrBuffer);
+
+	if(!err)
+		env_set("dram_test_result", "OK");
+	else
+		env_set("dram_test_result", "FAILED");
 
 	return err;
 }

@@ -9,7 +9,7 @@
 #define CMD_FUS_SELFTEST_PROCESSOR_INFO_H_
 
 int get_processorInfo (void);
-int print_cpuinfo(void);
+int print_cpuinfo(bool silent);
 
 
 #endif /* CMD_FUS_SELFTEST_PROCESSOR_INFO_H_ */
