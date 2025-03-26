@@ -115,7 +115,7 @@ static int set_gd_board_type(void)
 	len = (int)(ptr - board_id);
 
 #if defined(CONFIG_TARGET_FSIMX93)
-	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
+	SET_BOARD_TYPE("PCore93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
 	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
 #elif defined(CONFIG_TARGET_FSIMX91)
