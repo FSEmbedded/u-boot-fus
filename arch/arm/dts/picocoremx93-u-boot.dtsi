@@ -47,6 +47,11 @@
 	};
 };
 
+&{/soc@0} {
+	bootph-all;
+	bootph-pre-ram;
+};
+
 &A55_0 {
 	clocks = <&clk IMX93_CLK_A55_SEL>;
 };
@@ -55,14 +60,9 @@
 	clocks = <&clk IMX93_CLK_A55_SEL>;
 };
 
-&{/soc@0} {
-	bootph-all;
-	bootph-pre-ram;
-};
-
 &aips1 {
-	bootph-pre-ram;
 	bootph-all;
+	bootph-pre-ram;
 };
 
 &aips2 {
@@ -80,15 +80,6 @@
 	bootph-some-ram;
 };
 
-&reg_usdhc2_vmmc {
-	u-boot,off-on-delay-us = <20000>;
-	bootph-pre-ram;
-};
-
-&pinctrl_reg_usdhc2_vmmc {
-	bootph-pre-ram;
-};
-
 &pinctrl_uart7 {
 	bootph-pre-ram;
 	bootph-some-ram;
@@ -98,32 +89,36 @@
 	bootph-pre-ram;
 };
 
-&pinctrl_usdhc2_gpio {
-	bootph-pre-ram;
-};
-
-&pinctrl_usdhc2 {
-	bootph-pre-ram;
-};
-
 &gpio1 {
 	bootph-pre-ram;
 	bootph-some-ram;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &gpio2 {
 	bootph-pre-ram;
 	bootph-some-ram;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &gpio3 {
 	bootph-pre-ram;
 	bootph-some-ram;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &gpio4 {
 	bootph-pre-ram;
 	bootph-some-ram;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &lpuart7 {
@@ -136,7 +131,6 @@
 };
 
 &usdhc2 {
-	bootph-pre-ram;
 	fsl,signal-voltage-switch-extra-delay-ms = <8>;
 };
 
@@ -166,6 +160,11 @@
 
 &pinctrl_lpi2c2 {
 	bootph-pre-ram;
+};
+
+&fec {
+	phy-reset-duration = <15>;
+	phy-reset-post-delay = <100>;
 };
 
 &ethphy1 {
@@ -209,13 +208,4 @@
 &clk_ext1 {
 	bootph-all;
 	bootph-pre-ram;
-};
-
-/* Correct trippoints are set in fdt-fixup */
-&cpu_alert {
-	temperature = <95000>;
-};
-
-&cpu_crit {
-	temperature = <105000>;
 };
