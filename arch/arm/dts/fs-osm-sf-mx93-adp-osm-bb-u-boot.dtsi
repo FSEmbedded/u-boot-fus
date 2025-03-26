@@ -101,28 +101,36 @@
 	bootph-pre-ram;
 };
 
-&pinctrl_usdhc2 {
-	bootph-pre-ram;
-};
-
 &gpio1 {
 	bootph-pre-ram;
 	bootph-some-ram;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &gpio2 {
 	bootph-pre-ram;
 	bootph-some-ram;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &gpio3 {
 	bootph-pre-ram;
 	bootph-some-ram;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &gpio4 {
 	bootph-pre-ram;
 	bootph-some-ram;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &lpuart1 {
@@ -135,7 +143,6 @@
 };
 
 &usdhc2 {
-	bootph-pre-ram;
 	fsl,signal-voltage-switch-extra-delay-ms = <8>;
 };
 
@@ -213,4 +220,3 @@
 	bootph-all;
 	bootph-pre-ram;
 };
-
