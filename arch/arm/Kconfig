@@ -848,6 +848,19 @@ config ARCH_IMX8ULP
 	select SYS_FSL_HAS_SEC
 	select SYS_FSL_SEC_LE
 	select SYS_FSL_SEC_COMPAT_4
+	select MISC
+	select IMX_SENTINEL
+	imply CMD_DM
+
+config ARCH_IMX9
+	bool "NXP i.MX9 platform"
+	select ARM64
+	select DM
+	select MACH_IMX
+	select SUPPORT_SPL
+	select GPIO_EXTRA_HEADER
+	select MISC
+	select IMX_SENTINEL
 	imply CMD_DM
 
 config ARCH_IMXRT
@@ -2162,6 +2175,8 @@ source "arch/arm/mach-imx/imx8m/Kconfig"
 
 source "arch/arm/mach-imx/imx8ulp/Kconfig"
 
+source "arch/arm/mach-imx/imx9/Kconfig"
+
 source "arch/arm/mach-imx/imxrt/Kconfig"
 
 source "arch/arm/mach-imx/mxs/Kconfig"
@@ -2217,6 +2232,8 @@ source "arch/arm/mach-zynqmp-r5/Kconfig"
 source "arch/arm/cpu/armv7/Kconfig"
 
 source "arch/arm/cpu/armv8/Kconfig"
+
+source "arch/arm/cpu/armv8/crypto/Kconfig"
 
 source "arch/arm/mach-imx/Kconfig"
 
