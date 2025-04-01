@@ -681,6 +681,10 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	}
 
 	if(!ret){
+		u32 *dram_crc;
+		dram_crc = (void *)&dram_fsh->type[12];
+
+		printf("DRAM-CRC32: 0x%08x\n", *dram_crc);
 		fs_board_init_dram_data((void *)(dram_info.load_addr + FSH_SIZE));
 	}
 
