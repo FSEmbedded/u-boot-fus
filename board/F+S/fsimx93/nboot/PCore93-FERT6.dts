@@ -19,7 +19,7 @@
 
 		/* DRAM: B.ICDRAM.53 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_2g3200m1ch1cs";
+		dram-timing = "lpddr4_pc_2g3733m1ch1cs";
 		dram-size = <0x800>;		/* In MiB */
 		dram-chips = <1>;
 
