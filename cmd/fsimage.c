@@ -3794,6 +3794,11 @@ static bool is_img_list_valid(struct _image_list *img_list)
 	ptr = img_list;
 
 	while(ptr){
+		if(fs_image_match(ptr->fsh, "BOARD-ID", NULL)) {
+			ptr = ptr->next;
+			continue;
+		}
+
 		if(fs_image_validate(ptr->fsh, ptr->fsh->type, NULL, (ulong)ptr->fsh))
 			ret = false;
 
