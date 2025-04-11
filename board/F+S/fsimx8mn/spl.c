@@ -346,7 +346,7 @@ static void fs_board_early_init(void)
 	}
 }
 
-void mmc_get_parts()
+void mmc_get_parts(void)
 {
 	if(uboot_offs == uboot_offs_redundant){
 		uboot_part = 1;
@@ -447,7 +447,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	return part;
 }
 
-int check_if_secondary()
+int check_if_secondary(void)
 {
 	uint32_t * csf_addr = (uint32_t *)*(uint32_t**)(CONFIG_SPL_TEXT_BASE - 0x28);
 	uint32_t * copy_addr = csf_addr - 1;
