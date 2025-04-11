@@ -40,9 +40,9 @@
 		have-eth-phy-a;
 		have-eth-phy-b;
 		have-audio;
-		have-wlan;
+		// have-wlan;
 		have-sd-a;
-		// have-sd-b;
+		have-sd-b;
 		have-mipi-dsi;
 		have-mipi-csi;
 		have-lvds;
