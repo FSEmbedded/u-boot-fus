@@ -28,17 +28,20 @@
 #include <asm/mach-imx/mxc_i2c.h>
 #include <asm/mach-imx/dma.h>
 #include <asm/arch/clock.h>
-#include <asm/mach-imx/video.h>
-#include <asm/arch/video_common.h>
+//####include <asm/mach-imx/video.h>
+//####include <asm/arch/video_common.h>
 #include <spl.h>
 #include <power/pmic.h>
 #include <power/pfuze100_pmic.h>
 #include <dm.h>
-#include "../../freescale/common/tcpc.h"
+#ifdef CONFIG_USB_TCPC
+#include "../common/tcpc.h"
+#endif
 #include <usb.h>
 #ifdef CONFIG_USB_DWC3
 #include <dwc3-uboot.h>
 #endif
+#include <linux/delay.h>		/* udelay() */
 #include <serial.h>			/* get_serial_device() */
 #include "../common/fs_fdt_common.h"	/* fs_fdt_set_val(), ... */
 #include "../common/fs_board_common.h"	/* fs_board_*() */
@@ -136,6 +139,11 @@ int board_early_init_f(void)
 	return 0;
 }
 
+enum boot_device fs_board_get_boot_dev(void)
+{
+	return NAND_BOOT;
+}
+
 /* Check board type */
 int checkboard(void)
 {
@@ -163,19 +171,9 @@ int checkboard(void)
   return 0;
 }
 
-#ifdef CONFIG_BOARD_POSTCLK_INIT
-int board_postclk_init(void)
-{
-  /* TODO */
-  return 0;
-}
-#endif
-
-
-
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Do any additional board-specific device tree modifications */
-int ft_board_setup(void *fdt, bd_t *bd)
+int ft_board_setup(void *fdt, struct bd_info *bd)
 {
   int offs;
   struct fs_nboot_args *pargs = fs_board_get_nboot_args ();
@@ -273,11 +271,13 @@ static struct dwc3_device dwc3_device_data = {
 	.power_down_scale = 2,
 };
 
+#if 0
 int usb_gadget_handle_interrupts(void)
 {
 	dwc3_uboot_handle_interrupt(0);
 	return 0;
 }
+#endif
 
 static void dwc3_nxp_usb_phy_init(struct dwc3_device *dwc3)
 {

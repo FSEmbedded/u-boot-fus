@@ -123,37 +123,22 @@ Free Space:
 
 #include "imx_env.h"
 
-#define CONFIG_SPL_MAX_SIZE				(192 * 1024)
-#define CONFIG_SYS_MONITOR_LEN				(512 * 1024)
-#define CONFIG_SYS_MMCSD_FS_BOOT_PARTITION	1
-
 /*
  * 0x08081000 - 0x08180FFF is for m4_0 xip image,
   * So 3rd container image may start from 0x8181000
  */
-#define CONFIG_SYS_UBOOT_BASE		0x08181000
+#define CFG_SYS_UBOOT_BASE		0x08181000
 /*
  * The memory layout on stack:  DATA section save + gd + early malloc
  * the idea is re-use the early malloc (CONFIG_SYS_MALLOC_F_LEN) with
  * CONFIG_SYS_SPL_MALLOC_START
  */
 #define CONFIG_FUS_BOARDCFG_ADDR	0x00134000
-#define CONFIG_SPL_BSS_START_ADDR	0x00136000
-#define CONFIG_SPL_BSS_MAX_SIZE		0x800	/* 2 KB */
 
 #ifdef CONFIG_SPL_BUILD
-/*#define CONFIG_ENABLE_DDR_TRAINING_DEBUG*/
-#define CONFIG_SPL_LDSCRIPT		"arch/arm/cpu/armv8/u-boot-spl.lds"
-#define CONFIG_SPL_STACK		0x13FFF0
-
 /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */
 #define CONFIG_FUS_BOARDCFG_MMC0	0x00080000
 #define CONFIG_FUS_BOARDCFG_MMC1	0x00740000
-
-#define CONFIG_SYS_SPL_MALLOC_START	0x82200000
-#define CONFIG_SYS_SPL_MALLOC_SIZE	0x80000	/* 512 KB */
-#define CONFIG_SYS_ICACHE_OFF
-#define CONFIG_SYS_DCACHE_OFF
 
 /* These addresses are hardcoded in ATF */
 #define CONFIG_SPL_USE_ATF_ENTRYPOINT
@@ -163,46 +148,13 @@ Free Space:
 /* TCM Address where DRAM Timings are loaded to */
 #define CONFIG_SPL_DRAM_TIMING_ADDR	0x00130000
 
-#define CONFIG_MALLOC_F_ADDR		0x00136800
+#define CFG_MALLOC_F_ADDR		0x00136800
 
-#define CONFIG_SERIAL_LPUART_BASE	0x5a080000
-
-#define CONFIG_SPL_RAW_IMAGE_ARM_TRUSTED_FIRMWARE
-
-#define CONFIG_SPL_ABORT_ON_RAW_IMAGE
-
-#define CONFIG_OF_EMBED
 #endif /* CONFIG_SPL_BUILD */
 
-/* Add F&S update */
-#define CONFIG_CMD_READ
-#define CONFIG_SERIAL_TAG
-#define CONFIG_FASTBOOT_USB_DEV 0
-
-#define CONFIG_REMAKE_ELF
-
-#define CONFIG_BOARD_EARLY_INIT_F
-
-/* Flat Device Tree Definitions */
-#define CONFIG_OF_BOARD_SETUP
-
-#undef CONFIG_CMD_EXPORTENV
-#undef CONFIG_CMD_IMPORTENV
-#undef CONFIG_CMD_IMLS
-
-#undef CONFIG_CMD_CRC32
-
-#define CONFIG_SYS_FSL_ESDHC_ADDR       0
+#define CFG_SYS_FSL_ESDHC_ADDR       0
 #define USDHC1_BASE_ADDR                0x5B010000
 #define USDHC2_BASE_ADDR                0x5B020000
-
-#define CONFIG_ENV_OVERWRITE
-
-#define CONFIG_PCIE_IMX
-#define CONFIG_CMD_PCI
-#define CONFIG_PCI_SCAN_SHOW
-
-#define CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 
 #ifdef CONFIG_AHAB_BOOT
 #define AHAB_ENV "sec_boot=yes\0"
@@ -210,10 +162,6 @@ Free Space:
 #define AHAB_ENV "sec_boot=no\0"
 #endif
 
-
-
-#define CONFIG_BOOTFILE		"Image"
-#define CONFIG_PREBOOT
 #ifdef CONFIG_FS_UPDATE_SUPPORT
 #define CONFIG_BOOTCOMMAND \
 	"run selector; run set_bootargs; run kernel; run fdt; run failed_update_reset"
@@ -601,107 +549,6 @@ Free Space:
 	"set_bootfdt=setenv bootfdt ${platform}.dtb\0"			\
 	"set_bootargs=setenv bootargs ${console} ${login} ${mtdparts}"	\
 	" ${network} ${rootfs} ${mode} ${init} ${extra} ${rauc_cmd}\0"
-#if 0
-/* Initial environment variables */
-#define CONFIG_EXTRA_ENV_SETTINGS		\
-	CONFIG_MFG_ENV_SETTINGS \
-	M4_BOOT_ENV \
-	AHAB_ENV \
-	"script=boot.scr\0" \
-	"image=Image\0" \
-	"panel=NULL\0" \
-	"console=ttyLP2\0" \
-	"fdt_addr=0x83000000\0"			\
-	"fdt_high=0xffffffffffffffff\0"		\
-	"cntr_addr=0x98000000\0"			\
-	"cntr_file=os_cntr_signed.bin\0" \
-	"boot_fdt=try\0" \
-	"fdt_file=undefined\0" \
-	"mmcdev="__stringify(CONFIG_SYS_MMC_ENV_DEV)"\0" \
-	"mmcpart=" __stringify(CONFIG_SYS_MMC_IMG_LOAD_PART) "\0" \
-	"mmcroot=" CONFIG_MMCROOT " rootwait rw\0" \
-	"mmcautodetect=yes\0" \
-	"mmcargs=setenv bootargs console=${console},${baudrate} earlycon root=${mmcroot}\0 " \
-	"loadbootscript=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${script};\0" \
-	"bootscript=echo Running bootscript from mmc ...; " \
-		"source\0" \
-	"loadimage=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${image}\0" \
-	"loadfdt=fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${fdt_file}\0" \
-	"loadcntr=fatload mmc ${mmcdev}:${mmcpart} ${cntr_addr} ${cntr_file}\0" \
-	"auth_os=auth_cntr ${cntr_addr}\0" \
-	"boot_os=booti ${loadaddr} - ${fdt_addr};\0" \
-	"mmcboot=echo Booting from mmc ...; " \
-		"run mmcargs; " \
-		"if test ${sec_boot} = yes; then " \
-			"if run auth_os; then " \
-				"run boot_os; " \
-			"else " \
-				"echo ERR: failed to authenticate; " \
-			"fi; " \
-		"else " \
-			"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
-				"if run loadfdt; then " \
-					"run boot_os; " \
-				"else " \
-					"echo WARN: Cannot load the DT; " \
-				"fi; " \
-			"else " \
-				"echo wait for boot; " \
-			"fi;" \
-		"fi;\0" \
-	"netargs=setenv bootargs console=${console},${baudrate} earlycon " \
-		"root=/dev/nfs " \
-		"ip=dhcp nfsroot=${serverip}:${nfsroot},v3,tcp\0" \
-	"netboot=echo Booting from net ...; " \
-		"run netargs;  " \
-		"if test ${ip_dyn} = yes; then " \
-			"setenv get_cmd dhcp; " \
-		"else " \
-			"setenv get_cmd tftp; " \
-		"fi; " \
-		"if test ${sec_boot} = yes; then " \
-			"${get_cmd} ${cntr_addr} ${cntr_file}; " \
-			"if run auth_os; then " \
-				"run boot_os; " \
-			"else " \
-				"echo ERR: failed to authenticate; " \
-			"fi; " \
-		"else " \
-			"${get_cmd} ${loadaddr} ${image}; " \
-			"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
-				"if ${get_cmd} ${fdt_addr} ${fdt_file}; then " \
-					"run boot_os; " \
-				"else " \
-					"echo WARN: Cannot load the DT; " \
-				"fi; " \
-			"else " \
-				"booti; " \
-			"fi;" \
-		"fi;\0"
-
-#define CONFIG_BOOTCOMMAND \
-	   "mmc dev ${mmcdev}; if mmc rescan; then " \
-		   "if run loadbootscript; then " \
-			   "run bootscript; " \
-		   "else " \
-			   "if test ${sec_boot} = yes; then " \
-				   "if run loadcntr; then " \
-					   "run mmcboot; " \
-				   "else run netboot; " \
-				   "fi; " \
-			    "else " \
-				   "if run loadimage; then " \
-					   "run mmcboot; " \
-				   "else run netboot; " \
-				   "fi; " \
-			 "fi; " \
-		   "fi; " \
-	   "else booti ${loadaddr} - ${fdt_addr}; fi"
-#endif
-/* Link Definitions */
-#define CONFIG_SYS_LOAD_ADDR		0x80280000
-
-#define CONFIG_SYS_INIT_SP_ADDR         0x80200000
 
 /* Default environment is in SD */
 #if 0 //###def CONFIG_QSPI_BOOT
@@ -712,38 +559,19 @@ Free Space:
 #define CONFIG_ENV_SPI_MAX_HZ	CONFIG_SF_DEFAULT_SPEED
 #endif
 
-#define CONFIG_MMCROOT			"/dev/mmcblk0p2"  /* USDHC2 */
-#define CONFIG_SYS_FSL_USDHC_NUM	2
+#define CFG_MMCROOT			"/dev/mmcblk0p2"  /* USDHC2 */
+#define CFG_SYS_FSL_USDHC_NUM	2
 
+/* F&S: Location of BOARD-CFG in OCRAM and how far to search if not found */
 #define CONFIG_SYS_OCRAM_BASE		0x00100000
 #define CONFIG_SYS_OCRAM_SIZE		0x00040000
 
-#define CONFIG_SYS_SDRAM_BASE		0x80000000
+#define CFG_SYS_SDRAM_BASE		0x80000000
 #define PHYS_SDRAM_1			0x80000000
 #define PHYS_SDRAM_2			0x880000000
 
 #define PHYS_SDRAM_1_SIZE		0x40000000	/* 1 GB */
 #define PHYS_SDRAM_2_SIZE		0x00000000	/* 0 GB */
-
-/* Serial */
-#define CONFIG_BAUDRATE			115200
-
-/* Monitor Command Prompt */
-#define CONFIG_SYS_PROMPT_HUSH_PS2     "> "
-#define CONFIG_SYS_CBSIZE              2048
-#define CONFIG_SYS_MAXARGS             64
-#define CONFIG_SYS_BARGSIZE CONFIG_SYS_CBSIZE
-#define CONFIG_SYS_PBSIZE		(CONFIG_SYS_CBSIZE + \
-					sizeof(CONFIG_SYS_PROMPT) + 16)
-
-/* Generic Timer Definitions */
-#define COUNTER_FREQUENCY		8000000	/* 8MHz */
-
-#ifndef CONFIG_DM_PCA953X
-#define CONFIG_PCA953X
-#define CONFIG_CMD_PCA953X
-#define CONFIG_CMD_PCA953X_INFO
-#endif
 
 /* MT35XU512ABA1G12 has only one Die, so QSPI0 B won't work */
 #ifdef CONFIG_FSL_FSPI
@@ -753,28 +581,6 @@ Free Space:
 #define FSPI0_AMBA_BASE			0
 #define CONFIG_SYS_FSL_FSPI_AHB
 #endif
-
-/* USB configs */
-#define CONFIG_USBD_HS
-
-#define CONFIG_USB_MAX_CONTROLLER_COUNT 2
-
-/* USB OTG controller configs */
-#ifdef CONFIG_USB_EHCI_HCD
-#define CONFIG_USB_HOST_ETHER
-#define CONFIG_USB_ETHER_ASIX
-#define CONFIG_MXC_USB_PORTSC		(PORT_PTS_UTMI | PORT_PTS_PTW)
-#endif
-
-/* Networking */
-#define CONFIG_FEC_XCV_TYPE		RGMII
-#define FEC_QUIRK_ENET_MAC
-
-#define CONFIG_NETMASK		255.255.255.0
-#define CONFIG_IPADDR		10.0.0.252
-#define CONFIG_SERVERIP		10.0.0.122
-#define CONFIG_GATEWAYIP	10.0.0.5
-#define CONFIG_ROOTPATH		"/rootfs"
 
 /* Framebuffer */
 #ifdef CONFIG_VIDEO
@@ -787,7 +593,5 @@ Free Space:
 #define CONFIG_VIDEO_BMP_LOGO
 #define CONFIG_IMX_VIDEO_SKIP
 #endif
-
-#define CONFIG_OF_SYSTEM_SETUP
 
 #endif /* __FSIMX8X_H */

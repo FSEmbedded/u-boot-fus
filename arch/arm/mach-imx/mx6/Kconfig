@@ -273,6 +273,7 @@ config TARGET_FSIMX6SX
 config TARGET_FSIMX6UL
 	bool "F&S fsimx6ul boards & modules"
 	depends on MX6ULL
+	select IOMUX_LPSR
 	select BOARD_EARLY_INIT_F
 	select BOARD_LATE_INIT
 	select FS_NBOOT_ARGS

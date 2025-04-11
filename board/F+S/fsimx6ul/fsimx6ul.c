@@ -30,7 +30,6 @@
 
 #ifdef CONFIG_VIDEO_MXS
 #include <linux/fb.h>
-#include <mxsfb.h>
 #include "../common/fs_disp_common.h"	/* struct fs_disp_port, fs_disp_*() */
 #endif
 
@@ -2208,6 +2207,8 @@ void board_preboot_os(void)
 	fs_disp_set_power_all(0);
 #endif
 
+#ifdef CONFIG_FEC_MXC
 	/* Shut down all ethernet PHYs (suspend mode) */
 	mdio_shutdown_all();
+#endif
 }

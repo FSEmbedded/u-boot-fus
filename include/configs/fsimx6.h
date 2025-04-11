@@ -65,63 +65,36 @@
  * High Level Configuration Options
  ************************************************************************/
 
-/*####define CONFIG_IMX_THERMAL*/	/* Read CPU temperature */
-
 #ifndef CONFIG_SYS_L2CACHE_OFF
-#define CONFIG_SYS_L2_PL310
-#define CONFIG_SYS_PL310_BASE	L2_PL310_BASE
+#define CFG_SYS_PL310_BASE	L2_PL310_BASE
 #endif
 
-/* The ARMv7 cache code (arch/arm/lib/cache-cp15.c) and the i.MX6 init code
-   (arch/arm/cpu/armv7/mx6/soc.c) now also allow to set the data cache mode to
-   write-back. Unfortunately this is now the default, but (at least) i.MX6
-   SDHC does not work with write-back yet. So set back to write-through. */
-#define CONFIG_SYS_ARM_CACHE_WRITETHROUGH
-
 #include <asm/arch/imx-regs.h>		/* IRAM_BASE_ADDR, IRAM_SIZE */
-
-#undef CONFIG_SKIP_LOWLEVEL_INIT	/* Lowlevel init handles ARM errata */
-
-/* The load address of U-Boot is now independent from the size. Just load it
-   at some rather low address in RAM. It will relocate itself to the end of
-   RAM automatically when executed. */
-#define CONFIG_BOARD_SIZE_LIMIT 0x80000	/* Size of uboot.nb0 */
-
-/* For the default load address, use an offset of 16MB. The final kernel (after
-   decompressing the zImage) must be at offset 0x8000. But if we load the
-   zImage there, the loader code will move it away to make room for the
-   uncompressed image at this position. So we'll load it directly to a higher
-   address to avoid this additional copying. */
-#define CONFIG_SYS_LOAD_OFFS 0x01000000
-
 
 /************************************************************************
  * Memory Layout
  ************************************************************************/
 /* Physical addresses of DDR and CPU-internal SRAM */
-#define CONFIG_SYS_SDRAM_BASE	MMDC0_ARB_BASE_ADDR
+#define CFG_SYS_SDRAM_BASE	MMDC0_ARB_BASE_ADDR
 
 /* MX6 has 128KB (Solo/DualLite) or 256KB (Dual/Quad) of internal SRAM,
    mapped from 0x00900000-0x0091FFFF/0x0093FFFF */
-#define CONFIG_SYS_INIT_RAM_ADDR	(IRAM_BASE_ADDR)
-#define CONFIG_SYS_INIT_RAM_SIZE	(0x20000/*###IRAM_SIZE###*/)
+#define CFG_SYS_INIT_RAM_ADDR	(IRAM_BASE_ADDR)
+#define CFG_SYS_INIT_RAM_SIZE	(0x20000/*###IRAM_SIZE###*/)
 
 /* Init value for stack pointer, set at end of internal SRAM, keep room for
    global data behind stack. */
-#define CONFIG_SYS_INIT_SP_OFFSET \
-	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
-#define CONFIG_SYS_INIT_SP_ADDR \
-	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
+#define CFG_SYS_INIT_SP_OFFSET (CFG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
 
 /* Allocate 2048KB protected RAM at end of RAM (device tree, etc.) */
-#define CONFIG_PRAM		2048
+#define CFG_PRAM		2048
 
 /* If environment variable fdt_high is not set, then the device tree is
    relocated to the end of RAM before booting Linux. In this case do not go
    beyond RAM offset 0x6f800000. Otherwise it will not fit into Linux' lowmem
    region anymore and the kernel will hang when trying to access the device
    tree after it has set up its final page table. */
-#define CONFIG_SYS_BOOTMAPSZ	0x6f800000
+#define CFG_SYS_BOOTMAPSZ	0x6f800000
 
 /* Memory test checks all RAM before U-Boot (i.e. leaves last MB with U-Boot
    untested) ### If not set, test from beginning of RAM to before stack. */
@@ -148,15 +121,13 @@
 /************************************************************************
  * Serial Console (UART)
  ************************************************************************/
-#define CONFIG_MXC_UART_BASE UART4_BASE	/* Default UART port; however we
+#define CFG_MXC_UART_BASE UART4_BASE	/* Default UART port; however we
 					   always take the port from NBoot */
-#define CONFIG_SYS_BAUDRATE_TABLE	{9600, 19200, 38400, 57600, 115200}
 
 
 /************************************************************************
  * I2C
  ************************************************************************/
-#define CONFIG_SYS_SPD_BUS_NUM	1
 
 
 /************************************************************************
@@ -179,21 +150,18 @@
  * Ethernet
  ************************************************************************/
 
-/* PHY */
-#define CONFIG_SYS_DISCOVER_PHY
+#if 0 //### Set in defconfig when device tree support for fsimx6 is available
 #define CONFIG_SYS_FAULT_ECHO_LINK_DOWN
 #undef CONFIG_ID_EEPROM			/* No EEPROM for ethernet MAC */
-
-/* Activate this to disable Energy Efficient Ethernet (EEE) on Atheros PHY */
-/*#define CONFIG_PHY_ATHEROS_NO_EEE*/
-
+#endif //###
 
 /************************************************************************
  * USB Host
  ************************************************************************/
 /* Use USB1 as host */
-#define CONFIG_MXC_USB_PORTSC (PORT_PTS_UTMI | PORT_PTS_PTW)
+#if 0 //### Set in defconfig when device tree support for fsimx6 is available
 #define CONFIG_USB_MAX_CONTROLLER_COUNT 2
+#endif //###
 
 
 /************************************************************************
@@ -210,13 +178,8 @@
 /************************************************************************
  * SD/MMC Card, eMMC
  ************************************************************************/
-#define CONFIG_SYS_FSL_ESDHC_ADDR 0	  /* Not used */
-#define CONFIG_SYS_FSL_USDHC_NUM       1
-
-#ifdef CONFIG_ENV_IS_IN_MMC
-#define CONFIG_SYS_MMC_ENV_DEV 0
-#define CONFIG_SYS_MMC_ENV_PART 1 /* NBoot, UBoot and UbootEnv in BootPart1 */
-#endif
+#define CFG_SYS_FSL_ESDHC_ADDR 0	  /* Not used */
+#define CFG_SYS_FSL_USDHC_NUM       1
 
 
 /************************************************************************
@@ -242,28 +205,11 @@
    if value CONFIG_SYS_MAX_NAND_DEVICE is set to 2, the NBoot region is shown
    as a second NAND device with just that size. This makes it easier to have a
    different ECC strategy and software write protection for NBoot. */
-#if 1
-#define CONFIG_SYS_MAX_NAND_DEVICE	1
-#else
-#define CONFIG_SYS_MAX_NAND_DEVICE	2
-#endif
-
-/* Define if you want to support nand chips that comply to ONFI spec */
-#define CONFIG_SYS_NAND_ONFI_DETECTION
 
 
 /************************************************************************
  * Command Line Editor (Shell)
  ************************************************************************/
-#ifdef CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
-#endif
-
-/* Input and print buffer sizes */
-#define CONFIG_SYS_CBSIZE	512	/* Console I/O Buffer Size */
-#define CONFIG_SYS_PBSIZE	640	/* Print Buffer Size */
-#define CONFIG_SYS_MAXARGS	16	/* max number of command args */
-#define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE /* Boot Arg Buffer Size */
 
 
 /************************************************************************
@@ -274,20 +220,22 @@
 /************************************************************************
  * Display (LCD)
  ************************************************************************/
+#if 0 //### Set in defconfig when device tree support for fsimx6 is available
 //####define CONFIG_VIDEO_LOGO		/* Allow a logo on the console... */
 #define CONFIG_VIDEO_BMP_LOGO		/* ...as BMP image... */
 //####define CONFIG_BMP_16BPP		/* ...with 16 bits per pixel */
 //####define CONFIG_SPLASH_SCREEN	/* Support splash screen */
-
+#endif //###
 
 /************************************************************************
  * Network Options
  ************************************************************************/
+#if 0 //### Set in defconfig when device tree support for fsimx6 is available
 #define CONFIG_BOOTP_DNS2
 #define CONFIG_BOOTP_SEND_HOSTNAME
 #define CONFIG_NET_RETRY_COUNT	5
 #define CONFIG_ARP_TIMEOUT	2000UL
-
+#endif //###
 
 /************************************************************************
  * Filesystem Support
@@ -334,17 +282,16 @@
  * change this layout, we should also make room for a second environment and
  * activate CONFIG_SYS_REDUNDAND_ENVIRONMENT.
  */
-#define CONFIG_ENV_OVERWRITE			/* Allow overwriting ethaddr */
 
+#if 0 //### Set in defconfig when device tree support for fsimx6 is available
 #define CONFIG_ETHPRIME		"FEC"
 #define CONFIG_NETMASK		255.255.255.0
 #define CONFIG_IPADDR		10.0.0.252
 #define CONFIG_SERVERIP		10.0.0.122
 #define CONFIG_GATEWAYIP	10.0.0.5
-#define CONFIG_BOOTFILE		"zImage"
 #define CONFIG_ROOTPATH		"/rootfs"
-#define CONFIG_PREBOOT
-#define CONFIG_BOOTCOMMAND	"run set_bootargs; run kernel; run fdt"
+#define CONFIG_BOOTFILE		"zImage"
+#endif //###
 
 /* Add some variables that are not predefined in U-Boot. For example set
    fdt_high to 0xffffffff to avoid that the device tree is relocated to the

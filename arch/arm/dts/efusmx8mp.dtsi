@@ -1709,7 +1709,7 @@
 		pinctrl_usb3_0_pwr: usb3grp {
 			fsl,pins = <
 //###			MX8MP_IOMUXC_GPIO1_IO12__GPIO1_IO12	0x19
-				MX8MP_IOMUXC_GPIO1_IO12__USB1_OTG_PWR	0x19
+				MX8MP_IOMUXC_GPIO1_IO12__USB1_PWR	0x19
 			>;
 		};
 #endif /* CONFIG_EFUSMX8MP_USB_HOST */
@@ -1717,7 +1717,7 @@
 #ifdef CONFIG_EFUSMX8MP_USB_OTG
 		pinctrl_usb2: usb2grp {
 			fsl,pins = <
-				MX8MP_IOMUXC_GPIO1_IO15__USB2_OTG_OC	0x80
+				MX8MP_IOMUXC_GPIO1_IO15__USB2_OC	0x80
 			>;
 		};
 		pinctrl_usb2_vbus: usb2grp_vbus {

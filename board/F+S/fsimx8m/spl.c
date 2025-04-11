@@ -23,13 +23,16 @@
 #include <asm/arch/clock.h>
 #include <asm/mach-imx/gpio.h>
 #include <asm/mach-imx/mxc_i2c.h>
-#include <fsl_esdhc.h>
+#include <fsl_esdhc_imx.h>
+#include <init.h>
 #include <mmc.h>
 #ifdef CONFIG_IMX8M_LPDDR4
 #include <asm/arch/ddr.h>
 #else
 #include "ddr/ddr.h"
 #endif
+#include <hang.h>			/* hang() */
+#include <linux/delay.h>		/* udelay() */
 #include "../common/fs_board_common.h"	/* fs_board_*() */
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -57,7 +60,7 @@ static iomux_v3_cfg_t const feature_jumper_pads[] = {
 
 static void fs_board_init_nboot_args(void)
 {
-    nbootargs.dwID = FSHWCONFIG_ARGS_ID;
+	nbootargs.dwID = FSHWCONFIG_ARGS_ID;
 	nbootargs.dwSize = 16*4;
 	nbootargs.dwNBOOT_VER = 1;
 
@@ -68,7 +71,7 @@ static void fs_board_init_nboot_args(void)
 
 	nbootargs.dwNumDram = CONFIG_NR_DRAM_BANKS;
 	nbootargs.dwFlashSize = 256;		/* size of NAND flash in MB */
-	nbootargs.dwDbgSerPortPA = CONFIG_MXC_UART_BASE;
+	nbootargs.dwDbgSerPortPA = CFG_MXC_UART_BASE;
 
 
 	imx_iomux_v3_setup_multiple_pads(
@@ -184,7 +187,7 @@ static struct fsl_esdhc_cfg usdhc_cfg[2] = {
 	{USDHC2_BASE_ADDR, 0, 4},
 };
 
-int board_mmc_init(bd_t *bis)
+int board_mmc_init(struct bd_info *bis)
 {
 	int i, ret;
 	/*
@@ -193,7 +196,7 @@ int board_mmc_init(bd_t *bis)
 	 * mmc0                    USDHC1
 	 * mmc1                    USDHC2
 	 */
-	for (i = 0; i < CONFIG_SYS_FSL_USDHC_NUM; i++) {
+	for (i = 0; i < CFG_SYS_FSL_USDHC_NUM; i++) {
 		switch (i) {
 		case 0:
 			usdhc_cfg[0].sdhc_clk = mxc_get_clock(USDHC1_CLK_ROOT);
@@ -258,7 +261,7 @@ int board_fit_config_name_match(const char *name)
 void board_init_f(ulong dummy)
 {
 	int ret;
-	struct fs_nboot_args *pargs = (struct fs_nboot_args*)(CONFIG_SYS_SDRAM_BASE + 0x00001000);
+	struct fs_nboot_args *pargs;
 
 	/* Clear the BSS. */
 	memset(__bss_start, 0, __bss_end - __bss_start);
@@ -294,10 +297,10 @@ void board_init_f(ulong dummy)
 	printf("DDRInfo: RAM initialization success.\n");
 
 	/* initalize ram area with zero before set */
+	pargs = (struct fs_nboot_args*)(CFG_SYS_SDRAM_BASE + 0x00001000);
 	memset(pargs, 0x0, sizeof(struct fs_nboot_args));
-	/* fill nboot args first after ram initialization */
-	pargs = fs_board_get_nboot_args();
 
+	/* fill nboot args first after ram initialization */
 	pargs->dwID = nbootargs.dwID;
 	pargs->dwSize = nbootargs.dwSize;
 	pargs->dwNBOOT_VER = nbootargs.dwNBOOT_VER;

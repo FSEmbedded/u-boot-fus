@@ -474,7 +474,7 @@ int board_late_init(void)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 
-#ifdef CONFIG_CMD_NET
+#ifdef CONFIG_FEC_MXC
 static void fecpin_config(uint32_t enet_addr)
 {
 	/*
@@ -741,7 +741,7 @@ int board_eth_init(struct bd_info *bis)
 	/* Probe second PHY and ethernet port */
 	return fecmxc_initialize_multi_type(bis, 1, phy_addr, enet_addr, RMII);
 }
-#endif /* CONFIG_CMD_NET */
+#endif /* CONFIG_FEC_MXC */
 
 /* Get board revision */
 unsigned int get_board_rev(void)
@@ -939,6 +939,8 @@ void board_preboot_os(void)
 	fs_disp_set_power_all(0);
 #endif
 
+#ifdef CONFIG_FEC_MXC
 	/* Shut down all ethernet PHYs (suspend mode) */
 	mdio_shutdown_all();
+#endif
 }

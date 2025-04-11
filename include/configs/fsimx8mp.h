@@ -70,25 +70,10 @@
 
 #include "imx_env.h"
 
-/* disable FAT write because its doesn't work
- *  with F&S FAT driver
- */
-#undef CONFIG_FAT_WRITE
-
 /* disable FASTBOOT_USB_DEV so both ports can be used */
 #undef CONFIG_FASTBOOT_USB_DEV
 
-/* need for F&S bootaux */
-#define M4_BOOTROM_BASE_ADDR		MCU_BOOTROM_BASE_ADDR
-#define IMX_SIP_SRC_M4_START		IMX_SIP_SRC_MCU_START
-#define IMX_SIP_SRC_M4_STARTED		IMX_SIP_SRC_MCU_STARTED
-
-#define CONFIG_SYS_BOOTM_LEN		(64 * SZ_1M)
-
-#define CONFIG_SPL_MAX_SIZE		(152 * 1024)
-#define CONFIG_SYS_MONITOR_LEN		(1024 * 1024)
-#define CONFIG_SYS_MMCSD_FS_BOOT_PARTITION	1
-#define CONFIG_SYS_UBOOT_BASE	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
+#define CFG_SYS_UBOOT_BASE	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
 
 /*
  * The memory layout on stack:  DATA section save + gd + early malloc
@@ -96,21 +81,11 @@
  * CONFIG_SYS_SPL_MALLOC_START
  */
 #define CONFIG_FUS_BOARDCFG_ADDR	0x00918000
-#define CONFIG_SPL_BSS_START_ADDR	0x0091a000
-#define CONFIG_SPL_BSS_MAX_SIZE		0x2000	/* 8 KB */
 
 #ifdef CONFIG_SPL_BUILD
-#define CONFIG_SPL_STACK		0x927FF0
-#define CONFIG_SPL_DRIVERS_MISC_SUPPORT
-
 /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */
 #define CONFIG_FUS_BOARDCFG_MMC0	0x00048000
 #define CONFIG_FUS_BOARDCFG_MMC1	0x00448000
-
-#define CONFIG_SYS_SPL_MALLOC_START	0x42200000
-#define CONFIG_SYS_SPL_MALLOC_SIZE	SZ_1M
-#define CONFIG_SYS_ICACHE_OFF
-#define CONFIG_SYS_DCACHE_OFF
 
 /* These addresses are hardcoded in ATF */
 #define CONFIG_SPL_USE_ATF_ENTRYPOINT
@@ -120,32 +95,13 @@
 /* TCM Address where DRAM Timings are loaded to */
 #define CONFIG_SPL_DRAM_TIMING_ADDR	0x00964000
 
-#define CONFIG_MALLOC_F_ADDR		0x91A800 /* malloc f used before GD_FLG_FULL_MALLOC_INIT set */
+/* malloc f is used before GD_FLG_FULL_MALLOC_INIT set */
+#define CFG_MALLOC_F_ADDR		0x91A800
 
-#define CONFIG_SPL_ABORT_ON_RAW_IMAGE
-
-#define CONFIG_POWER_I2C
-#define CONFIG_POWER_PCA9450
-
-#endif
-
-/* Add F&S update */
-#define CONFIG_CMD_UPDATE
-#define CONFIG_CMD_READ
-#define CONFIG_SERIAL_TAG
-
-#define CONFIG_REMAKE_ELF
-/* ENET Config */
-/* ENET1 */
-#define CONFIG_SYS_DISCOVER_PHY
+#endif /* CONFIG_SPL_BUILD */
 
 #if defined(CONFIG_CMD_NET)
-#define CONFIG_ETHPRIME                 "eth0" /* Set qos to primary since we use its MDIO */
 #define FDT_SEQ_MACADDR_FROM_ENV
-
-#define CONFIG_FEC_XCV_TYPE             RGMII
-//#define CONFIG_FEC_MXC_PHYADDR          5
-#define FEC_QUIRK_ENET_MAC
 
 //#define DWC_NET_PHYADDR					4
 #ifdef CONFIG_DWC_ETH_QOS
@@ -154,25 +110,20 @@
 
 #define PHY_ANEG_TIMEOUT 20000
 
-#define CONFIG_PHY_ATHEROS
-#define CONFIG_NETMASK		255.255.255.0
-#define CONFIG_IPADDR		10.0.0.252
-#define CONFIG_SERVERIP		10.0.0.122
-#define CONFIG_GATEWAYIP	10.0.0.5
-#define CONFIG_ROOTPATH		"/rootfs"
-
 #endif
 
-
-
-#define CONFIG_BOOTFILE		"Image"
-#define CONFIG_PREBOOT
 #ifdef CONFIG_FS_UPDATE_SUPPORT
 	#define CONFIG_BOOTCOMMAND	"run selector; run set_bootargs; run kernel; run fdt; run failed_update_reset"
 #else
 	#define CONFIG_BOOTCOMMAND	"run set_bootargs; run kernel; run fdt"
 #endif
 
+#define SECURE_PARTITIONS	"UBoot", "Kernel", "FDT", "Images"
+
+/************************************************************************
+ * Environment
+ ************************************************************************/
+/* Define MTD partition info */
 #define MTDIDS_DEFAULT		""
 #define MTDPART_DEFAULT		""
 #define MTDPARTS_STD		"setenv mtdparts "
@@ -558,29 +509,31 @@
 	BOOTARGS
 
 /* Link Definitions */
-#define CONFIG_SYS_LOAD_ADDR		0x40480000
+#define CFG_SYS_INIT_RAM_ADDR 0x40000000
+#define CFG_SYS_INIT_RAM_SIZE 0x00080000
+#define CFG_SYS_INIT_SP_OFFSET CONFIG_SYS_INIT_RAM_SIZE
 
-#define CONFIG_SYS_INIT_RAM_ADDR	0x40000000
-#define CONFIG_SYS_INIT_RAM_SIZE	0x00080000
-#define CONFIG_SYS_INIT_SP_OFFSET	CONFIG_SYS_INIT_RAM_SIZE
-#define CONFIG_SYS_INIT_SP_ADDR \
-	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
-
-#define SECURE_PARTITIONS	"UBoot", "Kernel", "FDT", "Images"
 
 /************************************************************************
  * Environment
  ************************************************************************/
 
-/* Environment settings for large blocks (128KB). The environment is held in
-   the heap, so keep the real env size small to not waste malloc space. */
-#define CONFIG_ENV_OVERWRITE			/* Allow overwriting ethaddr */
+/*
+ * Environment size and location are now set in the device tree. However there
+ * are fallback values set in the defconfig if values in the device tree are
+ * missing or damaged. The environment is held in the heap, so keep the real
+ * size small to not waste malloc space. Use two blocks (0x40000, 256KB) for
+ * CONFIG_ENV_NAND_RANGE to have one spare block in case of a bad first block.
+ * See also MMC and NAND layout above.
+ */
 
 /* Fallback values if values in the device tree are missing/damaged */
 //#define CONFIG_ENV_OFFSET_REDUND 0x104000
 
 /* Totally 1GB LPDDR4 */
-#define CONFIG_SYS_SDRAM_BASE		0x40000000
+#define CFG_SYS_SDRAM_BASE		0x40000000
+
+/* F&S: Location of BOARD-CFG in OCRAM and how far to search if not found */
 #define CONFIG_SYS_OCRAM_BASE		0x00900000
 #define CONFIG_SYS_OCRAM_SIZE		0x00090000
 
@@ -591,10 +544,8 @@
 #define UART4_BASE			UART4_BASE_ADDR
 #define UART5_BASE			0xFFFFFFFF
 
-/* Not used on F&S boards. Detection depends on
- * board type is preferred.
- * */
-#define CONFIG_MXC_UART_BASE		0
+/* Not used on F&S boards. Detection depending on board type is preferred. */
+#define CFG_MXC_UART_BASE		0
 
 /* Monitor Command Prompt */
 
@@ -602,20 +553,12 @@
  * Command Line Editor (Shell)
  ************************************************************************/
 #ifdef CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
+//####define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 #endif
 
-/* Input and print buffer sizes */
-#define CONFIG_SYS_CBSIZE	512	/* Console I/O Buffer Size */
-#define CONFIG_SYS_PBSIZE	640	/* Print Buffer Size */
-#define CONFIG_SYS_MAXARGS	16	/* max number of command args */
-#define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE /* Boot Arg Buffer Size */
+#define CFG_SYS_FSL_ESDHC_ADDR	0
 
-#define CONFIG_IMX_BOOTAUX
-
-#define CONFIG_FSL_USDHC
-#define CONFIG_SYS_FSL_ESDHC_ADDR	0
-
+/* Kann das weg? Die Defines werden nirgendwo genutzt */
 #ifdef CONFIG_FSL_FSPI
 #define FSL_FSPI_FLASH_SIZE		SZ_256M
 #define FSL_FSPI_FLASH_NUM		1
@@ -626,13 +569,7 @@
 #define CONFIG_SYS_FSL_FSPI_AHB
 #endif
 
-/* USB configs */
-#define CONFIG_USBD_HS
-
-#define CONFIG_USB_MAX_CONTROLLER_COUNT		2
-#define CONFIG_USB_GADGET_VBUS_DRAW		2
-
-#ifdef CONFIG_DM_VIDEO
+#ifdef CONFIG_VIDEO
 #define CONFIG_VIDEO_LOGO
 #define CONFIG_SPLASH_SCREEN
 #define CONFIG_SPLASH_SCREEN_ALIGN

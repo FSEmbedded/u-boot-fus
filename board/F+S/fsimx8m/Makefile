@@ -13,7 +13,3 @@ else
 obj-y += ddr/ddr_init.o ddr/ddrphy_train.o ddr/helper.o
 endif
 endif
-
-ifndef CONFIG_SPL_BUILD
-obj-$(CONFIG_USB_TCPC) += ../../freescale/common/tcpc.o
-endif

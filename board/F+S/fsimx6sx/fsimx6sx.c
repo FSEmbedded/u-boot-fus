@@ -35,7 +35,6 @@
 
 #ifdef CONFIG_VIDEO_MXS
 #include <linux/fb.h>
-#include <mxsfb.h>
 #include "../common/fs_disp_common.h"	/* struct fs_disp_port, fs_disp_*() */
 #endif
 
@@ -1883,7 +1882,7 @@ static int sja1105_init(void)
 }
 #endif /* CONFIG_MXC_SPI */
 
-#ifdef CONFIG_CMD_NET
+#ifdef CONFIG_FEC_MXC
 /* enet pads definition */
 static iomux_v3_cfg_t const enet_pads_control_efusa9x[] = {
 	/* MDIO; on efusA9X both PHYs are on ENET1_MDIO bus  */
@@ -2491,7 +2490,7 @@ int board_phy_config(struct phy_device *phydev)
 
 	return 0;
 }
-#endif /* CONFIG_CMD_NET */
+#endif /* CONFIG_FEC_MXC */
 
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Reserve a RAM memory region (Framebuffer, Cortex-M4)*/
@@ -2702,9 +2701,11 @@ void board_preboot_os(void)
 	fs_disp_set_power_all(0);
 #endif
 
+#ifdef CONFIG_FEC_MXC
 	/* Shut down all ethernet PHYs (suspend mode); on CONT1, all PHYs are
 	   external PHYs on the SJ1105 ethernet switch to the outside that
 	   must remain active. */
 	if (fs_board_get_type() != BT_CONT1)
 		mdio_shutdown_all();
+#endif
 }

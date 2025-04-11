@@ -84,53 +84,26 @@
  * High Level Configuration Options
  ************************************************************************/
 #define CONFIG_VYBRID			/* ### TODO: switch to CONFIG_VF610 */
-#undef CONFIG_MP			/* No multi processor support */
 
 #include <asm/arch/vybrid-regs.h>	/* IRAM_BASE_ADDR, IRAM_SIZE */
-#define CONFIG_SYS_CACHELINE_SIZE	64
-
-/* The ARMv7 cache code (arch/arm/lib/cache-cp15.c) now also allows to set the
-   data cache mode to write-back. Unfortunately this is now the default, but
-   unless this is thoroughly tested, set it back to write-through. */
-#define CONFIG_SYS_ARM_CACHE_WRITETHROUGH
-
-#undef CONFIG_ARCH_CPU_INIT
-#undef CONFIG_SKIP_LOWLEVEL_INIT	/* Lowlevel init handles ARM errata */
-/*###FIXME### Can we drop CONFIG_BOARD_EARLY_INIT_F?*/
-
-/* The load address of U-Boot is now independent from the size. Just load it
-   at some rather low address in RAM. It will relocate itself to the end of
-   RAM automatically when executed. */
-#define CONFIG_BOARD_SIZE_LIMIT 0x60000	/* Size of uboot.nb0 */
-
-/* For the default load address, use an offset of 16MB. The final kernel (after
-   decompressing the zImage) must be at offset 0x8000. But if we load the
-   zImage there, the loader code will move it away to make room for the
-   uncompressed image at this position. So we'll load it directly to a higher
-   address to avoid this additional copying. */
-#define CONFIG_SYS_LOAD_OFFS 0x01000000
 
 
 /************************************************************************
  * Memory Layout
  ************************************************************************/
 /* Physical addresses of DDR and CPU-internal SRAM */
-#define CONFIG_NR_DRAM_BANKS	1
-#define CONFIG_SYS_SDRAM_BASE	0x80000000
+#define CFG_SYS_SDRAM_BASE	0x80000000
 
 /* Vybrid has min. 256KB internal SRAM, mapped from 0x3F000000-0x3F03FFFF */
-#define CONFIG_SYS_INIT_RAM_ADDR	(IRAM_BASE_ADDR)
-#define CONFIG_SYS_INIT_RAM_SIZE	(IRAM_SIZE)
+#define CFG_SYS_INIT_RAM_ADDR	(IRAM_BASE_ADDR)
+#define CFG_SYS_INIT_RAM_SIZE	(IRAM_SIZE)
 
 /* Init value for stack pointer, set at end of internal SRAM, keep room for
    global data behind stack. */
-#define CONFIG_SYS_INIT_SP_OFFSET \
-	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
-#define CONFIG_SYS_INIT_SP_ADDR \
-	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
+#define CFG_SYS_INIT_SP_OFFSET (CFG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
 
 /* Allocate 2048KB protected RAM at end of RAM (Framebuffers, etc.) */
-#define CONFIG_PRAM		2048
+#define CFG_PRAM		2048
 
 /* Memory test checks all RAM before U-Boot (i.e. leaves last MB with U-Boot
    untested) ### If not set, test from beginning of RAM to before stack. */
@@ -162,9 +135,8 @@
 /************************************************************************
  * Serial Console (UART)
  ************************************************************************/
-#define CONFIG_MXC_UART_BASE UART2_BASE	/* Default UART port; however we
+#define CFG_MXC_UART_BASE UART2_BASE	/* Default UART port; however we
 					   always take the port from NBoot */
-#define CONFIG_SYS_BAUDRATE_TABLE	{9600, 19200, 38400, 57600, 115200}
 
 
 /************************************************************************
@@ -194,18 +166,16 @@
  * Ethernet
  ************************************************************************/
 
-/* PHY */
-#define CONFIG_SYS_DISCOVER_PHY
-#define CONFIG_SYS_FAULT_ECHO_LINK_DOWN
-
+#if 0 //### Set in defconfig when device tree support for fsvybrid is available
 #undef CONFIG_ID_EEPROM			/* No EEPROM for ethernet MAC */
+#endif //###
 
 
 /************************************************************************
  * USB Host
  ************************************************************************/
 /* Use USB1 as host */
-#define CONFIG_USB_MAX_CONTROLLER_COUNT 1
+//#define CONFIG_USB_MAX_CONTROLLER_COUNT 1
 
 
 /************************************************************************
@@ -222,8 +192,7 @@
 /************************************************************************
  * SD/MMC Card
  ************************************************************************/
-#define CONFIG_SYS_FSL_ESDHC_ADDR 0	/* Not used */
-/*#define CONFIG_MMC_TRACE*/
+#define CFG_SYS_FSL_ESDHC_ADDR 0	/* Not used */
 
 
 /************************************************************************
@@ -253,9 +222,9 @@
    as a second NAND device with just that size. This makes it easier to have a
    different ECC strategy and software write protection for NBoot. */
 #if 1
-#define CONFIG_SYS_MAX_NAND_DEVICE	1
+//#define CONFIG_SYS_MAX_NAND_DEVICE	1
 #else
-#define CONFIG_SYS_MAX_NAND_DEVICE	2
+//#define CONFIG_SYS_MAX_NAND_DEVICE	2
 #endif
 
 /* Our NAND layout has a continuous set of OOB data, so we only need one
@@ -267,25 +236,11 @@
    2824 bytes to 280 bytes (see include/linux/mtd/mtd.h). Please note that
    these settings have to be modified if smaller chunks or NAND flashes with
    larger pages are used. But then we have to modify the driver code anyway. */
-#define CONFIG_SYS_NAND_MAX_OOBFREE	2
-#define CONFIG_SYS_NAND_MAX_ECCPOS	64
-
-/* Define if you want to support nand chips that comply to ONFI spec */
-#define CONFIG_SYS_NAND_ONFI_DETECTION
 
 
 /************************************************************************
  * Command Line Editor (Shell)
  ************************************************************************/
-#ifdef CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
-#endif
-
-/* Input and print buffer sizes */
-#define CONFIG_SYS_CBSIZE	512	/* Console I/O Buffer Size */
-#define CONFIG_SYS_PBSIZE	640	/* Print Buffer Size */
-#define CONFIG_SYS_MAXARGS	16	/* max number of command args */
-#define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE /* Boot Arg Buffer Size */
 
 
 /************************************************************************
@@ -329,11 +284,12 @@
 /************************************************************************
  * Network Options
  ************************************************************************/
+#if 0 //### Set in defconfig when device tree support for fsvybrid is available
 #define CONFIG_BOOTP_DNS2
 #define CONFIG_BOOTP_SEND_HOSTNAME
 #define CONFIG_NET_RETRY_COUNT	5
 #define CONFIG_ARP_TIMEOUT	2000UL
-
+#endif //###
 
 /************************************************************************
  * Filesystem Support
@@ -373,17 +329,16 @@
  * change this layout, we should also make room for a second environment and
  * activate CONFIG_SYS_REDUNDAND_ENVIRONMENT.
  */
-#define CONFIG_ENV_OVERWRITE			/* Allow overwriting ethaddr */
 
-#define CONFIG_ETHPRIME		"FEC0"
-#define CONFIG_NETMASK		255.255.255.0
-#define CONFIG_IPADDR		10.0.0.252
-#define CONFIG_SERVERIP		10.0.0.122
-#define CONFIG_GATEWAYIP	10.0.0.5
-#define CONFIG_BOOTFILE		"zImage"
-#define CONFIG_ROOTPATH		"/rootfs"
-#define CONFIG_PREBOOT
-#define CONFIG_BOOTCOMMAND	"run set_bootargs; run kernel; run fdt"
+#if 0 //### Set in defconfig when device tree support for fsvybrid is available
+//####define CONFIG_ETHPRIME		"FEC0"
+//####define CONFIG_NETMASK		255.255.255.0
+//####define CONFIG_IPADDR		10.0.0.252
+//####define CONFIG_SERVERIP		10.0.0.122
+//####define CONFIG_GATEWAYIP	10.0.0.5
+//####define CONFIG_BOOTFILE		"zImage"
+//####define CONFIG_ROOTPATH		"/rootfs"
+#endif //###
 
 /* Add some variables that are not predefined in U-Boot. All entries with
    content "undef" will be updated with a board-specific value in

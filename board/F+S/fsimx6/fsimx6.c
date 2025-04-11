@@ -1923,6 +1923,8 @@ void board_preboot_os(void)
 	fs_disp_set_power_all(0);
 #endif
 
+#ifdef CONFIG_FEC_MXC
 	/* Shut down all ethernet PHYs (suspend mode) */
 	mdio_shutdown_all();
+#endif
 }

@@ -1548,11 +1548,3 @@ int mmc_map_to_kernel_blk(int devno)
 	return devno + 1;
 }
 #endif /* CONFIG_FASTBOOT_STORAGE_MMC */
-
-#ifdef CONFIG_BOARD_POSTCLK_INIT
-int board_postclk_init(void)
-{
-	/* TODO */
-	return 0;
-}
-#endif /* CONFIG_BOARD_POSTCLK_INIT */

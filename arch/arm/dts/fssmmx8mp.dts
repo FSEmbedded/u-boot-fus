@@ -483,14 +483,14 @@
 
 	pinctrl_usb3_0: usb0grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_GPIO1_IO10__USB1_OTG_ID	0x19
-			MX8MP_IOMUXC_GPIO1_IO12__USB1_OTG_PWR	0x19
+			MX8MP_IOMUXC_GPIO1_IO10__USB1_ID	0x19
+			MX8MP_IOMUXC_GPIO1_IO12__USB1_PWR	0x19
 		>;
 	};
 
 	pinctrl_usb3_1_pwr: usb1grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_GPIO1_IO14__USB2_OTG_PWR	0x19
+			MX8MP_IOMUXC_GPIO1_IO14__USB2_PWR	0x19
 		>;
 	};
 

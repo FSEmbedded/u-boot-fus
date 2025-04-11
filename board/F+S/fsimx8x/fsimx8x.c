@@ -714,11 +714,3 @@ void board_late_mmc_env_init(void)
 	sprintf(cmd, "mmc dev %d", dev_no);
 	run_command(cmd, 0);
 }
-
-#ifdef CONFIG_BOARD_POSTCLK_INIT
-int board_postclk_init(void)
-{
-	/* TODO */
-	return 0;
-}
-#endif /* CONFIG_BOARD_POSTCLK_INIT */

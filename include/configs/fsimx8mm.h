@@ -100,38 +100,12 @@
 
 #include "imx_env.h"
 
-/* disable FAT write becaue its doesn't work
- *  with F&S FAT driver
- */
-#undef CONFIG_FAT_WRITE
-
-/* need for F&S bootaux */
-#define M4_BOOTROM_BASE_ADDR		MCU_BOOTROM_BASE_ADDR
-#define IMX_SIP_SRC_M4_START		IMX_SIP_SRC_MCU_START
-#define IMX_SIP_SRC_M4_STARTED		IMX_SIP_SRC_MCU_STARTED
-
 #define CONFIG_SYS_SERCON_NAME "ttymxc"	/* Base name for serial devices */
-
-#define CONFIG_SYS_BOOTM_LEN		(64 * SZ_1M)
-
-#define CONFIG_SPL_MAX_SIZE		(140 * 1024)
-#define CONFIG_SYS_MONITOR_LEN		(512 * 1024)
 
 /* Address in OCRAM where BOARD-CFG is loaded to; U-Boot must know this, too */
 #define CONFIG_FUS_BOARDCFG_ADDR	0x910000
-#define CONFIG_SPL_BSS_START_ADDR	0x912000
-#define CONFIG_SPL_BSS_MAX_SIZE		0x2000	/* 8 KB */
 
 #ifdef CONFIG_SPL_BUILD
-/*#define CONFIG_ENABLE_DDR_TRAINING_DEBUG*/
-#define CONFIG_SPL_WATCHDOG_SUPPORT
-#define CONFIG_SPL_POWER_SUPPORT
-#define CONFIG_SPL_DRIVERS_MISC_SUPPORT
-#define CONFIG_SPL_I2C_SUPPORT
-#define CONFIG_SPL_LDSCRIPT		"arch/arm/cpu/armv8/u-boot-spl.lds"
-#define CONFIG_SPL_STACK		0x91fff0
-#define CONFIG_SPL_LIBCOMMON_SUPPORT
-#define CONFIG_SPL_LIBGENERIC_SUPPORT
 
 /* Offsets in NAND where BOARD-CFG and FIRMWARE are stored */
 #define CONFIG_FUS_BOARDCFG_NAND0	0x00180000
@@ -140,11 +114,6 @@
 /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */
 #define CONFIG_FUS_BOARDCFG_MMC0	0x00088000
 #define CONFIG_FUS_BOARDCFG_MMC1	0x00448000
-
-#define CONFIG_SYS_SPL_MALLOC_START	0x42200000
-#define CONFIG_SYS_SPL_MALLOC_SIZE	0x80000	/* 512 KB */
-#define CONFIG_SYS_ICACHE_OFF
-#define CONFIG_SYS_DCACHE_OFF
 
 /* These addresses are hardcoded in ATF */
 #define CONFIG_SPL_USE_ATF_ENTRYPOINT
@@ -155,83 +124,25 @@
 #define CONFIG_SPL_DRAM_TIMING_ADDR	0x81C000
 
 /* malloc_f is used before GD_FLG_FULL_MALLOC_INIT set */
-#define CONFIG_MALLOC_F_ADDR 0x914000
-
-/* ### Kann das weg? Wird nirgendwo genutzt */
-#define CONFIG_SPL_ABORT_ON_RAW_IMAGE /* For RAW image gives a error info not panic */
+#define CFG_MALLOC_F_ADDR 0x914000
 
 #define CONFIG_I2C_SUPPORT
 #undef CONFIG_DM_PMIC
 #undef CONFIG_DM_PMIC_PFUZE100
 
-#define CONFIG_POWER_BD71837
-/* #define CONFIG_DM_PMIC_BD71837 */
-
-#define CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
-
 #if defined(CONFIG_NAND_BOOT)
-#define CONFIG_SPL_DMA_SUPPORT
-#define CONFIG_SPL_NAND_MXS
 #define CONFIG_SPL_RAWNAND_BUFFERS_MALLOC
 
 /* Fallback values if values in nboot-info are missing/damaged */
+//### TODO: noch in defconfig übernehmen
 #define CONFIG_SYS_NAND_U_BOOT_OFFS 	0x00500000
 #define CONFIG_SYS_NAND_U_BOOT_OFFS_B	0x00800000
 #endif
 
 #endif /* CONFIG_SPL_BUILD */
 
-/* Add F&S update */
-#define CONFIG_CMD_UPDATE
-#define CONFIG_CMD_READ
-#define CONFIG_SERIAL_TAG
-#define CONFIG_FASTBOOT_USB_DEV 0
-
-#define CONFIG_REMAKE_ELF
-
-#define CONFIG_BOARD_EARLY_INIT_F
-#define CONFIG_BOARD_POSTCLK_INIT
-#define CONFIG_BOARD_LATE_INIT
-
-/* Flat Device Tree Definitions */
-#define CONFIG_OF_BOARD_SETUP
-
-/* ENET Config */
-/* ENET1 */
-#define CONFIG_SYS_DISCOVER_PHY
-
-#if defined(CONFIG_CMD_NET)
-#define CONFIG_ETHPRIME                 "FEC"
 #define FDT_SEQ_MACADDR_FROM_ENV
 
-#define CONFIG_FEC_XCV_TYPE             RGMII
-/* #define CONFIG_FEC_MXC_PHYADDR          4 */
-#define FEC_QUIRK_ENET_MAC
-
-#define CONFIG_PHY_GIGE
-#define IMX_FEC_BASE			0x30BE0000
-
-#define CONFIG_PHY_ATHEROS
-#define CONFIG_PHY_NATSEMI
-#define CONFIG_SYS_FAULT_ECHO_LINK_DOWN
-
-#ifndef CONFIG_FS_SPL_MEMTEST_COMMON
-#define CONFIG_LIB_RAND
-#endif
-
-#define CONFIG_NET_RANDOM_ETHADDR
-#define CONFIG_NETMASK		255.255.255.0
-#define CONFIG_IPADDR		10.0.0.252
-#define CONFIG_SERVERIP		10.0.0.122
-#define CONFIG_GATEWAYIP	10.0.0.5
-#define CONFIG_ROOTPATH		"/rootfs"
-
-#endif
-
-
-
-#define CONFIG_BOOTFILE		"Image"
-#define CONFIG_PREBOOT
 #ifdef CONFIG_FS_UPDATE_SUPPORT
 #define CONFIG_BOOTCOMMAND \
 	"run selector; run set_bootargs; run kernel; run fdt; run failed_update_reset"
@@ -548,7 +459,7 @@
 		"fi;\0"
 
 /* Initial environment variables */
-#define CONFIG_EXTRA_ENV_SETTINGS					\
+#define CFG_EXTRA_ENV_SETTINGS						\
 	"bd_kernel=undef\0"						\
 	"bd_fdt=undef\0"						\
 	"bd_rootfs=undef\0"						\
@@ -606,12 +517,10 @@
 	" ${network} ${rootfs} ${mode} ${init} ${extra} ${rauc_cmd}\0"
 
 /* Link Definitions */
-#define CONFIG_SYS_INIT_RAM_ADDR	0x40000000
-#define CONFIG_SYS_INIT_RAM_SIZE	0x80000
-#define CONFIG_SYS_INIT_SP_OFFSET				\
-        (CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
-#define CONFIG_SYS_INIT_SP_ADDR					\
-        (CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
+#define CFG_SYS_INIT_RAM_ADDR 0x40000000
+#define CFG_SYS_INIT_RAM_SIZE 0x80000
+#define CFG_SYS_INIT_SP_OFFSET (CFG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
+
 
 /************************************************************************
  * Environment
@@ -625,9 +534,9 @@
  * CONFIG_ENV_NAND_RANGE to have one spare block in case of a bad first block.
  * See also MMC and NAND layout above.
  */
-#define CONFIG_ENV_OVERWRITE			/* Allow overwriting ethaddr */
+#define CFG_SYS_SDRAM_BASE		0x40000000
 
-#define CONFIG_SYS_SDRAM_BASE		0x40000000
+/* F&S: Location of BOARD-CFG in OCRAM and how far to search if not found */
 #define CONFIG_SYS_OCRAM_BASE		0x00900000
 #define CONFIG_SYS_OCRAM_SIZE		0x00040000
 
@@ -638,62 +547,19 @@
 #define UART4_BASE			UART4_BASE_ADDR
 #define UART5_BASE			0xFFFFFFFF
 
-#define CONFIG_MXC_UART_BASE		UART1_BASE_ADDR
-
-/* Monitor Command Prompt */
+/* Not used on F&S boards. Detection depending on board type is preferred. */
+#define CFG_MXC_UART_BASE		UART1_BASE_ADDR
 
 /************************************************************************
  * Command Line Editor (Shell)
  ************************************************************************/
-#ifdef CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
-#endif
-
-/* Input and print buffer sizes */
-#define CONFIG_SYS_CBSIZE	512	/* Console I/O Buffer Size */
-#define CONFIG_SYS_PBSIZE	640	/* Print Buffer Size */
-#define CONFIG_SYS_MAXARGS	16	/* max number of command args */
-#define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE /* Boot Arg Buffer Size */
-
-#define CONFIG_IMX_BOOTAUX
 
 /* Number of available USDHC ports (USDHC1 and USDHC3) */
-#define CONFIG_SYS_FSL_USDHC_NUM	2
-
-#define CONFIG_SYS_FSL_ESDHC_ADDR       0
-
-/* USB configs */
-#ifndef CONFIG_SPL_BUILD
-#define CONFIG_USBD_HS
-#endif
-
-#define CONFIG_USB_GADGET_DUALSPEED
-#define CONFIG_USB_GADGET_VBUS_DRAW 2
-
-#define CONFIG_CI_UDC
-
-#define CONFIG_MXC_USB_PORTSC  (PORT_PTS_UTMI | PORT_PTS_PTW)
-#define CONFIG_USB_MAX_CONTROLLER_COUNT         2
+#define CFG_SYS_FSL_USDHC_NUM	2
+#define CFG_SYS_FSL_ESDHC_ADDR	0
 
 #ifdef CONFIG_NAND_BOOT
-/*####define CONFIG_CMD_NAND*/
-#define CONFIG_CMD_NAND_TRIMFFS
-
-/* NAND stuff */
-#define CONFIG_SYS_MAX_NAND_DEVICE	1
-#define CONFIG_SYS_NAND_BASE		0x40000000
-#define CONFIG_SYS_NAND_5_ADDR_CYCLE
-#define CONFIG_SYS_NAND_ONFI_DETECTION
-#define MXS_NAND_MAX_ECC_STRENGTH 62
-
+#define CFG_SYS_NAND_BASE		0x40000000
 #endif
-
-/* Framebuffer */
-#ifdef CONFIG_DM_VIDEO
-#define CONFIG_VIDEO_MXS
-#define CONFIG_VIDEO_LOGO
-#endif
-
-#define CONFIG_OF_SYSTEM_SETUP
 
 #endif
