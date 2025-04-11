@@ -470,6 +470,11 @@ parse_image()
 	    get_header_info $savedextra
 	    remaining=$((remaining - headersize))
 	    savedextra=$((savedextra - headersize))
+
+        while [[ "${head:6:2}" == "87" ]]; do      
+        container
+        done
+
 	    typedescr="[header/extra data]"
 	    handle_command $((globaloffs - headersize)) $(($2 + 1))
 	    head -c $savedextra > /dev/null
@@ -503,6 +508,44 @@ parse_image()
 #	    echo "globaloffs=$globaloffs remaining=$remaining" >&2
 	done
     fi
+}
+
+container()
+{
+        # wir sind bereits 0x4 über den header da die aufrufende Funktion diese Bytes einließt, jede +/- 0x4 kommen daher zustande
+        printf "i.MX Container: "
+
+        # get container size
+        container_padded=$(($(($(("0x${head:4:2}${head:2:2}" / 0x400)) + 1)) * 0x400))
+
+        # get container type
+        container_flags=$(head -c $headersize | xxd -l $headersize -c $headersize -p)
+        if [[ ${container_flags:0:2} -eq 01 ]]; then
+            printf "type: NXP, "
+        else
+            printf "type: OEM, "
+        fi
+
+        # skip unnecessary data
+        head -c 4 > /dev/null
+
+        #get other relevant info
+        container_signatureblock=$(head -c $headersize | xxd -l $headersize -c $headersize -p)
+        signature_offset=0x${container_signatureblock:2:2}${container_signatureblock:0:2}
+        
+        # print relevant info
+        printf "Container offset: %x, Signature block offset: %x\n" $(($globaloffs - 0x4)) $(($globaloffs + $signature_offset - 0x4)) #0x4 abzug weil die ersten vier bytes zuvor bereits abgezogen waren
+
+        # skip container to search for another
+        remaining=$((remaining - $container_padded + 0x4))   
+        savedextra=$((savedextra - $container_padded + 0x4)) 
+        head -c $(($container_padded - 0xC - 0x4)) > /dev/null # 0xC wegen den 0xC eingelesenen Bytes seid aufruf
+
+        # get next head to either try again or resume with normal operation
+        head=$(head -c $headersize | xxd -l $headersize -c $headersize -p)
+        remaining=$((remaining - $headersize))   
+        savedextra=$((savedextra - $headersize))
+        globaloffs=$((globaloffs + container_padded))
 }
 
 # Main part of the script

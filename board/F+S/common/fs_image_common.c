@@ -520,12 +520,8 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 		return false;
 	}
 
-	ret = fs_cntr_is_valid_signature(cntr_hdr);
-	if(!ret)
-		return ret;
-
 	if(!fs_image_match(fsh, "BOOT-INFO", NULL))
-		return ret;
+		return fs_cntr_is_valid_signature(cntr_hdr);
 
 	/**
 	 * BOOT-INFO image contains two bootcntr.
