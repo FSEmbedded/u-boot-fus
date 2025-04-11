@@ -47,6 +47,8 @@
 #define HUB_SHORT_RESET_TIME	40
 #define HUB_LONG_RESET_TIME	200
 
+#define HUB_DEBOUNCE_TIMEOUT	CONFIG_USB_HUB_DEBOUNCE_TIMEOUT
+
 #define PORT_OVERCURRENT_MAX_SCAN_COUNT		3
 
 struct usb_device_scan {
@@ -167,7 +169,7 @@ static void usb_hub_power_on(struct usb_hub_device *hub)
 	struct usb_device *dev;
 	unsigned long pgood_delay;
 	unsigned long connect_time;
-	const char *env;
+	const char __maybe_unused *env;
 
 	dev = hub->pusb_dev;
 
@@ -193,9 +195,11 @@ static void usb_hub_power_on(struct usb_hub_device *hub)
 	 * devices break the spec and require longer warm-up times
 	 */
 	pgood_delay = hub->desc.bPwrOn2PwrGood * 2;
+#if CONFIG_IS_ENABLED(ENV_SUPPORT)
 	env = env_get("usb_pgood_delay");
 	if (env)
 		pgood_delay = max(pgood_delay, simple_strtoul(env, NULL, 0));
+#endif
 	debug("pgood_delay=%lums\n", pgood_delay);
 
 	/*
@@ -210,7 +214,7 @@ static void usb_hub_power_on(struct usb_hub_device *hub)
 	 * will be done based on this value in the USB port loop in
 	 * usb_hub_configure() later.
 	 */
-	connect_time = 1500;
+	connect_time = HUB_DEBOUNCE_TIMEOUT;
 	env = env_get("usb_connect_time");
 	if (env)
 		connect_time = max(connect_time, simple_strtoul(env, NULL, 0));
@@ -525,11 +529,6 @@ static int usb_scan_port(struct usb_device_scan *usb_scan)
 		debug("port %d enable change, status %x\n", i + 1, portstatus);
 		usb_clear_port_feature(dev, i + 1, USB_PORT_FEAT_C_ENABLE);
 		/*
-		 * The following hack causes a ghost device problem
-		 * to Faraday EHCI
-		 */
-#ifndef CONFIG_USB_EHCI_FARADAY
-		/*
 		 * EM interference sometimes causes bad shielded USB
 		 * devices to be shutdown by the hub, this hack enables
 		 * them again. Works at least with mouse driver
@@ -541,7 +540,6 @@ static int usb_scan_port(struct usb_device_scan *usb_scan)
 			      i + 1);
 			usb_hub_port_connect_change(dev, i);
 		}
-#endif
 	}
 
 	if (portstatus & USB_PORT_STAT_SUSPEND) {

@@ -24,6 +24,7 @@
 #else
 	b	reset
 #endif
+#if !CONFIG_IS_ENABLED(SYS_NO_VECTOR_TABLE)
 	ldr	pc, _undefined_instruction
 	ldr	pc, _software_interrupt
 	ldr	pc, _prefetch_abort
@@ -31,6 +32,7 @@
 	ldr	pc, _not_used
 	ldr	pc, _irq
 	ldr	pc, _fiq
+#endif
 	.endm
 
 
@@ -82,12 +84,13 @@
 
 	.type _start, STT_FUNC
 _start:
-#ifdef CONFIG_SYS_DV_NOR_BOOT_CFG
-	.word	CONFIG_SYS_DV_NOR_BOOT_CFG
+#ifdef CFG_SYS_DV_NOR_BOOT_CFG
+	.word	CFG_SYS_DV_NOR_BOOT_CFG
 #endif
 	ARM_VECTORS
 #endif /* !defined(CONFIG_ENABLE_ARM_SOC_BOOT0_HOOK) */
 
+#if !CONFIG_IS_ENABLED(SYS_NO_VECTOR_TABLE)
 /*
  *************************************************************************
  *
@@ -120,6 +123,7 @@ _fiq:			.word fiq
 _pad:                   .word 0x12345678 /* now 16*4=64 */
 
 	.balignl 16,0xdeadbeef
+#endif
 
 /*
  *************************************************************************
@@ -133,6 +137,7 @@ _pad:                   .word 0x12345678 /* now 16*4=64 */
 
 #ifdef CONFIG_SPL_BUILD
 
+#if !CONFIG_IS_ENABLED(SYS_NO_VECTOR_TABLE)
 	.align	5
 undefined_instruction:
 software_interrupt:
@@ -143,6 +148,7 @@ irq:
 fiq:
 1:
 	b	1b			/* hang and never return */
+#endif
 
 #else	/* !CONFIG_SPL_BUILD */
 

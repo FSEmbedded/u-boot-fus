@@ -43,6 +43,13 @@ struct stdio_dev {
 
 	/* To put a string (accelerator) */
 	void (*puts) (const struct stdio_dev *dev, const char *s);
+#ifdef CONFIG_CONSOLE_FLUSH_SUPPORT
+	/* To flush output queue */
+	void (*flush)(const struct stdio_dev *dev);
+#define STDIO_DEV_ASSIGN_FLUSH(dev, flush_func) ((dev)->flush = (flush_func))
+#else
+#define STDIO_DEV_ASSIGN_FLUSH(dev, flush_func)
+#endif
 
 /* INPUT functions */
 	/* To test if a char is ready */

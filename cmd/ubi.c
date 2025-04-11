@@ -28,14 +28,13 @@
 #include <ubi_uboot.h>
 #include <linux/errno.h>
 #include <jffs2/load_kernel.h>
+#include <linux/log2.h>
 
 #undef ubi_msg
 #define ubi_msg(fmt, ...) printf("UBI: " fmt "\n", ##__VA_ARGS__)
 
 /* Private own data */
 static struct ubi_device *ubi;
-
-char current_part_name[80] = { 0 };
 
 #ifdef CONFIG_CMD_UBIFS
 #include <ubifs_uboot.h>
@@ -83,6 +82,70 @@ static int ubi_info(int layout)
 		display_volume_info(ubi);
 	else
 		display_ubi_info(ubi);
+
+	return 0;
+}
+
+static int ubi_list(const char *var, int numeric)
+{
+	size_t namelen, len, size;
+	char *str, *str2;
+	int i;
+
+	if (!var) {
+		for (i = 0; i < (ubi->vtbl_slots + 1); i++) {
+			if (!ubi->volumes[i])
+				continue;
+			if (ubi->volumes[i]->vol_id >= UBI_INTERNAL_VOL_START)
+				continue;
+			printf("%d: %s\n",
+			       ubi->volumes[i]->vol_id,
+			       ubi->volumes[i]->name);
+		}
+		return 0;
+	}
+
+	len = 0;
+	size = 16;
+	str = malloc(size);
+	if (!str)
+		return 1;
+
+	for (i = 0; i < (ubi->vtbl_slots + 1); i++) {
+		if (!ubi->volumes[i])
+			continue;
+		if (ubi->volumes[i]->vol_id >= UBI_INTERNAL_VOL_START)
+			continue;
+
+		if (numeric)
+			namelen = 10; /* strlen(stringify(INT_MAX)) */
+		else
+			namelen = strlen(ubi->volumes[i]->name);
+
+		if (len + namelen + 1 > size) {
+			size = roundup_pow_of_two(len + namelen + 1) * 2;
+			str2 = realloc(str, size);
+			if (!str2) {
+				free(str);
+				return 1;
+			}
+			str = str2;
+		}
+
+		if (len)
+			str[len++] = ' ';
+
+		if (numeric) {
+			len += sprintf(str + len, "%d", ubi->volumes[i]->vol_id) + 1;
+		} else {
+			memcpy(str + len, ubi->volumes[i]->name, namelen);
+			len += namelen;
+			str[len] = 0;
+		}
+	}
+
+	env_set(var, str);
+	free(str);
 
 	return 0;
 }
@@ -506,7 +569,6 @@ static int ubi_detach(void)
 		ubi_exit();
 
 	ubi = NULL;
-	current_part_name[0] = 0;
 
 	return 0;
 }
@@ -516,9 +578,10 @@ int set_ubi_part(const char *part_name, const char *vid_header_offset)
 	struct mtd_info *mtd;
 	int err = 0;
 
-	/* If this partition is already set, we're done */
-	if (ubi && !strncmp(current_part_name, part_name, 80))
+	if (ubi && ubi->mtd && !strcmp(ubi->mtd->name, part_name)) {
+		printf("UBI partition '%s' already selected\n", part_name);
 		return 0;
+	}
 
 	ubi_detach();
 
@@ -538,7 +601,6 @@ int set_ubi_part(const char *part_name, const char *vid_header_offset)
 	}
 
 	ubi = ubi_devices[0];
-	strncpy(current_part_name, part_name, 80);
 
 	return 0;
 }
@@ -585,6 +647,21 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		if ((argc > 2) && (argv[2][0] == 'l'))
 			layout = 1;
 		return ubi_info(layout);
+	}
+
+	if (strcmp(argv[1], "list") == 0) {
+		int numeric = 0;
+		if (argc >= 2 && argv[2][0] == '-') {
+			if (strcmp(argv[2], "-numeric") == 0)
+				numeric = 1;
+			else
+				return CMD_RET_USAGE;
+		}
+		if (!numeric && argc != 2 && argc != 3)
+			return CMD_RET_USAGE;
+		if (numeric && argc != 3 && argc != 4)
+			return CMD_RET_USAGE;
+		return ubi_list(argv[numeric ? 3 : 2], numeric);
 	}
 
 	if (strcmp(argv[1], "check") == 0) {
@@ -704,6 +781,11 @@ U_BOOT_CMD(
 		" - detach ubi from a mtd partition\n"
 	"ubi info [l[ayout]]"
 		" - Display volume and ubi layout information\n"
+	"ubi list [flags]"
+		" - print the list of volumes\n"
+	"ubi list [flags] <varname>"
+		" - set environment variable to the list of volumes"
+		" (flags can be -numeric)\n"
 	"ubi check volume"
 		" - check if volumename exists\n"
 	"ubi create[vol] volume [size [type [id [--skipcheck]]]]\n"

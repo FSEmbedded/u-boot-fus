@@ -78,8 +78,10 @@ __weak void board_init_f_init_stack_protection(void)
 ulong board_init_f_alloc_reserve(ulong top)
 {
 	/* Reserve early malloc arena */
-#if CONFIG_VAL(SYS_MALLOC_F_LEN) && !defined(CONFIG_MALLOC_F_ADDR)
+#ifndef CFG_MALLOC_F_ADDR
+#if CONFIG_VAL(SYS_MALLOC_F_LEN)
 	top -= CONFIG_VAL(SYS_MALLOC_F_LEN);
+#endif
 #endif
 	/* LAST : reserve GD (rounded up to a multiple of 16 bytes) */
 	top = rounddown(top-sizeof(struct global_data), 16);
@@ -157,7 +159,7 @@ void board_init_f_init_reserve(ulong base)
 	 * Use gd as it is now properly set for all architectures.
 	 */
 
-#if CONFIG_VAL(SYS_MALLOC_F_LEN) && !defined(CONFIG_MALLOC_F_ADDR)
+#if CONFIG_VAL(SYS_MALLOC_F_LEN) && !defined(CFG_MALLOC_F_ADDR)
 	/* go down one 'early malloc arena' */
 	gd->malloc_base = base;
 #endif

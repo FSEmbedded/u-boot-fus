@@ -3,8 +3,6 @@
  * Freescale i.MX23/i.MX28 LCDIF driver
  *
  * Copyright (C) 2011-2013 Marek Vasut <marex@denx.de>
- * Copyright (C) 2014-2016 Freescale Semiconductor, Inc.
- *
  */
 #include <common.h>
 #include <clk.h>
@@ -17,12 +15,8 @@
 #include <linux/errno.h>
 #include <malloc.h>
 #include <video.h>
-#include <video_fb.h>
-#if CONFIG_IS_ENABLED(CLK) && IS_ENABLED(CONFIG_IMX8)
-#include <clk.h>
-#else
+
 #include <asm/arch/clock.h>
-#endif
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/global_data.h>
@@ -35,10 +29,6 @@
 #include <display.h>
 
 #include "videomodes.h"
-#include <linux/string.h>
-#include <linux/list.h>
-#include <linux/fb.h>
-#include <mxsfb.h>
 #include <dm/device-internal.h>
 
 #ifdef CONFIG_VIDEO_GIS
@@ -50,6 +40,11 @@
 
 #define BITS_PP		18
 #define BYTES_PP	4
+
+struct mxsfb_priv {
+	fdt_addr_t reg_base;
+	struct udevice *disp_dev;
+};
 
 struct mxs_dma_desc desc;
 
@@ -76,23 +71,64 @@ __weak void mxsfb_system_setup(void)
  *	 le:89,ri:164,up:23,lo:10,hs:10,vs:10,sync:0,vmode:0
  */
 
-static void mxs_lcd_init(phys_addr_t reg_base, struct display_timing *timings,
-			 int bpp, u32 fb_addr, int rgb_pattern, bool bridge)
+static void mxs_lcd_init(struct udevice *dev, u32 fb_addr,
+			 struct display_timing *timings, int bpp,
+			 int rgb_pattern, bool bridge)
 {
-	struct mxs_lcdif_regs *regs = (struct mxs_lcdif_regs *)(reg_base);
+	struct mxsfb_priv *priv = dev_get_priv(dev);
+	struct mxs_lcdif_regs *regs = (struct mxs_lcdif_regs *)priv->reg_base;
 	const enum display_flags flags = timings->flags;
 	uint32_t word_len = 0, bus_width = 0;
 	uint8_t valid_data = 0;
 	uint32_t ctrl2;
 	uint32_t vdctrl0;
 
-#if CONFIG_IS_ENABLED(DM_VIDEO)
-#if !(CONFIG_IS_ENABLED(CLK) && IS_ENABLED(CONFIG_IMX8))
+#if CONFIG_IS_ENABLED(CLK)
+	struct clk clk;
+	int ret;
+
+	ret = clk_get_by_name(dev, "pix", &clk);
+	if (ret) {
+		dev_err(dev, "Failed to get mxs pix clk: %d\n", ret);
+		return;
+	}
+
+	ret = clk_set_rate(&clk, timings->pixelclock.typ);
+	if (ret < 0) {
+		dev_err(dev, "Failed to set mxs pix clk: %d\n", ret);
+		return;
+	}
+
+	ret = clk_enable(&clk);
+	if (ret < 0) {
+		dev_err(dev, "Failed to enable mxs pix clk: %d\n", ret);
+		return;
+	}
+
+	ret = clk_get_by_name(dev, "axi", &clk);
+	if (ret < 0) {
+		debug("%s: Failed to get mxs axi clk: %d\n", __func__, ret);
+	} else {
+		ret = clk_enable(&clk);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable mxs axi clk: %d\n", ret);
+			return;
+		}
+	}
+
+	ret = clk_get_by_name(dev, "disp_axi", &clk);
+	if (ret < 0) {
+		debug("%s: Failed to get mxs disp_axi clk: %d\n", __func__, ret);
+	} else {
+		ret = clk_enable(&clk);
+		if (ret < 0) {
+			dev_err(dev, "Failed to enable mxs disp_axi clk: %d\n", ret);
+			return;
+		}
+	}
+#else
 	/* Kick in the LCDIF clock */
-	/* ### Clock configuration is board specific, handle outside of the
-           driver. Clocks should all be set and started when coming here. */
-	mxs_set_lcdclk((u32)reg_base, timings->pixelclock.typ / 1000);
-#endif
+	mxs_set_lcdclk(priv->reg_base, timings->pixelclock.typ / 1000);
 #endif
 
 	/* Restart the LCDIF block */
@@ -184,6 +220,13 @@ static void mxs_lcd_init(phys_addr_t reg_base, struct display_timing *timings,
 
 	/* RUN! */
 	writel(LCDIF_CTRL_RUN, &regs->hw_lcdif_ctrl_set);
+}
+
+static int mxs_probe_common(phys_addr_t reg_base, struct display_timing *timings,
+			    int bpp, u32 fb, bool bridge)
+{
+	/* Start framebuffer */
+	mxs_lcd_init(reg_base, fb, timings, bpp, bridge);
 
 #ifdef CONFIG_VIDEO_MXS_MODE_SYSTEM
 	/*
@@ -194,6 +237,8 @@ static void mxs_lcd_init(phys_addr_t reg_base, struct display_timing *timings,
 	 * sets the RUN bit, then waits until it gets cleared and repeats this
 	 * infinitelly. This way, we get smooth continuous updates of the LCD.
 	 */
+	struct mxs_lcdif_regs *regs = (struct mxs_lcdif_regs *)reg_base;
+
 	memset(&desc, 0, sizeof(struct mxs_dma_desc));
 	desc.address = (dma_addr_t)&desc;
 	desc.cmd.data = MXS_DMA_DESC_COMMAND_NO_DMAXFER | MXS_DMA_DESC_CHAIN |
@@ -233,221 +278,6 @@ static int mxs_remove_common(phys_addr_t reg_base, u32 fb)
 
 	return 0;
 }
-
-#ifndef CONFIG_DM_VIDEO
-
-static GraphicDevice panel;
-
-static const struct fb_videomode *fbmode;
-
-static struct mxsfb_info {
-	struct mxs_lcdif_regs *regs;
-	u32 bpp;
-	int rgb_pattern;
-} info;
-
-int mxs_lcd_panel_setup(uint32_t base_addr, const struct fb_videomode *mode,
-			int bpp, int rgb_pattern)
-{
-	fbmode = mode;
-	info.bpp = bpp;
-	info.regs = (struct mxs_lcdif_regs *)(unsigned long)base_addr;
-	info.rgb_pattern = rgb_pattern;
-
-	return 0;
-}
-
-void mxs_lcd_get_panel(struct display_panel *dispanel)
-{
-	if (dispanel && fbmode) {
-		dispanel->width = panel.winSizeX;
-		dispanel->height = panel.winSizeY;
-		dispanel->reg_base = panel.isaBase;
-		dispanel->gdfindex = panel.gdfIndex;
-		dispanel->gdfbytespp = panel.gdfBytesPP;
-	}
-}
-
-void lcdif_power_down(void)
-{
-	mxs_remove_common(panel.isaBase, panel.frameAdrs);
-}
-
-void *video_hw_init(void)
-{
-	char *penv;
-	void *fb = NULL;
-	struct ctfb_res_modes mode;
-	struct display_timing timings;
-
-	puts("Video: ");
-
-	if (!fbmode) {
-		/* Suck display configuration from "videomode" variable */
-		penv = env_get("videomode");
-		if (!penv) {
-			printf("MXSFB: 'videomode' variable not set!\n");
-			return NULL;
-		}
-
-		info.bpp = video_get_params(&mode, penv);
-		info.rgb_pattern = PATTERN_RGB;
-		info.regs = (struct mxs_lcdif_regs *)MXS_LCDIF_BASE;
-	} else {
-		mode.xres = fbmode->xres;
-		mode.yres = fbmode->yres;
-		mode.pixclock = fbmode->pixclock;
-		mode.left_margin = fbmode->left_margin;
-		mode.right_margin = fbmode->right_margin;
-		mode.upper_margin = fbmode->upper_margin;
-		mode.lower_margin = fbmode->lower_margin;
-		mode.hsync_len = fbmode->hsync_len;
-		mode.vsync_len = fbmode->vsync_len;
-		mode.sync = fbmode->sync;
-		mode.vmode = fbmode->vmode;
-	}
-
-	if (CONFIG_IS_ENABLED(IMX_MODULE_FUSE)) {
-		if (check_module_fused(MODULE_LCDIF)) {
-			printf("LCDIF@0x%x is fused, disable it\n", MXS_LCDIF_BASE);
-			return NULL;
-		}
-	}
-	/* fill in Graphic device struct */
-	sprintf(panel.modeIdent, "%dx%dx%d", mode.xres, mode.yres, info.bpp);
-
-	panel.isaBase = (unsigned long)info.regs;
-	panel.winSizeX = mode.xres;
-	panel.winSizeY = mode.yres;
-	panel.plnSizeX = mode.xres;
-	panel.plnSizeY = mode.yres;
-
-	switch (info.bpp) {
-	case 24:
-	case 18:
-		panel.gdfBytesPP = 4;
-		panel.gdfIndex = GDF_32BIT_X888RGB;
-		break;
-	case 16:
-		panel.gdfBytesPP = 2;
-		panel.gdfIndex = GDF_16BIT_565RGB;
-		break;
-	case 8:
-		panel.gdfBytesPP = 1;
-		panel.gdfIndex = GDF__8BIT_INDEX;
-		break;
-	default:
-		printf("MXSFB: Invalid BPP specified! (bpp = %i)\n", info.bpp);
-		return NULL;
-	}
-
-	panel.memSize = mode.xres * mode.yres * panel.gdfBytesPP;
-
-	/* Allocate framebuffer */
-	fb = memalign(ARCH_DMA_MINALIGN,
-		      roundup(panel.memSize, ARCH_DMA_MINALIGN));
-	if (!fb) {
-		printf("MXSFB: Error allocating framebuffer!\n");
-		return NULL;
-	}
-
-	/* Wipe framebuffer */
-	memset(fb, 0, panel.memSize);
-
-	panel.frameAdrs = (ulong)fb;
-
-	printf("%s\n", panel.modeIdent);
-
-	video_ctfb_mode_to_display_timing(&mode, &timings);
-	timings.flags |= DISPLAY_FLAGS_DE_HIGH; /* Force enable pol ### Why? */
-
-	mxs_lcd_init(panel.isaBase, &timings, info.bpp, (u32)(ulong)fb,
-			   info.rgb_pattern, false);
-
-#ifdef CONFIG_VIDEO_GIS
-	/* Entry for GIS */
-	mxc_enable_gis();
-#endif
-
-	return (void *)&panel;
-}
-#else /* ifndef CONFIG_DM_VIDEO */
-
-struct mxsfb_priv {
-	fdt_addr_t reg_base;
-	struct udevice *disp_dev;
-
-#if IS_ENABLED(CONFIG_DM_RESET)
-	struct reset_ctl_bulk soft_resetn;
-	struct reset_ctl_bulk clk_enable;
-#endif
-
-#if CONFIG_IS_ENABLED(CLK) && IS_ENABLED(CONFIG_IMX8)
-	struct clk			lcdif_pix;
-	struct clk			lcdif_disp_axi;
-	struct clk			lcdif_axi;
-#endif
-};
-
-#if IS_ENABLED(CONFIG_DM_RESET)
-static int lcdif_rstc_reset(struct reset_ctl_bulk *rstc, bool assert)
-{
-	int ret;
-
-	if (!rstc)
-		return 0;
-
-	ret = assert ? reset_assert_bulk(rstc)	:
-		       reset_deassert_bulk(rstc);
-
-	return ret;
-}
-
-static int lcdif_of_parse_resets(struct udevice *dev)
-{
-	int ret;
-	ofnode parent, child;
-	struct ofnode_phandle_args args;
-	struct reset_ctl_bulk rstc;
-	const char *compat;
-	uint32_t rstc_num = 0;
-
-	struct mxsfb_priv *priv = dev_get_priv(dev);
-
-	ret = dev_read_phandle_with_args(dev, "resets", "#reset-cells", 0,
-					 0, &args);
-	if (ret)
-		return ret;
-
-	parent = args.node;
-	ofnode_for_each_subnode(child, parent) {
-		compat = ofnode_get_property(child, "compatible", NULL);
-		if (!compat)
-			continue;
-
-		ret = reset_get_bulk_nodev(child, &rstc);
-		if (ret)
-			continue;
-
-		if (!of_compat_cmp("lcdif,soft-resetn", compat, 0)) {
-			priv->soft_resetn = rstc;
-			rstc_num++;
-		} else if (!of_compat_cmp("lcdif,clk-enable", compat, 0)) {
-			priv->clk_enable = rstc;
-			rstc_num++;
-		}
-		else
-			dev_warn(dev, "invalid lcdif reset node: %s\n", compat);
-	}
-
-	if (!rstc_num) {
-		dev_err(dev, "no invalid reset control exists\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-#endif
 
 static int mxs_of_get_timings(struct udevice *dev,
 			      struct display_timing *timings,
@@ -521,54 +351,12 @@ static int mxs_video_probe(struct udevice *dev)
 		return ret;
 	timings.flags |= DISPLAY_FLAGS_DE_HIGH; //### Why?
 
-#if CONFIG_IS_ENABLED(CLK) && IS_ENABLED(CONFIG_IMX8)
-	ret = clk_get_by_name(dev, "pix", &priv->lcdif_pix);
-	if (ret) {
-		printf("Failed to get pix clk\n");
-		return ret;
-	}
-
-	ret = clk_get_by_name(dev, "disp_axi", &priv->lcdif_disp_axi);
-	if (ret) {
-		printf("Failed to get disp_axi clk\n");
-		return ret;
-	}
-
-	ret = clk_get_by_name(dev, "axi", &priv->lcdif_axi);
-	if (ret) {
-		printf("Failed to get axi clk\n");
-		return ret;
-	}
-
-	ret = clk_enable(&priv->lcdif_axi);
-	if (ret) {
-		printf("unable to enable lcdif_axi clock\n");
-		return ret;
-	}
-
-	ret = clk_enable(&priv->lcdif_disp_axi);
-	if (ret) {
-		printf("unable to enable lcdif_disp_axi clock\n");
-		return ret;
-	}
-#endif
-
-#if IS_ENABLED(CONFIG_DM_RESET)
-	ret = lcdif_of_parse_resets(dev);
-	if (!ret) {
-		ret = lcdif_rstc_reset(&priv->soft_resetn, false);
-		if (ret) {
-			dev_err(dev, "deassert soft_resetn failed\n");
-			return ret;
-		}
-
-		ret = lcdif_rstc_reset(&priv->clk_enable, true);
-		if (ret) {
-			dev_err(dev, "assert clk_enable failed\n");
-			return ret;
+	if (CONFIG_IS_ENABLED(IMX_MODULE_FUSE)) {
+		if (check_module_fused(MODULE_LCDIF)) {
+			printf("LCDIF@0x%lx is fused, disable it\n", (ulong)priv->reg_base);
+			return -ENODEV;
 		}
 	}
-#endif
 
 	if (priv->disp_dev) {
 #if IS_ENABLED(CONFIG_DISPLAY)
@@ -613,22 +401,14 @@ static int mxs_video_probe(struct udevice *dev)
 		}
 	}
 
-#if CONFIG_IS_ENABLED(CLK) && IS_ENABLED(CONFIG_IMX8)
-	ret = clk_set_rate(&priv->lcdif_pix, timings.pixelclock.typ);
-	if (ret < 0) {
-		printf("Failed to set pix clk rate\n");
+	ret = mxs_lcd_init(dev, &timings, bpp, plat->base, PATTERN_RGB, enable_bridge);
+	if (ret)
 		return ret;
-	}
 
-	ret = clk_enable(&priv->lcdif_pix);
-	if (ret) {
-		printf("unable to enable lcdif_pix clock\n");
-		return ret;
-	}
+#ifdef CONFIG_VIDEO_GIS
+	/* Entry for GIS */
+	mxc_enable_gis();
 #endif
-
-	mxs_lcd_init(priv->reg_base, &timings, bpp, plat->base,
-		     PATTERN_RGB, enable_bridge);
 
 	switch (bpp) {
 	case 32:
@@ -708,4 +488,3 @@ U_BOOT_DRIVER(mxs_video) = {
 	.flags	= DM_FLAG_PRE_RELOC | DM_FLAG_OS_PREPARE,
 	.priv_auto   = sizeof(struct mxsfb_priv),
 };
-#endif /* ifndef CONFIG_DM_VIDEO */

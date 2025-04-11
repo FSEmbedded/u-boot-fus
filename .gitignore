@@ -6,10 +6,12 @@
 # Normal rules (sorted alphabetically)
 #
 .*
+!.checkpatch.conf
 *.a
 *.asn1.[ch]
 *.bin
 *.cfgout
+*.cover
 *.dtb
 *.dtbo
 *.dtb.S
@@ -23,6 +25,7 @@
 *.lex.c
 *.lst
 *.mod.c
+*.mbx
 *.o
 *.o.*
 *.order
@@ -105,3 +108,6 @@ __pycache__
 # pylint files
 /pylint.cur
 /pylint.out/
+
+# moveconfig database
+/moveconfig.db

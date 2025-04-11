@@ -20,12 +20,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#ifdef CONFIG_IMX8MP
-#define I2C_MAX_NUM 5
-#else
-#define I2C_MAX_NUM 3
-#endif
-
 static struct anamix_pll *ana_pll = (struct anamix_pll *)ANATOP_BASE_ADDR;
 
 static u32 get_root_clk(enum clk_root_index clock_id);
@@ -44,21 +38,17 @@ void enable_ocotp_clk(unsigned char enable)
 
 int enable_i2c_clk(unsigned char enable, unsigned i2c_num)
 {
-	/* 0 - 3 is valid i2c num */
-	if (i2c_num > I2C_MAX_NUM)
+	u8 i2c_ccgr[6] = {
+			CCGR_I2C1, CCGR_I2C2, CCGR_I2C3, CCGR_I2C4,
+#if (IS_ENABLED(CONFIG_IMX8MP))
+			CCGR_I2C5_8MP, CCGR_I2C6_8MP
+#endif
+	};
+
+	if (i2c_num >= ARRAY_SIZE(i2c_ccgr))
 		return -EINVAL;
 
-	switch(i2c_num)
-	{
-	case 4:
-		clock_enable(CCGR_I2C5_8MP, !!enable);
-		break;
-	case 5:
-		clock_enable(CCGR_I2C6_8MP, !!enable);
-		break;
-	default:
-		clock_enable(CCGR_I2C1 + i2c_num, !!enable);
-	}
+	clock_enable(i2c_ccgr[i2c_num], !!enable);
 
 	return 0;
 }

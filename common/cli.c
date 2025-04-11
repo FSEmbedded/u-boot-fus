@@ -67,7 +67,7 @@ char *get_sys_prompt(void) __attribute__((weak, alias("__get_sys_prompt")));
  */
 int run_command(const char *cmd, int flag)
 {
-#if !CONFIG_IS_ENABLED(HUSH_PARSER)
+#if !IS_ENABLED(CONFIG_HUSH_PARSER)
 	/*
 	 * cli_run_command can return 0 or 1 for success, so clean up
 	 * its result.
@@ -162,12 +162,27 @@ int run_command_list(const char *cmd, int len, int flag)
 	return rcode;
 }
 
+int run_commandf(const char *fmt, ...)
+{
+	va_list args;
+	char cmd[128];
+	int i, ret;
+
+	va_start(args, fmt);
+	i = vsnprintf(cmd, sizeof(cmd), fmt, args);
+	va_end(args);
+
+	ret = run_command(cmd, 0);
+
+	return ret;
+}
+
 /****************************************************************************/
 
 #if defined(CONFIG_CMD_RUN)
 int do_run(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	int i;
+	int i, ret;
 
 	if (argc < 2)
 		return CMD_RET_USAGE;
@@ -181,8 +196,9 @@ int do_run(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			return 1;
 		}
 
-		if (run_command(arg, flag | CMD_FLAG_ENV) != 0)
-			return 1;
+		ret = run_command(arg, flag | CMD_FLAG_ENV);
+		if (ret)
+			return ret;
 	}
 	return 0;
 }

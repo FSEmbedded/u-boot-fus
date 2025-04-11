@@ -42,7 +42,6 @@ int eepro100_initialize(struct bd_info *bis);
 int ep93xx_eth_initialize(u8 dev_num, int base_addr);
 int eth_3com_initialize (struct bd_info * bis);
 int ethoc_initialize(u8 dev_num, int base_addr);
-int fec_initialize (struct bd_info *bis);
 
 #ifdef CONFIG_FEC_MXC
 #include <phy.h>
@@ -97,9 +96,7 @@ int sh_eth_initialize(struct bd_info *bis);
 int skge_initialize(struct bd_info *bis);
 int smc91111_initialize(u8 dev_num, phys_addr_t base_addr);
 int smc911x_initialize(u8 dev_num, phys_addr_t base_addr);
-int uec_standard_init(struct bd_info *bis);
 int uli526x_initialize(struct bd_info *bis);
-int armada100_fec_register(unsigned long base_addr);
 
 /* Boards with PCI network controllers can call this from their board_eth_init()
  * function to initialize whatever's on board.
@@ -148,8 +145,7 @@ struct mii_dev *fec_get_miibus(ulong base_addr, int dev_id);
 #ifdef CONFIG_PHYLIB
 struct phy_device;
 int fec_probe(struct bd_info *bd, int dev_id, uint32_t base_addr,
-	      struct mii_dev *bus, struct phy_device *phydev,
-	      enum xceiver_type xcv_type);
+		struct mii_dev *bus, struct phy_device *phydev);
 #else
 /*
  * Allow FEC to fine-tune MII configuration on boards which require this.

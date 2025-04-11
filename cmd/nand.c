@@ -426,12 +426,14 @@ static void nand_print_and_set_info(int idx)
 		printf("skip first %llu KiB, remaining ", mtd->skip >> 10);
 	printf("size %llu KiB, %swrite protected\n", mtd->size >> 10,
 	       nand_is_swprotected(mtd) ? "" : "not ");
-	printf("  Page size   %8d b\n", mtd->writesize);
-	printf("  OOB size    %8d b\n", mtd->oobsize);
-	printf("  Erase size  %8d b\n", mtd->erasesize);
-	printf("  Subpagesize %8d b\n", chip->subpagesize);
-	printf("  Options     0x%08x\n", chip->options);
-	printf("  BBT options 0x%08x\n", chip->bbt_options);
+	printf("  Page size     %8d b\n", mtd->writesize);
+	printf("  OOB size      %8d b\n", mtd->oobsize);
+	printf("  Erase size    %8d b\n", mtd->erasesize);
+	printf("  ECC strength  %8d bits\n", mtd->ecc_strength);
+	printf("  ECC step size %8d b\n", mtd->ecc_step_size);
+	printf("  Subpagesize   %8d b\n", chip->subpagesize);
+	printf("  Options       0x%08x\n", chip->options);
+	printf("  BBT options   0x%08x\n", chip->bbt_options);
 
 	/* Set geometry info */
 	env_set_hex("nand_writesize", mtd->writesize);
@@ -1078,7 +1080,7 @@ int nand_load_image(struct mtd_info *mtd, ulong offset, ulong addr, int show)
 	int r;
 	size_t cnt;
 #if defined(CONFIG_LEGACY_IMAGE_FORMAT)
-	image_header_t *hdr;
+	struct legacy_img_hdr *hdr;
 #endif
 #if defined(CONFIG_FIT)
 	const void *fit_hdr = NULL;
@@ -1117,7 +1119,7 @@ int nand_load_image(struct mtd_info *mtd, ulong offset, ulong addr, int show)
 	switch (genimg_get_format ((void *)addr)) {
 #if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 	case IMAGE_FORMAT_LEGACY:
-		hdr = (image_header_t *)addr;
+		hdr = (struct legacy_img_hdr *)addr;
 
 		if (show)
 			bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
@@ -1193,12 +1195,12 @@ int nand_load_image(struct mtd_info *mtd, ulong offset, ulong addr, int show)
 	if (genimg_get_format ((void *)addr) == IMAGE_FORMAT_FIT) {
 		if (fit_check_format(fit_hdr, IMAGE_SIZE_INVAL)) {
 			if (show)
-			bootstage_error(BOOTSTAGE_ID_NAND_FIT_READ);
+				bootstage_error(BOOTSTAGE_ID_NAND_FIT_READ);
 			puts ("** Bad FIT image format\n");
 			return 1;
 		}
 		if (show)
-		bootstage_mark(BOOTSTAGE_ID_NAND_FIT_READ_OK);
+			bootstage_mark(BOOTSTAGE_ID_NAND_FIT_READ_OK);
 		fit_print_contents (fit_hdr);
 	}
 #endif

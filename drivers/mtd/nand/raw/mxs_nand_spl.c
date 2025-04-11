@@ -29,8 +29,20 @@ static void mxs_nand_command(struct mtd_info *mtd, unsigned int command,
 
 	/* Serially input address */
 	if (column != -1) {
+		/* Adjust columns for 16 bit buswidth */
+		if (chip->options & NAND_BUSWIDTH_16 &&
+				!nand_opcode_8bits(command))
+			column >>= 1;
 		chip->cmd_ctrl(mtd, column, NAND_ALE);
-		chip->cmd_ctrl(mtd, column >> 8, NAND_ALE);
+
+		/*
+		 * Assume LP NAND here, so use two bytes column address
+		 * but not for CMD_READID and CMD_PARAM, which require
+		 * only one byte column address
+		 */
+		if (command != NAND_CMD_READID &&
+			command != NAND_CMD_PARAM)
+			chip->cmd_ctrl(mtd, column >> 8, NAND_ALE);
 	}
 	if (page_addr != -1) {
 		chip->cmd_ctrl(mtd, page_addr, NAND_ALE);
@@ -69,13 +81,13 @@ static int mxs_flash_full_ident(struct mtd_info *mtd)
 {
 	int nand_maf_id, nand_dev_id;
 	struct nand_chip *chip = mtd_to_nand(mtd);
-	const struct nand_flash_dev *type;
+	struct nand_flash_dev *type;
 
-	type = nand_get_flash_type(mtd, chip, &nand_maf_id, &nand_dev_id, NULL);
+	ret = nand_detect(chip, &nand_maf_id, &nand_dev_id, NULL);
 
-	if (IS_ERR(type)) {
+	if (ret) {
 		chip->select_chip(mtd, -1);
-		return PTR_ERR(type);
+		return ret;
 	}
 
 	return 0;
@@ -227,14 +239,14 @@ void nand_init(void)
 	mxs_nand_setup_ecc(mtd);
 }
 
-int nand_spl_load_image(uint32_t offs, unsigned int size, void *buf)
+int nand_spl_load_image(uint32_t offs, unsigned int size, void *dst)
 {
-	struct nand_chip *chip;
-	unsigned int page;
+	unsigned int sz;
+	unsigned int block, lastblock;
+	unsigned int page, page_offset;
 	unsigned int nand_page_per_block;
-	unsigned int sz = 0;
+	struct nand_chip *chip;
 	u8 *page_buf = NULL;
-	u32 page_off;
 	int err;
 
 	chip = mtd_to_nand(mtd);
@@ -251,47 +263,41 @@ int nand_spl_load_image(uint32_t offs, unsigned int size, void *buf)
 	 */
 	page_buf = chip->buffers->databuf;
 
-	page = offs >> chip->page_shift;
-	page_off = offs & (mtd->writesize - 1);
+	/* offs has to be aligned to a page address! */
+	block = offs / mtd->erasesize;
+	lastblock = (offs + size - 1) / mtd->erasesize;
+	page = (offs % mtd->erasesize) / mtd->writesize;
+	page_offset = offs % mtd->writesize;
 	nand_page_per_block = mtd->erasesize / mtd->writesize;
 
-	debug("%s offset:0x%08x len:%d page:0x%x\n", __func__, offs, size, page);
+	while (block <= lastblock && size > 0) {
+		if (!is_badblock(mtd, mtd->erasesize * block, 1)) {
+			/* Skip bad blocks */
+			while (page < nand_page_per_block && size) {
+				int curr_page = nand_page_per_block * block + page;
 
-	while (size) {
-		err = mxs_read_page_ecc(mtd, page_buf, page);
-		if (err < 0)
-			return err;
+				err = mxs_read_page_ecc(mtd, page_buf, curr_page);
+				if (err < 0)
+					return err;
 
-		if (size > (mtd->writesize - page_off))
-			sz = (mtd->writesize - page_off);
-		else
-			sz = size;
+				if (size > (mtd->writesize - page_offset))
+					sz = (mtd->writesize - page_offset);
+				else
+					sz = size;
 
-		memcpy(buf, page_buf + page_off, sz);
-
-		offs += mtd->writesize;
-		page++;
-		buf += (mtd->writesize - page_off);
-		page_off = 0;
-		size -= sz;
-
-		/*
-		 * Check if we have crossed a block boundary, and if so
-		 * check for bad block.
-		 */
-		if (!(page % nand_page_per_block)) {
-			/*
-			 * Yes, new block. See if this block is good. If not,
-			 * loop until we find a good block.
-			 */
-			while (is_badblock(mtd, offs, 1)) {
-				page = page + nand_page_per_block;
-				offs += mtd->erasesize;
-				/* Check i we've reached the end of flash. */
-				if (page >= mtd->size >> chip->page_shift)
-					return -ENOMEM;
+				memcpy(dst, page_buf + page_offset, sz);
+				dst += sz;
+				size -= sz;
+				page_offset = 0;
+				page++;
 			}
+
+			page = 0;
+		} else {
+			lastblock++;
 		}
+
+		block++;
 	}
 
 	return 0;
@@ -308,6 +314,19 @@ void nand_deselect(void)
 
 u32 nand_spl_adjust_offset(u32 sector, u32 offs)
 {
-	/* Handle the offset adjust in nand_spl_load_image,*/
+	unsigned int block, lastblock;
+
+	block = sector / mtd->erasesize;
+	lastblock = (sector + offs) / mtd->erasesize;
+
+	while (block <= lastblock) {
+		if (is_badblock(mtd, block * mtd->erasesize, 1)) {
+			offs += mtd->erasesize;
+			lastblock++;
+		}
+
+		block++;
+	}
+
 	return offs;
 }

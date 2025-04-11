@@ -672,7 +672,7 @@ int sdp_init(int controller_index)
 			return 1;
 		}
 
-		WATCHDOG_RESET();
+		schedule();
 		usb_gadget_handle_interrupts(controller_index);
 	}
 
@@ -815,8 +815,8 @@ static void sdp_handle_in_ep(void)
 
 			printf("Found header at 0x%08x\n", sdp_func->jmp_address);
 
-			header = (struct image_header *)(ulong)(sdp_func->jmp_address);
-
+			struct legacy_img_hdr *header =
+				sdp_ptr(sdp_func->jmp_address);
 			if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) &&
 			    image_get_magic(header) == FDT_MAGIC) {
 				struct spl_load_info load;
@@ -836,7 +836,7 @@ static void sdp_handle_in_ep(void)
 			jump_to_image_no_args(&spl_image);
 #else
 			/* In U-Boot, allow jumps to scripts */
-			image_source_script(sdp_func->jmp_address, "script@1");
+			cmd_source_script(sdp_func->jmp_address, NULL, NULL);
 #endif
 		}
 
@@ -868,7 +868,7 @@ void sdp_handle(int controller_index,
 			return;
 		}
 
-		WATCHDOG_RESET();
+		schedule();
 		usb_gadget_handle_interrupts(controller_index);
 
 		sdp_handle_in_ep();

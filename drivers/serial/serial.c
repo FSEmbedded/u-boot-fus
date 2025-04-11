@@ -22,7 +22,7 @@ static struct serial_device *serial_current;
 /*
  * Table with supported baudrates (defined in config_xyz.h)
  */
-static const unsigned long baudrate_table[] = CONFIG_SYS_BAUDRATE_TABLE;
+static const unsigned long baudrate_table[] = CFG_SYS_BAUDRATE_TABLE;
 
 /**
  * serial_null() - Void registration routine of a serial driver
@@ -127,6 +127,7 @@ serial_initfunc(serial_lpuart_initialize);
 serial_initfunc(ns16550_serial_initialize);
 serial_initfunc(pl01x_serial_initialize);
 serial_initfunc(pxa_serial_initialize);
+serial_initfunc(smh_serial_initialize);
 serial_initfunc(sh_serial_initialize);
 serial_initfunc(mtk_serial_initialize);
 serial_initfunc(vybrid_serial_initialize);
@@ -184,6 +185,7 @@ int serial_initialize(void)
 	ns16550_serial_initialize();
 	pl01x_serial_initialize();
 	pxa_serial_initialize();
+	smh_serial_initialize();
 	sh_serial_initialize();
 	mtk_serial_initialize();
 	vybrid_serial_initialize();
@@ -491,8 +493,8 @@ void default_serial_puts(const char *s)
 		sdev->putc(sdev, *s++);
 }
 
-#if CONFIG_POST & CONFIG_SYS_POST_UART
-static const int bauds[] = CONFIG_SYS_BAUDRATE_TABLE;
+#if CFG_POST & CFG_SYS_POST_UART
+static const int bauds[] = CFG_SYS_BAUDRATE_TABLE;
 
 /**
  * uart_post_test() - Test the currently selected serial port using POST

@@ -37,10 +37,6 @@
 #include <linux/errno.h>
 #include <linux/iopoll.h>
 
-#ifndef CONFIG_USB_MAX_CONTROLLER_COUNT
-#define CONFIG_USB_MAX_CONTROLLER_COUNT 1
-#endif
-
 static struct descriptor {
 	struct usb_hub_descriptor hub;
 	struct usb_device_descriptor device;
@@ -115,13 +111,8 @@ static struct descriptor {
 	},
 };
 
-#if !CONFIG_IS_ENABLED(DM_USB)
-static struct xhci_ctrl xhcic[CONFIG_USB_MAX_CONTROLLER_COUNT];
-#endif
-
 struct xhci_ctrl *xhci_get_ctrl(struct usb_device *udev)
 {
-#if CONFIG_IS_ENABLED(DM_USB)
 	struct udevice *dev;
 
 	/* Find the USB controller */
@@ -130,9 +121,6 @@ struct xhci_ctrl *xhci_get_ctrl(struct usb_device *udev)
 	     dev = dev->parent)
 		;
 	return dev_get_priv(dev);
-#else
-	return udev->controller;
-#endif
 }
 
 /**
@@ -763,13 +751,6 @@ static int _xhci_alloc_device(struct usb_device *udev)
 	return 0;
 }
 
-#if !CONFIG_IS_ENABLED(DM_USB)
-int usb_alloc_device(struct usb_device *udev)
-{
-	return _xhci_alloc_device(udev);
-}
-#endif
-
 /*
  * Full speed devices may have a max packet size greater than 8 bytes, but the
  * USB core doesn't know that until it reads the first 8 bytes of the
@@ -972,7 +953,7 @@ static int xhci_submit_root(struct usb_device *udev, unsigned long pipe,
 		case USB_DT_HUB:
 		case USB_DT_SS_HUB:
 			debug("USB_DT_HUB config\n");
-			srcptr = &descriptor.hub;
+			srcptr = &ctrl->hub_desc;
 			srclen = 0x8;
 			break;
 		default:
@@ -1231,21 +1212,22 @@ static int xhci_lowlevel_init(struct xhci_ctrl *ctrl)
 	/* initializing xhci data structures */
 	if (xhci_mem_init(ctrl, hccr, hcor) < 0)
 		return -ENOMEM;
+	ctrl->hub_desc = descriptor.hub;
 
 	reg = xhci_readl(&hccr->cr_hcsparams1);
-	descriptor.hub.bNbrPorts = HCS_MAX_PORTS(reg);
-	debug("Register %x NbrPorts %d\n", reg, descriptor.hub.bNbrPorts);
+	ctrl->hub_desc.bNbrPorts = HCS_MAX_PORTS(reg);
+	debug("Register %x NbrPorts %d\n", reg, ctrl->hub_desc.bNbrPorts);
 
 	/* Port Indicators */
 	reg = xhci_readl(&hccr->cr_hccparams);
 	if (HCS_INDICATOR(reg))
-		put_unaligned(get_unaligned(&descriptor.hub.wHubCharacteristics)
-				| 0x80, &descriptor.hub.wHubCharacteristics);
+		put_unaligned(get_unaligned(&ctrl->hub_desc.wHubCharacteristics)
+				| 0x80, &ctrl->hub_desc.wHubCharacteristics);
 
 	/* Port Power Control */
 	if (HCC_PPC(reg))
-		put_unaligned(get_unaligned(&descriptor.hub.wHubCharacteristics)
-				| 0x01, &descriptor.hub.wHubCharacteristics);
+		put_unaligned(get_unaligned(&ctrl->hub_desc.wHubCharacteristics)
+				| 0x01, &ctrl->hub_desc.wHubCharacteristics);
 
 	if (xhci_start(hcor)) {
 		xhci_reset(hcor);
@@ -1277,95 +1259,6 @@ static int xhci_lowlevel_stop(struct xhci_ctrl *ctrl)
 
 	return 0;
 }
-
-#if !CONFIG_IS_ENABLED(DM_USB)
-int submit_control_msg(struct usb_device *udev, unsigned long pipe,
-		       void *buffer, int length, struct devrequest *setup)
-{
-	struct usb_device *hop = udev;
-
-	if (hop->parent)
-		while (hop->parent->parent)
-			hop = hop->parent;
-
-	return _xhci_submit_control_msg(udev, pipe, buffer, length, setup,
-					hop->portnr);
-}
-
-int submit_bulk_msg(struct usb_device *udev, unsigned long pipe, void *buffer,
-		    int length)
-{
-	return _xhci_submit_bulk_msg(udev, pipe, buffer, length);
-}
-
-int submit_int_msg(struct usb_device *udev, unsigned long pipe, void *buffer,
-		   int length, int interval, bool nonblock)
-{
-	return _xhci_submit_int_msg(udev, pipe, buffer, length, interval,
-				    nonblock);
-}
-
-/**
- * Intialises the XHCI host controller
- * and allocates the necessary data structures
- *
- * @param index	index to the host controller data structure
- * Return: pointer to the intialised controller
- */
-int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
-{
-	struct xhci_hccr *hccr;
-	struct xhci_hcor *hcor;
-	struct xhci_ctrl *ctrl;
-	int ret;
-
-	*controller = NULL;
-
-	if (xhci_hcd_init(index, &hccr, (struct xhci_hcor **)&hcor) != 0)
-		return -ENODEV;
-
-	if (xhci_reset(hcor) != 0)
-		return -ENODEV;
-
-	ctrl = &xhcic[index];
-
-	ctrl->hccr = hccr;
-	ctrl->hcor = hcor;
-
-	ret = xhci_lowlevel_init(ctrl);
-
-	if (ret) {
-		ctrl->hccr = NULL;
-		ctrl->hcor = NULL;
-	} else {
-		*controller = &xhcic[index];
-	}
-
-	return ret;
-}
-
-/**
- * Stops the XHCI host controller
- * and cleans up all the related data structures
- *
- * @param index	index to the host controller data structure
- * Return: none
- */
-int usb_lowlevel_stop(int index)
-{
-	struct xhci_ctrl *ctrl = (xhcic + index);
-
-	if (ctrl->hcor) {
-		xhci_lowlevel_stop(ctrl);
-		xhci_hcd_stop(index);
-		xhci_cleanup(ctrl);
-	}
-
-	return 0;
-}
-#endif /* CONFIG_IS_ENABLED(DM_USB) */
-
-#if CONFIG_IS_ENABLED(DM_USB)
 
 static int xhci_submit_control_msg(struct udevice *dev, struct usb_device *udev,
 				   unsigned long pipe, void *buffer, int length,
@@ -1557,5 +1450,3 @@ struct dm_usb_ops xhci_usb_ops = {
 	.update_hub_device = xhci_update_hub_device,
 	.get_max_xfer_size  = xhci_get_max_xfer_size,
 };
-
-#endif

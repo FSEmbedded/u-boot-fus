@@ -22,7 +22,7 @@ static int do_coninfo(struct cmd_tbl *cmd, int flag, int argc,
 
 	/* Scan for valid output and input devices */
 
-	puts ("List of available devices:\n");
+	puts("List of available devices\n");
 
 	list_for_each(pos, list) {
 		dev = list_entry(pos, struct stdio_dev, list);
