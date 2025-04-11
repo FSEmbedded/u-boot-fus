@@ -271,6 +271,16 @@ static void serial_stub_puts(const struct stdio_dev *sdev, const char *str)
 		dev->puts(dev, str);
 }
 
+#ifdef CONFIG_CONSOLE_FLUSH_SUPPORT
+static void serial_stub_flush(const struct stdio_dev *sdev)
+{
+	struct serial_device *dev = sdev->priv;
+
+	if (dev && dev->flush)
+		dev->flush(dev);
+}
+#endif
+
 static int serial_stub_getc(const struct stdio_dev *sdev)
 {
 	struct serial_device *dev = sdev->priv;
@@ -311,6 +321,7 @@ void serial_stdio_init(void)
 	dev.stop = serial_stub_stop;
 	dev.putc = serial_stub_putc;
 	dev.puts = serial_stub_puts;
+	STDIO_DEV_ASSIGN_FLUSH(&dev, serial_stub_flush);
 	dev.getc = serial_stub_getc;
 	dev.tstc = serial_stub_tstc;
 	dev.priv = get_current();

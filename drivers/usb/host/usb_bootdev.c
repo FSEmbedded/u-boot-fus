@@ -22,7 +22,7 @@ static int usb_bootdev_bind(struct udevice *dev)
 
 static int usb_bootdev_hunt(struct bootdev_hunter *info, bool show)
 {
-	return usb_init();
+	return usb_init(show);
 }
 
 struct bootdev_ops usb_bootdev_ops = {

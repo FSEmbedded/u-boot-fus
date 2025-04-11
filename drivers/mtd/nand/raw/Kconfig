@@ -810,7 +810,7 @@ config SYS_NAND_U_BOOT_OFFS
 	loaded from.
 
 config SYS_NAND_U_BOOT_OFFS_REDUND
-	hex "Location in NAND to read U-Boot from"
+	hex "Location in NAND to read redundand U-Boot from"
 	default SYS_NAND_U_BOOT_OFFS
 	depends on SYS_NAND_U_BOOT_LOCATIONS
 	help

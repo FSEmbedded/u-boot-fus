@@ -18,7 +18,7 @@
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/delay.h>
-#ifndef CONFIG_FS_BOARD_CFG
+#if !defined(CONFIG_FS_BOARD_CFG) && !defined(CONFIG_TARGET_FSIMX7ULP)
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #endif
 #include <dm/uclass.h>				/* uclass_get_device() */
@@ -54,8 +54,8 @@ static char dram_result[64] = "FAILED (Not run)";
 #ifndef CONFIG_FS_BOARD_CFG
 
 /* Addresses of arguments coming from NBoot and going to Linux */
-#define NBOOT_ARGS_BASE (CONFIG_SYS_SDRAM_BASE + 0x00001000)
-#define BOOT_PARAMS_BASE (CONFIG_SYS_SDRAM_BASE + 0x100)
+#define NBOOT_ARGS_BASE (CFG_SYS_SDRAM_BASE + 0x00001000)
+#define BOOT_PARAMS_BASE (CFG_SYS_SDRAM_BASE + 0x100)
 
 #define ACTION_RECOVER 0x00000040	/* Start recovery instead of update */
 
@@ -144,6 +144,7 @@ const char *fs_board_get_nboot_version(void)
 }
 
 /* Set RAM size (as given by NBoot) and RAM base */
+#ifndef CONFIG_TARGET_FSIMX8M
 int dram_init(void)
 {
 	DECLARE_GLOBAL_DATA_PTR;
@@ -153,12 +154,15 @@ int dram_init(void)
 
 	return 0;
 }
+#endif
 
+#ifndef CONFIG_TARGET_FSIMX7ULP
 void board_nand_state(struct mtd_info *mtd, unsigned int state)
 {
 	/* Save state to pass it to Linux later */
 	nboot_args.chECCstate |= (unsigned char)state;
 }
+#endif
 #endif /* !CONFIG_FS_BOARD_CFG */
 
 /* ------------- Functions using BOARD-CFG --------------------------------- */

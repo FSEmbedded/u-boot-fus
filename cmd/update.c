@@ -25,7 +25,7 @@
 #include <fs.h>				/* FS_TYPE_ANY, fs_read(), ... */
 #include <nand.h>			/* get_nand_dev_by_index() */
 #include <cpu_func.h>			/* flush_cache() */
-#include <image.h>			/* image_source_script() */
+#include <image.h>			/* set_fileaddr(), get_loadaddr() */
 
 #ifndef CONFIG_CMD_SOURCE
 #error You need CONFIG_CMD_SOURCE when you define CONFIG_CMD_UPDATE
@@ -427,7 +427,7 @@ int update_script(enum update_action action_id, const char *check,
 #endif
 				puts("Loaded!\n");
 
-				ret = image_source_script(addr, NULL);
+				ret = cmd_source_script(addr, NULL, NULL);
 
 				printf("---- %s %s ----\n", action,
 				       ret ? "FAILED!" : "COMPLETE!");

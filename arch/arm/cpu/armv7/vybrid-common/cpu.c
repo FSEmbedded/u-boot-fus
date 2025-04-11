@@ -27,6 +27,7 @@
 #include <netdev.h>
 #include <linux/errno.h>
 #include <asm/io.h>
+#include <asm/global_data.h>
 #include <asm/arch/vybrid-regs.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>

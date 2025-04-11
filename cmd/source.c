@@ -40,7 +40,7 @@ static int do_source(struct cmd_tbl *cmdtp, int flag, int argc,
 				      &fit_uname)) {
 		debug("*  source: subimage '%s' from FIT image at 0x%08lx\n",
 		      fit_uname, addr);
-	} else if (fit_parse_conf(argv[1], image_load_addr, &addr, &confname)) {
+	} else if (fit_parse_conf(argv[1], get_loadaddr(), &addr, &confname)) {
 		debug("*  source: config '%s' from FIT image at 0x%08lx\n",
 		      confname, addr);
 #endif

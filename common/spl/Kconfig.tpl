@@ -1,6 +1,14 @@
 menu "TPL configuration options"
 	depends on TPL
 
+config TPL_AUTOBUILD
+	bool "Build TPL automatically"
+	default y
+	help
+	  If you want to build TPL together with U-Boot when calling
+	  simply make, say y. If you want to build TPL only when
+	  calling make tpl or some other TPL specific target, say n.
+
 config TPL_SIZE_LIMIT
 	hex "Maximum size of TPL image"
 	default 0x0

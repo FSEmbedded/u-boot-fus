@@ -229,12 +229,12 @@ static void mxc_ll_putc(struct mxc_uart *base, const char c)
 		mxc_ll_putc(base, '\r');
 
 	/* wait for transmitter to be ready */
-	while (readl(&mxc_base->ts) & UTS_TXFULL)
+	while (readl(&base->ts) & UTS_TXFULL)
 		schedule();
 
 	/* wait for room in the tx FIFO */
 	while (!(readl(&base->ts) & UTS_TXEMPTY))
-		WATCHDOG_RESET();
+		schedule();
 
 	/* Send character */
 	writel(c, &base->txd);

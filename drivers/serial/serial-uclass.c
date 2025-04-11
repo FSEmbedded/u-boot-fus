@@ -520,10 +520,6 @@ U_BOOT_ENV_CALLBACK(baudrate, on_baudrate);
 static int serial_post_probe(struct udevice *dev)
 {
 	struct dm_serial_ops *ops = serial_get_ops(dev);
-#if CONFIG_IS_ENABLED(DM_STDIO)
-	struct serial_dev_priv *upriv = dev_get_uclass_priv(dev);
-	struct stdio_dev sdev;
-#endif
 	int ret;
 
 #if defined(CONFIG_NEEDS_MANUAL_RELOC)
@@ -555,7 +551,7 @@ static int serial_post_probe(struct udevice *dev)
 			return ret;
 	}
 
-#ifdef CONFIG_DM_STDIO
+#if CONFIG_IS_ENABLED(DM_STDIO)
 	if (gd->flags & GD_FLG_RELOC) {
 		struct stdio_dev sdev;
 		struct serial_dev_priv *upriv = dev_get_uclass_priv(dev);

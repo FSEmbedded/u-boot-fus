@@ -1009,7 +1009,9 @@ ifdef CONFIG_TPL_AUTOBUILD
 INPUTS-$(CONFIG_TPL) += tpl/u-boot-tpl.bin
 endif
 
+ifdef CONFIG_VPL_AUTOBUILD
 INPUTS-$(CONFIG_VPL) += vpl/u-boot-vpl.bin
+endif
 
 # Allow omitting the .dtb output if it is not normally used
 INPUTS-$(CONFIG_OF_SEPARATE) += $(if $(CONFIG_OF_OMIT_DTB),dts/dt.dtb,u-boot.dtb)

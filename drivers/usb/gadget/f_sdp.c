@@ -799,8 +799,8 @@ static void sdp_handle_in_ep(void)
 		/* If imx header fails, try some U-Boot specific headers */
 		if (status) {
 #ifdef CONFIG_SPL_BUILD
-			struct image_header *header = (struct image_header *)
-				(ulong)(sdp_func->jmp_address);
+			struct legacy_img_hdr *header =
+				sdp_ptr(sdp_func->jmp_address);
 			struct spl_image_info spl_image = {};
 			int extra_offset = get_extra_offset(header, &spl_image);
 
@@ -815,8 +815,7 @@ static void sdp_handle_in_ep(void)
 
 			printf("Found header at 0x%08x\n", sdp_func->jmp_address);
 
-			struct legacy_img_hdr *header =
-				sdp_ptr(sdp_func->jmp_address);
+			header = sdp_ptr(sdp_func->jmp_address);
 			if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) &&
 			    image_get_magic(header) == FDT_MAGIC) {
 				struct spl_load_info load;

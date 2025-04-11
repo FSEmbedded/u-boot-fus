@@ -149,6 +149,7 @@ config SPL_FIT
 	bool "Support Flattened Image Tree within SPL"
 	depends on SPL && FIT
 	select SPL_HASH
+	select SPL_LIBGENERIC_SUPPORT
 	select SPL_OF_LIBFDT
 
 config SPL_FIT_PRINT

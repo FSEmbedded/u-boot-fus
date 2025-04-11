@@ -72,10 +72,6 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#ifndef CONFIG_SYS_LOAD_ADDR
-#define CONFIG_SYS_LOAD_ADDR (CONFIG_SYS_SDRAM_BASE + CONFIG_SYS_LOAD_OFFS)
-#endif
-
 ulong monitor_flash_len;
 
 __weak int board_flash_wp_on(void)

@@ -41,6 +41,14 @@
 #define BITS_PP		18
 #define BYTES_PP	4
 
+/* The color channels may easily be swapped in the driver */
+#define PATTERN_RGB     0
+#define PATTERN_RBG     1
+#define PATTERN_GBR     2
+#define PATTERN_GRB     3
+#define PATTERN_BRG     4
+#define PATTERN_BGR     5
+
 struct mxsfb_priv {
 	fdt_addr_t reg_base;
 	struct udevice *disp_dev;
@@ -220,13 +228,6 @@ static void mxs_lcd_init(struct udevice *dev, u32 fb_addr,
 
 	/* RUN! */
 	writel(LCDIF_CTRL_RUN, &regs->hw_lcdif_ctrl_set);
-}
-
-static int mxs_probe_common(phys_addr_t reg_base, struct display_timing *timings,
-			    int bpp, u32 fb, bool bridge)
-{
-	/* Start framebuffer */
-	mxs_lcd_init(reg_base, fb, timings, bpp, bridge);
 
 #ifdef CONFIG_VIDEO_MXS_MODE_SYSTEM
 	/*
@@ -401,9 +402,7 @@ static int mxs_video_probe(struct udevice *dev)
 		}
 	}
 
-	ret = mxs_lcd_init(dev, &timings, bpp, plat->base, PATTERN_RGB, enable_bridge);
-	if (ret)
-		return ret;
+	mxs_lcd_init(dev, plat->base, &timings, bpp, PATTERN_RGB, enable_bridge);
 
 #ifdef CONFIG_VIDEO_GIS
 	/* Entry for GIS */

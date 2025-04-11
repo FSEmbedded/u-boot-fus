@@ -215,9 +215,11 @@ static void usb_hub_power_on(struct usb_hub_device *hub)
 	 * usb_hub_configure() later.
 	 */
 	connect_time = HUB_DEBOUNCE_TIMEOUT;
+#if CONFIG_IS_ENABLED(ENV_SUPPORT)
 	env = env_get("usb_connect_time");
 	if (env)
 		connect_time = max(connect_time, simple_strtoul(env, NULL, 0));
+#endif
 
 	hub->connect_timeout = hub->query_delay + connect_time;
 	debug("devnum=%d poweron: query_delay=%lu connect_timeout=%lu\n",

@@ -710,10 +710,10 @@ static int eqos_write_hwaddr(struct udevice *dev)
 static int eqos_read_rom_hwaddr(struct udevice *dev)
 {
 	struct eth_pdata *pdata = dev_get_plat(dev);
+#ifdef CONFIG_FEC_GET_MAC_FROM_FUSES
 	struct eqos_priv *eqos = dev_get_priv(dev);
 	int ret;
 
-#ifdef CONFIG_FEC_GET_MAC_FROM_FUSES
 	ret = eqos->config->ops->eqos_get_enetaddr(dev);
 	if (ret < 0)
 		return ret;

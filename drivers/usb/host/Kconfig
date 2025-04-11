@@ -479,5 +479,5 @@ config USB_OHCI_LPC32XX
 config USB_MAX_CONTROLLER_COUNT
 	int "Maximum number of USB host controllers"
 	depends on USB_EHCI_FSL || USB_XHCI_FSL || \
-		(SPL_USB_HOST && !DM_SPL_USB) || (USB_HOST && !DM_USB)
+		SPL_USB_HOST || (USB_HOST && !DM_USB)
 	default 1

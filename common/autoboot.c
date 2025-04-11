@@ -479,10 +479,10 @@ const char *bootdelay_process(void)
 		bootdelay = 0;
 		env_set_default("Use default environment for \
 				 mfgtools\n", 0);
+#ifdef CONFIG_FSL_FASTBOOT
 	} else if (is_boot_from_usb()) {
 		printf("Boot from USB for uuu\n");
 		bootdelay = 0;
-#ifdef CONFIG_FSL_FASTBOOT
 		/* bootcmd needs to be cleared for fastboot_setup */
 		env_set("bootcmd","");
 		/* will determine usb from get_boot_device() */

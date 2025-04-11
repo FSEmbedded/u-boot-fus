@@ -1134,9 +1134,9 @@ int do_mscale_showclocks(struct cmd_tbl *cmdtp, int flag, int argc, char * const
 	u32 freq;
 
 	freq = decode_intpll(ARM_PLL_CLK);
-	printf("ARM_PLL    %8d MHz\n", freq / 1000000);
+	printf("ARM_PLL         %8d MHz\n", freq / 1000000);
 	freq = decode_fracpll(DRAM_PLL1_CLK);
-	printf("DRAM_PLL    %8d MHz\n", freq / 1000000);
+	printf("DRAM_PLL        %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL1_800M_CLK);
 	printf("SYS_PLL1_800    %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL1_400M_CLK);
@@ -1150,11 +1150,11 @@ int do_mscale_showclocks(struct cmd_tbl *cmdtp, int flag, int argc, char * const
 	freq = decode_intpll(SYSTEM_PLL1_100M_CLK);
 	printf("SYS_PLL1_100    %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL1_80M_CLK);
-	printf("SYS_PLL1_80    %8d MHz\n", freq / 1000000);
+	printf("SYS_PLL1_80     %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL1_40M_CLK);
-	printf("SYS_PLL1_40    %8d MHz\n", freq / 1000000);
+	printf("SYS_PLL1_40     %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL2_1000M_CLK);
-	printf("SYS_PLL2_1000    %8d MHz\n", freq / 1000000);
+	printf("SYS_PLL2_1000   %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL2_500M_CLK);
 	printf("SYS_PLL2_500    %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL2_333M_CLK);
@@ -1170,15 +1170,15 @@ int do_mscale_showclocks(struct cmd_tbl *cmdtp, int flag, int argc, char * const
 	freq = decode_intpll(SYSTEM_PLL2_100M_CLK);
 	printf("SYS_PLL2_100    %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL2_50M_CLK);
-	printf("SYS_PLL2_50    %8d MHz\n", freq / 1000000);
+	printf("SYS_PLL2_50     %8d MHz\n", freq / 1000000);
 	freq = decode_intpll(SYSTEM_PLL3_CLK);
-	printf("SYS_PLL3       %8d MHz\n", freq / 1000000);
+	printf("SYS_PLL3        %8d MHz\n", freq / 1000000);
 	freq = mxc_get_clock(MXC_UART_CLK);
-	printf("UART1          %8d MHz\n", freq / 1000000);
+	printf("UART1           %8d MHz\n", freq / 1000000);
 	freq = mxc_get_clock(MXC_ESDHC_CLK);
-	printf("USDHC1         %8d MHz\n", freq / 1000000);
+	printf("USDHC1          %8d MHz\n", freq / 1000000);
 	freq = mxc_get_clock(MXC_QSPI_CLK);
-	printf("QSPI           %8d MHz\n", freq / 1000000);
+	printf("QSPI            %8d MHz\n", freq / 1000000);
 
 	return 0;
 }

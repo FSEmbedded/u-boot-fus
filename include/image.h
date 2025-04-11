@@ -45,9 +45,9 @@ struct fdt_region;
 #include <fdt_support.h>
 #include <u-boot/hash-checksum.h>
 
-extern ulong image_load_addr;		/* Default Load Address */
-extern ulong image_save_addr;		/* Default Save Address */
-extern ulong image_save_size;		/* Default Save Size */
+//###extern ulong image_load_addr;		/* Default Load Address */
+//###extern ulong image_save_addr;		/* Default Save Address */
+//###extern ulong image_save_size;		/* Default Save Size */
 extern ulong image_load_offset;	/* Default Load Address Offset */
 
 /* An invalid size, meaning that the image size is not known */

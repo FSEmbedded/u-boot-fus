@@ -1422,9 +1422,9 @@ static int fsl_esdhc_of_to_plat(struct udevice *dev)
 #ifdef MMC_SUPPORTS_TUNING
 	const void *fdt = gd->fdt_blob;
 	int node = dev_of_offset(dev);
+	unsigned int val;
 #endif
 	fdt_addr_t addr;
-	unsigned int val;
 
 	if (!CONFIG_IS_ENABLED(OF_REAL))
 		return 0;
@@ -1443,6 +1443,7 @@ static int fsl_esdhc_of_to_plat(struct udevice *dev)
 	priv->esdhc.esdhc_base = addr;
 	priv->dev = dev;
 
+#ifdef MMC_SUPPORTS_TUNING
 	val = fdtdec_get_int(fdt, node, "fsl,tuning-step", 1);
 	priv->tuning_step = val;
 	val = fdtdec_get_int(fdt, node, "fsl,tuning-start-tap",
@@ -1453,6 +1454,7 @@ static int fsl_esdhc_of_to_plat(struct udevice *dev)
 	priv->strobe_dll_delay_target = val;
 	val = fdtdec_get_int(fdt, node, "fsl,signal-voltage-switch-extra-delay-ms", 0);
 	priv->signal_voltage_switch_extra_delay_ms = val;
+#endif
 
 	if (CONFIG_IS_ENABLED(DM_MMC)) {
 		if (dev_read_bool(dev, "broken-cd"))

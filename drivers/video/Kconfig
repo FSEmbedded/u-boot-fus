@@ -521,7 +521,7 @@ config VIDEO_LCD_HITACHI_TX18D42VM
 
 config VIDEO_LCD_XINLI_TCXD078IBLMA_98
 	bool "XINLI TCXD078IBLMA-98 MIPI DSI panel support"
-	depends on DM_VIDEO
+	depends on VIDEO
 	select VIDEO_MIPI_DSI
 	---help---
 	Say Y here if you want to enable support for XINLI TCXD078IBLMA-98

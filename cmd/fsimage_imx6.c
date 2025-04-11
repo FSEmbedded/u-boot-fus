@@ -357,11 +357,11 @@ static int fs_image_save_uboot_to_mmc(unsigned long addr, int mmc_dev)
 
 	/* Actually save U-Boot */
 	printf("Saving U-Boot to mmc%d, part %d:\n", mmc_dev, dest_part);
-	err = fs_image_invalidate_mmc(blk_desc, CONFIG_SYS_MMC_U_BOOT_START,
+	err = fs_image_invalidate_mmc(blk_desc, CFG_SYS_MMC_U_BOOT_START,
 					uboot_mtd_names[0]);
 	if (!err) {
 		err = fs_image_save_image_to_mmc(blk_desc, (void *) addr,
-			CONFIG_SYS_MMC_U_BOOT_START, img_size,
+			CFG_SYS_MMC_U_BOOT_START, img_size,
 			uboot_mtd_names[0]);
 		if (err)
 			return err;

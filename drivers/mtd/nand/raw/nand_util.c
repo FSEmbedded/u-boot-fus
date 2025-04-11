@@ -21,7 +21,6 @@
 #include <common.h>
 #include <command.h>
 #include <log.h>
-#include <watchdog.h>
 #include <malloc.h>
 #include <memalign.h>
 #include <div64.h>
@@ -878,7 +877,7 @@ int nand_convert_skip_bad(struct mtd_info *mtd, loff_t offset, size_t *length,
 		size_t write_length;
 		size_t offs;
 
-		WATCHDOG_RESET();
+		schedule();
 
 		if (need_skip && nand_block_isbad(mtd, offset)) {
 			printf("Skipping bad block at 0x%08llx\n", offset);

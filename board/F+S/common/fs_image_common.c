@@ -1692,7 +1692,7 @@ static int fs_image_get_flash_info_spl_mmc(struct flash_info_spl *fi)
 	u8 boot_hwpart;
 
 	/* Start mmc device once */
-	fi->blk_desc = blk_get_devnum_by_type(IF_TYPE_MMC, 0);
+	fi->blk_desc = blk_get_devnum_by_uclass_id(UCLASS_MMC, 0);
 	if (!fi->blk_desc) {
 		printf("Cannot start MMC boot device\n");
 		return -ENODEV;

@@ -80,6 +80,7 @@ void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force)
 /* Set ethernet MAC address aa:bb:cc:dd:ee:ff for given index */
 void fs_fdt_set_macaddr(void *fdt, int offs, int id)
 {
+#ifdef CONFIG_NET
 	uchar enetaddr[6];
 	char name[10];
 	char str[20];
@@ -89,11 +90,13 @@ void fs_fdt_set_macaddr(void *fdt, int offs, int id)
 		sprintf(str, "%pM", enetaddr);
 		fs_fdt_set_string(fdt, offs, name, str, 1);
 	}
+#endif
 }
 
 /* Set MAC address in bdinfo as MAC_WLAN and in case of Silex as Silex-MAC */
 void fs_fdt_set_wlan_macaddr(void *fdt, int offs, int id, int silex)
 {
+#ifdef CONFIG_NET
 	uchar enetaddr[6];
 	char str[30];
 
@@ -107,6 +110,7 @@ void fs_fdt_set_wlan_macaddr(void *fdt, int offs, int id, int silex)
 			fs_fdt_set_string(fdt, offs, "Silex-MAC", str, 1);
 		}
 	}
+#endif
 }
 
 /* If environment variable exists, set a string property with the same name */

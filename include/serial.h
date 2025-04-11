@@ -14,6 +14,9 @@ struct serial_device {
 	int	(*tstc)(const struct serial_device *sdev);
 	void	(*putc)(const struct serial_device *sdev, const char c);
 	void	(*puts)(const struct serial_device *sdev, const char *s);
+#ifdef CONFIG_CONSOLE_FLUSH_SUPPORT
+	void	(*flush)(const struct serial_device *sdev);
+#endif
 #if CFG_POST & CFG_SYS_POST_UART
 	void	(*loop)(const struct serial_device *sdev, int);
 #endif
@@ -366,3 +369,4 @@ int serial_tstc(void);
 #ifdef CONFIG_DM_SERIAL
 int	serial_get_alias_seq(void);
 #endif
+#endif /* __SERIAL_H__ */
