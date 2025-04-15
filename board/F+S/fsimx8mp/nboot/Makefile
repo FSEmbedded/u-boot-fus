@@ -68,6 +68,7 @@ BOARD_CONFIGS = \
 	efusMX8MP-FERT3.fs \
 	efusMX8MP-FERT4.fs \
 	efusMX8MP-FERT5.fs \
+	efusMX8MP-FERT13.fs \
 	SM8MP-FERT3.fs \
 	SM8MP-FERT4.fs \
 	SM8MP-FERT5.fs

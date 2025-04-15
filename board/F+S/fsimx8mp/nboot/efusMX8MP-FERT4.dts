@@ -38,11 +38,11 @@
 		have-eth-phy-b;
 		//have-wlan;
 		have-mipi-to-rgb;
-		have-mipi-to-lvds;
+		//have-mipi-to-lvds;
 		have-hdmi;
 		have-lvds;
 		have-ext-rtc;
-		have-security;
+		//have-security;
 		have-eeprom;
 		have-adc;
 	};
