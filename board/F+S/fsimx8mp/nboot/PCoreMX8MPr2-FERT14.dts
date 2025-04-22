@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 F&S Elektronik Systeme GmbH
+ * Copyright (C) 2025 F&S Elektronik Systeme GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -12,38 +12,37 @@
 
 / {
 	board-cfg {
-		board-name = "efusMX8MP";
+		board-name = "PicoCoreMX8MPr2";
 
 		/* DRAM: 2GB Samsung B.ICDRAM.30 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_ef_2g1800m2ch1cs";
+		dram-timing = "lpddr4_pc_2g1500m2ch1cs";
 		dram-size = <0x800>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
-		boot-dev = "MMC1";
+		boot-dev = "MMC3";
 
 		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
-		fuse-bankword = <0x00010003>;
-		fuse-mask =     <0x1000fe00>;
-		fuse-value =    <0x10002a00>;
+		fuse-bankword = <0x00010003 0x00020001 0x00020002>;
+		fuse-mask =     <0x1000fe00 0xfffdffff 0x0000003f>;
+		fuse-value =    <0x10002000 0x00000000 0x00000000>;
 
 		/* Common board features */
-		board-rev = <100>;
-		have-nand; // QSPI NAND
-		//have-sd-b;
+		//have-nand;
 		have-emmc;
 		have-audio;
-		have-eth-phy-a;
-		have-eth-phy-b;
+		have-eth-phy;
 		//have-wlan;
-		have-mipi-to-rgb;
-		//have-mipi-to-lvds;
-		have-hdmi;
-		have-lvds;
+		//have-mipi-dsi;
+		//have-hdmi;
 		have-ext-rtc;
-		//have-security;
+		have-security;
 		have-eeprom;
-		have-adc;
+
+		/* Board-revision specific features */
+		PCoreMX8MPr2-FERT14.110 {
+			board-rev = <110>;
+		};
 	};
 };
