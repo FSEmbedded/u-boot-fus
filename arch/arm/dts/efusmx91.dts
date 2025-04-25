@@ -1,0 +1,472 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+* Copyright 2024 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+#define CONFIG_EFUSMX91_ETH_A
+#define CONFIG_EFUSMX91_ETH_B
+
+//#define CONFIG_EFUSMX91_WLAN
+//#define CONFIG_EFUSMX91_BLUETOOTH
+
+#define CONFIG_EFUSMX91_UART_A
+#define CONFIG_EFUSMX91_UART_B
+#define CONFIG_EFUSMX91_UART_C
+#define CONFIG_EFUSMX91_UART_C_RTS
+#define CONFIG_EFUSMX91_UART_C_CTS
+#define CONFIG_EFUSMX91_UART_D
+
+#define CONFIG_EFUSMX91_I2C_A
+#define CONFIG_EFUSMX91_I2C_B
+#define CONFIG_EFUSMX91_I2C_C
+
+#define CONFIG_EFUSMX91_SPI_A
+#define CONFIG_EFUSMX91_SPI_A_B
+
+#define CONFIG_EFUSMX91_CAN_A
+#define CONFIG_EFUSMX91_CAN_B
+
+#define CONFIG_EFUSMX91_SDIO_A
+#define CONFIG_EFUSMX91_SDIO_B
+
+#define CONFIG_EFUSMX91_USB_A
+#define CONFIG_EFUSMX91_USB_DEV
+
+#define CONFIG_EFUSMX91_PWM_BL
+#define CONFIG_EFUSMX91_PWM_A
+
+#define CONFIG_EFUSMX91_SAI
+#define CONFIG_EFUSMX91_SGTL5000
+
+#ifdef CONFIG_EFUSMX91_ETH_B
+	#undef CONFIG_EFUSMX91_UART_C
+	#undef CONFIG_EFUSMX91_UART_C_RTS
+	#undef CONFIG_EFUSMX91_UART_C_CTS
+	#undef CONFIG_EFUSMX91_UART_D
+	#undef CONFIG_EFUSMX91_SAI
+#endif
+
+#ifdef	CONFIG_EFUSMX91_SAI
+	#undef CONFIG_EFUSMX91_UART_C_CTS
+#else
+	#undef  CONFIG_EFUSMX91_SGTL5000
+#endif
+
+/* 4-wire/5-wire analog resistive touch, touch controller on RGB LCD adapter */
+//#define CONFIG_EFUSMX91_4WTOUCH_SX8655_RGBADAPTER_EDT1
+#define CONFIG_EFUSMX91_CAPTOUCH_EDT_FT5x06
+// #define CONFIG_EFUSMX91_CAPTOUCH_EDT_FT5x06_INVERTED_XY
+// #define CONFIG_EFUSMX91_CAPTOUCH_FTS
+
+/dts-v1/;
+
+#include <dt-bindings/usb/pd.h>
+#include "efusmx91.dtsi"
+
+
+/ {
+    model = "F+S efuxMX91";
+	compatible = "fus,efusmx91", "fsl,imx91";
+
+	chosen {
+		bootargs = "console=ttyLP0,115200";
+		stdout-path = &fs_uart_a;
+	};
+
+#ifdef CONFIG_EFUSMX91_SGTL5000
+    sound_sgtl5000: sound-sgtl5000 {
+            compatible = "fsl,imx-audio-sgtl5000";
+            model = "imx-sgtl5000";
+            audio-cpu = <&fs_i2s_a>;
+            audio-codec = <&sgtl5000>;
+            audio-routing =
+                "LINE_IN", "Line In Jack",
+                "Mic Jack", "Mic Bias",
+                "MIC_IN", "Mic Jack",
+                "Line Out Jack", "LINE_OUT",
+                "Headphone Jack", "HP_OUT";
+        };
+#endif
+
+    carrier_regulators{
+        compatible = "simple-bus";
+        #address-cells = <1>;
+        #size-cells = <0>;
+#ifdef CONFIG_EFUSMX91_SGTL5000
+		/* SGTL5000 analog voltage */
+		reg_sgtl5000_vdda: sgtl5000_vdda {
+			compatible = "regulator-fixed";
+			regulator-name = "SGTL5000-VDDA-supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&reg_3v3>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		/* SGTL5000 I/O voltage */
+		reg_sgtl5000_vddio: sgtl5000_vddio {
+			compatible = "regulator-fixed";
+			regulator-name = "VDDIO-supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&reg_3v3>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		/* SGTL5000 internal digital voltage */
+		reg_sgtl5000_vddd: sgtl5000_vddd {
+			compatible = "regulator-fixed";
+			regulator-name = "VDDD-supply";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			vin-supply = <&reg_1v8>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+#endif
+
+#ifdef CONFIG_EFUSMX91_USB_A
+		reg_usb2_vbus: regulator-usb2-vbus@1 {
+			compatible = "regulator-fixed";
+			reg = <1>;
+			regulator-name = "usb2_vbus";
+			gpio = <&expander 2 GPIO_ACTIVE_HIGH>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&reg_3v3>;
+			enable-active-high;
+		};
+#endif
+
+#ifdef CONFIG_EFUSMX91_USB_DEV
+		reg_usb1_vbus: regulator-usb1-vbus@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "usb1_vbus";
+			gpio = <&expander 3 GPIO_ACTIVE_LOW>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&reg_3v3>;
+		};
+#endif
+	};
+
+    panel {
+		compatible = "edt,et070080dh6";
+		backlight = <&backlight_lcd>;
+		power-supply = <&reg_vlcd>;
+		enable-gpios = <&pca963x 0 0>;
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&display_out>;
+			};
+		};
+	};
+
+	reg_lcd_bl: backlight_lcd {
+		compatible = "regulator-fixed";
+		regulator-name = "lcd-bl";
+		gpio = <&pca963x 0 0>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+	};
+
+	backlight_lcd: backlight_lcd {
+		compatible = "pwm-backlight";
+		pwms = <&pca963x 1 640000 0>;
+		//power-supply = <&reg_lcd_bl>;
+		brightness-levels = <0 1 5 10 18 28 41 56
+				     73 92 113 137 163 192 222 255>;
+		default-brightness-level = <14>;
+		fb-names = "lcd";
+	};
+
+	/* LCD power on voltage */
+	reg_vlcd: vlcd {
+		compatible = "regulator-fixed";
+		regulator-name = "VLCD_ON";
+		gpio = <&expander 8 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+	};
+};
+
+#ifdef CONFIG_EFUSMX91_SDIO_A
+&fs_sdio_a {
+	/* Bug on SINTF. Remove if fixed */
+	no-1-8-v;
+};
+#endif
+
+#ifdef CONFIG_EFUSMX91_USB_DEV
+&fs_usb_dev {
+	vbus-supply = <&reg_usb1_vbus>;
+	dr_mode = "otg";
+	hnp-disable;
+	srp-disable;
+	adp-disable;
+	disable-over-current;
+};
+#endif
+
+#ifdef CONFIG_EFUSMX91_USB_A
+&fs_usb_a {
+	vbus-supply = <&reg_usb2_vbus>;
+	dr_mode = "host";
+	power-active-high;
+	disable-over-current;
+};
+#endif
+
+#ifdef CONFIG_EFUSMX91_I2C_A
+&fs_i2c_a {
+	clock-frequency = <400000>;
+
+	pca963x: pca9632@60 { /* LED-driver */
+		compatible = "nxp,pca9632";
+		reg = <0x60>;
+		nxp,totem-pole;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#pwm-cells = <3>;
+		#gpio-cells = <2>;
+		led@0 {
+			reg = <0>;
+			label = "0-PWRCTL";
+			type = "GPIO";
+			default-on;		/* or: keep-value */
+			active-high;
+		};
+		led@1 {
+			reg = <1>;
+			label = "1-LEDCTRL";
+			type = "PWM";
+			default-on;		/* or: keep-value */
+			active-low;
+		};
+		led@2 {
+			reg = <2>;
+			label = "2-ROTATE";
+			type = "GPIO";
+			active-high;		/* optionally: keep value */
+		};
+		led@3 {
+			reg = <3>;
+			label = "3-unused";
+			type = "LED";
+			active-low;
+		};
+	};
+
+#ifdef CONFIG_EFUSMX91_4WTOUCH_SX8655_RGBADAPTER_EDT1
+	/* 4/5 wire analog resistive touch on RGB-Adapter */
+	sx8654@49 {
+		compatible = "semtech,sx8654";
+		reg = <0x49>;
+		touchrate = <0x30>;
+		powdly = <0x06>;
+		filt = <0x02>;
+		setdly = <0x08>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
+		//reset-gpio = <&gpio1 8 GPIO_ACTIVE_LOW>;
+		/* using global touchscreen_parse_properties, instead of
+		 * specific parsing.
+		 */
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
+	};
+#endif
+
+#ifdef CONFIG_EFUSMX91_CAPTOUCH_EDT_FT5x06
+	/* Capacitive touch controller */
+	ft5x06_ts: touchscreen@38 {
+		compatible = "edt,edt-ft5406";
+		reg = <0x38>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpio = <&expander 11 GPIO_ACTIVE_LOW>;
+		// touchscreen-size-x = <800>;
+		// touchscreen-size-y = <480>;
+		threshold = <25>;
+		gain = <5>;
+#ifdef CONFIG_EFUSMX91_CAPTOUCH_EDT_FT5x06_INVERTED_XY
+		touchscreen-inverted-x;
+		touchscreen-inverted-y;
+#endif
+		// touchscreen-swapped-x-y;
+	};
+#endif /* CONFIG_EFUSMX91_CAPTOUCH_EDT_FT5x06 */
+
+#ifdef CONFIG_EFUSMX91_CAPTOUCH_FTS
+	/* touch I2C */
+	focaltech@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		/* I2C_A_IRQn */
+		interrupt-parent = <&gpio2>;
+		interrupts = <29 IRQ_TYPE_EDGE_FALLING>;
+		focaltech,irq-gpio = <&gpio2 29 IRQ_TYPE_EDGE_FALLING>;
+#ifdef CONFIG_EFUSMX91_CAPTOUCH_FTS_INVERTED_XY
+		focaltech,touchscreen-inverted-x;
+		focaltech,touchscreen-inverted-y;
+#endif
+		/* I2C_A_RSTn */
+		focaltech,reset-gpio = <&expander 8 GPIO_ACTIVE_LOW>;
+		focaltech,num-max-touches = <10>;
+		focaltech,display-coords = <0 0 800 480>;
+	};
+#endif
+
+};
+#endif
+
+#ifdef CONFIG_EFUSMX91_SGTL5000
+&fs_i2s_a {
+	assigned-clocks = <&clk IMX91_CLK_SAI2>;
+	assigned-clock-parents = <&clk IMX91_CLK_AUDIO_PLL>;
+	assigned-clock-rates = <24576000>;
+	fsl,sai-mclk-direction-output;
+	status = "okay";
+};
+
+&fs_i2c_c {
+	sgtl5000: sgtl5000@a {
+		#sound-dai-cells = <0>;
+		compatible = "fsl,sgtl5000";
+		clocks = <&clk IMX91_CLK_SAI2_GATE>;
+		reg = <0xa>;
+		mono2both;
+		VDDA-supply = <&reg_sgtl5000_vdda>;
+		VDDIO-supply = <&reg_sgtl5000_vddio>;
+		VDDD-supply = <&reg_sgtl5000_vddd>;
+		status = "okay";
+	};
+};
+#endif
+
+&lcdif {
+	assigned-clock-rates = <150000000>, <30000000>, <400000000>, <133333333>;
+//	assigned-clock-rates = <300000000>, <30000000>, <333333334>, <133333333>;
+	status = "okay";
+};
+
+&media_blk_ctrl {
+	status = "okay";
+};
+
+&parallel_disp_fmt {
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&pinctrl_lcdif>;
+	pinctrl-1 = <&pinctrl_lcdif_gpio>;
+	fsl,interface-pix-fmt = "rgb666";
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+			display_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
+#if 1
+&gpio2 {
+	/* avoid power leakage */
+	disp-clk-hog {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-de-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-vsync-hog {
+		gpio-hog;
+		gpios = <2 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-hsync-hog {
+		gpio-hog;
+		gpios = <3 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+#endif
+
+&iomuxc {
+	pinctrl_lcdif: lcdifgrp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO00__MEDIAMIX_DISP_CLK		0x31e
+			MX91_PAD_GPIO_IO01__MEDIAMIX_DISP_DE		0x31e
+			MX91_PAD_GPIO_IO02__MEDIAMIX_DISP_VSYNC		0x31e
+			MX91_PAD_GPIO_IO03__MEDIAMIX_DISP_HSYNC		0x31e
+			MX91_PAD_GPIO_IO04__MEDIAMIX_DISP_DATA0		0x31e
+			MX91_PAD_GPIO_IO05__MEDIAMIX_DISP_DATA1		0x31e
+			MX91_PAD_GPIO_IO06__MEDIAMIX_DISP_DATA2		0x31e
+			MX91_PAD_GPIO_IO07__MEDIAMIX_DISP_DATA3		0x31e
+			MX91_PAD_GPIO_IO08__MEDIAMIX_DISP_DATA4		0x31e
+			MX91_PAD_GPIO_IO09__MEDIAMIX_DISP_DATA5		0x31e
+			MX91_PAD_GPIO_IO10__MEDIAMIX_DISP_DATA6		0x31e
+			MX91_PAD_GPIO_IO11__MEDIAMIX_DISP_DATA7		0x31e
+			MX91_PAD_GPIO_IO12__MEDIAMIX_DISP_DATA8		0x31e
+			MX91_PAD_GPIO_IO13__MEDIAMIX_DISP_DATA9		0x31e
+			MX91_PAD_GPIO_IO14__MEDIAMIX_DISP_DATA10	0x31e
+			MX91_PAD_GPIO_IO15__MEDIAMIX_DISP_DATA11	0x31e
+			MX91_PAD_GPIO_IO16__MEDIAMIX_DISP_DATA12	0x31e
+			MX91_PAD_GPIO_IO17__MEDIAMIX_DISP_DATA13	0x31e
+			MX91_PAD_GPIO_IO18__MEDIAMIX_DISP_DATA14	0x31e
+			MX91_PAD_GPIO_IO19__MEDIAMIX_DISP_DATA15	0x31e
+			MX91_PAD_GPIO_IO20__MEDIAMIX_DISP_DATA16	0x31e
+			MX91_PAD_GPIO_IO21__MEDIAMIX_DISP_DATA17	0x31e
+		>;
+	};
+#if 1
+	pinctrl_lcdif_gpio: lcdifgpiogrp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO00__GPIO2_IO0			0x51e
+			MX91_PAD_GPIO_IO01__GPIO2_IO1			0x51e
+			MX91_PAD_GPIO_IO02__GPIO2_IO2			0x51e
+			MX91_PAD_GPIO_IO03__GPIO2_IO3			0x51e
+			MX91_PAD_GPIO_IO04__GPIO2_IO4			0x51e
+			MX91_PAD_GPIO_IO05__GPIO2_IO5			0x51e
+			MX91_PAD_GPIO_IO06__GPIO2_IO6			0x51e
+			MX91_PAD_GPIO_IO07__GPIO2_IO7			0x51e
+			MX91_PAD_GPIO_IO08__GPIO2_IO8			0x51e
+			MX91_PAD_GPIO_IO09__GPIO2_IO9			0x51e
+			MX91_PAD_GPIO_IO10__GPIO2_IO10			0x51e
+			MX91_PAD_GPIO_IO11__GPIO2_IO11			0x51e
+			MX91_PAD_GPIO_IO12__GPIO2_IO12			0x51e
+			MX91_PAD_GPIO_IO13__GPIO2_IO13			0x51e
+			MX91_PAD_GPIO_IO14__GPIO2_IO14			0x51e
+			MX91_PAD_GPIO_IO15__GPIO2_IO15			0x51e
+			MX91_PAD_GPIO_IO16__GPIO2_IO16			0x51e
+			MX91_PAD_GPIO_IO17__GPIO2_IO17			0x51e
+			MX91_PAD_GPIO_IO18__GPIO2_IO18			0x51e
+			MX91_PAD_GPIO_IO19__GPIO2_IO19			0x51e
+			MX91_PAD_GPIO_IO20__GPIO2_IO20			0x51e
+			MX91_PAD_GPIO_IO21__GPIO2_IO21			0x51e
+		>;
+	};
+#endif
+};

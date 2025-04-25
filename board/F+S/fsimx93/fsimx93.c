@@ -43,6 +43,14 @@
 #include "../common/fs_cntr_common.h"
 #include "../common/fs_fdt_common.h"
 
+#if CONFIG_IS_ENABLED(IMX93)
+#define LABEL_CPU_ALERT "cpu_alert"
+#define LABEL_CPU_CRIT "cpu_crit"
+#elif CONFIG_IS_ENABLED(IMX91)
+#define LABEL_CPU_ALERT "cpu_alert0"
+#define LABEL_CPU_CRIT "cpu_crit0"
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 /* +++ Environment defines +++ */
@@ -350,10 +358,10 @@ static void fdt_thermal_fixup(void *fdt, bool verbose)
 	if ((minc > -500) && maxc < 500) {
 		u32 tmp_val;
 		tmp_val = (maxc - 10) * 1000;
-		offs = fs_fdt_path_offset(fdt, "cpu_alert");
+		offs = fs_fdt_path_offset(fdt, LABEL_CPU_ALERT);
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, verbose);
 		tmp_val = maxc * 1000;
-		offs = fs_fdt_path_offset(fdt, "cpu_crit");
+		offs = fs_fdt_path_offset(fdt, LABEL_CPU_CRIT);
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, verbose);
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
@@ -403,13 +411,16 @@ static void fdt_common_fixup(void *fdt)
 	if(!(features & (FEAT_LVDS | FEAT_MIPI_DSI)))
 		fs_fdt_enable(fdt, "lcdif", 0);
 
-	if(gd->board_type == BT_PICOCOREMX93)
+	if(gd->board_type == BT_PICOCOREMX93 ||
+		gd->board_type == BT_PICOCOREMX91)
 		fdt_pcore_fixup(fdt);
 
-	if(gd->board_type == BT_OSMSFMX93)
+	if(gd->board_type == BT_OSMSFMX93 ||
+		gd->board_type == BT_OSMSFMX91)
 		fdt_osm_fixup(fdt);
 	
-	if(gd->board_type == BT_EFUSMX93)
+	if(gd->board_type == BT_EFUSMX93 ||
+		gd->board_type == BT_EFUSMX91)
 		fdt_efus_fixup(fdt);
 }
 
