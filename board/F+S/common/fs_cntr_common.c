@@ -380,7 +380,7 @@ bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 	int sha_size;
 	int ret;
 
-	sha_type = img->hab_flags & GENMASK(10,8);
+	sha_type = ((img->hab_flags & GENMASK(10,8)) >> 8);
 	switch(sha_type) {
 	case SHA256:
 		sha_size = SHA256_SUM_LEN;
