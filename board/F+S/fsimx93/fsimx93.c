@@ -327,6 +327,7 @@ static void fdt_fsboard_fixup(void *fdt)
 
 			if(!(features & FEAT_WLAN)){
 				fs_fdt_enable(fdt, "wlan_wake", 0);
+				fs_fdt_enable(fdt, "bluetooth", 0);
 			}
 
 			if(!(features & FEAT_SDIO_A))
