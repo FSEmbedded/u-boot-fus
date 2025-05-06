@@ -78,7 +78,7 @@ void test_OkOrFail(const int result, const int bNewline,
     if (pReason && *pReason)
     {
     	printf(" (");
-    	printf(pReason);
+    	puts(pReason);
     	printf(")");
     }
 
