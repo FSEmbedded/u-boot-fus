@@ -546,6 +546,11 @@ void fs_board_late_init_common(const char *serial_name)
 	env_set("updatecheck", "");
 	env_set("installcheck", "");
 	env_set("recovercheck", "");
+	{
+		char fdtaddr_cfg[20];
+		sprintf(fdtaddr_cfg, "%08lx", (ulong) fs_image_get_cfg_fdt());
+		env_set("fdtaddr_cfg", fdtaddr_cfg);
+	}
 #else
 	setup_var("bootdelay", current_bi->bootdelay, 0);
 	setup_var("updatecheck", current_bi->updatecheck, 0);
