@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 F&S Elektronik Systeme GmbH
+ * Copyright (C) 2025 F&S Elektronik Systeme GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -12,12 +12,12 @@
 
 / {
 	board-cfg {
-		board-name = "efusMX8MP";
+		board-name = "OSM8MP";
 
-		/* DRAM: 1GB Micron B.ICDRAM.38 */
+		/* DRAM: 2GB Samsung B.ICDRAM.51 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_ef_1g1800m2ch1cs";
-		dram-size = <0x400>;		/* In MiB */
+		dram-timing = "lpddr4_os_2g2000m2ch1cs";
+		dram-size = <0x800>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
@@ -30,20 +30,16 @@
 
 		/* Common board features */
 		board-rev = <100>;
-		//have-nand; // QSPI NAND
-		have-sd-b;
+		//have-nand;
 		have-emmc;
-		have-audio;
-		have-eth-phy-a;
-		have-eth-phy-b;
+		//have-audio;
+		have-eth-phy;
 		//have-wlan;
-		have-mipi-to-rgb;
-		//have-mipi-to-lvds;
-		have-hdmi;
-		have-lvds;
+		//have-mipi-dsi;
+		//have-hdmi;
 		have-ext-rtc;
 		//have-security;
 		have-eeprom;
-		have-adc;
+		//have-temp;
 	};
 };

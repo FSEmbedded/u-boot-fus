@@ -1,10 +1,11 @@
 /*
  * fsimx8mp.c
  *
- * (C) Copyright 2021
+ * (C) Copyright 2025
  * Patrik Jakob, F&S Elektronik Systeme GmbH, jakob@fs-net.de
  * Anatol Derksen, F&S Elektronik Systeme GmbH, derksen@fs-net.de
  * Philipp Gerbach, F&S Elektronik Systeme GmbH, gerbach@fs-net.de
+ * Kay Müller, F&S Elektronik Systeme GmbH, mueller@fs-net.de
  *
  * Board specific functions for F&S boards based on Freescale i.MX8MP CPU
  *
@@ -46,11 +47,12 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define BT_PICOCOREMX8MP 	0
-#define BT_PICOCOREMX8MPr2 	1
-#define BT_ARMSTONEMX8MP 	2
-#define BT_EFUSMX8MP 		3
-#define BT_FSSMMX8MP 		4
+#define BT_PICOCOREMX8MP	0
+#define BT_PICOCOREMX8MPr2	1
+#define BT_ARMSTONEMX8MP	2
+#define BT_EFUSMX8MP		3
+#define BT_FSSMMX8MP		4
+#define BT_OSM8MP		5
 
 
 #define FEAT_ETH_A 	(1<<0)	/* 0: no LAN0,  1: has LAN0 */
@@ -150,6 +152,19 @@ const struct fs_board_info board_info[] = {
 	},
 	{	/* 4 (BT_FSSMMX8MP) */
 		.name = "FSSMMX8MP",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 5 (BT_OSM8MP) */
+		.name = "OSM8MP",
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -376,6 +391,7 @@ static int do_fdt_board_setup_common(void *fdt)
 			}
 			break;
 		case BT_FSSMMX8MP:
+		case BT_OSM8MP:
 			/* Disable eeprom node if it is not available */
 			if (!(features & FEAT_EEPROM)) {
 				fs_fdt_enable(fdt, "eeprom", 0);
@@ -682,6 +698,7 @@ void fs_ethaddr_init(void)
 	case BT_ARMSTONEMX8MP:
 	case BT_EFUSMX8MP:
 	case BT_FSSMMX8MP:
+	case BT_OSM8MP:
 		if (features2 & FEAT_ETH_A) {
 			fs_eth_set_ethaddr(eth_id++);
 		}
@@ -837,10 +854,13 @@ void ss_mux_select(enum typec_cc_polarity pol)
 		gpio_direction_output(USB_TYPEC_SEL, 1);
 }
 
+void ss_mux_dummy(enum typec_cc_polarity pol) {}
+
 static int setup_typec(void)
 {
 	int ret = 0;
 	unsigned int board_type = fs_board_get_type();
+	ss_mux_sel ss_sel_func = &ss_mux_select;
 
 	/* efusmx8mp does not support typec */
 	if(board_type == BT_EFUSMX8MP) {
@@ -854,15 +874,24 @@ static int setup_typec(void)
 		return ret;
 	}
 
-	imx_iomux_v3_setup_multiple_pads(ss_mux_gpio, ARRAY_SIZE(ss_mux_gpio));
-	gpio_request(USB_TYPEC_SEL, "typec_sel");
-	gpio_request(USB_TYPEC_EN, "typec_en");
-	gpio_direction_output(USB_TYPEC_EN, 0);
+	/* ADP_OSM_BB with BBDSI does not support ss_mux */
+	if(board_type == BT_OSM8MP)
+		ss_sel_func = &ss_mux_dummy;
+
+	if (ss_sel_func != &ss_mux_dummy) {
+		imx_iomux_v3_setup_multiple_pads(ss_mux_gpio, ARRAY_SIZE(ss_mux_gpio));
+		gpio_request(USB_TYPEC_SEL, "typec_sel");
+		gpio_request(USB_TYPEC_EN, "typec_en");
+		gpio_direction_output(USB_TYPEC_EN, 0);
+	}
 
 	switch(board_type) {
 	default:
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
+	case BT_OSM8MP:
+		/* OSM order is different for i2c4/i2c_b:
+		 * i2c_int(0), i2c_a(1), i2c_b(2), osm_i2c_cam_pci(3) */
 		port1_config.i2c_bus = 2; /* i2c3 */
 		break;
 	case BT_ARMSTONEMX8MP:
@@ -870,7 +899,7 @@ static int setup_typec(void)
 		break;
 	}
 
-	ret = tcpc_init(&port1, port1_config, &ss_mux_select);
+	ret = tcpc_init(&port1, port1_config, ss_sel_func);
 	if (ret) {
 		debug("%s: tcpc port init failed, err=%d\n",
 		       __func__, ret);
@@ -1079,6 +1108,7 @@ int board_usb_gadget_port_auto(void)
 		case BT_EFUSMX8MP:
 			return 1;
 		case BT_FSSMMX8MP:
+		case BT_OSM8MP:
 			return 0;
 		}
 	}
@@ -1172,6 +1202,7 @@ ulong board_serial_base(void)
 	case BT_PICOCOREMX8MPr2:
 	case BT_ARMSTONEMX8MP:
 	case BT_FSSMMX8MP:
+	case BT_OSM8MP:
 	default:
 		break;
 	}
