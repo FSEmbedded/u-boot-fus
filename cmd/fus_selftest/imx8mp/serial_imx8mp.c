@@ -86,10 +86,10 @@ struct mxc_uart {
 void set_loopback(void *dev, int on)
 {
 	struct udevice *pdev = (struct udevice *) dev;
-	struct mxc_serial_platdata *plat;
+	struct mxc_serial_plat *plat;
 	struct mxc_uart * base;
 
-	plat = pdev->platdata;
+	plat = dev_get_plat(dev);
 	base = plat->reg;
 
 	/* Set internal loopback mode */

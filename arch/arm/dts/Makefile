@@ -885,18 +885,21 @@ dtb-$(CONFIG_ARCH_IMX8M) += \
 	imx8mn-ddr4-ab2.dtb \
 	imx8mn-ddr3l-ab2.dtb \
 	imx8mn-ab2.dtb \
-	picocoremx8mm.dtb \
+	armstonemx8m.dtb
+
+dtb-$(CONFIG_TARGET_FSIMX8MM) += picocoremx8mm.dtb \
 	picocoremx8mmr2.dtb \
 	picocoremx8mx.dtb \
 	picocoremx8mm-lpddr4.dtb \
 	picocoremx8mmr2-lpddr4.dtb \
 	picocoremx8mm-ddr3l.dtb \
 	osm8mm.dtb \
-	armstonemx8m.dtb \
-	picocoremx8mn-lpddr4.dtb \
-	picocoremx8mn-ddr3l.dtb \
-	tbs2.dtb \
-	picocoremx8mp.dtb \
+	tbs2.dtb
+
+dtb-$(CONFIG_TARGET_FSIMX8MN) += picocoremx8mn-lpddr4.dtb \
+	picocoremx8mn-ddr3l.dtb
+
+dtb-$(CONFIG_TARGET_FSIMX8MP) += picocoremx8mp.dtb \
 	picocoremx8mpr2.dtb \
 	armstonemx8mp.dtb \
 	efusmx8mp.dtb \

@@ -3,6 +3,9 @@
 #ifdef CONFIG_IMX8MM
 #include "fs-osm-sf-mx8mm-selftest.dts"
 #endif
+#ifdef CONFIG_IMX8MP
+#include "fs-osm-sf-mx8mp-selftest.dts"
+#endif
 #ifdef CONFIG_IMX93
 include "fs-osm-sf-mx93-selftest.dts"
 #endif

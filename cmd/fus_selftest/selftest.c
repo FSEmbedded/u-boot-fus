@@ -39,7 +39,7 @@
 #include "processor_info.h"
 
 
-static char szStrBuffer[1024];
+static char szStrBuffer[4096];
 
 static int selftest_common(struct cmd_tbl *, int, char * const []);
 
@@ -95,7 +95,7 @@ static int selftest_common(struct cmd_tbl *cmdtp, int argc,
 
 
 
-#ifdef CONFIG_IMX8MP
+#if 0
 
 	printf("Uboot Selftest running...\n");
 
