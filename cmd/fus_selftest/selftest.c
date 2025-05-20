@@ -168,6 +168,45 @@ static int selftest_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 
 	printf("Selftest done!\n");
 	return ret;
+#elif defined(CONFIG_IMX8ULP)
+	if(!linux_selftest)
+		printf("Uboot Selftest running...\n");
+
+	get_processorInfo(linux_selftest);
+	ret = test_ram(szStrBuffer, linux_selftest);
+
+	/**
+	* Further interface tests are running in Linux
+	*/
+	if(linux_selftest)
+		return ret;
+
+	if (has_feature(FEAT_EXT_RTC))
+		ret = test_rtc_start();
+
+	if(has_feature(FEAT_EMMC))
+		ret = test_mmc(szStrBuffer);
+
+	if(has_feature(FEAT_EMMC) && ret){
+		printf("EMMC .................");
+		sprintf(szStrBuffer,"No Device Found!");
+		test_OkOrFail(-1,1,szStrBuffer);
+	}
+
+	if (has_feature(FEAT_EEPROM))
+		ret = test_eeprom(szStrBuffer);
+
+	test_pmic(szStrBuffer);
+
+	test_gpio(UCLASS_GPIO, szStrBuffer);
+
+	if (has_feature(FEAT_EXT_RTC))
+		ret = test_rtc_end(szStrBuffer);
+
+	test_USBHost(szStrBuffer);
+
+	printf("Selftest done!\n");
+	return ret;
 #else //IMX8M
 
 	printf("Selftest running...\n");

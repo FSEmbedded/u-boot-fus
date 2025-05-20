@@ -69,7 +69,7 @@ obj-$(CONFIG_CMD_SELFTEST) += common/fus_gpio.o
 # obj-$(CONFIG_CMD_SELFTEST) += imx8x/serial_imx8x.o
 # obj-$(CONFIG_CMD_SELFTEST) += imx8x/audio_imx8x.o
 # endif
-ifeq ($(filter y,$(CONFIG_IMX93) $(CONFIG_IMX91)),y)
+ifeq ($(filter y,$(CONFIG_IMX93) $(CONFIG_IMX91) $(CONFIG_IMX8ULP)),y)
 obj-$(CONFIG_CMD_SELFTEST) += imx93/gpio_imx93.o
 obj-$(CONFIG_CMD_SELFTEST) += imx93/serial_imx93.o
 endif
