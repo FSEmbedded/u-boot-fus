@@ -13,12 +13,12 @@ struct cpuinfo {
 	u32 rev_h, rev_l;
 };
 
+#if defined(CONFIG_IMX8MM) ||  defined(CONFIG_IMX8MN) || defined(CONFIG_IMX8MP) || defined(CONFIG_IMX8ULP)
 static int get_processorInfo_soc(struct cpuinfo *ci){
 
-#if defined(CONFIG_IMX8MM) ||  defined(CONFIG_IMX8MN) || defined (CONFIG_IMX8MP)
 	u32 cpurev = get_cpu_rev();
 	u32 max_freq;
-	int minc,maxc;
+	__maybe_unused int minc,maxc;
 
 	ci->type = get_imx_type((cpurev & 0x1FF000) >> 12);
 	ci->rev_h = (cpurev & 0x000F0) >> 4;
@@ -32,6 +32,7 @@ static int get_processorInfo_soc(struct cpuinfo *ci){
 		ci->freq = max_freq / 1000000;
 	}
 
+#if !defined(CONFIG_IMX8ULP)
 	switch (get_cpu_temp_grade(&minc, &maxc)) {
 	case TEMP_AUTOMOTIVE:
 		ci->temp = "Automotive";
@@ -46,29 +47,36 @@ static int get_processorInfo_soc(struct cpuinfo *ci){
 		ci->temp = "Commercial";
 		break;
 	}
-
-	return 0;
 #else
-	return -1;
+	ci->temp = "UNKNOWN";
 #endif
+	return 0;
 }
+#endif
 
-int get_processorInfo (void){
+int get_processorInfo(bool silent){
 
 	struct cpuinfo ci;
+	char cpu_str[512];
 	int ret = 0;
 
 	ret = get_processorInfo_soc(&ci);
 
-	if (ret)
+	if (ret){
 		printf("No CPU-Info found \n");
-	else
-		printf("CPU: i.MX %s %s %dMHz Rev %d.%d\n",
-				ci.type, ci.temp, ci.freq, ci.rev_h, ci.rev_l);
-	return ret;
+		return ret;
+	}
 
+	snprintf(cpu_str, 512, "CPU: i.MX %s %s %dMHz Rev %d.%d\n",
+		ci.type, ci.temp, ci.freq, ci.rev_h, ci.rev_l);
+
+	if(!silent)
+		printf("%s", cpu_str);
+
+	return ret;
 }
 
+#if CONFIG_IS_ENABLED(CPU)
 int print_cpuinfo(bool silent)
 {
 	struct udevice *dev;
@@ -100,3 +108,4 @@ int print_cpuinfo(bool silent)
 
 	return 0;
 }
+#endif

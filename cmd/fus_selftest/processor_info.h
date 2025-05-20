@@ -8,8 +8,10 @@
 #ifndef CMD_FUS_SELFTEST_PROCESSOR_INFO_H_
 #define CMD_FUS_SELFTEST_PROCESSOR_INFO_H_
 
-int get_processorInfo (void);
-int print_cpuinfo(bool silent);
+int get_processorInfo(bool silent);
 
+#if CONFIG_IS_ENABLED(CPU)
+int print_cpuinfo(bool silent);
+#endif
 
 #endif /* CMD_FUS_SELFTEST_PROCESSOR_INFO_H_ */
