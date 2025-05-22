@@ -271,8 +271,14 @@ static int vsc8514_config(struct phy_device *phydev)
 	val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_LED_MODE);
 	val &= 0xF0F0;
 	// LED0 => tx activity; LED2 => link established
-	val |= 0x080a;
+	val |= 0x000a;
 	phy_write(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_LED_MODE, val);
+
+	/* Configure Phy-LED Behavour */
+	/* disable LED2 combined feature */
+	val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_LED_BEHAVIOR);
+	val |= 0x4;
+	phy_write(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_LED_BEHAVIOR, val);
 
 	return 0;
 }
