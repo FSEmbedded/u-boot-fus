@@ -4,7 +4,7 @@
  */
 
 #ifndef __ARCH_IMX8ULP_SYS_PROTO_H
-#define __ARCH_NMX8ULP_SYS_PROTO_H
+#define __ARCH_IMX8ULP_SYS_PROTO_H
 
 #include <asm/mach-imx/sys_proto.h>
 
@@ -17,4 +17,6 @@ bool m33_image_booted(void);
 bool is_m33_handshake_necessary(void);
 int m33_image_handshake(ulong timeout_ms);
 int imx8ulp_dm_post_init(void);
+void set_apd_gpiox_op_range(u32 port, u32 range);
+void set_apd_gpiox_comp_cell(u32 port, bool enable);
 #endif

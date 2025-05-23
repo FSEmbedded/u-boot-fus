@@ -11,7 +11,7 @@
 #include <mtd.h>
 
 #define FIRMWARE_MAX_NUM		8
-#define SERIAL_NAND_BAD_BLOCK_MAX_NUM	256
+#define SERIAL_NAND_BAD_BLOCK_MAX_NUM	256U
 #define FSPI_CFG_BLK_TAG		0x42464346/* FCFB, bigendian */
 #define FSPI_CFG_BLK_VERSION		0x56010000/* Version 1.0 */
 #define FSPI_CFG_BLK_SIZE		512
@@ -216,23 +216,24 @@ static struct mtd_info *get_mtd_by_name(const char *name)
 static void fspinand_prep_dft_config(struct fspi_nand *f)
 {
 	struct fspi_nand_config *config = &f->fcb.config;
+	struct mtd_info *mtd = f->mtd;
 
 	config->mem_config.tag = FSPI_CFG_BLK_TAG;
 	config->mem_config.version = FSPI_CFG_BLK_VERSION;
-	config->mem_config.sflashA1Size = 256 * 1024 * 1024;
+	config->mem_config.sflashA1Size = mtd->size;
 	config->mem_config.serialClkFreq = 1;
 	config->mem_config.sflashPadType = 1;
 	config->mem_config.dataHoldTime = 3;
 	config->mem_config.dataSetupTime = 3;
-	config->mem_config.columnAddressWidth = 13;
+	config->mem_config.columnAddressWidth = mtd->writesize_shift + 1;
 	config->mem_config.deviceType = 3; //Micron
 	config->mem_config.commandInterval = 100;
 
-	config->page_data_size = 4096;
-	config->page_total_size = 8192;
-	config->page_per_block = 64;
+	config->page_data_size = mtd->writesize;
+	config->page_total_size = 1 << config->mem_config.columnAddressWidth;
+	config->page_per_block = mtd->erasesize / mtd->writesize;
 	config->has_multi_plane = 0;
-	config->block_per_device = 0x400;
+	config->block_per_device = mtd_div_by_eb(mtd->size, mtd);
 
 	/* Read Status */
 	config->mem_config.lookupTable[4 * NAND_LUT_IDX_READSTATUS + 0] =
@@ -338,17 +339,17 @@ static int fspinand_prep_dbbt(struct fspi_nand *f)
 	struct mtd_info *mtd = f->mtd;
 	struct fspi_nand_dbbt *dbbt = &f->dbbt;
 	int ret = 0;
-	int i;
+	u32 i;
 	u64 off;
-	int toal_blk_num = mtd_div_by_eb(mtd->size, mtd);
-	int max_num = min(toal_blk_num, SERIAL_NAND_BAD_BLOCK_MAX_NUM);
+	u32 toal_blk_num = mtd_div_by_eb(mtd->size, mtd);
+	u32 max_num = min(toal_blk_num, SERIAL_NAND_BAD_BLOCK_MAX_NUM);
 
 	dbbt->crc_checksum = 0;
 	dbbt->fingerprint = FSPI_NAND_DBBT_FINGERPRINT;
 	dbbt->version = FSPI_NAND_DBBT_VERSION;
 
 	for (i = 0; i < max_num; i++) {
-		off = i * mtd->erasesize;
+		off = i * (u64)mtd->erasesize;
 		if (mtd_block_isbad(mtd, off)) {
 			dbbt->bad_block_table[dbbt->bad_block_number] = i;
 			dbbt->bad_block_number++;
@@ -420,7 +421,6 @@ static int fspinand_readback_check(struct fspi_nand *f, u64 offset, u64 len,
 	}
 
 	kfree(buf);
-	unmap_sysmem(buf);
 	return need_rewrite;
 };
 
@@ -551,7 +551,7 @@ static int fspinand_prog_fcb(struct fspi_nand *f)
 		printf("fspinand prog FCB0 success\n");
 	}
 
-	ret = fspinand_prog_data(f, fcb, fcb->search_stride * mtd->writesize,
+	ret = fspinand_prog_data(f, fcb, (u64)fcb->search_stride * mtd->writesize,
 				 sizeof(struct fspi_nand_fcb));
 	if (ret) {
 		printf("fspinand prog FCB1 fail\n");
@@ -571,7 +571,7 @@ static int fspinand_prog_dbbt(struct fspi_nand *f)
 	int ret = 0;
 	u64 off;
 
-	off = fcb->DBBT_search_start_page * mtd->writesize;
+	off = (u64)fcb->DBBT_search_start_page * mtd->writesize;
 	ret = fspinand_prog_data(f, dbbt, off, sizeof(struct fspi_nand_dbbt));
 	if (ret) {
 		printf("fspinand prog DBBT0 fail\n");
@@ -580,7 +580,7 @@ static int fspinand_prog_dbbt(struct fspi_nand *f)
 		printf("fspinand prog DBBT0 success\n");
 	}
 
-	off += fcb->search_stride * mtd->writesize;
+	off += (u64)fcb->search_stride * mtd->writesize;
 	ret = fspinand_prog_data(f, dbbt, off, sizeof(struct fspi_nand_dbbt));
 	if (ret) {
 		printf("fspinand prog DBBT1 fail\n");
@@ -600,8 +600,8 @@ static int fspinand_prog_firmware(struct fspi_nand *f, void *firmware)
 	u64 off;
 	u64 size;
 
-	off = fcb->firmware_table[0].start_page * mtd->writesize;
-	size = fcb->firmware_table[0].pages_in_firmware * mtd->writesize;
+	off = (u64)fcb->firmware_table[0].start_page * mtd->writesize;
+	size = (u64)fcb->firmware_table[0].pages_in_firmware * mtd->writesize;
 	ret = fspinand_prog_data(f, firmware, off, size);
 	if (ret) {
 		printf("fspinand prog FIRMWARE0 fail\n");

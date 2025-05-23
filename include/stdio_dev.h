@@ -17,8 +17,7 @@
 #define DEV_FLAGS_INPUT	 0x00000001	/* Device can be used as input	console */
 #define DEV_FLAGS_OUTPUT 0x00000002	/* Device can be used as output console */
 #define DEV_FLAGS_DM     0x00000004	/* Device priv is a struct udevice * */
-
-#define DEV_NAME_SIZE 32
+#define STDIO_NAME_LEN 32
 
 int stdio_file_to_flags(const int file);
 
@@ -26,9 +25,9 @@ int stdio_file_to_flags(const int file);
 typedef struct stdio_dev stdio_dev_t;
 
 struct stdio_dev {
-	int	flags;			/* Device flags: input/output/system */
-//###	int	ext;			/* Supported extensions */
-	char	name[DEV_NAME_SIZE];	/* Device name */
+	int	flags;			/* Device flags: input/output/system	*/
+//###	int	ext;			/* Supported extensions			*/
+	char	name[STDIO_NAME_LEN];	/* Device name				*/
 
 /* GENERAL functions */
 	/* To start the device */
@@ -90,15 +89,6 @@ int stdio_init_tables(void);
  * them register with stdio.
  */
 int stdio_add_devices(void);
-
-/**
- * stdio_init() - Sets up stdio ready for use
- *
- * This calls stdio_init_tables() and stdio_add_devices()
- */
-int stdio_init(void);
-
-void stdio_print_current_devices(void);
 
 /**
  * stdio_deregister_dev() - deregister the device "devname".

@@ -816,18 +816,6 @@ void enable_qspi_clk(int qspi_num)
 }
 #endif
 
-#if defined(CONFIG_VIDEO_GIS)
-void mxs_set_vadcclk()
-{
-	u32 reg = 0;
-
-	reg = readl(&imx_ccm->cscmr2);
-	reg &= ~MXC_CCM_CSCMR2_VID_CLK_SEL_MASK;
-	reg |= 0x19 << MXC_CCM_CSCMR2_VID_CLK_SEL_OFFSET;
-	writel(reg, &imx_ccm->cscmr2);
-}
-#endif
-
 #ifdef CONFIG_FEC_MXC
 int enable_fec_anatop_clock_ref(int fec_id, enum enet_freq freq, bool ref_en)
 {
@@ -1088,12 +1076,12 @@ int enable_pcie_clock(void)
 	if (!is_mx6sx()) {
 	/* Party time! Ungate the clock to the PCIe. */
 #if defined(CONFIG_SATA) || defined(CONFIG_IMX_AHCI)
-	ungate_sata_clock();
+		ungate_sata_clock();
 #endif
-	ungate_pcie_clock();
+		ungate_pcie_clock();
 
-	return enable_enet_pll(BM_ANADIG_PLL_ENET_ENABLE_SATA |
-			       BM_ANADIG_PLL_ENET_ENABLE_PCIE);
+		return enable_enet_pll(BM_ANADIG_PLL_ENET_ENABLE_SATA |
+				       BM_ANADIG_PLL_ENET_ENABLE_PCIE);
 	} else {
 		/* Party time! Ungate the clock to the PCIe. */
 		ungate_disp_axi_clock();
@@ -1171,6 +1159,7 @@ void enable_thermal_clk(void)
 	enable_pll3();
 }
 
+#ifdef CONFIG_MTD_NOR_FLASH
 void enable_eim_clk(unsigned char enable)
 {
 	u32 reg;
@@ -1182,6 +1171,7 @@ void enable_eim_clk(unsigned char enable)
 		reg &= ~MXC_CCM_CCGR6_EMI_SLOW_MASK;
 	__raw_writel(reg, &imx_ccm->CCGR6);
 }
+#endif
 
 unsigned int mxc_get_clock(enum mxc_clock clk)
 {

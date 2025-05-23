@@ -45,7 +45,7 @@
 
 static int asynch_allowed;
 static char us_between_delays = 0;
-char usb_started; /* flag for the started/stopped USB status */
+bool usb_started; /* flag for the started/stopped USB status */
 #define MAX_PREPARE_RETRIES 3
 
 #if !CONFIG_IS_ENABLED(DM_USB)

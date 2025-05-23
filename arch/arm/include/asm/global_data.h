@@ -11,7 +11,6 @@
 
 #include <config.h>
 
-#include <asm/types.h>
 #include <linux/types.h>
 
 /* Architecture-specific global data */
@@ -23,7 +22,12 @@ struct arch_global_data {
 	unsigned long	ipg_clk;
 	unsigned long	bus_clk;
 #endif
-
+#if CONFIG_IS_ENABLED(ACPI)
+	ulong table_start;		/* Start address of ACPI tables */
+	ulong table_end;		/* End address of ACPI tables */
+	ulong table_start_high;		/* Start address of high ACPI tables */
+	ulong table_end_high;		/* End address of high ACPI tables */
+#endif
 #if defined(CONFIG_FSL_ESDHC)
 	u32 sdhc_per_clk;
 #endif
@@ -102,6 +106,12 @@ struct arch_global_data {
 
 #ifdef CONFIG_ARCH_IMX8ULP
 	bool m33_handshake_done;
+#endif
+#ifdef CONFIG_SMBIOS
+	ulong smbios_start;		/* Start address of SMBIOS table */
+#endif
+#if defined(CONFIG_SCMI_FIRMWARE) && defined(CONFIG_IMX9)
+	struct udevice *scmi_dev;
 #endif
 };
 

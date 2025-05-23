@@ -10,34 +10,47 @@
 #include <usb.h>
 #include <g_dnl.h>
 #include <sdp.h>
+#include <linux/printk.h>
 
-void board_sdp_cleanup(void)
+static int spl_sdp_get_controller(struct udevice **udc)
 {
 	int controller_index = CONFIG_SPL_SDP_USB_DEV;
-	int index = board_usb_gadget_port_auto();
+	int index;
+
+	index = board_usb_gadget_port_auto();
 	if (index >= 0)
 		controller_index = index;
-	usb_gadget_release(CONFIG_SPL_SDP_USB_DEV);
-}
 
+	return udc_device_get_by_index(controller_index, udc);
+}
 
 int spl_sdp_stream_continue(const struct sdp_stream_ops *ops, bool single)
 {
-	int controller_index = CONFIG_SPL_SDP_USB_DEV;
-	int index = board_usb_gadget_port_auto();
-	if (index >= 0)
-		controller_index = index;
+	struct udevice *udc;
+	int ret;
+
+	ret = spl_sdp_get_controller(&udc);
+	if (ret)
+		return ret;
 
 	/* Should not return, unless in single mode when it returns after one
 	   SDP command */
-	sdp_handle(controller_index, ops, single);
-
-	if (!single) {
-		pr_err("SDP ended\n");
-		return -EINVAL;
-	}
+	sdp_handle(udc, ops, single);
 
 	return 0;
+}
+
+void spl_sdp_stream_done(void)
+{
+	struct udevice *udc;
+	int ret;
+
+	ret = spl_sdp_get_controller(&udc);
+	if (ret)
+		return;
+
+	g_dnl_unregister();
+	udc_device_put(udc);
 }
 
 /**
@@ -54,32 +67,43 @@ int spl_sdp_stream_continue(const struct sdp_stream_ops *ops, bool single)
  */
 int spl_sdp_stream_image(const struct sdp_stream_ops *ops, bool single)
 {
+	struct udevice *udc;
 	int ret;
-	int index;
 	static int initdone;
 
 	if (!initdone) {
 		/* Only init the USB controller once while in SPL */
-		int controller_index = CONFIG_SPL_SDP_USB_DEV;
-		index = board_usb_gadget_port_auto();
-		if (index >= 0)
-			controller_index = index;
-
-		usb_gadget_initialize(controller_index);
+		ret = spl_sdp_get_controller(&udc);
+		if (ret)
+			return ret;
 
 		g_dnl_clear_detach();
-		g_dnl_register("usb_dnl_sdp");
+		ret = g_dnl_register("usb_dnl_sdp");
+		if (ret) {
+			pr_err("SDP dnl register failed: %d\n", ret);
+			goto err_detach;
+		}
 
-		ret = sdp_init(controller_index);
+		ret = sdp_init(udc);
 		if (ret) {
 			pr_err("SDP init failed: %d\n", ret);
-			return -ENODEV;
+			goto err_unregister;
 		}
 
 		initdone = 1;
 	}
 
-	return spl_sdp_stream_continue(ops, single);
+	ret = spl_sdp_stream_continue(ops, single);
+	if (single)
+		return ret;
+	debug("SDP ended\n");
+
+err_unregister:
+	g_dnl_unregister();
+err_detach:
+	udc_device_put(udc);
+
+	return ret;
 }
 
 /**

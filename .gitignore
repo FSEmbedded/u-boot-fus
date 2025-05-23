@@ -37,7 +37,7 @@
 *.tab.[ch]
 
 # Build tree
-/build-*
+/build*
 
 #
 # Top-level generic files
@@ -46,8 +46,10 @@ fit-dtb.blob*
 /MLO*
 /SPL*
 /System.map
-/u-boot*
 /boards.cfg
+/mkimage-in-simple-bin*
+/simple-bin*
+/u-boot*
 /*.log
 /uboot.nb0
 
@@ -56,6 +58,7 @@ fit-dtb.blob*
 #
 !.gitignore
 !.mailmap
+!.get_maintainer.*
 
 #
 # Generated files
@@ -67,6 +70,8 @@ fit-dtb.blob*
 #
 # Generated include files
 #
+/include/autoconf.mk*
+/include/config.h
 /include/config/
 /include/generated/
 
@@ -109,5 +114,8 @@ __pycache__
 /pylint.cur
 /pylint.out/
 
-# moveconfig database
-/moveconfig.db
+# qconfig database
+/qconfig.db
+
+# Clang's compilation database file
+/compile_commands.json

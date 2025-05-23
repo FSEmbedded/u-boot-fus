@@ -60,7 +60,7 @@ void arch_print_bdinfo(void)
 #ifdef CONFIG_FS_BOARD_CFG
 	bdinfo_print_num_l("BOARD-CFG", gd->board_cfg);
 #endif
-#if CONFIG_VAL(SYS_MALLOC_F_LEN)
+#if CONFIG_IS_ENABLED(SYS_MALLOC_F)
 	printf("Early malloc usage: %lx / %x\n", gd->malloc_ptr,
 	       CONFIG_VAL(SYS_MALLOC_F_LEN));
 #endif

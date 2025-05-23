@@ -110,7 +110,7 @@ static int do_ubifs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 {
 	const char *filename;
 	int ret;
-	u32 addr;
+	unsigned long addr;
 	u32 size;
 
 	if (!ubifs_mounted) {
@@ -122,7 +122,7 @@ static int do_ubifs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 	filename = (argc > 2) ? env_parse_bootfile(argv[2]) : env_get_bootfile();
 	size = (argc > 3) ? hextoul(argv[3], NULL) : 0;
 
-	debug("Loading file '%s' to address 0x%08x (size %d)\n",
+	debug("Loading file '%s' to address 0x%08lx (size %d)\n",
 	      filename, addr, size);
 
 	ret = ubifs_load(filename, addr, size);

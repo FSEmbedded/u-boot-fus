@@ -31,10 +31,6 @@
 #include "videomodes.h"
 #include <dm/device-internal.h>
 
-#ifdef CONFIG_VIDEO_GIS
-#include <gis.h>
-#endif
-
 #define	PS2KHZ(ps)	(1000000000UL / (ps))
 #define HZ2PS(hz)	(1000000000UL / ((hz) / 1000))
 
@@ -404,11 +400,6 @@ static int mxs_video_probe(struct udevice *dev)
 
 	mxs_lcd_init(dev, plat->base, &timings, bpp, PATTERN_RGB, enable_bridge);
 
-#ifdef CONFIG_VIDEO_GIS
-	/* Entry for GIS */
-	mxc_enable_gis();
-#endif
-
 	switch (bpp) {
 	case 32:
 	case 24:
@@ -470,6 +461,7 @@ static int mxs_video_remove(struct udevice *dev)
 static const struct udevice_id mxs_video_ids[] = {
 	{ .compatible = "fsl,imx23-lcdif" },
 	{ .compatible = "fsl,imx28-lcdif" },
+	{ .compatible = "fsl,imx6sx-lcdif" },
 	{ .compatible = "fsl,imx7ulp-lcdif" },
 	{ .compatible = "fsl,imxrt-lcdif" },
 	{ .compatible = "fsl,imx8mm-lcdif" },

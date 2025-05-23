@@ -5,6 +5,7 @@
 
 #include <common.h>
 #include <env.h>
+#include <efi_loader.h>
 #include <init.h>
 #include <miiphy.h>
 #include <netdev.h>
@@ -31,11 +32,30 @@ static iomux_v3_cfg_t const uart_pads[] = {
 	MX93_PAD_UART1_TXD__LPUART1_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
 };
 
+#if CONFIG_IS_ENABLED(EFI_HAVE_CAPSULE_SUPPORT)
+#define IMX_BOOT_IMAGE_GUID \
+	EFI_GUID(0xbc550d86, 0xda26, 0x4b70, 0xac, 0x05, \
+		 0x2a, 0x44, 0x8e, 0xda, 0x6f, 0x21)
+
+struct efi_fw_image fw_images[] = {
+	{
+		.image_type_id = IMX_BOOT_IMAGE_GUID,
+		.fw_name = u"IMX93-11X11-EVK-RAW",
+		.image_index = 1,
+	},
+};
+
+struct efi_capsule_update_info update_info = {
+	.dfu_string = "mmc 0=flash-bin raw 0 0x2000 mmcpart 1",
+	.num_images = ARRAY_SIZE(fw_images),
+	.images = fw_images,
+};
+
+#endif /* EFI_HAVE_CAPSULE_SUPPORT */
+
 int board_early_init_f(void)
 {
 	imx_iomux_v3_setup_multiple_pads(uart_pads, ARRAY_SIZE(uart_pads));
-
-	init_uart_clk(LPUART1_CLK_ROOT);
 
 	return 0;
 }
@@ -239,23 +259,6 @@ int board_phy_config(struct phy_device *phydev)
 	return 0;
 }
 
-static int setup_eqos(void)
-{
-	struct blk_ctrl_wakeupmix_regs *bctrl =
-		(struct blk_ctrl_wakeupmix_regs *)BLK_CTRL_WAKEUPMIX_BASE_ADDR;
-
-	if (!IS_ENABLED(CONFIG_TARGET_IMX93_14X14_EVK)) {
-		/* set INTF as RGMII, enable RGMII TXC clock */
-		clrsetbits_le32(&bctrl->eqos_gpr,
-				BCTRL_GPR_ENET_QOS_INTF_MODE_MASK,
-				BCTRL_GPR_ENET_QOS_INTF_SEL_RGMII | BCTRL_GPR_ENET_QOS_CLK_GEN_EN);
-
-		return set_clk_eqos(ENET_125MHZ);
-	}
-
-	return 0;
-}
-
 static void board_gpio_init(void)
 {
 	struct gpio_desc desc;
@@ -308,9 +311,6 @@ int board_init(void)
 
 	if (IS_ENABLED(CONFIG_FEC_MXC))
 		setup_fec();
-
-	if (IS_ENABLED(CONFIG_DWC_ETH_QOS))
-		setup_eqos();
 
 	board_gpio_init();
 

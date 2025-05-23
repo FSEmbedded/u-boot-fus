@@ -22,7 +22,7 @@
 #define debug_parser(fmt, args...)		\
 	debug_cond(DEBUG_PARSER, fmt, ##args)
 
-
+#ifdef CONFIG_CMDLINE
 int cli_simple_parse_line(char *line, char *argv[])
 {
 	int nargs = 0;
@@ -405,3 +405,4 @@ int cli_simple_run_command_list(char *cmd, int flag)
 
 	return rcode;
 }
+#endif

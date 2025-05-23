@@ -21,6 +21,7 @@
 #include <asm/arch/rdc.h>
 #include <asm/arch/upower.h>
 #include <asm/mach-imx/ele_api.h>
+#include <asm/sections.h>
 #include <asm/mach-imx/boot_mode.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -86,6 +87,13 @@ void setup_iomux_pmic(void)
 
 int power_init_board(void)
 {
+	/* Set buck2 ramp-up speed 1us */
+	upower_pmic_i2c_write(0x14, 0x39);
+	/* Set buck3 ramp-up speed 1us */
+	upower_pmic_i2c_write(0x21, 0x39);
+	/* Set buck3out min limit 0.625v */
+	upower_pmic_i2c_write(0x2d, 0x2);
+
 	if (IS_ENABLED(CONFIG_IMX8ULP_ND_MODE)) {
 		/* Set buck3 to 1.0v ND */
 		upower_pmic_i2c_write(0x22, 0x20);
@@ -99,17 +107,17 @@ int power_init_board(void)
 
 void display_ele_fw_version(void)
 {
-	u32 fw_version, sha1, res;
+	u32 fw_version, sha1, res = 0;
 	int ret;
 
-	ret = ahab_get_fw_version(&fw_version, &sha1, &res);
+	ret = ele_get_fw_version(&fw_version, &sha1, &res);
 	if (ret) {
-		printf("ahab get firmware version failed %d, 0x%x\n", ret, res);
+		printf("ele get firmware version failed %d, 0x%x\n", ret, res);
 	} else {
 		printf("ELE firmware version %u.%u.%u-%x",
 		       (fw_version & (0x00ff0000)) >> 16,
-		       (fw_version & (0x0000ff00)) >> 8,
-		       (fw_version & (0x000000ff)), sha1);
+		       (fw_version & (0x0000fff0)) >> 4,
+		       (fw_version & (0x0000000f)), sha1);
 		((fw_version & (0x80000000)) >> 31) == 1 ? puts("-dirty\n") : puts("\n");
 	}
 }
@@ -136,7 +144,7 @@ void spl_board_init(void)
 	if (!m33_image_booted())
 		setup_iomux_pmic();
 
-	/* Load the lposc fuse to work around ROM issue. The fuse depends on S400 to read. */
+	/* Load the lposc fuse to work around ROM issue. The fuse depends on ELE to read. */
 	if (is_soc_rev(CHIP_REV_1_0))
 		load_lposc_fuse();
 
@@ -161,15 +169,23 @@ void spl_board_init(void)
 	/* Call it after PS16 power up */
 	set_lpav_qos();
 
-	/* Asks S400 to release CAAM for A35 core */
-	ret = ahab_release_caam(7, &res);
+#if defined(CONFIG_IMX8ULP_FIXED_OP_RANGE)
+	/* Set operation range for PTE/PTF */
+	set_apd_gpiox_op_range(PTE, RANGE_1P8V);
+	set_apd_gpiox_op_range(PTF, RANGE_1P8V);
+	/* disable PTD cell compensation */
+	set_apd_gpiox_comp_cell(PTD, false);
+#endif
+
+	/* Enable A35 access to the CAAM */
+	ret = ele_release_caam(0x7, &res);
 	if (!ret) {
 		if (((res >> 8) & 0xff) == ELE_NON_SECURE_STATE_FAILURE_IND)
 			printf("Warning: CAAM is in non-secure state, 0x%x\n", res);
 
 		/* Only two UCLASS_MISC devicese are present on the platform. There
 		 * are MU and CAAM. Here we initialize CAAM once it's released by
-		 * S400 firmware..
+		 * ELE firmware..
 		 */
 		if (IS_ENABLED(CONFIG_FSL_CAAM)) {
 			ret = uclass_get_device_by_driver(UCLASS_MISC, DM_DRIVER_GET(caam_jr), &dev);
@@ -183,7 +199,7 @@ void spl_board_init(void)
 	 * Check some JTAG register for the SoC revision.
 	 */
 	if (!is_soc_rev(CHIP_REV_1_0)) {
-		ret = ahab_start_rng();
+		ret = ele_start_rng();
 		if (ret)
 			printf("Fail to start RNG: %d\n", ret);
 	}
