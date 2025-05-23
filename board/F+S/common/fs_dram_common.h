@@ -4,7 +4,7 @@
 #if CONFIG_IMX8M
 #include <asm/arch/ddr.h>
 #elif CONFIG_IMX8
-#include <asm/arch/sci/sci.h>
+#include <firmware/imx/sci/sci.h>
 
 enum DDR_CMD {
 	CMD_NONE,

@@ -1551,6 +1551,12 @@ void fs_image_all_sdp(bool need_cfg, basic_init_t basic_init)
 		jobs = jobs_todo;
 		spl_sdp_stream_continue(&fs_image_sdp_stream_ops, true);
 	};
+
+	/*
+	 * Remark: Don't call spl_sdp_stream_done() here; this would stop the
+	 * UUU transfer. But we need a continuous stream right up to fastboot
+	 * that does never end from our side.
+	 */
 }
 
 #ifdef CONFIG_NAND_MXS

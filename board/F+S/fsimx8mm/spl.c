@@ -506,7 +506,7 @@ void board_init_f(ulong dummy)
 		secondary = true;
 #else
 	/* Will also work on i.MX8MM, but is slower */
-	secondary = is_imx8m_running_secondary_boot_image();
+	secondary = boot_mode_getprisec();
 #endif
 
 	/* Try loading from the current boot dev. If this fails, try USB. */
@@ -592,7 +592,8 @@ uint32_t spl_nand_get_uboot_raw_page(void)
 }
 
 /* Return the sector number where U-Boot starts in eMMC (User HW partition) */
-unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
+unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+					   unsigned long raw_sect)
 {
 	return uboot_offs / 512;
 }

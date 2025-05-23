@@ -35,6 +35,7 @@
 #include <asm/arch/ddr.h>
 #include <dwc3-uboot.h>
 
+#include <asm/sections.h>
 #include <asm/mach-imx/boot_mode.h>	/* BOOT_TYPE_* */
 #include "../common/fs_image_common.h"	/* fs_image_*() */
 #include "../common/fs_board_common.h"	/* fs_board_*() */
@@ -508,11 +509,6 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	return part;
 }
 
-int check_if_secondary(void)
-{
-	return is_imx8m_running_secondary_boot_image();
-}
-
 void board_init_f(ulong dummy)
 {
 	int ret;
@@ -554,7 +550,7 @@ void board_init_f(ulong dummy)
 			secondary = true;
 	}
 #endif
-	secondary = check_if_secondary();
+	secondary = boot_mode_getprisec();
 
 	/* Try loading from the current boot dev. If this fails, try USB. */
 	boot_dev = get_boot_device();
@@ -664,7 +660,8 @@ void spl_board_init(void)
 }
 
 /* Return the sector number where U-Boot starts in eMMC (User HW partition) */
-unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
+unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+					   unsigned long raw_sect)
 {
 	int offs;
 
@@ -708,9 +705,9 @@ static struct dwc3_device dwc3_device_data = {
 	.power_down_scale = 2,
 };
 
-int usb_gadget_handle_interrupts(int index)
+int dm_usb_gadget_handle_interrupts(struct udevice *dev)
 {
-	dwc3_uboot_handle_interrupt(index);
+	dwc3_uboot_handle_interrupt(dev);
 	return 0;
 }
 

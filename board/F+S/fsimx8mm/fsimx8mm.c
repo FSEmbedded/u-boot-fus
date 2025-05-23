@@ -452,6 +452,8 @@ int board_init(void)
 #endif
 
 #ifdef CONFIG_FEC_MXC
+	/* ### FIXME: The FEC initialization is already done in
+	   clock_imx8mm.c:board_interface_eth_init(). Still needed here? */
 	setup_fec();
 #endif
 
@@ -1447,6 +1449,9 @@ int board_late_init(void)
 }
 #endif /* CONFIG_BOARD_LATE_INIT */
 
+
+/* ### FIXME: At least a part of this is already done in
+   board_interface_eth_init() in clock_imx8mm.c. Strip down code here. */
 #ifdef CONFIG_FEC_MXC
 #define FEC_RST_PAD IMX_GPIO_NR(1, 5)
 #define FEC_SIM_PAD IMX_GPIO_NR(1, 26)
@@ -1501,10 +1506,11 @@ static int setup_fec(void)
 
 	/* Use 125M anatop REF_CLK1 for ENET1, not from external */
 	clrsetbits_le32(&iomuxc_gpr_regs->gpr[1],
-			IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_SHIFT, 0);
+			IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL, 0);
 
 	return set_clk_enet(ENET_125MHZ);
 }
+#endif
 
 #define KSZ9893R_SLAVE_ADDR		0x5F
 #define KSZ9893R_CHIP_ID_MSB		0x1

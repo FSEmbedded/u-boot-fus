@@ -49,7 +49,7 @@ struct pass_over_info_t *get_pass_over_info(void)
 	return p;
 }
 
-static char *get_reset_cause(void)
+const char *get_reset_cause(void)
 {
 	sc_pm_reset_reason_t reason;
 

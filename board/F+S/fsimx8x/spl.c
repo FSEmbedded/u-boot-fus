@@ -8,7 +8,7 @@
 #include <dm.h>
 #include <spl.h>
 #include <asm/arch/clock.h>
-#include <asm/arch/sci/sci.h>
+#include <firmware/imx/sci/sci.h>
 #include <asm/arch/imx8-pins.h>
 #include <asm/arch/snvs_security_sc.h>
 #include <asm/arch/iomux.h>
@@ -27,6 +27,7 @@
 #include <mmc.h>
 #include <fdt_support.h>
 #include <power-domain.h>
+#include <asm/sections.h>
 #include <asm/mach-imx/boot_mode.h>	/* BOOT_TYPE_* */
 #include "../common/fs_image_common.h"	/* fs_image_*() */
 #include "../common/fs_board_common.h"	/* fs_board_*() */
@@ -334,7 +335,8 @@ void spl_board_init(void)
 }
 
 /* Return the sector number where U-Boot starts in eMMC (User HW partition) */
-unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
+unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+					   unsigned long raw_sect)
 {
 	return uboot_offs / 512;
 }

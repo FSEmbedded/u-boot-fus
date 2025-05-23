@@ -14,7 +14,7 @@
 #include <command.h>			/* run_command() */
 #include <common.h>			/* types, get_board_name(), ... */
 #include <serial.h>			/* get_serial_device() */
-#include <stdio_dev.h>			/* DEV_NAME_SIZE */
+#include <stdio_dev.h>			/* STDIO_NAME_LEN */
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/delay.h>
@@ -418,9 +418,9 @@ void fs_board_late_init_common(const char *serial_name)
 	envvar = env_get("sercon");
 	if (!envvar || !strcmp(envvar, "undef")) {
 #ifdef CONFIG_DM_SERIAL
-		char sercon[DEV_NAME_SIZE];
+		char sercon[STDIO_NAME_LEN];
 
-		snprintf(sercon, DEV_NAME_SIZE, "%s%d", serial_name,
+		snprintf(sercon, STDIO_NAME_LEN, "%s%d", serial_name,
 			 serial_get_alias_seq());
 		env_set("sercon", sercon);
 #else
@@ -501,7 +501,7 @@ void fs_board_late_init_common(const char *serial_name)
 	/* Set usdhcdev variable if not already set */
 	envvar = env_get("usdhcdev");
 	if (!envvar || !strcmp(envvar, "undef")) {
-		char usdhcdev[DEV_NAME_SIZE];
+		char usdhcdev[STDIO_NAME_LEN];
 
 		sprintf(usdhcdev, "%c", '0' + usdhc_boot_device);
 		env_set("usdhcdev", usdhcdev);
@@ -510,7 +510,7 @@ void fs_board_late_init_common(const char *serial_name)
 	/* Set mmcdev variable if not already set */
 	envvar = env_get("mmcdev");
 	if (!envvar || !strcmp(envvar, "undef")) {
-		char mmcdev[DEV_NAME_SIZE];
+		char mmcdev[STDIO_NAME_LEN];
 
 		sprintf(mmcdev, "%c", '0' + mmc_boot_device);
 		env_set("mmcdev", mmcdev);

@@ -718,6 +718,7 @@ int checkboard(void)
 	return 0;
 }
 
+#if 0 //### set in clock_imx8mm.c now, configured via device tree
 #ifdef CONFIG_FEC_MXC
 static int setup_fec(void)
 {
@@ -745,6 +746,7 @@ static int setup_eqos(void)
 	return set_clk_eqos(ENET_125MHZ);
 }
 #endif
+#endif //###
 
 #if defined(CONFIG_FEC_MXC) || defined(CONFIG_DWC_ETH_QOS)
 int board_phy_config(struct phy_device *phydev)
@@ -911,9 +913,9 @@ static struct dwc3_device dwc3_device_data = {
 	.power_down_scale = 2,
 };
 
-int usb_gadget_handle_interrupts(int index)
+int dm_usb_gadget_handle_interrupts(struct udevice *dev)
 {
-	dwc3_uboot_handle_interrupt(index);
+	dwc3_uboot_handle_interrupt(dev);
 	return 0;
 }
 
@@ -1115,6 +1117,7 @@ int board_init(void)
 	setup_typec();
 #endif
 
+#if 0 //### set in clock_imx8mm.c now, configured via device tree
 #ifdef CONFIG_FEC_MXC
 	setup_fec();
 #endif
@@ -1123,6 +1126,7 @@ int board_init(void)
 	/* clock, pin, gpr */
 	setup_eqos();
 #endif
+#endif //###
 
 #if defined(CONFIG_USB_DWC3) || defined(CONFIG_USB_XHCI_IMX8M)
 	init_usb_clk();

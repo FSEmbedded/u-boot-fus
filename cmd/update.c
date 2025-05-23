@@ -58,7 +58,7 @@ static int update_ram(const char *action, const char **check,
 #ifdef CONFIG_CMD_UBIFS
 extern int cmd_ubifs_mount(const char *vol_name);
 extern int set_ubi_part(const char *part_name, const char *vid_header_offset);
-extern int ubifs_load(const char *filename, u32 addr, u32 size);
+extern int ubifs_load(const char *filename, unsigned long addr, u32 size);
 
 static int update_ubi(const char *action, const char *part_name,
 		      const char *vol_name, const char *fname,
