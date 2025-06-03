@@ -109,6 +109,8 @@ void setup_iomux_pmic(void)
 
 int power_init_board(void)
 {
+	u32 tmp;
+
 	/* Set buck2 ramp-up speed 1us */
 	upower_pmic_i2c_write(0x14, 0x39);
 	/* Set buck3 ramp-up speed 1us */
@@ -123,6 +125,11 @@ int power_init_board(void)
 		/* Set buck3 to 1.1v OD */
 		upower_pmic_i2c_write(0x22, 0x28);
 	}
+
+	/* Reset immediately after the PMIC_RST_B pin goes low */
+	upower_pmic_i2c_read(0x0b, &tmp);
+	tmp &= ~0x1c;
+	upower_pmic_i2c_write(0x0b, tmp);
 
 	return 0;
 }
