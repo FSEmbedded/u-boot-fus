@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+* Copyright 2024 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+#include "fs-osm-sf-mx8ulp.dtsi"
+
+&osm_uart_con {
+    status = "okay";
+};
+
+&osm_sdio_a {
+    status = "okay";
+};
+
+&usbmisc1 {
+	status = "okay";
+};
+
+&usbphy1 {
+	status = "okay";
+};
+
+&osm_usb_a {
+    dr_mode = "otg";
+	hnp-disable;
+	srp-disable;
+	adp-disable;
+	over-current-active-low;
+    status = "okay";
+};
+
+&usbphy2 {
+	status = "okay";
+};
+
+&usbmisc2 {
+	status = "okay";
+};
+
+&osm_usb_b {
+    dr_mode = "host";
+    status = "okay";
+};

@@ -1058,6 +1058,10 @@ ifeq ($(CONFIG_ARCH_ROCKCHIP)_$(CONFIG_SPL_FRAMEWORK),y_)
 INPUTS-y += u-boot.img
 endif
 
+ifeq ($(CONFIG_FSIMX_BOARDS)_$(CONFIG_FS_CNTR_COMMON), y_y)
+INPUTS-y += uboot-info.fs
+endif
+
 INPUTS-$(CONFIG_X86) += u-boot-x86-start16.bin u-boot-x86-reset16.bin \
 	$(if $(CONFIG_SPL_X86_16BIT_INIT),spl/u-boot-spl.bin) \
 	$(if $(CONFIG_TPL_X86_16BIT_INIT),tpl/u-boot-tpl.bin)
@@ -1515,10 +1519,12 @@ cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 $< > $@
 # Use V0.0 F&S header on Vybrid/i.MX6, otherwise V1.0 plus type/descr
 ifneq ($(CONFIG_TARGET_FSVYBRID)$(CONFIG_ARCH_MX6),)
 FSIMG_OPT = -v 0.0
+else ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
+FSIMG_OPT = -a 1024 -t U-BOOT-INFO -d $(BOARD)
 else
 FSIMG_OPT = -s -c -a 16 -t U-BOOT -d $(BOARD)
 endif
-ifdef CONFIG_SPL_LOAD_FIT
+ifeq ($(CONFIG_SPL_LOAD_FIT), y)
 addfsheader_target = u-boot-dtb.img
 else
 addfsheader_target = u-boot.bin
@@ -1527,8 +1533,8 @@ uboot.fs:	$(addfsheader_target)
 	$(call cmd,addfsheader,$(FSIMG_OPT))
 
 PHONY += nboot
-NBOOT_PATH = board/$(BOARDDIR)/nboot
-nboot: SPL
+NBOOT_PATH = $(srctree)/board/$(BOARDDIR)/nboot
+nboot: SPL prepare_fus
 	$(Q)$(MAKE) $(build)=$(NBOOT_PATH) $@
 
 
@@ -1591,6 +1597,14 @@ flash.bin: spl/u-boot-spl.bin u-boot.itb FORCE
 endif
 endif
 #endif
+
+ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
+uboot-info.fs: prepare_fus u-boot.bin FORCE
+	$(Q)$(MAKE) $(build)=board/${BOARDDIR} $@
+
+flash.fs: uboot-info.fs nboot
+	$(Q)cat nboot.fs uboot-info.fs > $@
+endif
 
 u-boot.uim: u-boot.bin FORCE
 	$(Q)$(MAKE) $(build)=arch/arm/mach-imx $@
@@ -1946,7 +1960,18 @@ include/config/uboot.release: include/config/auto.conf FORCE
 # version.h and scripts_basic is processed / created.
 
 # Listed in dependency order
-PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3
+PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3 prepare_fus
+
+# prepare_fus is used to check if we are building in a seperate output directory,
+# and if so do:
+# 1) copy NXP-Firmware directory
+# 2) copy board specific nboot directory
+prepare_fus:
+ifneq ($(KBUILD_SRC),)
+	$(Q)mkdir -p board/F+S/NXP-Firmware
+	$(Q)mkdir -p board/F+S/${BOARD}/nboot
+	$(Q)cp -a ${KBUILD_SRC}/board/F+S/NXP-Firmware/* board/F+S/NXP-Firmware/
+endif
 
 # prepare3 is used to check if we are building in a separate output directory,
 # and if so do:

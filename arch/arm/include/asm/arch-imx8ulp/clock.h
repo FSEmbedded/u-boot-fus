@@ -37,6 +37,7 @@ int enable_usb_pll(ulong usb_phy_base);
 #ifdef CONFIG_MXC_OCOTP
 void enable_ocotp_clk(unsigned char enable);
 #endif
+void init_clk_lpuart(ulong lpuart_base);
 void init_clk_usdhc(u32 index);
 void init_clk_fspi(int index);
 void init_clk_ddr(void);

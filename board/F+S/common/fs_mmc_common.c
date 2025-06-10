@@ -17,8 +17,16 @@
 #include <asm/gpio.h>			/* gpio_get_value(), ... */
 #include <asm/io.h>			/* readl(), writel() */
 #include <asm/mach-imx/boot_mode.h>
+#include <env.h>
+#include <command.h>
 #include "fs_board_common.h"		/* Own interface */
-#if !defined(CONFIG_IMX8M) && !defined(CONFIG_IMX8MM) && !defined(CONFIG_IMX8MN) && !defined(CONFIG_ARCH_MX7ULP)
+#if !defined(CONFIG_IMX8M) &&\
+	!defined(CONFIG_IMX8MM) &&\
+	!defined(CONFIG_IMX8MN) &&\
+	!defined(CONFIG_ARCH_MX7ULP) &&\
+	!defined(CONFIG_IMX93) &&\
+	!defined(CONFIG_IMX91) &&\
+	!defined(CONFIG_IMX8ULP)
 #include <asm/arch/crm_regs.h>		/* struct mxc_ccm_reg */
 #endif
 #include <asm/arch/clock.h>		/* MXC_ESDHC_CLK, ... */
@@ -28,11 +36,10 @@
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
 
-#define USDHC_NONE -1
-
 enum
 {
-	USDHC1,
+	USDHC_NONE = -1,
+	USDHC1 = 0,
 	USDHC2,
 	USDHC3,
 	USDHC4,
@@ -42,6 +49,10 @@ enum
 static int usdhc_boot_device = USDHC_NONE;
 static int mmc_boot_device = USDHC_NONE;
 
+/**
+ * TODO: no more required and can be removed
+*/
+#if !CONFIG_IS_ENABLED(DM_MMC) && 0
 /* Return value of Card Detect pin (if present) */
 int board_mmc_getcd(struct mmc *mmc)
 {
@@ -54,6 +65,7 @@ int board_mmc_getcd(struct mmc *mmc)
 	/* Return CD signal (active low) */
 	return !gpio_get_value(cd_gpio);
 }
+#endif
 
 #if !defined(CONFIG_DM_MMC) || !defined(CONFIG_BLK)
 static int usdhc_pos_in_init[] =
@@ -126,7 +138,7 @@ int fs_mmc_setup(struct bd_info *bd, u8 bus_width, struct fs_mmc_cfg *cfg,
 }
 #endif
 
-#ifdef CONFIG_ENV_IS_IN_MMC
+#if CONFIG_IS_ENABLED(ENV_IS_IN_MMC)
 /* Override board_mmc_get_env_dev to get boot dev from fuse settings */
 int board_mmc_get_env_dev(int devno)
 {
@@ -175,9 +187,11 @@ static void fs_mmc_get_env_info(struct mmc *mmc, struct cfg_info *cfg)
 	int layout;
 	const char *layout_name;
 	uint boot_hwpart;
-	static uint boot_hwpart_pre = 7;
 	unsigned int align;
 	int err;
+
+	if (cfg->flags & CI_FLAGS_HAVE_ENV)
+		return;
 
 	/*
 	 * To find the environment location, we must access the BOARD-CFG in
@@ -212,22 +226,12 @@ static void fs_mmc_get_env_info(struct mmc *mmc, struct cfg_info *cfg)
 	 * correct environment and after a restart the old environment is
 	 * available again.
 	 */
-
-	boot_hwpart = (mmc->part_config >>3) & PART_ACCESS_MASK;
-
-	if (boot_hwpart > 2)
-		boot_hwpart = 0;
-
-	/* If boot_hwpart changed, get the new layout even if we already have environments! */
-	if (boot_hwpart_pre == boot_hwpart) {
-		if (cfg->flags & CI_FLAGS_HAVE_ENV)
-			return;
-	}
-	boot_hwpart_pre = boot_hwpart;
-
 	fdt = fs_image_get_cfg_fdt();
 	offs = fs_image_get_nboot_info_offs(fdt);
 	align = mmc_get_blk_desc(mmc)->blksz;
+	boot_hwpart = (mmc->part_config >>3) & PART_ACCESS_MASK;
+	if (boot_hwpart > 2)
+		boot_hwpart = 0;
 
 	layout_name = boot_hwpart ? "emmc-boot" : "sd-user";
 	layout = fdt_subnode_offset(fdt, offs, layout_name);

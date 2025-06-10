@@ -593,12 +593,56 @@ u32 get_lpuart_clk(void)
 
 void init_uart_clk(u32 index)
 {
+	/* Disable all CCGR_UARTx Gates */
+	ccm_lpcg_on(CCGR_URT1, false);
+	ccm_lpcg_on(CCGR_URT2, false);
+	ccm_lpcg_on(CCGR_URT3, false);
+	ccm_lpcg_on(CCGR_URT4, false);
+	ccm_lpcg_on(CCGR_URT5, false);
+	ccm_lpcg_on(CCGR_URT6, false);
+	ccm_lpcg_on(CCGR_URT7, false);
+	ccm_lpcg_on(CCGR_URT8, false);
+
 	switch (index) {
 	case LPUART1_CLK_ROOT:
 		/* 24M */
-		ccm_lpcg_on(CCGR_URT1, false);
 		ccm_clk_root_cfg(LPUART1_CLK_ROOT, OSC_24M_CLK, 1);
 		ccm_lpcg_on(CCGR_URT1, true);
+		break;
+	case LPUART2_CLK_ROOT:
+		/* 24M */
+		ccm_clk_root_cfg(LPUART2_CLK_ROOT, OSC_24M_CLK, 1);
+		ccm_lpcg_on(CCGR_URT2, true);
+		break;
+	case LPUART3_CLK_ROOT:
+		/* 24M */
+		ccm_clk_root_cfg(LPUART3_CLK_ROOT, OSC_24M_CLK, 1);
+		ccm_lpcg_on(CCGR_URT3, true);
+		break;
+	case LPUART4_CLK_ROOT:
+		/* 24M */
+		ccm_clk_root_cfg(LPUART4_CLK_ROOT, OSC_24M_CLK, 1);
+		ccm_lpcg_on(CCGR_URT4, true);
+		break;
+	case LPUART5_CLK_ROOT:
+		/* 24M */
+		ccm_clk_root_cfg(LPUART5_CLK_ROOT, OSC_24M_CLK, 1);
+		ccm_lpcg_on(CCGR_URT5, true);
+		break;
+	case LPUART6_CLK_ROOT:
+		/* 24M */
+		ccm_clk_root_cfg(LPUART6_CLK_ROOT, OSC_24M_CLK, 1);
+		ccm_lpcg_on(CCGR_URT6, true);
+		break;
+	case LPUART7_CLK_ROOT:
+		/* 24M */
+		ccm_clk_root_cfg(LPUART7_CLK_ROOT, OSC_24M_CLK, 1);
+		ccm_lpcg_on(CCGR_URT7, true);
+		break;
+	case LPUART8_CLK_ROOT:
+		/* 24M */
+		ccm_clk_root_cfg(LPUART8_CLK_ROOT, OSC_24M_CLK, 1);
+		ccm_lpcg_on(CCGR_URT8, true);
 		break;
 	default:
 		break;

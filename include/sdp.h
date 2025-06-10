@@ -9,8 +9,6 @@
 #ifndef __SDP_H_
 #define __SDP_H_
 
-int sdp_init(struct udevice *udc);
-
 /**
  * struct sdp_stream_ops - Call back functions for SDP in stream mode
  * @new_file:	indicate the beginning of a new file download
@@ -18,12 +16,13 @@ int sdp_init(struct udevice *udc);
  */
 struct sdp_stream_ops {
 	/* A new file with size should be downloaded to dnl_address */
-	void (*new_file)(u32 dnl_address, u32 size);
+	void (*new_file)(void *dnl_address, uint size);
 
 	/* The next data_len bytes have been received in data_buf */
 	void (*rx_data)(u8 *data_buf, int data_len);
 };
-#include <spl.h>
+
+int sdp_init(struct udevice *udc);
 
 void sdp_handle(struct udevice *udc,
 		    const struct sdp_stream_ops *ops, bool single);

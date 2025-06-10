@@ -82,7 +82,7 @@ config USB_GADGET_PRODUCT_NUM
 
 config USB_GADGET_RNDIS_VENDOR_NUM
 	hex "Vendor ID of the USB RNDIS device"
-	default 0x0
+	default 0x0525
 	help
 	  Vendor ID of the USB RNDIS device emulated, reported to the host
 	  device. This is usually the board or SoC vendor's, unless you've
@@ -90,10 +90,26 @@ config USB_GADGET_RNDIS_VENDOR_NUM
 
 config USB_GADGET_RNDIS_PRODUCT_NUM
 	hex "Product ID of the USB RNDIS device"
-	default 0x0
+	default 0xa4a2
 	help
 	  Product ID of the USB RNDIS device emulated, reported to the host
 	  device.
+
+config USB_GADGET_CDC_VENDOR_NUM
+	hex "Vendor ID of the USB CDC device"
+	default 0x0525
+	help
+	  Vendor ID of the USB CDC device emulated, reported to the host
+	  device. This is usually the board or SoC vendor's, unless you've
+	  registered for one.
+
+config USB_GADGET_CDC_PRODUCT_NUM
+	hex "Product ID of the USB CDC device"
+	default 0xa4a1
+	help
+	  Product ID of the USB CDC device emulated, reported to the host
+	  device.
+
 
 config USB_GADGET_ATMEL_USBA
 	bool "Atmel USBA"

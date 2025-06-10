@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+* Copyright 2024 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+/ {
+    mu@27020000 {
+		compatible = "fsl,imx8ulp-mu";
+		reg = <0 0x27020000 0 0x10000>;
+		status = "okay";
+		bootph-all;
+	};
+
+    aliases {
+		usbgadget0 = &usbg1;
+	};
+
+    usbg1: usbg1 {
+		compatible = "fsl,imx27-usb-gadget";
+		dr_mode = "peripheral";
+		chipidea,usb = <&usbotg1>;
+		status = "okay";
+	};
+
+    dsi_host: dsi-host {
+		compatible = "northwest,mipi-dsi";
+		status = "disabled";
+	};
+};
+
+&soc {
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&{/firmware} {
+	bootph-some-ram;
+};
+
+&{/firmware/scmi} {
+	bootph-some-ram;
+};
+
+&{/firmware/scmi/protocol@15} {
+	bootph-some-ram;
+};
+
+&per_bridge3 {
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&per_bridge4 {
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&iomuxc1 {
+	bootph-all;
+	bootph-pre-ram;
+	fsl,mux_mask = <0xf00>;
+};
+
+&pinctrl_lpuart5 {
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&pc_uart_a {
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&emmc {
+	bootph-pre-ram;
+};
+
+&pinctrl_usdhc0 {
+	bootph-pre-ram;
+};
+
+&crypto {
+	bootph-pre-ram;
+};
+
+&sec_jr0 {
+	bootph-pre-ram;
+};
+
+&sec_jr1 {
+	bootph-pre-ram;
+};
+
+&sec_jr2 {
+	bootph-pre-ram;
+};
+
+&sec_jr3 {
+	bootph-pre-ram;
+};
+
+&scmi_buf {
+	reg = <0x0 0x1000>; /* Align page size */
+};
+
+&dsi {
+	data-lanes-num = <4>;
+};
+
+&pc_usb_1 {
+	compatible = "fsl,imx8ulp-usb", "fsl,imx7ulp-usb", "fsl,imx27-usb";
+};
+
+&pc_usb_2 {
+	compatible = "fsl,imx8ulp-usb", "fsl,imx7ulp-usb", "fsl,imx27-usb";
+};

@@ -461,4 +461,8 @@ void fdt_fixup_board_enet(void *blob);
 #ifdef CONFIG_CMD_PSTORE
 void fdt_fixup_pstore(void *blob);
 #endif
+
+#ifdef CONFIG_CMD_FDT
+int fdt_print(struct fdt_header *fdt_blob, const char *pathp, char *prop, int depth);
+#endif
 #endif /* ifndef __FDT_SUPPORT_H */

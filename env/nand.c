@@ -268,8 +268,8 @@ static int env_nand_save(void)
 #ifdef CONFIG_ENV_NAND_OFFSET_REDUND
 	if (!ret) {
 		/* preset other copy for next write */
-		gd->env_valid = gd->env_valid == ENV_REDUND ? ENV_VALID :
-				ENV_REDUND;
+		gd->env_valid = gd->env_valid == ENV_VALID ? ENV_REDUND :
+				ENV_VALID;
 		return ret;
 	}
 

@@ -37,6 +37,10 @@
 # description to printable ASCII characters (0x20..0x7e) to avoid any encoding
 # problems (different codepages, multi-byte characters, etc).
 #
+# If sub-images are embedded in another data structure, so that the first
+# sub-header is not immediately following the parent header, the parent header
+# can set FSH_FLAGS_EXTRA and give the extra offset in p32[7].
+#
 # struct fs_header_v0_0 {		/* Size: 16 Bytes */
 #	char magic[4];			/* "FS" + two bytes operating system
 #					   (e.g. "LX" for Linux) */
@@ -45,7 +49,7 @@
 #	u16 flags;			/* See flags below */
 #	u8 padsize;			/* Number of padded bytes at end */
 #	u8 version;			/* Header version x.y:
-#					   [7:4] major x, [3:0] minor y */#
+#					   [7:4] major x, [3:0] minor y */
 # }
 #
 # struct fs_header_v1_0 {		/* Size: 64 bytes */
@@ -64,10 +68,20 @@
 # #define FSH_FLAGS_DESCR 0x8000	/* Description descr is present */
 # #define FSH_FLAGS_CRC32 0x4000	/* CRC32 of image in type[12..15] */
 # #define FSH_FLAGS_SECURE 0x2000	/* CRC32 of header in type[12..15] */
+# #define FSH_FLAGS_INDEX 0x1000	/* Image contains an index */
+# #define FSH_FLAGS_EXTRA 0x0800	/* Extra offset sub-header in p32[7] */
+
+error_handler() {
+    echo "ERROR: $(basename $0) returned $1 in line $2." >&2
+    exit 1
+}
+trap 'error_handler $? $LINENO' ERR
 
 FSH_FLAGS_DESCR=0x8000
 FSH_FLAGS_CRC32=0x4000
 FSH_FLAGS_SECURE=0x2000
+FSH_FLAGS_INDEX=0x1000
+FSH_FLAGS_EXTRA=0x0800
 
 usage()
 {
@@ -83,14 +97,16 @@ Usage:
   <in-file> ...         File(s) to include and prepend with an F&S header
 
 Options:
-  -a | --align <n>      Align final image with zeroes to be multiple of
-                        <n> bytes; <n> can be: 1..256 (default 1)
+  -a | --align <n>[-<m>] Pad image with zeroes to be a multiple of <n> bytes,
+                        optionally less <m> bytes (default 1-0)
   -c | --crc32          Set flags bit 14, store image CRC32 in type[12..15]
                         (if -s is also given, then also include the header)
   -d | --descr <string> Set <string> as description and set flags bit 15
+  -e | --extra <offs>   Set flags bit 11, store <offs> to sub-header in p32[7]
   -f | --flags <value>  Set <value> for flags (16 bit, default 0); additional
                         flags may be set by other options, e.g. -c
   -h | --help           Show this usage
+  -i | --index          Image only contains a list of image headers
   -j | --just-header    Create just the header, do not append image data
   -o | --output <file>  Store result as file <file> (default stdout)
   -p<s>[<n>]=<val>{,<val>} Set parameter(s) of size <s> starting at index <n>
@@ -100,13 +116,18 @@ Options:
   -t | --type <string>  Set image type to <string> (at most 16 characters)
   -v | --version <vers> Create a header of version <vers> (default $version)
                         <vers> can be one of: $versions
+  -w | --whole		If used with -a, use whole image size incl. header for
+                        alignment computation (default: without header)
 
 Example:
 
-  $0 -a 64 -p32[5]=0x01234567,0x89abcdef -p8[2]=0x12,34,56 abc.txt
+  $0 -a 1024-32 -p32[5]=0x01234567,0x89abcdef -p8[2]=0x12,34,56 abc.txt
 
 This includes the file abc.txt as image and assigns the values 0x01234567 to
 p32[5], 0x89abcdef to p32[6], 0x12 to p8[2], 0x34 to p8[3] and 0x56 to p8[4].
+The final image will be aligned (by padding zero bytes) to a size 32 bytes less
+than the next 1024 bytes boundary.
+
 Be careful to avoid overlapping of description and parameters. If any CRC32
 option is given, the type must not exceed 11 characters and the crc32 command
 has to be available on the system.
@@ -183,13 +204,15 @@ output_header_1.0()
 
 parse_param()
 {
+    local temp
+
     p_list=$1
 #    echo "### p_list='$p_list'" >&2
 
     # Extract size, divide by 4 to refer to $param with hex digits
     temp=${p_list%%\[*}
 #    echo "### temp='$temp'" >&2
-    if ! psize=$(($temp)); then
+    if ! psize=$((temp)); then
 	echo "Invalid parameter size $temp at '$p_list'" >&2
 	return 1
     fi
@@ -198,7 +221,7 @@ parse_param()
 	return 1
     fi
 #    echo "### psize=$psize" >&2
-    psize=$(($psize / 4))
+    psize=$((psize / 4))
     p_list=${p_list:${#temp}}
 
     # Extract index
@@ -208,7 +231,7 @@ parse_param()
 	echo "Invalid index at '$p_list'" >&2
 	return 1
     fi
-    index=$(($index * $psize))
+    index=$((index * psize))
     if [ $index -ge 64 ]; then
 	echo "Index ${temp:1} at '$p_list' exceeds parameter area" >&2
 	return 1
@@ -238,19 +261,19 @@ parse_param()
 #	    echo "### next param" >&2
 	    break;
 	fi
-	if ! value=$(($temp)); then
+	if ! value=$((temp)); then
 	    echo "Illegal value at '$p_list'" >&2
 	    return 1
 	fi
 	hex_be=$(printf "%0${psize}x" $value)
 	if [ ${#hex_be} -gt $psize ]; then
-	    echo "Value at '$p_list' exceeds current size $(($psize * 4))" >&2
+	    echo "Value at '$p_list' exceeds current size $((psize * 4))" >&2
 	    return 1
 	fi
 	hex_le=$(reverse $hex_be)
 
 	# Check offset
-	offset=$(($index * $psize))
+	offset=$((index * psize))
 	if [ $index -ge 64 ]; then
 	    echo "Value $temp at '$param' exceeds parameter area" >&2
 	    return 1
@@ -262,7 +285,7 @@ parse_param()
 	# Fill value into $param, increment index
 #	echo "### a: param=$param" >&2
 	temp=${param:0:$index}
-	index=$(($index + $psize))
+	index=$((index + psize))
 	param=$temp$hex_le${param:$index}
 #	echo "### b: param=$param" >&2
 
@@ -283,8 +306,12 @@ flags=0
 param="0000000000000000000000000000000000000000000000000000000000000000"
 outfile=
 pad=1
+padm=0
+whole=0
 quiet=0
 secure=0
+index=0
+extra=0
 
 # We need xxd, check if it is available
 command -v xxd > /dev/null
@@ -296,8 +323,14 @@ fi
 while [ $# -gt 0 ]; do
     case $1 in
 	-a|--align)
-	    if ! pad=$(($2)) || [ "$pad" -lt 1 ] || [ "$pad" -gt 256 ]; then
-		usage "Invalid value '$2' for option $1"
+	    pad=${2%%-*}
+	    padm=${2:${#pad}}
+	    padm=${padm:1}
+	    if ! pad=$((pad)) || [ "$pad" -lt 1 ]; then
+		usage "Invalid value '$pad' for option $1"
+	    fi
+	    if ! padm=$((padm)) || [ "$padm" -lt 0 ] || [ "$padm" -gt "$pad" ]; then
+		usage "Invalid value '$padm' for option $1"
 	    fi
 	    shift
 	    ;;
@@ -308,12 +341,21 @@ while [ $# -gt 0 ]; do
 	    descr="$2"
 	    shift
 	    ;;
+	-e|--extra)
+	    if ! extra=$(($2)) || [ "$extra" -lt 1 ]; then
+		usage "Invalid value '$2' for option $1"
+	    fi
+	    shift
+	    ;;
 	-f|--flags)
 	    flags=$2
 	    shift
 	    ;;
 	-h|--help)
 	    usage
+	    ;;
+	-i|--index)
+	    index=1
 	    ;;
 	-j|--just-header)
 	    just_header=1
@@ -348,6 +390,9 @@ while [ $# -gt 0 ]; do
 	    fi
 	    version=$2
 	    shift
+	    ;;
+	-w|--whole)
+	    whole=1
 	    ;;
 	--)
 	    shift
@@ -391,13 +436,32 @@ for i in $*; do
     fi
 done
 
-# Get total image size and add padding if requested
+# Get total image size (incl. header if -w) and add padding if requested
 size=$(stat -c %s "$temp")
-padsize=$(($size % $pad))
+if [ $whole -eq 1 ]; then
+    if [ $version == "0.0" ]; then
+	headsize=16
+    else
+	headsize=64
+    fi
+else
+    headsize=0
+fi
+padsize=$(((size + headsize + padm) % pad))
 if [ $padsize -gt 0 ]; then
-    padsize=$(($pad - $padsize))
+    padsize=$((pad - padsize))
     head -c $padsize /dev/zero >> "$temp"
-    size=$(($size + $padsize))
+    size=$((size + padsize))
+fi
+# Cannot store large paddings, extracted image will keep padding
+if [ $padsize -gt 255 ]; then
+    padsize=0
+fi
+
+# Set extra offset to sub-header in p32[7] if requested
+if [ $extra -ne 0 ]; then
+    parse_param "32[7]=$extra"
+    flags=$((flags | FSH_FLAGS_EXTRA))
 fi
 
 # Add description and set flag 15 if requested (<=32 bytes, zero-terminated).
@@ -411,15 +475,18 @@ if [ -n "$descr" ]; then
 
     hex=$(printf "%s\0" "$descr" | head -c 32 | xxd -l 32 -c 32 -p)
     param="$hex${param:${#hex}}"
-    flags=$(($flags | $FSH_FLAGS_DESCR))
+    flags=$((flags | FSH_FLAGS_DESCR))
 fi
 
 # Compute final flags before output and CRC32
 if [ $do_crc -eq 1 ]; then
-    flags=$(($flags | $FSH_FLAGS_CRC32))
+    flags=$((flags | FSH_FLAGS_CRC32))
 fi
 if [ $secure -eq 1 ]; then
-    flags=$(($flags | $FSH_FLAGS_SECURE))
+    flags=$((flags | FSH_FLAGS_SECURE))
+fi
+if [ $index -eq 1 ]; then
+    flags=$((flags | FSH_FLAGS_INDEX))
 fi
 
 # Compute CRC32 and store in type[12..15] if requested

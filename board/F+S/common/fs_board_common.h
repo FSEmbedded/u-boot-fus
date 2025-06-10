@@ -125,4 +125,9 @@ void fs_board_late_init_common(const char *serial_name);
 char * get_dram_result(void);
 #endif
 
+/* Check if Board is closed */
+bool fs_board_is_closed(void);
+
+const char *get_board_name(void);
+
 #endif /* !__FS_BOARD_COMMON_H__ */

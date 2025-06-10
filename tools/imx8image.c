@@ -19,6 +19,7 @@ static uint8_t fuse_version;
 static uint16_t sw_version;
 static uint32_t custom_partition;
 static uint32_t scfw_flags;
+static option_hash_t hashtype;
 
 int imx8image_check_params(struct image_tool_params *params)
 {
@@ -40,29 +41,32 @@ static int imx8image_check_image_types(uint8_t type)
 }
 
 static table_entry_t imx8image_cmds[] = {
-	{CMD_BOOT_FROM,         "BOOT_FROM",            "boot command",	      },
-	{CMD_FUSE_VERSION,      "FUSE_VERSION",         "fuse version",	      },
-	{CMD_SW_VERSION,        "SW_VERSION",           "sw version",	      },
-	{CMD_MSG_BLOCK,         "MSG_BLOCK",            "msg block",	      },
-	{CMD_FILEOFF,           "FILEOFF",              "fileoff",	      },
-	{CMD_FLAG,              "FLAG",                 "flag",	      },
-	{CMD_APPEND,            "APPEND",               "append a container", },
-	{CMD_PARTITION,         "PARTITION",            "new partition",      },
-	{CMD_SOC_TYPE,          "SOC_TYPE",             "soc type",           },
-	{CMD_CONTAINER,         "CONTAINER",            "new container",      },
-	{CMD_IMAGE,             "IMAGE",                "new image",          },
-	{CMD_DATA,              "DATA",                 "new data",           },
-	{-1,                    "",                     "",	              },
+	{CMD_BOOT_FROM,         "BOOT_FROM",            "boot command",		},
+	{CMD_FUSE_VERSION,      "FUSE_VERSION",         "fuse version",		},
+	{CMD_SW_VERSION,        "SW_VERSION",           "sw version",		},
+	{CMD_MSG_BLOCK,         "MSG_BLOCK",            "msg block",		},
+	{CMD_FILEOFF,           "FILEOFF",              "fileoff",		},
+	{CMD_FLAG,              "FLAG",                 "flag",			},
+	{CMD_APPEND,            "APPEND",               "append a container",	},
+	{CMD_PARTITION,         "PARTITION",            "new partition",	},
+	{CMD_SOC_TYPE,          "SOC_TYPE",             "soc type",		},
+	{CMD_CONTAINER,         "CONTAINER",            "new container",	},
+	{CMD_IMAGE,             "IMAGE",                "new image",		},
+	{CMD_DATA,              "DATA",                 "new data",		},
+	{CMD_HASH,		"SHA_HASH",		"sha hash type",	},
+	{-1,                    "",                     "",			},
 };
 
 static table_entry_t imx8image_core_entries[] = {
 	{CFG_SCU,	"SCU",			"scu core",	},
+	{CFG_M33,	"M33",			"M33 core",		},
 	{CFG_M40,	"M40",			"M4 core 0",	},
 	{CFG_M41,	"M41",			"M4 core 1",	},
 	{CFG_A35,	"A35",			"A35 core",	},
 	{CFG_A55,	"A55",			"A55 core",	},
 	{CFG_A53,	"A53",			"A53 core",	},
 	{CFG_A72,	"A72",			"A72 core",	},
+	{CFG_UPOWER, "UPOWER",		"UPOWER Core", },
 	{-1,		"",			"",		},
 };
 
@@ -119,7 +123,7 @@ static void parse_cfg_cmd(image_t *param_stack, int32_t cmd, char *token,
 		} else if (!strncmp(token, "IMX8QM", 6)) {
 			soc = QM;
 		} else if (!strncmp(token, "ULP", 3)) {
-			soc = IMX9;
+			soc = ULP;
 		} else if (!strncmp(token, "IMX9", 4)) {
 			soc = IMX9;
 		} else {
@@ -137,6 +141,8 @@ static void parse_cfg_cmd(image_t *param_stack, int32_t cmd, char *token,
 			exit(EXIT_FAILURE);
 		}
 		break;
+	case CMD_HASH:
+		hashtype = strtol(token, NULL, 0);
 	default:
 		break;
 	}
@@ -181,6 +187,10 @@ static void parse_cfg_fld(image_t *param_stack, int32_t *cmd, char *token,
 			param_stack[p_idx].option = SCFW;
 			param_stack[p_idx++].filename = token;
 			break;
+		case CFG_M33:
+			param_stack[p_idx].option = M33;
+			param_stack[p_idx].filename = token;
+			break;
 		case CFG_M40:
 			param_stack[p_idx].option = M40;
 			param_stack[p_idx].ext = 0;
@@ -210,6 +220,10 @@ static void parse_cfg_fld(image_t *param_stack, int32_t *cmd, char *token,
 				(*cmd == CMD_DATA) ? DATA : AP;
 			param_stack[p_idx].filename = token;
 			break;
+		case CFG_UPOWER:
+			param_stack[p_idx].option = UPOWER;
+			param_stack[p_idx++].filename = token;
+			break;
 		}
 		break;
 	case CFG_LOAD_ADDR:
@@ -221,6 +235,7 @@ static void parse_cfg_fld(image_t *param_stack, int32_t *cmd, char *token,
 		switch (core_type) {
 		case CFG_SCU:
 			break;
+		case CFG_M33:
 		case CFG_M40:
 		case CFG_M41:
 		case CFG_A35:
@@ -486,10 +501,10 @@ static void set_image_hash(boot_img_t *img, char *filename, uint32_t hash_type)
 	if (img->size == 0)
 		sprintf(sha_command, "sha%dsum /dev/null", hash_type);
 	else
-		sprintf(sha_command, "dd if=/dev/zero of=tmp_pad bs=%d count=1;\
-			dd if=\'%s\' of=tmp_pad conv=notrunc;\
-			sha%dsum tmp_pad; rm -f tmp_pad",
-			img->size, filename, hash_type);
+		sprintf(sha_command, "dd if=/dev/zero of=\'%s.tmp\' bs=%d count=1 status=none;\
+			dd if=\'%s\' of=\'%s.tmp\' status=none conv=notrunc;\
+			sha%dsum \'%s.tmp\'; rm -f \'%s.tmp\'",
+			filename, img->size, filename, filename, hash_type, filename, filename);
 
 	switch (hash_type) {
 	case HASH_TYPE_SHA_256:
@@ -515,7 +530,7 @@ static void set_image_hash(boot_img_t *img, char *filename, uint32_t hash_type)
 		exit(EXIT_FAILURE);
 	}
 
-	if (!fgets(hash, hash_type / 4 + 1, fp)) {
+	if (!fgets(hash, (hash_type / 4) + 1, fp)) {
 		fprintf(stderr, "Failed to hash file: %s\n", filename);
 		exit(EXIT_FAILURE);
 	}
@@ -546,7 +561,7 @@ static void set_image_array_entry(flash_header_v3_t *container,
 	img->offset = offset;  /* Is re-adjusted later */
 	img->size = size;
 
-	set_image_hash(img, tmp_filename, IMAGE_HASH_ALGO_DEFAULT);
+	set_image_hash(img, tmp_filename, hashtype);
 
 	switch (type) {
 	case SECO:
@@ -594,11 +609,13 @@ static void set_image_array_entry(flash_header_v3_t *container,
 		img->meta = meta;
 		custom_partition = 0;
 		break;
+	case M33:
 	case M40:
 	case M41:
 		if ((soc == ULP) || (soc == IMX9)) {
 			core = CORE_ULP_CM33;
 			meta = 0;
+			tmp_name = "M33";
 		} else {
 			if (core == 0) {
 				core = CORE_CM4_0;
@@ -608,14 +625,14 @@ static void set_image_array_entry(flash_header_v3_t *container,
 				meta = IMAGE_M4_1_DEFAULT_META(custom_partition);
 			} else {
 				fprintf(stderr,
-					"Error: invalid m4 core id: %" PRIu64 "\n",
+					"Error: invalid m4/m33 core id: %" PRIu64 "\n",
 					core);
 				exit(EXIT_FAILURE);
 			}
+			tmp_name = "M4";
 		}
 		img->hab_flags |= IMG_TYPE_EXEC;
 		img->hab_flags |= core << BOOT_IMG_FLAGS_CORE_SHIFT;
-		tmp_name = "M4";
 		if ((entry & 0x7) != 0) {
 			fprintf(stderr, "\n\nWarning: M4 Destination address is not 8 byte aligned\n\n");
 			exit(EXIT_FAILURE);
@@ -859,6 +876,7 @@ static int build_container(soc_type_t soc, uint32_t sector_size,
 	while (img_sp->option != NO_IMG) {
 		switch (img_sp->option) {
 		case AP:
+		case M33:
 		case M40:
 		case M41:
 		case SCFW:
@@ -913,6 +931,7 @@ static int build_container(soc_type_t soc, uint32_t sector_size,
 			 * nothing to do here, the container is appended
 			 * in the output
 			 */
+			fprintf(stdout, "APPEND CONTAINER: %s\n", img_sp->filename);
 			break;
 		case FLAG:
 			/*
@@ -984,7 +1003,8 @@ static int build_container(soc_type_t soc, uint32_t sector_size,
 	 */
 	img_sp = image_stack;
 	while (img_sp->option != NO_IMG) {
-		if (img_sp->option == M40 || img_sp->option == M41 ||
+		if (img_sp->option == M33 || 
+			img_sp->option == M40 || img_sp->option == M41 ||
 		    img_sp->option == AP || img_sp->option == DATA ||
 		    img_sp->option == SCD || img_sp->option == SCFW ||
 		    img_sp->option == SECO || img_sp->option == MSG_BLOCK ||
@@ -1014,9 +1034,19 @@ int imx8image_copy_image(int outfd, struct image_tool_params *mparams)
 		exit(EXIT_FAILURE);
 	}
 
+	switch(hashtype){
+		case SHA256:
+		case SHA384:
+		case SHA512:
+			break;
+		default:
+			hashtype = SHA384;
+	}
+	
 	fprintf(stdout, "CONTAINER Sector size:\t%08x\n", sector_size);
 	fprintf(stdout, "CONTAINER FUSE VERSION:\t0x%02x\n", fuse_version);
 	fprintf(stdout, "CONTAINER SW VERSION:\t0x%04x\n", sw_version);
+	fprintf(stdout, "CONTAINER HASH_TYPE: SHA%d\n", hashtype);
 
 	build_container(soc, sector_size, emmc_fastboot,
 			img_sp, false, fuse_version, sw_version, outfd);

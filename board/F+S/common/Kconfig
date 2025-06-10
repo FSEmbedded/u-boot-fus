@@ -1,4 +1,4 @@
-if TARGET_FSVYBRID || TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX7ULP || TARGET_FSIMX8M || TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP || TARGET_FSIMX8X
+if FSIMX_BOARDS
 
 config ETHADDR_BASE
 	string
@@ -30,11 +30,32 @@ config FS_BOARD_MODE_RO
 
 config FS_IMAGE_COMMON
 	bool
-	default y if TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP || TARGET_FSIMX8X
+	select FS_BOARD_CFG
+	default y if TARGET_FSIMX8MM || \
+				TARGET_FSIMX8MN || \
+				TARGET_FSIMX8MP || \
+				TARGET_FSIMX8X || \
+				TARGET_FSIMX8ULP || \
+				TARGET_FSIMX93 || \
+				TARGET_FSIMX91
+
+config FS_CNTR_COMMON
+	bool "build fs_cntr_common"
+	select FS_IMAGE_COMMON
+	default y if TARGET_FSIMX8ULP || \
+				TARGET_FSIMX93 || \
+				TARGET_FSIMX91
+
+config FS_BOOTROM
+	bool "build fs_bootrom"
+	default y if FS_CNTR_COMMON
 
 config FS_DRAM_COMMON
 	bool
-	default y if TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP || TARGET_FSIMX8X
+	default y if TARGET_FSIMX8MM || \
+				TARGET_FSIMX8MN || \
+				TARGET_FSIMX8MP || \
+				TARGET_FSIMX8X
 
 config FS_FDT_COMMON
 	bool
@@ -42,11 +63,11 @@ config FS_FDT_COMMON
 
 config FS_MMC_COMMON
 	bool
-	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX7ULP || TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP
+	default y
 
 config FS_ETH_COMMON
 	bool
-	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP || TARGET_FSIMX8X
+	default y
 
 config FS_USB_COMMON
 	bool
@@ -55,7 +76,7 @@ config FS_USB_COMMON
 config FS_USB_PWR_USBNC
 	bool "Use USB PWR function from host controller"
 	depends on FS_USB_COMMON
-	default y
+	default y if !TARGET_FSIMX8ULP && !TARGET_FSIMX93 && !TARGET_FSIMX93
 	help
 	  The VBUS power for a USB host port can either be switched
 	  automatically in hardware by the dedicated USB controller
@@ -102,4 +123,19 @@ config USB_TCPC
 	help
 	  Enable USB type-c port controller (TCPC) driver
 
+config FS_WINIOT_SUPPORT
+	bool "Windows IoT support"
+	imply FS_DEVICEINFO_COMMON
+	help
+	  Allow booting Windows IoT UEFI images. Calls do_bootm_linux
+	  in bootm cmd if UEFI is detected.
+
+config FS_DEVICEINFO_COMMON
+        bool "Enable FS_DEVICEINFO for Windows"
+		depends on FS_WINIOT_SUPPORT
+        help
+          Enable shared struct in RAM for Windows. Contains MAC-addresses and other
+          board specific information which Windows needs. The memory address for the
+		  struct is controlled by CFG_FS_DEVICEINFO_ADDR, which is processor specific.
+		  
 endif

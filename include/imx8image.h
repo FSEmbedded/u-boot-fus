@@ -156,18 +156,21 @@ enum imx8image_cmd {
 	CMD_SOC_TYPE,
 	CMD_CONTAINER,
 	CMD_IMAGE,
-	CMD_DATA
+	CMD_DATA,
+	CMD_HASH,
 };
 
 enum imx8image_core_type {
 	CFG_CORE_INVALID,
 	CFG_SCU,
+	CFG_M33,
 	CFG_M40,
 	CFG_M41,
 	CFG_A35,
 	CFG_A55,
 	CFG_A53,
-	CFG_A72
+	CFG_A72,
+	CFG_UPOWER
 };
 
 enum imx8image_fld_types {
@@ -192,6 +195,7 @@ typedef enum option_type {
 	DCD,
 	SCFW,
 	SECO,
+	M33,
 	M40,
 	M41,
 	AP,
@@ -209,6 +213,12 @@ typedef enum option_type {
 	SENTINEL,
 	UPOWER
 } option_type_t;
+
+typedef enum hashes {
+	SHA256 = 256,
+	SHA384 = 384,
+	SHA512 = 512,
+} option_hash_t;
 
 typedef struct {
 	option_type_t option;

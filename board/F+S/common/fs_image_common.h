@@ -40,10 +40,11 @@ struct fs_header_v1_0 {			/* Size: 64 bytes */
 };
 
 /* Possible values for flags entry above */
-#define FSH_FLAGS_DESCR 0x8000		/* Description descr is present */
-#define FSH_FLAGS_CRC32 0x4000		/* CRC32 of image in type[12..15] */
-#define FSH_FLAGS_SECURE 0x2000		/* CRC32 of header in type[12..15] */
-
+#define FSH_FLAGS_DESCR		0x8000	/* Description descr is present */
+#define FSH_FLAGS_CRC32		0x4000	/* CRC32 of image in type[12..15] */
+#define FSH_FLAGS_SECURE	0x2000	/* CRC32 of header in type[12..15] */
+#define FSH_FLAGS_INDEX		0x1000	/* Image contains an index */
+#define FSH_FLAGS_EXTRA 	0x0800	/* Extra offset sub-header in p32[7] */
 #define FSH_SIZE sizeof(struct fs_header_v1_0)
 
 /* Return the F&S architecture */
@@ -77,6 +78,14 @@ const char *fs_image_get_nboot_version(void *fdt);
 unsigned int fs_image_get_size(const struct fs_header_v1_0 *fsh,
 			       bool with_fs_header);
 
+/* return the size of extra data after FS HEADER */
+unsigned int fs_image_get_extra_size(const struct fs_header_v1_0 *fsh);
+
+bool fs_image_is_index(const struct fs_header_v1_0 *fsh);
+
+/* return number of index entries */
+unsigned int fs_image_index_get_n(const struct fs_header_v1_0 *fsh);
+
 /* Check image magic, type and descr; return true on match */
 bool fs_image_match(const struct fs_header_v1_0 *fsh,
 		    const char *type, const char *descr);
@@ -92,6 +101,10 @@ const void *fs_image_getprop(const void *fdt, int cfg_offs, int rev_offs,
 u32 fs_image_getprop_u32(const void *fdt, int cfg_offs, int rev_offs,
 			 int cell, const char *name, const u32 dflt);
 
+/* Update size, flags and padsize, calculate CRC32 if requested */
+void fs_image_update_header(struct fs_header_v1_0 *fsh,
+				   uint size, uint fsh_flags);
+
 /* Add the board revision as BOARD-ID to the given BOARD-CFG and update CRC32 */
 void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh);
 
@@ -100,6 +113,9 @@ const char *fs_image_get_board_id(void);
 
 /* Set the compare_id that will be used in fs_image_match_board_id() */
 void fs_image_set_compare_id(const char id[MAX_DESCR_LEN]);
+
+/* Get the compare_id that will be used in fs_image_match_board_id() */
+void fs_image_get_compare_id(char *id, uint len);
 
 /* Get the board-rev from BOARD-ID (in compare-id) */
 unsigned int fs_image_get_board_rev(void);
@@ -114,17 +130,24 @@ int fs_image_get_board_rev_subnode(const void *fdt, int offs);
 int fs_image_get_board_rev_subnode_f(const void *fdt, int offs,
 				     uint *board_rev);
 
-/* Check if the F&S image is signed (followed by an IVT) */
+/* Check if the F&S image is signed (followed by an IVT or SIG. HEADER) */
 bool fs_image_is_signed(struct fs_header_v1_0 *fsh);
-
-/* Check IVT integrity of F&S image and return size and validation address */
-void *fs_image_get_ivt_info(struct fs_header_v1_0 *fsh, u32 *size);
 
 /* Validate a signed image; it has to be at the validation address */
 bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh);
 
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+/* Check IVT integrity of F&S image and return size and validation address */
+void *fs_image_get_ivt_info(struct fs_header_v1_0 *fsh, u32 *size);
+#endif
+
+/* Verify CRC32 of given image at specific offset */
+int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh, unsigned int offset);
+
 /* Verify CRC32 of given image */
 int fs_image_check_crc32(const struct fs_header_v1_0 *fsh);
+
+void fs_image_print_crc32_status(const struct fs_header_v1_0 *fsh, int err);
 
 /* Make sure that BOARD-CFG in OCRAM is valid */
 bool fs_image_is_ocram_cfg_valid(void);
@@ -175,7 +198,7 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size);
 /* ------------- Stuff only for SPL ---------------------------------------- */
 
 #ifdef CONFIG_SPL_BUILD
-
+#if !defined(CONFIG_FS_CNTR_COMMON)
 typedef void (*basic_init_t)(const char *layout_name);
 
 /* Mark BOARD_CFG to tell U-Boot that we are running on Secondary SPL */
@@ -210,6 +233,7 @@ unsigned int fs_image_fw_mmc(unsigned int jobs_todo, basic_init_t basic_init);
 
 /* Load BOARD-CFG from eMMC */
 int fs_image_cfg_mmc(void);
+#endif /* ! CONFIG_FS_CNTR_COMMON */
 #endif /* CONFIG_SPL_BUILD */
 
 #endif /* !__FS_IMAGE_COMMON_H__ */

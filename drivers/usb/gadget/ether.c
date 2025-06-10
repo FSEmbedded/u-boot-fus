@@ -2045,7 +2045,10 @@ static int eth_bind(struct usb_gadget *gadget)
 	 * supporting one submode of the "SAFE" variant of MDLM.)
 	 */
 	} else {
-#if defined(CONFIG_USB_GADGET_VENDOR_NUM) && defined(CONFIG_USB_GADGET_PRODUCT_NUM)
+#if defined(CONFIG_USB_GADGET_CDC_VENDOR_NUM) && defined(CONFIG_USB_GADGET_CDC_PRODUCT_NUM)
+		device_desc.idVendor = cpu_to_le16(CONFIG_USB_GADGET_CDC_VENDOR_NUM);
+		device_desc.idProduct = cpu_to_le16(CONFIG_USB_GADGET_CDC_PRODUCT_NUM);
+#elif defined(CONFIG_USB_GADGET_VENDOR_NUM) && defined(CONFIG_USB_GADGET_PRODUCT_NUM)
 		device_desc.idVendor = cpu_to_le16(CONFIG_USB_GADGET_VENDOR_NUM);
 		device_desc.idProduct = cpu_to_le16(CONFIG_USB_GADGET_PRODUCT_NUM);
 #else

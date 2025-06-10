@@ -18,7 +18,7 @@
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/delay.h>
-#if !defined(CONFIG_FS_BOARD_CFG) && !defined(CONFIG_TARGET_FSIMX7ULP)
+#if CONFIG_IS_ENABLED(MTD_RAW_NAND)
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #endif
 #include <dm/uclass.h>				/* uclass_get_device() */
@@ -528,7 +528,7 @@ void fs_board_late_init_common(const char *serial_name)
 	setup_var("installcheck", current_bi->installcheck, 0);
 	setup_var("recovercheck", current_bi->recovercheck, 0);
 #endif
-#ifndef CONFIG_ARCH_MX7ULP
+#if CONFIG_IS_ENABLED(MTD_RAW_NAND)
 	setup_var("mtdids", MTDIDS_DEFAULT, 0);
 	setup_var("partition", MTDPART_DEFAULT, 0);
 #endif
@@ -600,9 +600,9 @@ void fs_board_late_init_common(const char *serial_name)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 /* Return the board name (board specific) */
-char *get_board_name(void)
+const char *get_board_name(void)
 {
-	return current_bi->name;
+	return (const char *)current_bi->name;
 }
 
 /* Return the system prompt (board specific) */
@@ -885,6 +885,179 @@ u32 fs_board_get_secondary_offset(void)
 	return val;
 }
 
-#endif /* CONFIG_IMX8 CONFIG_IMX8MM CONFIG_IMX8MN */
+#elif   defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
+/* Definitions in boot_cfg (fuse bank 3, word 0) */
+#define BOOT_CFG_BOOT_MODE_SHIFT 0
+#define BOOT_CFG_BOOT_MODE_MASK GENMASK(3, BOOT_CFG_BOOT_MODE_SHIFT)
+
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB (returned by spl_boot_device()), but is basically fused to boot from
+ * NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 boot_mode;
+
+	enum boot_device boot_dev = USB_BOOT;
+
+	/* boot_mode is in fuse bank 3, word 1 */
+	if (fuse_read(3, 0, &val)) {
+		puts("Error reading boot_cfg\n");
+		return boot_dev;
+	}
+
+	boot_mode = (val & BOOT_CFG_BOOT_MODE_MASK);
+
+	switch (boot_mode) {
+	case 0x2: // eMMC(USDHC1)
+		boot_dev = MMC1_BOOT;
+		break;	
+	case 0x3: // SD(USDHC2)
+		boot_dev = SD2_BOOT;
+		break;
+	case 0x4: // NOR(FLEXSPI)
+		boot_dev = FLEXSPI_BOOT;
+		break;
+	case 0x5: // NAND(FLEXSPI)
+		boot_dev = FLEXSPI_NAND_BOOT;
+		break;
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+#define IMG_CNTN_SET1_OFFSET_SHIFT 8
+#define IMG_CNTN_SET1_OFFSET_MASK GENMASK(15, IMG_CNTN_SET1_OFFSET_SHIFT)
+u32 fs_board_get_secondary_offset(void)
+{
+	u32 val;
+	unsigned long offset;
+
+
+	/* Secondary boot image offset is in fuse bank 3, word 8 */
+	if (fuse_read(3, 8, &val)) {
+		puts("Error reading secondary image offset from fuses\n");
+		return 0;
+	}
+
+	val &= IMG_CNTN_SET1_OFFSET_MASK;
+	val >>= IMG_CNTN_SET1_OFFSET_SHIFT;
+
+	/**
+	 *  TODO: Value CNT_N = 254 and CNT_N = 255 are currently not supported
+	 */
+	if (val == 0)
+		val = 2;
+	else if (val == 2 || val >= 10 )
+		val = 0;
+
+	val += 20;
+	offset = 1 << val;
+
+	return offset;
+}
+#elif defined(CONFIG_IMX8ULP)
+/* Definitions in boot_cfg (fuse bank 4, word 1) */
+#define BOOT_CFG_BOOT_TYPE_SHIFT	29
+#define BOOT_CFG_BOOT_TYPE_MASK		GENMASK(30, 29)
+#define BOOT_CFG_BOOT_IFACE_SHIFT 	26
+#define BOOT_CFG_BOOT_IFACE_MASK	GENMASK(28, 26)
+#define BOOT_CFG_BOOT_DEV_SHIFT 	25
+#define BOOT_CFG_BOOT_DEV_MASK		GENMASK(25, 25)
+
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB (returned by spl_boot_device()), but is basically fused to boot from
+ * NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 boot_type;
+	u32 boot_iface;
+	u32 boot_devtype;
+
+	enum boot_device boot_dev = USB_BOOT;
+
+	if (fuse_read(4, 1, &val)) {
+		puts("Error reading boot_cfg\n");
+	 	return boot_dev;
+	}
+
+	boot_type = val & BOOT_CFG_BOOT_TYPE_MASK;
+	boot_type = boot_type >> BOOT_CFG_BOOT_TYPE_SHIFT;
+
+	boot_iface = val & BOOT_CFG_BOOT_IFACE_MASK;
+	boot_iface = boot_iface >> BOOT_CFG_BOOT_IFACE_SHIFT;
+
+	boot_devtype = val & BOOT_CFG_BOOT_DEV_MASK;
+	boot_devtype = boot_devtype >> BOOT_CFG_BOOT_DEV_SHIFT;
+
+	if(boot_type != 0x0)
+		goto non_usdhc;
+
+	boot_dev = SD1_BOOT;
+	boot_dev += boot_iface;
+
+	if(!boot_devtype)
+		boot_dev += MMC1_BOOT - SD1_BOOT;
+
+	return boot_dev;
+
+	non_usdhc:
+	switch (boot_type) {
+	case 0x1: // NAND(FLEXSPI)
+	 	boot_dev = FLEXSPI_NAND_BOOT;
+	 	break;
+	case 0x2: // NOR(FLEXSPI)
+	 	boot_dev = FLEXSPI_BOOT;
+	 	break;
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+u32 fs_board_get_secondary_offset(void)
+{
+	/**
+	 *  TODO: There is no description for secondary cntr offset on mmc
+	 * devices
+	 */
+	return 0;
+}
+#endif
 
 #endif /* CONFIG_FS_BOARD_CFG */
+
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+static bool imx_ele_ahab_is_enabled(void)
+{
+	u32 lc;
+
+	lc = readl(FSB_BASE_ADDR + 0x41c);
+	lc &= 0x3ff;
+	
+	// if lc != 0x8 then lifecycle is not OEM open
+	return !!(lc != 0x8);
+}
+
+#endif
+
+bool fs_board_is_closed(void)
+{
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	return imx_ele_ahab_is_enabled();
+#elif CONFIG_IS_ENABLED(IMX_HAB)
+	return imx_hab_is_enabled();
+#endif
+
+	return false;
+}

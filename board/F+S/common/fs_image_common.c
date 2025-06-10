@@ -151,6 +151,7 @@
 #include "fs_board_common.h"		/* fs_board_*() */
 #include "fs_dram_common.h"		/* fs_dram_init_common() */
 #include "fs_image_common.h"		/* Own interface */
+#include "fs_cntr_common.h"
 
 #include <asm/mach-imx/checkboot.h>
 #ifdef CONFIG_FS_SECURE_BOOT
@@ -191,7 +192,7 @@ bool fs_image_is_fs_image(const struct fs_header_v1_0 *fsh)
 /* Return the intended address of the board configuration in OCRAM */
 void *fs_image_get_regular_cfg_addr(void)
 {
-	return (void*)CONFIG_FUS_BOARDCFG_ADDR;
+	return (void*)CFG_FUS_BOARDCFG_ADDR;
 }
 
 /* Return the real address of the board configuration in OCRAM */
@@ -212,8 +213,10 @@ void *fs_image_find_cfg_fdt(struct fs_header_v1_0 *fsh)
 {
 	void *fdt = fsh + 1;
 
+#if defined(CONFIG_IMX_HAB)
 	if (fs_image_is_signed(fsh))
 		fdt += HAB_HEADER;
+#endif
 
 	return fdt;
 }
@@ -256,6 +259,31 @@ unsigned int fs_image_get_size(const struct fs_header_v1_0 *fsh,
 	return fsh->info.file_size_low + (with_fs_header ? FSH_SIZE : 0);
 }
 
+/* return the size of extra data after FS HEADER */
+unsigned int fs_image_get_extra_size(const struct fs_header_v1_0 *fsh)
+{
+	if (!(fsh->info.flags & FSH_FLAGS_EXTRA))
+		return 0;
+
+	return fsh->param.p32[7];
+}
+
+bool fs_image_is_index(const struct fs_header_v1_0 *fsh)
+{
+	return !!(fsh->info.flags & FSH_FLAGS_INDEX);
+}
+
+/* return number of index entries */
+unsigned int fs_image_index_get_n(const struct fs_header_v1_0 *fsh)
+{
+	unsigned int size;
+	if(!fs_image_is_index(fsh))
+		return 0;
+
+	size = fs_image_get_size(fsh, false);
+	return size / FSH_SIZE;
+}
+
 /* Check image magic, type and descr; return true on match */
 bool fs_image_match(const struct fs_header_v1_0 *fsh,
 		    const char *type, const char *descr)
@@ -269,7 +297,7 @@ bool fs_image_match(const struct fs_header_v1_0 *fsh,
 	if (strncmp(fsh->type, type, MAX_TYPE_LEN))
 		return false;
 
-	if (descr) {
+	if (descr && descr[0] != 0) {
 		if (!(fsh->info.flags & FSH_FLAGS_DESCR))
 			return false;
 		if (strncmp(fsh->param.descr, descr, MAX_DESCR_LEN))
@@ -374,6 +402,7 @@ u32 fs_image_getprop_u32(const void *fdt, int cfg_offs, int rev_offs,
 	return fdt_getprop_u32_default_node(fdt, cfg_offs, cell, name, dflt);
 }
 
+#if !defined(CONFIG_FS_CNTR_COMMON)
 /* Check if the F&S image is signed (followed by an IVT) */
 bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
 {
@@ -461,6 +490,64 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 
 	return true;
 }
+#else
+bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
+{
+	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
+
+	if(!valid_container_hdr(cntr_hdr)){
+		char type[MAX_TYPE_LEN + 1];
+		memcpy(type, fsh->type, MAX_TYPE_LEN);
+		type[MAX_TYPE_LEN] = 0;
+		printf("%s has no IMX-Container, skip validation ...\n", type);
+		return false;
+	}
+
+	return fs_cntr_is_signed(cntr_hdr);
+}
+
+bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
+{
+	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
+	struct signature_block_hdr *sig_hdr;
+	unsigned int offset;
+	bool ret = false;
+
+	if(!valid_container_hdr(cntr_hdr)){
+		char type[MAX_TYPE_LEN + 1];
+		memcpy(type, fsh->type, MAX_TYPE_LEN);
+		type[MAX_TYPE_LEN] = 0;
+		printf("%s does not contain IMX-Container\n", type);
+		return false;
+	}
+
+	if(!fs_image_match(fsh, "BOOT-INFO", NULL))
+		return fs_cntr_is_valid_signature(cntr_hdr);
+
+	/**
+	 * BOOT-INFO image contains two bootcntr.
+	 * One container contains the ELE-FW,
+	 * the second contains the SPL and optionally an M33_Image
+	 */
+	sig_hdr = (void *)cntr_hdr + cntr_hdr->sig_blk_offset;
+	offset = cntr_hdr->sig_blk_offset + sig_hdr->length_lsb + (sig_hdr->length_msb << 8);
+	offset = ALIGN(offset, CONTAINER_HDR_ALIGNMENT);
+	cntr_hdr = (void *)cntr_hdr + offset;
+
+	if(!valid_container_hdr(cntr_hdr)){
+		printf("No IMX-Container found!\n");
+		return false;
+	}
+
+	/* if second cntr is not signed then it is OK when board is OEM open */
+	if(!fs_cntr_is_signed(cntr_hdr) && !fs_board_is_closed()){
+		printf("NOTE: Second BOOT-CNTR is unsigned\n");
+		return true;
+	}
+
+	return fs_cntr_is_valid_signature(cntr_hdr);
+}
+#endif /* !CONFIG_IS_ENABLED(FS_CNTR_COMMON) */
 
 /*
  * Check CRC32; return: 0: No CRC32, >0: CRC32 OK, <0: error (CRC32 failed)
@@ -469,7 +556,8 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
  * 2: CRC32 was Image only (only FSH_FLAGS_CRC32 set)
  * 3: CRC32 was Header+Image (both FSH_FLAGS_SECURE and FSH_FLAGS_CRC32 set)
  */
-int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
+int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh,
+				unsigned int offset)
 {
 	u32 expected_cs;
 	u32 computed_cs;
@@ -487,6 +575,7 @@ int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
 		ret |= 1;
 	} else {
 		start = (unsigned char *)(fsh + 1);
+		start += offset;
 		size = 0;
 	}
 
@@ -507,17 +596,80 @@ int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
 	return ret;
 }
 
+int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
+{
+	return fs_image_check_crc32_offset(fsh, 0);
+}
+
+void fs_image_print_crc32_status(const struct fs_header_v1_0 *fsh, int err)
+{
+	char fsh_type[MAX_TYPE_LEN];
+	memcpy(&fsh_type, fsh->type, MAX_TYPE_LEN);
+
+	fsh_type[12] = 0;
+
+	switch (err) {
+	case 0:
+		debug("%s: (no CRC32)\n", fsh_type);
+		break;
+	case 1:
+		debug("%s: (CRC32 header only ok)\n", fsh_type);
+		break;
+	case 2:
+		debug("%s: (CRC32 image only ok)\n", fsh_type);
+		break;
+	case 3:
+		debug("%s: (CRC32 header+image ok)\n", fsh_type);
+		break;
+	default:
+		printf("%s: BAD CRC32\n", fsh_type);
+	}
+}
+
+/* Update size, flags and padsize, calculate CRC32 if requested */
+void fs_image_update_header(struct fs_header_v1_0 *fsh,
+				   uint size, uint fsh_flags)
+{
+	u8 padsize = 0;
+
+	padsize = size % 16;
+	if (padsize)
+		padsize = 16 - padsize;
+
+	fsh->info.file_size_low = size;
+	fsh->info.padsize = padsize;
+	fsh->info.flags = fsh_flags | FSH_FLAGS_DESCR;
+
+	if (fsh_flags & (FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE)) {
+		unsigned char *crc32_start = (unsigned char *)fsh;
+		unsigned int crc32_size = 0;
+		u32 *pcs = (u32 *)&fsh->type[12];
+
+		*pcs = 0;
+		if (fsh_flags & FSH_FLAGS_SECURE)
+			crc32_size += FSH_SIZE;
+		else
+			crc32_start += FSH_SIZE;
+
+		if (fsh_flags & FSH_FLAGS_CRC32)
+			crc32_size += size;
+
+		*pcs = crc32(0, crc32_start, crc32_size);
+		debug("- Setting CRC32 for %s to 0x%08x\n", fsh->type, *pcs);
+	}
+}
+
 /* Add the board revision as BOARD-ID to the given BOARD-CFG and update CRC32 */
 void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh)
 {
-	u32 *pcs = (u32 *)&cfg_fsh->type[12];
-
+	ulong size = fs_image_get_size(cfg_fsh, false);
 	/* Set compare_id rev in file_size_high, compute new CRC32 */
 	cfg_fsh->info.file_size_high = compare_bnr.rev;
 
 	cfg_fsh->info.flags |= FSH_FLAGS_SECURE | FSH_FLAGS_CRC32;
-	*pcs = 0;
-	*pcs = crc32(0, (uchar *)cfg_fsh, fs_image_get_size(cfg_fsh, true));
+	
+	/* calc new crc32 */
+	fs_image_update_header(cfg_fsh, size, cfg_fsh->info.flags);
 }
 
 /* Return the current BOARD-ID */
@@ -526,23 +678,27 @@ const char *fs_image_get_board_id(void)
 	return board_id;
 }
 
-/* Store current compare_id as board_id */
-static void fs_image_set_board_id(void)
+void fs_image_get_compare_id(char *id, uint len)
 {
 	char c;
 	int i;
 
 	/* Copy base name */
-	for (i = 0; i < MAX_DESCR_LEN; i++) {
+	for (i = 0; i < len; i++) {
 		c = compare_bnr.name[i];
 		if (!c)
 			break;
-		board_id[i] = c;
+		id[i] = c;
 	}
 
 	/* Add board revision */
-	snprintf(&board_id[i], MAX_DESCR_LEN - i, ".%03d", compare_bnr.rev);
-	board_id[MAX_DESCR_LEN] = '\0';
+	snprintf(&id[i], len - i, ".%03d", compare_bnr.rev);
+}
+
+/* Store current compare_id as board_id */
+void fs_image_set_board_id(void)
+{
+	fs_image_get_compare_id(board_id, MAX_DESCR_LEN + 1);
 }
 
 /* Set the compare_id that will be used in fs_image_match_board_id() */
@@ -671,9 +827,11 @@ bool fs_image_is_ocram_cfg_valid(void)
 	if (err < 0)
 		return false;
 
+#if defined(CONFIG_IMX_HAB)
 	/* Handle signed image */
 	if (fs_image_is_signed(cfg_fsh))
 		return fs_image_is_valid_signature(cfg_fsh);
+#endif
 
 	/* Handle unsigned image */
 #ifdef CONFIG_FS_SECURE_BOOT
@@ -755,14 +913,14 @@ bool fs_image_find_cfg_in_ocram(void)
 	 * To avoid having to search this location over and over again, save a
 	 * pointer to it in global data.
 	 */
-	fsh = (struct fs_header_v1_0 *)CONFIG_SYS_OCRAM_BASE;
+	fsh = (struct fs_header_v1_0 *)CFG_SYS_OCRAM_BASE;
 	do {
 		if (fs_image_match(fsh, type, NULL)) {
 			gd->board_cfg = (ulong)fsh;
 			return true;
 		}
 		fsh++;
-	} while ((ulong)fsh < (CONFIG_SYS_OCRAM_BASE + CONFIG_SYS_OCRAM_SIZE));
+	} while ((ulong)fsh < (CFG_SYS_OCRAM_BASE + CFG_SYS_OCRAM_SIZE));
 
 	return false;
 }
@@ -914,6 +1072,7 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size)
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
 
 #ifdef CONFIG_SPL_BUILD
+#if !defined(CONFIG_FS_CNTR_COMMON)
 
 /* Jobs to do when streaming image data */
 #define FSIMG_JOB_CFG BIT(0)
@@ -1860,5 +2019,5 @@ int fs_image_load_system(enum boot_device boot_dev, bool secondary,
 
 	return -ENOENT;
 }
-
+#endif /* !defined(CONFIG_FS_CNTR_COMMON) */
 #endif /* CONFIG_SPL_BUILD */

@@ -1116,7 +1116,10 @@ dtb-$(CONFIG_ARCH_IMX8ULP) += \
 	imx8ulp-evk-i3c.dtb \
 	imx8ulp-9x9-evk.dtb \
 	imx8ulp-9x9-evk-i3c.dtb \
-	imx8ulp-watch.dtb
+	imx8ulp-watch.dtb \
+	picocoremx8ulp.dtb \
+	fs-osm-sf-mx8ulp-adp-osm-bb.dtb \
+	soldercore8ulp-bbhd.dtb
 
 dtb-$(CONFIG_ARCH_IMX8M) += \
 	imx8mm-data-modul-edm-sbc.dtb \
@@ -1215,7 +1218,10 @@ dtb-$(CONFIG_ARCH_IMX9) += \
 	imx93-9x9-qsb.dtb \
 	imx93-9x9-qsb-ontat-wvga-panel.dtb \
 	imx93-var-som-symphony.dtb \
-	imx93-phyboard-segin.dtb
+	imx93-phyboard-segin.dtb \
+	picocoremx93.dtb \
+	fs-osm-sf-mx93-adp-osm-bb.dtb \
+	fs-osm-sf-mx91-adp-osm-bb.dtb
 
 dtb-$(CONFIG_ARCH_IMXRT) += imxrt1050-evk.dtb \
 	imxrt1020-evk.dtb \

@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+* Copyright 2024 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+/dts-v1/;
+
+/* Set board revision as 3-digit number, e.g. 110 for board rev. 1.10 */
+#define CONFIG_PICOCOREMX8ULP_BOARD_REVISION	110
+/* Set baseboard revision as 3-digit number, e.g. 110 for board rev. 1.10 */
+#define CONFIG_PICOCOREBBDSI_BOARD_REVISION	140
+
+/* Cortex-M support */
+#define SUPPORT_RPMSG
+
+/* Network*/
+/* WLAN/BLUETOOTH */
+#define CONFIG_PICOCOREMX8ULP_WLAN
+
+/* AUDIO */
+// #define CONFIG_PICOCOREMX8ULP_AUDIO_APD
+/* LPAUDIO is currently not supported */
+// #define CONFIG_PICOCOREMX8ULP_AUDIO_RTD
+
+/*
+ * SD_A - External SD port with Card Detect (CD) and Write Protect (WP)
+ * On picocoremx8ulp SKIT: external port is Micro-SD card slot with CD but without WP
+ */
+#if !defined(CONFIG_PICOCOREMX8ULP_WLAN)
+#define CONFIG_PICOCOREMX8ULP_SD_A
+#define CONFIG_PICOCOREMX8ULP_SD_A_CD
+#define CONFIG_PICOCOREMX8ULP_SD_A_WP
+#endif
+
+#include "picocoremx8ulp.dtsi"
+
+/ {
+	model = "F&S PicoCoreMX8ULP";
+	compatible = "fus,picocoremx8ulp", "fus,fsimx8ulp", "fsl,imx8ulp";
+};
