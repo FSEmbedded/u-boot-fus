@@ -2562,7 +2562,7 @@ static void fs_fdt_reserve_ram(void *fdt)
 		printf("## Reserving RAM at 0x%08x, size 0x%08x\n", base, size);
 		tmp[0] = cpu_to_fdt32(base);
 		tmp[1] = cpu_to_fdt32(size);
-		fs_fdt_set_val(fdt, offs, "reg", tmp, sizeof(tmp), 1);
+		fs_fdt_set_val(fdt, offs, "reg", tmp, sizeof(tmp), 1, true);
 		fdt_setprop(fdt, offs, "no-map", NULL, 0);
 	}
 
@@ -2582,7 +2582,7 @@ static void fs_fdt_reserve_ram(void *fdt)
 		tmp[0] = cpu_to_fdt32(vring_base);
 		tmp[1] = cpu_to_fdt32(vring_size);
 
-		fs_fdt_set_val(fdt, offs, "reg", tmp, sizeof(tmp), 1);
+		fs_fdt_set_val(fdt, offs, "reg", tmp, sizeof(tmp), 1, true);
 	}
 }
 
@@ -2633,7 +2633,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 
 	if (offs >= 0) {
 		fs_fdt_set_u32(fdt, offs, "fus,ecc_strength",
-			       pargs->chECCtype, 1);
+			       pargs->chECCtype, 1, true);
 	}
 
 	/* Set bdinfo entries */
@@ -2681,7 +2681,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 			offs = fs_fdt_path_offset(fdt, FDT_GPC);
 			if (offs >= 0) {
 				fs_fdt_set_val(fdt, offs, "no-gpu",
-				NULL, 0, 1);
+					       NULL, 0, 1, true);
 			}
 		}
 	}

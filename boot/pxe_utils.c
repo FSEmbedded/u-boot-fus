@@ -1535,7 +1535,7 @@ void handle_pxe_menu(struct pxe_context *ctx, struct pxe_menu *cfg)
 	if (IS_ENABLED(CONFIG_CMD_BMP)) {
 		/* display BMP if available */
 		if (cfg->bmp) {
-			if (get_relfile(ctx, cfg->bmp, image_load_addr, NULL)) {
+			if (get_relfile(ctx, cfg->bmp, get_loadaddr(), NULL)) {
 #if defined(CONFIG_VIDEO)
 				struct udevice *dev;
 
@@ -1543,7 +1543,7 @@ void handle_pxe_menu(struct pxe_context *ctx, struct pxe_menu *cfg)
 				if (!err)
 					video_clear(dev);
 #endif
-				bmp_display(image_load_addr,
+				bmp_display(get_loadaddr(),
 					    BMP_ALIGN_CENTER, BMP_ALIGN_CENTER);
 			} else {
 				printf("Skipping background bmp %s for failure\n",

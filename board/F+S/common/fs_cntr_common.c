@@ -855,7 +855,7 @@ static void fs_cntr_handle(struct fsh_load_info *fsh_info)
 /**
  * fs_cntr_new_header
  */
-static void fs_cntr_new_header(void *dnl_address, int size)
+static void fs_cntr_new_header(void *dnl_address, uint size)
 {
 	struct fsh_load_info *fsh_info;
 

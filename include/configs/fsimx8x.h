@@ -16,7 +16,7 @@ Free Space:
  * ---------------------------------------------------------
  * 0x0010_0000: SPL                 SPL       (192KB) (loaded by ROM-Loader, address defined by imximage.cfg)
  * 0x0013_0000: DRAM Timing Data              (16KB) CONFIG_SPL_DRAM_TIMING_ADDR
- * 0x0013_4000: BOARD-CFG           BOARD-CFG (8KB)  CONFIG_FUS_BOARDCFG_ADDR
+ * 0x0013_4000: BOARD-CFG           BOARD-CFG (8KB)  CFG_FUS_BOARDCFG_ADDR
  * 0x0013_6000: BSS data            cfg_info  (2KB)  CONFIG_SPL_BSS_START_ADDR
  * 0x0013_6800: MALLOC_F pool       ---       (22KB) CONFIG_MALLOC_F_ADDR
  * 0x0013_C000: Stack + Global Data ---       (16KB) CONFIG_SPL_STACK
@@ -133,7 +133,7 @@ Free Space:
  * the idea is re-use the early malloc (CONFIG_SYS_MALLOC_F_LEN) with
  * CONFIG_SYS_SPL_MALLOC_START
  */
-#define CONFIG_FUS_BOARDCFG_ADDR	0x00134000
+#define CFG_FUS_BOARDCFG_ADDR	0x00134000
 
 #ifdef CONFIG_SPL_BUILD
 /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */
@@ -563,8 +563,8 @@ Free Space:
 #define CFG_SYS_FSL_USDHC_NUM	2
 
 /* F&S: Location of BOARD-CFG in OCRAM and how far to search if not found */
-#define CONFIG_SYS_OCRAM_BASE		0x00100000
-#define CONFIG_SYS_OCRAM_SIZE		0x00040000
+#define CFG_SYS_OCRAM_BASE		0x00100000
+#define CFG_SYS_OCRAM_SIZE		0x00040000
 
 #define CFG_SYS_SDRAM_BASE		0x80000000
 #define PHYS_SDRAM_1			0x80000000

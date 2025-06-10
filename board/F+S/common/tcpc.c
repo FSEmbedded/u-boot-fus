@@ -4,6 +4,7 @@
  * SPDX-License-Identifier:	GPL-2.0+
  */
 #include <common.h>
+#include <dm.h>
 #include <i2c.h>
 #include <time.h>
 #include <linux/delay.h>

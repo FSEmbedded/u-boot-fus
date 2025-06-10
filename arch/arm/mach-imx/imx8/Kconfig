@@ -215,6 +215,7 @@ config TARGET_IMX8DXL_ORANGEBOX
 
 config TARGET_FSIMX8X
 	bool "Support fsimx8x boards from F&S"
+	select FSIMX_BOARDS
 	select BOARD_LATE_INIT
 	select SUPPORT_SPL
 	select IMX8QXP

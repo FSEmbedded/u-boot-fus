@@ -3034,7 +3034,8 @@ static int fs_image_load_extra_mmc(struct flash_info *fi,
 				   struct storage_info *spl, void *tempaddr)
 {
 #ifdef CONFIG_IMX8MM
-	uint blksz = fi->blk_desc->blksz;
+	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
+	ulong blksz = bdesc->blksz;
 	uint offs;
 	uint lim;
 	int err;
@@ -3049,7 +3050,7 @@ static int fs_image_load_extra_mmc(struct flash_info *fi,
 	offs = lim - blksz;
 
 	printf("Loading SECONDARY-SPL-INFO from NAND\n"
-	       "  Loading only copy from offset 0x%08x size 0x%x...",
+	       "  Loading only copy from offset 0x%08x size 0x%lx...",
 	       offs, blksz);
 
 	err = fi->ops->read(fi, offs, blksz, lim, 0, fi->temp);
@@ -3142,7 +3143,8 @@ static int fs_image_prepare_region_mmc(struct flash_info *fi, int copy,
 static int fs_image_write_secondary_table(struct flash_info *fi, int copy,
 					  struct storage_info *si)
 {
-	uint blksz = fi->blk_desc->blksz;
+	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
+	ulong blksz = bdesc->blksz;
 	uint offs;
 	uint lim;
 	int err;

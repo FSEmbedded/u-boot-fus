@@ -52,6 +52,7 @@ config TARGET_MX7ULP_EVK
 
 config TARGET_FSIMX7ULP
         bool "Support fsimx7ulp boards from F&S"
+	select FSIMX_BOARDS
 	select SYS_ARCH_TIMER
 	select MX7ULP
 

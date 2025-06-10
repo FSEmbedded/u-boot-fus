@@ -511,7 +511,6 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
 	struct signature_block_hdr *sig_hdr;
 	unsigned int offset;
-	bool ret = false;
 
 	if(!valid_container_hdr(cntr_hdr)){
 		char type[MAX_TYPE_LEN + 1];
@@ -1680,7 +1679,7 @@ static void fs_image_sdp_rx_data(u8 *data_buf, int data_len)
 }
 
 /* This is called when the SDP protocol starts a new file */
-static void fs_image_sdp_new_file(u32 dnl_address, u32 size)
+static void fs_image_sdp_new_file(void *dnl_address, uint size)
 {
 	fs_image_start(size, jobs, basic_init_callback, NULL);
 }

@@ -234,7 +234,7 @@ $(obj)/.%.dtb.tmp: $(obj)/.%.dts.tmp $(NBOOT_PATH)/nboot-info.dtsi
 	$(call cmd,dtco)
 
 $(obj)/%.fs: $(obj)/.%.dtb.tmp
-	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F))
+	$(call cmd,fsimg,-s -c -p32[7]=$(CFG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F))
 
 %_board_info.fs: $(OBJ_BOARD_CONFIGS)
 	$(call cmd,fsimg,-s -t BOARD-INFO -d $(*F))

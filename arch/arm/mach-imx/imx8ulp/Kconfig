@@ -72,6 +72,7 @@ config TARGET_IMX8ULP_WATCH
 
 config TARGET_FSIMX8ULP
 	bool "fsimx8ulp"
+	select FSIMX_BOARDS
 	select IMX8ULP
 	select SUPPORT_SPL
 	select IMX8ULP_DRAM

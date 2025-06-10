@@ -548,7 +548,8 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 				/* The ADC has i2c address 0x48 on aStone8MP revision 1.00 */
 				if (info->board_rev == 100) {
 					offs = fs_fdt_path_offset(fdt, "adc");
-					fs_fdt_set_u32(fdt, offs, "reg", 0x48, 1);
+					fs_fdt_set_u32(fdt, offs, "reg", 0x48,
+						       1, true);
 				}
 			}
 			break;
@@ -643,7 +644,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 		tmp[1] = cpu_to_fdt32(0x28000000);
 
 		offs = fs_fdt_path_offset(fdt, FDT_CMA);
-		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
+		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	}
 
 	/* Sanity check for get_cpu_temp_grade() */
@@ -652,15 +653,15 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 
 		tmp_val = (maxc - 10) * 1000;
 		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_ALERT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 		offs = fs_fdt_path_offset(fdt, FDT_SOC_TEMP_ALERT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 
 		tmp_val = maxc * 1000;
 		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_CRIT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 		offs = fs_fdt_path_offset(fdt, FDT_SOC_TEMP_CRIT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
 	}

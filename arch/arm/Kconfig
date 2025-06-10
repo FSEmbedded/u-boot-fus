@@ -1004,6 +1004,7 @@ config ARCH_MX5
 config TARGET_FSVYBRID
 	bool "F&S fsvybrid boards & modules"
 	select CPU_V7A
+	select FSIMX_BOARDS
 	select BOARD_EARLY_INIT_F
 	select BOARD_LATE_INIT
 ###	select USB_EHCI_HCD

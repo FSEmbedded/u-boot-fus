@@ -329,7 +329,7 @@ static void sdp_rx_command_complete(struct usb_ep *ep, struct usb_request *req)
 		       sdp->dnl_bytes_remaining, sdp->dnl_address);
 
 		if (stream_ops && stream_ops->new_file) {
-			stream_ops->new_file(sdp->dnl_address,
+			stream_ops->new_file((void *)(ulong)(sdp->dnl_address),
 					     sdp->dnl_bytes_remaining);
 		}
 		break;

@@ -13,9 +13,11 @@
 */
 
 #include <common.h>
+#include <command.h>
 #include <env.h>
 #include <init.h>
 #include <miiphy.h>
+#include <mmc.h>
 #include <netdev.h>
 #include <asm/global_data.h>
 #include <asm/arch-imx9/ccm_regs.h>
@@ -514,6 +516,30 @@ static void fsimx93_get_board_rev(char *str, int len)
 	snprintf(str, len, "REV%01d.%02d", rev / 100, rev % 100);
 }
 
+int mmc_map_to_kernel_blk(int devno)
+{
+	return devno;
+}
+
+void board_late_mmc_env_init(void)
+{
+	char cmd[32];
+	char mmcblk[32];
+	u32 dev_no = mmc_get_env_dev();
+
+	env_set_ulong("mmcdev", dev_no);
+
+	/**
+	 * TODO: consider F&S U-BOOT-ENV $rootfs_partition_mmc
+	 * This section will be replaced
+	*/
+	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw", mmc_map_to_kernel_blk(dev_no));
+	env_set("mmcroot", mmcblk);
+
+	sprintf(cmd, "mmc dev %d", dev_no);
+	run_command(cmd, 0);
+}
+
 int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
@@ -562,6 +588,7 @@ int board_late_init(void)
 	return 0;
 }
 
+#if 0 //### defined in serial-uclass.c
 int serial_get_alias_seq(void)
 {
 	int seq, err;
@@ -576,3 +603,4 @@ int serial_get_alias_seq(void)
 
 	return seq;
 }
+#endif

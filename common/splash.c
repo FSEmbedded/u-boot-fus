@@ -59,7 +59,7 @@ static struct splash_location default_splash_locations[] = {
 	},
 };
 
-#if defined(CONFIG_DM_VIDEO) && defined(CONFIG_VIDEO_LOGO)
+#if defined(CONFIG_VIDEO) && defined(CONFIG_VIDEO_LOGO)
 
 #include <bmp_logo_data.h>
 

@@ -1,9 +1,5 @@
 if TARGET_FSIMX93
 
-config FSIMX_BOARDS
-	bool
-	default y
-
 config SYS_BOARD
 	default "fsimx93"
 

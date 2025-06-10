@@ -1536,7 +1536,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 		tmp[1] = cpu_to_fdt32(0x28000000);
 
 		offs = fs_fdt_path_offset(fdt, FDT_CMA);
-		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
+		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	}
 
 	return do_fdt_board_setup_common(fdt);

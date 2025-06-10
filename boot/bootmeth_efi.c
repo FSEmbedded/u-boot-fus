@@ -345,7 +345,7 @@ static int distro_efi_read_bootflow_net(struct bootflow *bflow)
 
 	/* figure out the load address */
 	addr_str = env_get("kernel_addr_r");
-	addr = addr_str ? hextoul(addr_str, NULL) : image_load_addr;
+	addr = addr_str ? hextoul(addr_str, NULL) : get_loadaddr();
 
 	/* clear any previous bootfile */
 	env_set("bootfile", NULL);

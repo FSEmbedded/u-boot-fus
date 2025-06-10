@@ -19,7 +19,7 @@
  * OCRAM layout SPL/U-BOOT
  * ---------------------------------------------------------
  * 0x2048_0000: (Region reserved by ROM loader)(96KB)
- * 0x2049_8000: BOARD-CFG            (8KB)	CONFIG_FUS_BOARDCFG_ADDR
+ * 0x2049_8000: BOARD-CFG            (8KB)	CFG_FUS_BOARDCFG_ADDR
  * 0x2049_A000: SPL                  (<=208KB)  (loaded by ROM-Loader, address defined by ATF)
  *     DRAM-FW: Training Firmware    (up to 96KB, immediately behind end of SPL)
  * --------

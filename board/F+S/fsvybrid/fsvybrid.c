@@ -896,8 +896,10 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 
 	/* Set ECC mode for NAND driver */
 	offs = fs_fdt_path_offset(fdt, FDT_NAND);
-	if (offs >= 0)
-		fs_fdt_set_u32(fdt, offs, "fus,ecc_mode", pargs->chECCtype, 1);
+	if (offs >= 0) {
+		fs_fdt_set_u32(fdt, offs, "fus,ecc_mode", pargs->chECCtype,
+			       1, true);
+	}
 
 	/* Set bdinfo entries */
 	offs = fs_fdt_path_offset(fdt, "/bdinfo");

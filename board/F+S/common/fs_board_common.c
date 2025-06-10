@@ -600,9 +600,9 @@ void fs_board_late_init_common(const char *serial_name)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 /* Return the board name (board specific) */
-const char *get_board_name(void)
+char *get_board_name(void)
 {
-	return (const char *)current_bi->name;
+	return current_bi->name;
 }
 
 /* Return the system prompt (board specific) */

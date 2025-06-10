@@ -260,6 +260,7 @@ config TARGET_EMBESTMX6BOARDS
 config TARGET_FSIMX6
 	bool "F&S fsimx6 boards & modules"
 	depends on MX6QDL
+	select FSIMX_BOARDS
 	select BOARD_EARLY_INIT_F
 	select BOARD_LATE_INIT
 	select FS_NBOOT_ARGS
@@ -267,6 +268,7 @@ config TARGET_FSIMX6
 config TARGET_FSIMX6SX
 	bool "F&S fsimx6sx boards & modules"
 	depends on MX6SX
+	select FSIMX_BOARDS
 	select BOARD_EARLY_INIT_F
 	select BOARD_LATE_INIT
 	select FS_NBOOT_ARGS
@@ -274,6 +276,7 @@ config TARGET_FSIMX6SX
 config TARGET_FSIMX6UL
 	bool "F&S fsimx6ul boards & modules"
 	depends on MX6ULL
+	select FSIMX_BOARDS
 	select IOMUX_LPSR
 	select BOARD_EARLY_INIT_F
 	select BOARD_LATE_INIT

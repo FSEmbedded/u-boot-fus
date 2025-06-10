@@ -1510,7 +1510,6 @@ static int setup_fec(void)
 
 	return set_clk_enet(ENET_125MHZ);
 }
-#endif
 
 #define KSZ9893R_SLAVE_ADDR		0x5F
 #define KSZ9893R_CHIP_ID_MSB		0x1
@@ -1776,7 +1775,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 		tmp[1] = cpu_to_fdt32(0x28000000);
 
 		offs = fs_fdt_path_offset(fdt, FDT_CMA);
-		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
+		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	}
 
 	/* Set CPU temp grade */
@@ -1787,11 +1786,11 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 
 		tmp_val = (maxc - 10) * 1000;
 		offs = fs_fdt_path_offset(fdt, FDT_TEMP_ALERT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 
 		tmp_val = maxc * 1000;
 		offs = fs_fdt_path_offset(fdt, FDT_TEMP_CRIT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
 	}

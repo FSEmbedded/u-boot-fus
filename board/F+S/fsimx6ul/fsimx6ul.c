@@ -2083,7 +2083,8 @@ static void fs_fdt_limit_speed(void *fdt, int offs, char *name)
 
 	/* If there were changes, replace property with new cell array */
 	if (need_update)
-		fs_fdt_set_val(fdt, offs, name, new, dest*sizeof(fdt32_t), 1);
+		fs_fdt_set_val(fdt, offs, name, new, dest*sizeof(fdt32_t),
+			       1, true);
 
 	free(new);
 }
@@ -2141,7 +2142,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 
 	if (offs >= 0) {
 		fs_fdt_set_u32(fdt, offs, "fus,ecc_strength",
-			       pargs->chECCtype, 1);
+			       pargs->chECCtype, 1, true);
 	}
 
 	/* Remove operation points > 528 MHz if speed should be limited */

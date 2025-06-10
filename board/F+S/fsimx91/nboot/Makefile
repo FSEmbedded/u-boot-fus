@@ -50,7 +50,6 @@ BOARD_CONFIGS = \
 RT_LPDDR4 := \
 	lpddr4_osm_1g2400m1ch1cs_timing.fs
 
-	
 RT_LPDDR4X :=
 
 DDR_FW_VERSION = v202201
@@ -127,7 +126,6 @@ cmd_ddrfw= \
 
 $(NBOOT_PATH)/.lpddr4_fw.tmp: $(NXP_PATH_LPDDR4)
 	$(call cmd,ddrfw,lpddr4)
-	
 
 $(NBOOT_PATH)/.lpddr4x_fw.tmp: $(NXP_PATH_LPDDR4X)
 	$(call cmd,ddrfw,lpddr4x)
@@ -229,7 +227,7 @@ $(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp
 	$(call cmd,dtco)
 
 $(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp
-	$(call cmd,fsimg, -c -w -a 0x400 -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
+	$(call cmd,fsimg, -c -w -a 0x400 -p32[7]=$(CFG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
 
 BOARDINFO_CFG = board-info.cfg
 

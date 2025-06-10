@@ -55,7 +55,6 @@ BOARD_CONFIGS = \
 	OSM93-FERT23.fs \
 	efusMX93-FERT1.fs \
 	efusMX93-FERT4.fs
-	
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
@@ -67,7 +66,7 @@ RT_LPDDR4 := \
 	lpddr4_ef_1g3200m1ch1cs_timing.fs \
 	lpddr4_ef_1g3733m1ch1cs_timing.fs \
 	lpddr4_ef_2g3733m1ch1cs_timing.fs
-	
+
 RT_LPDDR4X :=
 
 DDR_FW_VERSION = v202201
@@ -144,7 +143,6 @@ cmd_ddrfw= \
 
 $(NBOOT_PATH)/.lpddr4_fw.tmp: $(NXP_PATH_LPDDR4)
 	$(call cmd,ddrfw,lpddr4)
-	
 
 $(NBOOT_PATH)/.lpddr4x_fw.tmp: $(NXP_PATH_LPDDR4X)
 	$(call cmd,ddrfw,lpddr4x)
@@ -246,7 +244,7 @@ $(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp
 	$(call cmd,dtco)
 
 $(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp
-	$(call cmd,fsimg, -c -w -a 0x400 -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
+	$(call cmd,fsimg, -c -w -a 0x400 -p32[7]=$(CFG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
 
 BOARDINFO_CFG = board-info.cfg
 
