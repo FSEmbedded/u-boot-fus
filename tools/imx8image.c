@@ -556,7 +556,14 @@ static void set_image_array_entry(flash_header_v3_t *container,
 	uint32_t meta;
 	char *tmp_name = "";
 	option_type_t type = image_stack->option;
-	boot_img_t *img = &container->img[container->num_images];
+	boot_img_t *img = NULL;
+
+	if(container->num_images >= MAX_NUM_IMGS){
+		fprintf(stderr, "To many Images! MAX_NUM_IMGS=%d \n", MAX_NUM_IMGS);
+		exit(EXIT_FAILURE);
+	}
+
+	img = &container->img[container->num_images];
 
 	img->offset = offset;  /* Is re-adjusted later */
 	img->size = size;
@@ -883,18 +890,17 @@ static int build_container(soc_type_t soc, uint32_t sector_size,
 		case DATA:
 		case UPOWER:
 		case MSG_BLOCK:
-			if (container < 0) {
+			if (container < 0 || container >= MAX_NUM_OF_CONTAINER) {
 				fprintf(stderr, "No container found\n");
 				exit(EXIT_FAILURE);
 			}
 			check_file(&sbuf, img_sp->filename);
 			tmp_filename = img_sp->filename;
 			set_image_array_entry(&imx_header.fhdr[container],
-					      soc, img_sp, file_off,
-					      ALIGN(sbuf.st_size, sector_size),
-					      tmp_filename, dcd_skip);
+						soc, img_sp, file_off,
+						ALIGN(sbuf.st_size, sector_size),
+						tmp_filename, dcd_skip);
 			img_sp->src = file_off;
-
 			file_off += ALIGN(sbuf.st_size, sector_size);
 			break;
 

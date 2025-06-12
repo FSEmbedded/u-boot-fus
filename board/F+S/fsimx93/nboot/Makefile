@@ -17,7 +17,7 @@ include spl/include/autoconf.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2025.02
+NBOOT_SUFFIX = 2025.06
 GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 
@@ -60,6 +60,7 @@ BOARD_CONFIGS = \
 RT_LPDDR4 := \
 	lpddr4_pc_1g3200m1ch1cs_timing.fs \
 	lpddr4_pc_2g3200m1ch1cs_timing.fs \
+	lpddr4_pc_2g3733m1ch1cs_timing.fs \
 	lpddr4_osm_1g3200m1ch1cs_timing.fs \
 	lpddr4_osm_1g3733m1ch1cs_timing.fs \
 	lpddr4_osm_2g3733m1ch1cs_timing.fs \
