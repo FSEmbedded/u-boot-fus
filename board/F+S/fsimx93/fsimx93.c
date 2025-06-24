@@ -402,8 +402,6 @@ static void fdt_common_fixup(void *fdt)
 		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
 	}
 
-	fdt_thermal_fixup(fdt, 0);
-
 	if(!(features & FEAT_EMMC))
 		fs_fdt_enable(fdt, "emmc", 0);
 
