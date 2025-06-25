@@ -323,6 +323,8 @@ enum update_action board_check_for_recover(void)
 void fs_board_init_common(const struct fs_board_info *board_info)
 {
 	DECLARE_GLOBAL_DATA_PTR;
+	__maybe_unused struct udevice *udev;
+
 #ifndef CONFIG_FS_BOARD_CFG
 	struct fs_nboot_args *pargs = (struct fs_nboot_args *)NBOOT_ARGS_BASE;
 
@@ -344,19 +346,9 @@ void fs_board_init_common(const struct fs_board_info *board_info)
 	/* Prepare the command prompt */
 	sprintf(fs_sys_prompt, "%s # ", board_info->name);
 
-#if !defined(CONFIG_TARGET_FSIMX93) \
-	&& !defined(CONFIG_TARGET_FSIMX91) \
-	&& !defined(CONFIG_TARGET_FSIMX8ULP)
-/* KM-2025-06-17: !!! ATTENTION !!!
- * For imx93, imx91 and imx8ulp the TMU already is initialized in soc.c!
- * Double initialization seems to break something in the global data
- * struct, as disabling the dcache forces a critial reset.
- * TODO: Move the initialization for these architechtures here as well?
- */
 #ifdef CONFIG_IMX_TMU
 	/* Initialize thermal sensor */
-	uclass_get_device(UCLASS_THERMAL, 0, NULL);
-#endif
+	uclass_get_device(UCLASS_THERMAL, 0, &udev);
 #endif
 }
 
