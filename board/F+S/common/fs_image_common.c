@@ -139,6 +139,7 @@
  * be done before that.
  */
 
+#if __UBOOT__
 #include <common.h>
 #include <fdt_support.h>		/* fdt_getprop_u32_default_node() */
 #include <spl.h>
@@ -157,6 +158,44 @@
 #include <asm/mach-imx/hab.h>
 #include <stdbool.h>
 #include <hang.h>
+#endif
+#else
+#include "fs_image_common.h"
+#include "fs_cntr_common.h"
+#include "fs_board_common.h"
+#include "../../../include/fdt_support.h"
+#include "../../../include/linux/libfdt.h"
+#include "../../../include/linux/libfdt_env.h"
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include "crc32.h"
+#include "linux_helpers.h"
+
+static char arch[64];
+
+char saved_board_cfg_buffer[4*1024*1024];
+
+/* TODO: Only copied for use with Linux fsimage tool. Original include may be 
+   too messy. May be moved */
+static u32 fdt_getprop_u32_default_node(const void *fdt, int off, int cell,
+				const char *prop, const u32 dflt)
+{
+	const fdt32_t *val;
+	int len;
+
+	val = fdt_getprop(fdt, off, prop, &len);
+
+	/* Check if property exists */
+	if (!val)
+		return dflt;
+
+	/* Check if property is long enough */
+	if (len < ((cell + 1) * sizeof(uint32_t)))
+		return dflt;
+
+	return fdt32_to_cpu(*val);
+}
 #endif
 
 /* Structure to handle board name and revision separately */
@@ -179,7 +218,23 @@ struct env_info {
 /* Return the F&S architecture */
 const char *fs_image_get_arch(void)
 {
+#ifdef __UBOOT__
 	return CONFIG_SYS_BOARD;
+#else
+	FILE *fp = fopen("/sys/bdinfo/arch", "ro");
+	if(!fp) {
+		printf("Error: Cannot read board-cfg!\n");
+		return NULL;
+	}
+	size_t bytes_read = fread(arch, 1, 64, fp);
+	if(!bytes_read) {
+		printf("Error: Cannot read board-cfg!\n");
+		return NULL;
+	}
+	arch[bytes_read - 1] = '\0';
+	fclose(fp);	
+	return arch;
+#endif
 }
 
 /* Check if this is an F&S image */
@@ -191,19 +246,25 @@ bool fs_image_is_fs_image(const struct fs_header_v1_0 *fsh)
 /* Return the intended address of the board configuration in OCRAM */
 void *fs_image_get_regular_cfg_addr(void)
 {
+#ifdef __UBOOT__
 	return (void*)CFG_FUS_BOARDCFG_ADDR;
+#else
+    return (void*)saved_board_cfg_buffer;
+#endif
 }
 
 /* Return the real address of the board configuration in OCRAM */
 void *fs_image_get_cfg_addr(void)
 {
 	void *cfg;
-
+#ifdef __UBOOT__
 	if (!gd->board_cfg)
 		gd->board_cfg = (ulong)fs_image_get_regular_cfg_addr();
 
 	cfg = (void *)gd->board_cfg;
-
+#else
+    cfg = (void *)fs_image_get_regular_cfg_addr();
+#endif
 	return cfg;
 }
 
@@ -896,6 +957,7 @@ bool fs_image_is_secondary_uboot(void)
  */
 bool fs_image_find_cfg_in_ocram(void)
 {
+#ifdef __UBOOT__
 	struct fs_header_v1_0 *fsh;
 	const char *type = "BOARD-CFG";
 
@@ -920,6 +982,11 @@ bool fs_image_find_cfg_in_ocram(void)
 	} while ((ulong)fsh < (CFG_SYS_OCRAM_BASE + CFG_SYS_OCRAM_SIZE));
 
 	return false;
+#else
+	//The tool always provides current board config and fails before if unable.
+	//Still we should add a better detection if possible.
+	return true;
+#endif
 }
 
 static int fs_image_fdt_err(const char *name, const char *reason, int err)

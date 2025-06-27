@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-
+#if __UBOOT__
 #include <config.h>
 #include <env.h>			/* env_get() */
 #include <command.h>			/* run_command() */
@@ -33,6 +33,16 @@
 #ifdef CONFIG_FS_BOARD_CFG
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
+#else
+#include "fs_board_common.h"		/* Own interface */
+#ifdef CONFIG_FS_BOARD_CFG
+#include "fs_image_common.h"		/* fs_image_*() */
+#endif
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+
+#endif /* __UBOOT__ */
 
 #define DEV_NAME_SIZE 32
 int serial_get_alias_seq(void);
@@ -166,6 +176,7 @@ void board_nand_state(struct mtd_info *mtd, unsigned int state)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
+#if __UBOOT__ /* unused outside of u-boot and spl */
 /* Get Pointer to struct cfg_info */
 struct cfg_info *fs_board_get_cfg_info(void)
 {
@@ -197,6 +208,7 @@ unsigned int fs_board_get_features(void)
 {
 	return fs_board_get_cfg_info()->features;
 }
+#endif /* __UBOOT__ */
 
 /* Get the NBoot version */
 const char *fs_board_get_nboot_version(void)
@@ -218,6 +230,7 @@ int board_phys_sdram_size(phys_size_t *size)
 
 /* ------------- Generic functions ----------------------------------------- */
 
+#if __UBOOT__ /* unused outside of u-boot and spl */
 /* Issue reset signal on up to three gpios (~0: gpio unused) */
 void fs_board_issue_reset(uint active_us, uint delay_us,
 			  uint gpio0, uint gpio1, uint gpio2)
@@ -243,6 +256,7 @@ void fs_board_issue_reset(uint active_us, uint delay_us,
 	if (delay_us)
 		udelay(delay_us);
 }
+#endif /* __UBOOT__ */
 
 #ifdef CONFIG_CMD_UPDATE
 enum update_action board_check_for_recover(void)
@@ -301,6 +315,7 @@ enum update_action board_check_for_recover(void)
 }
 #endif /* CONFIG_CMD_UPDATE */
 
+#if __UBOOT__ /* Only useable if compiled for U-Boot or SPL */
 /* Copy NBoot args to variables and prepare command prompt string */
 void fs_board_init_common(const struct fs_board_info *board_info)
 {
@@ -326,6 +341,7 @@ void fs_board_init_common(const struct fs_board_info *board_info)
 	/* Prepare the command prompt */
 	sprintf(fs_sys_prompt, "%s # ", board_info->name);
 }
+#endif /* __UBOOT__ */
 
 #ifdef CONFIG_BOARD_LATE_INIT
 /* If variable has value "undef", update it with a board specific value */
@@ -623,7 +639,9 @@ const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
+#if __UBOOT__
 #include <fdtdec.h>
+#endif
 
 #ifdef CONFIG_IMX8
 /* Definitions in boot_cfg (fuse bank 0, word 18) */
@@ -844,6 +862,17 @@ u32 fs_board_get_secondary_offset(void)
 #define BOOT_CFG_BOOT_MODE_SHIFT 0
 #define BOOT_CFG_BOOT_MODE_MASK GENMASK(3, BOOT_CFG_BOOT_MODE_SHIFT)
 
+#ifndef __UBOOT__
+unsigned int fuse_read(int bank, int word, uint32_t* buf) {
+    FILE *nvmem = fopen("/sys/bus/nvmem/devices/fsb_s400_fuse0/nvmem", "rb");
+	if(nvmem)
+    fseek(nvmem, (bank*8+word)*4, SEEK_SET);
+    fread(&buf, 4, 1, nvmem);
+    fclose(nvmem);
+    return 0;
+}
+#endif
+
 /*
  * Return the boot device as programmed in the fuses. This may differ from the
  * currently active boot device. For example the board can currently boot from
@@ -885,6 +914,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	return boot_dev;
 }
 
+#if __UBOOT__ /* unused outside of u-boot and spl */
 #define IMG_CNTN_SET1_OFFSET_SHIFT 8
 #define IMG_CNTN_SET1_OFFSET_MASK GENMASK(15, IMG_CNTN_SET1_OFFSET_SHIFT)
 u32 fs_board_get_secondary_offset(void)
@@ -915,6 +945,7 @@ u32 fs_board_get_secondary_offset(void)
 
 	return offset;
 }
+#endif /* __UBOOT__ */
 #elif defined(CONFIG_IMX8ULP)
 /* Definitions in boot_cfg (fuse bank 4, word 1) */
 #define BOOT_CFG_BOOT_TYPE_SHIFT	29
@@ -991,6 +1022,9 @@ u32 fs_board_get_secondary_offset(void)
 
 #endif /* CONFIG_FS_BOARD_CFG */
 
+//TODO: not used in linux because of missing functionality. Will  be activated
+//      when possible.
+#ifdef __UBOOT__
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 static bool imx_ele_ahab_is_enabled(void)
 {
@@ -1002,16 +1036,21 @@ static bool imx_ele_ahab_is_enabled(void)
 	// if lc != 0x8 then lifecycle is not OEM open
 	return !!(lc != 0x8);
 }
-
+#endif
 #endif
 
+//TODO: not used in linux because of missing functionality. Will  be activated
+//      when possible.
 bool fs_board_is_closed(void)
 {
+#ifdef __UBOOT__
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 	return imx_ele_ahab_is_enabled();
 #elif CONFIG_IS_ENABLED(IMX_HAB)
 	return imx_hab_is_enabled();
 #endif
+#else
 
 	return false;
+#endif
 }

@@ -12,6 +12,7 @@
 * GNU General Public License for more details.
 */
 
+#if __UBOOT__
 #include <common.h>
 #include <spl.h>
 #include <malloc.h>
@@ -32,6 +33,17 @@
 #include "fs_image_common.h"
 #include "fs_cntr_common.h"
 #include "fs_bootrom.h"
+#else
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include "fs_image_common.h"
+#include "fs_cntr_common.h"
+#include "../../../include/u-boot/sha256.h"
+#include "../../../include/u-boot/sha512.h"
+#include "linux_helpers.h"
+#endif /* __UBOOT__ */
 
 struct ram_info_t {
 	const char *type;
@@ -60,6 +72,7 @@ static unsigned int get_jobs(void);
  * free imx container
  * @param cntr_info: ptr to image_info for imx_container
  */
+#if __UBOOT__ /* unused outside of u-boot and spl */
 static void free_container(struct spl_image_info *cntr_info)
 {
 #if defined(CONFIG_AHAB_BOOT)
@@ -71,6 +84,7 @@ static void free_container(struct spl_image_info *cntr_info)
 
 	free((struct container_hdr *)cntr_info->load_addr);
 }
+#endif /* __UBOOT__ */
 
 /**
  * reads a imx container hdr
@@ -84,6 +98,7 @@ static void free_container(struct spl_image_info *cntr_info)
  * @returns -ERRNO
  * 
  */
+#if __UBOOT__ /* unused outside of u-boot and spl */
 static int read_container_hdr(struct spl_image_info *spl_image,
 			       struct spl_load_info *info, ulong sector)
 {
@@ -339,6 +354,7 @@ static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_i
 
 	return ret;
 }
+#endif /* __UBOOT__ */
 
 enum sha_types {
 	SHA256,
@@ -380,7 +396,13 @@ bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 	int sha_size;
 	int ret;
 
+//TODO: this was done quick and dirty for testing the same expression should
+//      work but did not at first. Needs to be examined further.
+#if __UBOOT__
 	sha_type = ((img->hab_flags & GENMASK(10,8)) >> 8);
+#else
+	sha_type = img->hab_flags & GENMASK(10,8);
+#endif
 	switch(sha_type) {
 	case SHA256:
 		sha_size = SHA256_SUM_LEN;
@@ -399,12 +421,16 @@ bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 		break;
 	}
 
-	debug("%s: validate %ssum\n", __func__ , algo_name);
+//TODO: actual hash calculation is pending, just pretend for now
+#ifdef __UBOOT__
 	ret = hash_block(algo_name, blob, img->size, sha, &sha_size);
 	if(ret){
 		printf("failed to calc hash: %d\n", ret);
 		return false;
 	}
+#else
+	memcpy(sha, img->hash, sha_size);
+#endif
 
 #ifdef DEBUG
 	puts("CNTR_HASH is ");
@@ -431,10 +457,14 @@ bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
 
 	cntr_length = cntr_hdr->length_lsb + (cntr_hdr->length_msb << 8);;
 
+//TODO: is skipped in linux because the functionality is not fully implemented
+//      yet.
+#ifdef __UBOOT__
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 	authhdr = ahab_auth_cntr_hdr(cntr_hdr, cntr_length);
 	if(!authhdr)
 		goto ahab_release;
+#endif
 #endif
 
 	if(!cntr_hdr->num_images)
@@ -453,8 +483,11 @@ bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
 	}
 
 	ahab_release:
+//TODO: skip for now because of missing functionality
+#ifdef __UBOOT__
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 	ahab_auth_release();
+#endif
 #endif
 	return ret;
 }

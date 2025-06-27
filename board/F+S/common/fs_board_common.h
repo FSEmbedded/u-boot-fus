@@ -12,9 +12,15 @@
 #ifndef __FS_BOARD_COMMON_H__
 #define __FS_BOARD_COMMON_H__
 
+#if __UBOOT__
 #include <config.h>
 
 #include <asm/mach-imx/boot_mode.h>	/* enum boot_device */
+#else
+#include "linux_helpers.h"
+
+#include "../../../arch/arm/include/asm/mach-imx/boot_mode.h"
+#endif /* __UBOOT__ */
 
 #ifndef CONFIG_FS_BOARD_CFG
 
@@ -59,13 +65,19 @@ struct fs_nboot_args *fs_board_get_nboot_args(void);
 
 #else
 
+#if __UBOOT__
 #include <fs_cfg_info.h>		/* struct cfg_info */
+#else
+#include "../../../include/fs_cfg_info.h"
+#endif /* __UBOOT__ */
 
 /* Get the offset of the Secondary Boot Image from fuses */
 u32 fs_board_get_secondary_offset(void);
 
+#if __UBOOT__ /* unused outside of u-boot and spl */
 /* Get Pointer to struct cfg_info */
 struct cfg_info *fs_board_get_cfg_info(void);
+#endif /* __UBOOT__ */
 
 #endif /* !CONFIG_FS_BOARD_CFG */
 

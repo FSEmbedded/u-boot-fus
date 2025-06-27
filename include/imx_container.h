@@ -6,8 +6,10 @@
 #ifndef __CONTAINER_HEADER_H_
 #define __CONTAINER_HEADER_H_
 
+#if __UBOOT__
 #include <linux/sizes.h>
 #include <linux/types.h>
+#endif
 
 #define IV_MAX_LEN			32
 #define HASH_MAX_LEN			64

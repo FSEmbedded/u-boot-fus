@@ -11,6 +11,12 @@
 #ifndef __FS_IMAGE_COMMON_H__
 #define __FS_IMAGE_COMMON_H__
 
+#ifndef __UBOOT__
+#include <stdbool.h>
+#include <stdint.h>
+#include "linux_helpers.h"
+#endif
+
 #define MAX_TYPE_LEN 16
 #define MAX_DESCR_LEN 32
 
@@ -46,6 +52,8 @@ struct fs_header_v1_0 {			/* Size: 64 bytes */
 #define FSH_FLAGS_INDEX		0x1000		/* Image contains an index */
 #define FSH_FLAGS_EXTRA 	0x0800		/* Extra offset sub-header in p32[7] */
 #define FSH_SIZE sizeof(struct fs_header_v1_0)
+
+extern char saved_board_cfg_buffer[4*1024*1024];
 
 /* Return the F&S architecture */
 const char *fs_image_get_arch(void);
