@@ -267,9 +267,9 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_AUDIO;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
 		features |= FEAT_SDIO_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b;", NULL))
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
 		features |= FEAT_SDIO_B;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
 		features |= FEAT_MIPI_DSI;
