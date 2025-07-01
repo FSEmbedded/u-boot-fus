@@ -92,3 +92,21 @@
 	disable-over-current;
 };
 #endif
+
+#ifdef CONFIG_EFUSMX93_SDIO_A
+&fs_sdio_a {
+
+	/**
+	* TODO:
+	* There seems to be an issue with card detection (CD) in U-Boot.
+	* This requires further investigation.
+	* The `broken-cd` property is set, which has the same effect as "non-removable".
+	* As a result, `sdhci_get_cd()` will always return true, which is acceptable for U-Boot.
+	* It is still possible to switch SD cards on this port.
+	* Reinitialization using `mmc dev <x>` might be required!
+	*/
+	// cd-inverted;
+	broken-cd;
+	no-1-8-v;
+};
+#endif

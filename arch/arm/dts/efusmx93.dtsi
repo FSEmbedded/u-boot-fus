@@ -58,7 +58,7 @@ fs_can_b: &flexcan2 {};
 		i2c0 = &fs_i2c_a;
 		i2c1 = &fs_i2c_b;
 		i2c2 = &fs_i2c_c;
-        /delete-property/ i2c3;
+		/delete-property/ i2c3;
 		/delete-property/ i2c4;
 		/delete-property/ i2c5;
 		/delete-property/ i2c6;
@@ -68,7 +68,7 @@ fs_can_b: &flexcan2 {};
 		usb1 = &fs_usb_dev;
 		mmc0 = &emmc;
 		mmc1 = &fs_sdio_a;
-        mmc2 = &fs_sdio_b;
+		mmc2 = &fs_sdio_b;
 		csi0 = &fs_csi; 
 		rtc0 = &rtc85263;
 		rtc1 = &bbnsm_rtc;
@@ -1045,8 +1045,8 @@ fs_can_b: &flexcan2 {};
 			MX93_PAD_SD2_DATA3__USDHC2_DATA3	0x40001382
 			MX93_PAD_SD2_CD_B__USDHC2_CD_B		0x31e
 			MX93_PAD_SD2_VSELECT__USDHC2_VSELECT	0x51e
-            /* WP */
-            MX93_PAD_SD2_RESET_B__GPIO3_IO07    0x51e
+			/* WP */
+			MX93_PAD_SD2_RESET_B__GPIO3_IO07    0x51e
 		>;
 	};
 
