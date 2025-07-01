@@ -42,6 +42,7 @@
 		have-sd-b;
 		have-mipi-csi;
 		have-lvds;
+		have-rgb;
 
         efusMX93-FERT4.100 {
             board-rev = <100>;
