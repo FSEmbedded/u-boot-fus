@@ -6,8 +6,10 @@
  * Original Author: Andy Fleming
  * Add vsc8662 phy support - Priyanka Jain
  */
+
 #include <common.h>
 #include <miiphy.h>
+#include <linux/delay.h>
 
 /* Cicada Auxiliary Control/Status Register */
 #define MIIM_CIS82xx_AUX_CONSTAT	0x1c
@@ -215,10 +217,16 @@ static int vsc8574_config(struct phy_device *phydev)
 	return 0;
 }
 
-static int vsc8514_config(struct phy_device *phydev)
+static int vsc8514_global_config(struct phy_device *phydev)
 {
+	static bool global_init = true;
 	u32 val;
-	int timeout = 1000000;
+	int timeout = 50000; //5s
+
+	if(!global_init)
+		return 0;
+
+	debug("%s: run global config\n", __func__);
 
 	/* configure register to access 19G */
 	phy_write(phydev, MDIO_DEVAD_NONE, PHY_EXT_PAGE_ACCESS,
@@ -233,6 +241,9 @@ static int vsc8514_config(struct phy_device *phydev)
 		/* Enable 4 ports MAC QSGMII */
 		phy_write(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_GENERAL18,
 			  MIIM_VSC8514_18G_QSGMII);
+
+		/* Command may take up to 25 ms to complete */
+		udelay(25000);
 	} else {
 		/*TODO Add SGMII functionality once spec sheet
 		 * for VSC8514 defines complete functionality
@@ -241,13 +252,28 @@ static int vsc8514_config(struct phy_device *phydev)
 
 	val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_GENERAL18);
 	/* When bit 15 is cleared the command has completed */
-	while ((val & MIIM_VSC8514_18G_CMDSTAT) && timeout--)
+	while ((val & MIIM_VSC8514_18G_CMDSTAT) && timeout--){
+		udelay(100);
 		val = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_VSC8514_GENERAL18);
+	}
 
-	if (0 == timeout) {
+	if (timeout <= 0) {
 		printf("PHY 8514 config failed\n");
 		return -1;
 	}
+
+	global_init = false;
+	return 0;
+}
+
+static int vsc8514_config(struct phy_device *phydev)
+{
+	u32 val;
+	int ret;
+
+	ret = vsc8514_global_config(phydev);
+	if(ret)
+		return ret;
 
 	phy_write(phydev, MDIO_DEVAD_NONE, PHY_EXT_PAGE_ACCESS, 0);
 
