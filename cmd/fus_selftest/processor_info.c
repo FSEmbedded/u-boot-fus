@@ -52,7 +52,6 @@ static int get_processorInfo_soc(struct cpuinfo *ci){
 #endif
 	return 0;
 }
-#endif
 
 int get_processorInfo(bool silent){
 
@@ -75,6 +74,7 @@ int get_processorInfo(bool silent){
 
 	return ret;
 }
+#endif
 
 #if CONFIG_IS_ENABLED(CPU)
 int print_cpuinfo(bool silent)
