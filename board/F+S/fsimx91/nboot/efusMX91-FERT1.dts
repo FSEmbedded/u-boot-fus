@@ -6,21 +6,19 @@
  * published by the Free Software Foundation.
  */
 
-/* TODO: IN PREPARATION */
-
 /dts-v1/;
 
 #include "nboot-info.dtsi"
 
 / {
 	board-cfg {
-		board-name = "PicoCoreMX93";
-		board-fdt = "picocoremx93";
+		board-name = "efusMX91";
+		board-fdt = "efusmx91";
 
-		/* DRAM: B.ICDRAM.53 */
+		/* DRAM: B.ICDRAM.40 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_2g3733m1ch1cs";
-		dram-size = <0x800>;		/* In MiB */
+		dram-timing = "lpddr4_ef_1g2400m1ch1cs";
+		dram-size = <0x400>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
@@ -39,16 +37,13 @@
 		have-eth-b;
 		have-eth-phy-a;
 		have-eth-phy-b;
-		have-audio;
-		have-wlan;
+		// have-wlan;
 		have-sd-a;
-		// have-sd-b;
-		have-mipi-dsi;
-		have-mipi-csi;
-		have-lvds;
+		have-sd-b;
+		have-rgb;
 
-        PCore93-FERT6.110 {
-            board-rev = <110>;
-        };
+		efusMX91-FERT1.100 {
+			board-rev = <100>;
+		};
 	};
 };

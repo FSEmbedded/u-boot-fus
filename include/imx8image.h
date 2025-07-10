@@ -16,7 +16,7 @@
 
 #define IV_MAX_LEN			32
 #define HASH_MAX_LEN			64
-#define MAX_NUM_IMGS			6
+#define MAX_NUM_IMGS			64
 #define MAX_NUM_SRK_RECORDS		4
 
 #define IVT_HEADER_TAG_B0		0x87
@@ -285,7 +285,7 @@ typedef struct {
 #define PARTITION_ID_M4		0
 #define PARTITION_ID_AP		1
 
-#define IMG_STACK_SIZE	32
+#define IMG_STACK_SIZE	128
 
 #define append(p, s, l) do { \
 	memcpy((p), (uint8_t *)(s), (l)); (p) += (l); \

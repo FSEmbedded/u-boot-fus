@@ -510,7 +510,6 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
 	struct signature_block_hdr *sig_hdr;
 	unsigned int offset;
-	bool ret = false;
 
 	if(!valid_container_hdr(cntr_hdr)){
 		char type[MAX_TYPE_LEN + 1];

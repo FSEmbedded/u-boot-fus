@@ -43,6 +43,14 @@
 #include "../common/fs_cntr_common.h"
 #include "../common/fs_fdt_common.h"
 
+#if CONFIG_IS_ENABLED(IMX93)
+#define LABEL_CPU_ALERT "cpu_alert"
+#define LABEL_CPU_CRIT "cpu_crit"
+#elif CONFIG_IS_ENABLED(IMX91)
+#define LABEL_CPU_ALERT "cpu_alert0"
+#define LABEL_CPU_CRIT "cpu_crit0"
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 /* +++ Environment defines +++ */
@@ -267,6 +275,8 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_MIPI_CSI;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
 		features |= FEAT_LVDS;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
+		features |= FEAT_RGB;
 
 	info->features = features;
 }
@@ -295,46 +305,63 @@ int board_early_init_f(void)
 	return 0;
 }
 
-static void fdt_pcore_fixup(void *fdt)
+static void fdt_fsboard_fixup(void *fdt)
 {
 	uint features = fs_board_get_features();
 
-	if(!(features & FEAT_ETH_PHY_A)){
-		fs_fdt_enable(fdt, "ethphy0", 0);
+	switch(gd->board_type){
+		case BT_PICOCOREMX91:
+		case BT_PICOCOREMX93:
+			if(!(features & FEAT_ETH_PHY_A)){
+				fs_fdt_enable(fdt, "ethphy0", 0);
+			}
+
+			if(!(features & FEAT_ETH_PHY_B)){
+				fs_fdt_enable(fdt, "ethphy1", 0);
+			}
+
+			if(!(features & FEAT_AUDIO)){
+				fs_fdt_enable(fdt, "sound_sgtl5000", 0);
+				fs_fdt_enable(fdt, "sgtl5000", 0);
+			}
+
+			if(!(features & FEAT_WLAN)){
+				fs_fdt_enable(fdt, "wlan_wake", 0);
+				fs_fdt_enable(fdt, "bluetooth", 0);
+			}
+
+			if(!(features & FEAT_SDIO_A))
+				fs_fdt_enable(fdt, "pc_sdio_a", 0);
+
+			if(!(features & (FEAT_SDIO_B | FEAT_WLAN)))
+				fs_fdt_enable(fdt, "pc_sdio_b", 0);
+			break;
+		case BT_EFUSMX91:
+		case BT_EFUSMX93:
+			if(!(features & FEAT_WLAN)) {
+				fs_fdt_enable(fdt, "mwifiex", 0);
+				fs_fdt_enable(fdt, "wlan_wake", 0);
+			}
+
+			if(!(features & FEAT_ETH_PHY_A))
+				fs_fdt_enable(fdt, "ethphy1", 0);
+
+			if(!(features & FEAT_ETH_PHY_B))
+				fs_fdt_enable(fdt, "ethphy2", 0);
+
+			if(!(features & FEAT_SDIO_A))
+				fs_fdt_enable(fdt, "fs_sdio_a", 0);
+
+			if(!(features & (FEAT_SDIO_B | FEAT_WLAN)))
+				fs_fdt_enable(fdt, "fs_sdio_b", 0);
+			break;
+		default:
+			break;
 	}
-
-	if(!(features & FEAT_ETH_PHY_B)){
-		fs_fdt_enable(fdt, "ethphy1", 0);
-	}
-
-	if(!(features & FEAT_AUDIO)){
-		fs_fdt_enable(fdt, "sound_sgtl5000", 0);
-		fs_fdt_enable(fdt, "sgtl5000", 0);
-	}
-
-	if(!(features & FEAT_WLAN)){
-		fs_fdt_enable(fdt, "wlan", 0);
-		fs_fdt_enable(fdt, "wlan_wake", 0);
-	}
-
-	if(!(features & FEAT_SDIO_A))
-		fs_fdt_enable(fdt, "pc_sdio_a", 0);
-
-	if(!(features & (FEAT_SDIO_B | FEAT_WLAN)))
-		fs_fdt_enable(fdt, "pc_sdio_b", 0);
 }
 
 static void fdt_osm_fixup(void *fdt)
 {
-}
-
-static void fdt_efus_fixup(void *fdt)
-{
-	uint features = fs_board_get_features();
-	if(!(features & FEAT_WLAN)) {
-		fs_fdt_enable(fdt, "wlan", 0);
-		fs_fdt_enable(fdt, "wlan_wake", 0);
-	}
 }
 
 static void fdt_thermal_fixup(void *fdt, bool verbose)
@@ -350,10 +377,10 @@ static void fdt_thermal_fixup(void *fdt, bool verbose)
 	if ((minc > -500) && maxc < 500) {
 		u32 tmp_val;
 		tmp_val = (maxc - 10) * 1000;
-		offs = fs_fdt_path_offset(fdt, "cpu_alert");
+		offs = fs_fdt_path_offset(fdt, LABEL_CPU_ALERT);
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, verbose);
 		tmp_val = maxc * 1000;
-		offs = fs_fdt_path_offset(fdt, "cpu_crit");
+		offs = fs_fdt_path_offset(fdt, LABEL_CPU_CRIT);
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, verbose);
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
@@ -390,6 +417,7 @@ static void fdt_common_fixup(void *fdt)
 	if(!(features & FEAT_ETH_B))
 		fs_fdt_enable(fdt, "ethernet1", 0);
 
+#if CONFIG_IS_ENABLED(IMX93)
 	if(!(features & FEAT_MIPI_DSI)){
 		fs_fdt_enable(fdt, "dsi", 0);
 		fs_fdt_enable(fdt, "dphy", 0);
@@ -399,18 +427,29 @@ static void fdt_common_fixup(void *fdt)
 		fs_fdt_enable(fdt, "ldb", 0);
 		fs_fdt_enable(fdt, "ldb_phy", 0);
 	}
+#endif
+	
+	if(!(features & FEAT_RGB)){
+		fs_fdt_enable(fdt, "parallel_disp_fmt", 0);
+	}
 
-	if(!(features & (FEAT_LVDS | FEAT_MIPI_DSI)))
+	if(!(features & (FEAT_LVDS | FEAT_MIPI_DSI | FEAT_RGB)))
 		fs_fdt_enable(fdt, "lcdif", 0);
 
-	if(gd->board_type == BT_PICOCOREMX93)
-		fdt_pcore_fixup(fdt);
-
-	if(gd->board_type == BT_OSMSFMX93)
-		fdt_osm_fixup(fdt);
-	
-	if(gd->board_type == BT_EFUSMX93)
-		fdt_efus_fixup(fdt);
+	switch(gd->board_type){
+		case BT_PICOCOREMX91:
+		case BT_PICOCOREMX93:
+		case BT_EFUSMX91:
+		case BT_EFUSMX93:
+			fdt_fsboard_fixup(fdt);
+			break;
+		case BT_OSMSFMX91:
+		case BT_OSMSFMX93:
+			fdt_osm_fixup(fdt);
+			break;
+		default:
+			break;
+	}
 }
 
 #if CONFIG_IS_ENABLED(OF_BOARD_FIXUP)

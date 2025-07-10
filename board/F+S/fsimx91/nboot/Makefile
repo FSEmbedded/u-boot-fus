@@ -17,7 +17,7 @@ include spl/include/autoconf.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2025.03
+NBOOT_SUFFIX = 2025.04
 GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 
@@ -43,12 +43,14 @@ NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 # revisions .130, .120 and .100. Boards with revision .121 or .120 in their
 # BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
-	OSM91-FERT1.fs
+	OSM91-FERT1.fs \
+	efusMX91-FERT1.fs \
 
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
-	lpddr4_osm_1g2400m1ch1cs_timing.fs
+	lpddr4_osm_1g2400m1ch1cs_timing.fs \
+	lpddr4_ef_1g2400m1ch1cs_timing.fs \
 
 	
 RT_LPDDR4X :=
