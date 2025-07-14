@@ -1202,7 +1202,8 @@ dtb-$(CONFIG_ARCH_IMX8M) += \
 	picocoremx8mpr2.dtb \
 	armstonemx8mp.dtb \
 	efusmx8mp.dtb \
-	fssmmx8mp.dtb
+	fssmmx8mp.dtb \
+	osm8mp.dtb
 
 dtb-$(CONFIG_ARCH_IMX9) += \
 	imx95-15x15-evk.dtb \

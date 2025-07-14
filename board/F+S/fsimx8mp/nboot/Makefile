@@ -9,7 +9,7 @@ include spl/include/autoconf.mk
 # NBoot version with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_VERSION = 2024.06.3
+NBOOT_VERSION = 2025.04
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
 # names given in the Selectsoft WaWi for the board and the PCB revision. The
@@ -71,7 +71,8 @@ BOARD_CONFIGS = \
 	efusMX8MP-FERT13.fs \
 	SM8MP-FERT3.fs \
 	SM8MP-FERT4.fs \
-	SM8MP-FERT5.fs
+	SM8MP-FERT5.fs \
+	OSM8MPL-FERT2.fs
 
 
 # List of DRAM Timings for each DRAM-TYPE
@@ -84,6 +85,7 @@ RT_LPDDR4 := \
 	lpddr4_ef_2g1800m2ch1cs_timing.fs \
 	lpddr4_ef_1g1800m2ch1cs_timing.fs \
 	lpddr4_ef_1g2000m2ch1cs_timing.fs \
+	lpddr4_os_2g2000m2ch1cs_timing.fs \
 	lpddr4_pc_4g1500m2ch2cs_timing.fs \
 	lpddr4_pc_2g1500m2ch1cs_timing.fs \
 	lpddr4_pc_2g1300m2ch1cs_timing.fs \

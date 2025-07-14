@@ -1,11 +1,12 @@
 /*
  * Copyright 2018 NXP
- * (C) Copyright 2018-2021
+ * (C) Copyright 2018-2025
  *
  * Hartmut Keller, F&S Elektronik Systeme GmbH, keller@fs-net.de
  * Patrick Jakob, F&S Elektronik Systeme GmbH, jakob@fs-net.de
  * Anatol Derksen, F&S Elektronik Systeme GmbH, derksen@fs-net.de
  * Philipp Gerbach, F&S Elektronik Systeme GmbH, gerbach@fs-net.de
+ * Kay Müller, F&S Elektronik Systeme GmbH, mueller@fs-net.de
  *
  * Board specific functions for F&S boards based on Freescale i.MX8MP CPU
  *
@@ -34,6 +35,7 @@
 #include <mmc.h>
 #include <asm/arch/ddr.h>
 #include <dwc3-uboot.h>
+#include <linux/delay.h>
 
 #include <asm/sections.h>
 #include <asm/mach-imx/boot_mode.h>	/* BOOT_TYPE_* */
@@ -52,6 +54,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BT_ARMSTONEMX8MP 0x2
 #define BT_EFUSMX8MP 0x3
 #define BT_FSSMMX8MP 0x4
+#define BT_OSM8MP 0x5
 
 static const char *board_names[] = {
 	"PicoCoreMX8MP",
@@ -59,6 +62,7 @@ static const char *board_names[] = {
 	"armStoneMX8MP",
 	"efusMX8MP",
 	"FSSMMX8MP",
+	"OSM8MP",
 	"(unknown)"
 };
 
@@ -105,6 +109,19 @@ struct i2c_pads_info i2c_pad_info_efusmx8mp = {
 	},
 };
 
+struct i2c_pads_info i2c_pad_info_osm8mp = {
+	.scl = {
+		.i2c_mode = MX8MP_PAD_I2C1_SCL__I2C1_SCL | PC,
+		.gpio_mode = MX8MP_PAD_I2C1_SCL__GPIO5_IO14 | PC,
+		.gp = IMX_GPIO_NR(5, 14),
+	},
+	.sda = {
+		.i2c_mode = MX8MP_PAD_I2C1_SDA__I2C1_SDA | PC,
+		.gpio_mode = MX8MP_PAD_I2C1_SDA__GPIO5_IO15 | PC,
+		.gp = IMX_GPIO_NR(5, 15),
+	},
+};
+
 int power_init_board(void)
 {
 	struct pmic *p;
@@ -126,6 +143,10 @@ int power_init_board(void)
 	case BT_FSSMMX8MP:
 		bus = 5;
 		pi2c_pad_info = &i2c_pad_info_efusmx8mp;
+		break;
+	case BT_OSM8MP:
+		bus = 0;
+		pi2c_pad_info = &i2c_pad_info_osm8mp;
 		break;
 	}
 
@@ -214,6 +235,11 @@ static iomux_v3_cfg_t const uart_auto_mode[] = {
 	MX8MP_PAD_GPIO1_IO04__GPIO1_IO04 | MUX_PAD_CTRL(UART_AUTOMOD_CTRL),
 };
 
+#define CARRIER_PWR_EN_PAD IMX_GPIO_NR(5, 5)
+static iomux_v3_cfg_t const carrier_pwr_en_pad =
+	MX8MP_PAD_SPDIF_EXT_CLK__GPIO5_IO05 | MUX_PAD_CTRL(NO_PAD_CTRL);
+
+
 static void config_uart(int bt)
 {
 	iomux_v3_cfg_t const *pad_list;
@@ -250,6 +276,12 @@ static void config_uart(int bt)
 		clk_index = 0;
 		pad_list_count = ARRAY_SIZE(uart_pads_efusmx8mp);
 		break;
+	case BT_OSM8MP:
+		imx_iomux_v3_setup_pad(carrier_pwr_en_pad);
+		gpio_request(CARRIER_PWR_EN_PAD, "CARRIER_PWR_EN");
+		gpio_direction_output(CARRIER_PWR_EN_PAD, 1);
+		mdelay(1);
+		/* Fall through to FSSMMX8MP */
 	case BT_FSSMMX8MP:
 		pad_list = uart_pads_fssmmx8mp;
 		clk_index = 1;
@@ -277,6 +309,7 @@ ulong board_serial_base(void)
 	case BT_PICOCOREMX8MPr2:
 	case BT_ARMSTONEMX8MP:
 	case BT_FSSMMX8MP:
+	case BT_OSM8MP:
 	default:
 		break;
 	}
@@ -628,6 +661,10 @@ void spl_board_init(void)
 		bl_on_pad = MX8MP_PAD_SAI1_RXFS__GPIO4_IO00 | MUX_PAD_CTRL(NO_PAD_CTRL);
 		bl_on_gpio = IMX_GPIO_NR(4, 0);
 		break;
+	case BT_OSM8MP:
+		bl_on_pad = MX8MP_PAD_SAI1_MCLK__GPIO4_IO20 | MUX_PAD_CTRL(NO_PAD_CTRL);
+		bl_on_gpio = IMX_GPIO_NR(4, 20);
+		break;
 	}
 
 	imx_iomux_v3_setup_pad(bl_on_pad);
@@ -841,6 +878,7 @@ int board_usb_gadget_port_auto(void)
 		case BT_EFUSMX8MP:
 			return 1;
 		case BT_FSSMMX8MP:
+		case BT_OSM8MP:
 			return 0;
 		}
 	}
