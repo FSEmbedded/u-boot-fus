@@ -14,6 +14,12 @@
 #define MAX_TYPE_LEN 16
 #define MAX_DESCR_LEN 32
 
+struct index_info {
+	struct fs_header_v1_0 *fsh_idx; // header of INDEX image
+	struct fs_header_v1_0 *fsh_idx_entry; // header within INDEX image
+	ulong offset;		// offset after fsh_entry to blob
+};
+
 /* F&S header (V0.0) for a generic file */
 struct fs_header_v0_0 {			/* Size: 16 Bytes */
 	char magic[4];			/* "FS" + two bytes operating system
@@ -65,6 +71,9 @@ void *fs_image_get_cfg_fdt(void);
 /* Return the fdt part of the given board configuration */
 void *fs_image_find_cfg_fdt(struct fs_header_v1_0 *fsh);
 
+/* Return the fdt part of the given board configuration with index header */
+void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info);
+
 /* Return the address of the /board-cfg node */
 int fs_image_get_board_cfg_offs(void *fdt);
 
@@ -110,6 +119,9 @@ void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh);
 
 /* Return the current BOARD-ID */
 const char *fs_image_get_board_id(void);
+
+/* Return BCFG name based on BOARD-ID */
+void fs_image_get_bcfg_name(char *bcfg_name, ulong len);
 
 /* Set the compare_id that will be used in fs_image_match_board_id() */
 void fs_image_set_compare_id(const char id[MAX_DESCR_LEN]);

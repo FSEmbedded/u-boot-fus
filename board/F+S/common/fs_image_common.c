@@ -217,7 +217,31 @@ void *fs_image_find_cfg_fdt(struct fs_header_v1_0 *fsh)
 	if (fs_image_is_signed(fsh))
 		fdt += HAB_HEADER;
 #endif
+	if(fdt_check_header(fdt)){
+		return NULL;
+	}
 
+	return fdt;
+}
+
+/* Return the fdt part of the given board configuration with index header */
+void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info)
+{
+	void *fdt;
+
+	if(!cfg_info)
+		return NULL;
+	
+	if(cfg_info->fsh_idx == NULL)
+		return fs_image_find_cfg_fdt(cfg_info->fsh_idx_entry);
+	
+	fdt = (void *)cfg_info->fsh_idx_entry;
+	fdt += sizeof(struct fs_header_v1_0) + cfg_info->offset;
+
+	if(fdt_check_header(fdt)){
+		return NULL;
+	}
+	
 	return fdt;
 }
 
@@ -675,6 +699,17 @@ void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh)
 const char *fs_image_get_board_id(void)
 {
 	return board_id;
+}
+
+void fs_image_get_bcfg_name(char *bcfg_name, ulong len)
+{
+	const char* board_id = fs_image_get_board_id();
+	const char* ptr;
+	ulong cnt;
+
+	ptr = memchr(board_id, '.', len);
+	cnt = (int)(ptr - board_id);
+	strncpy(bcfg_name, board_id, cnt);
 }
 
 void fs_image_get_compare_id(char *id, uint len)

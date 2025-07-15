@@ -405,12 +405,6 @@ static void fs_image_print_line(struct fs_header_v1_0 *fsh, uint offs, int level
 	puts("\n");
 }
 
-struct index_info {
-	uint offset;		// offset after fsh_entry to blob
-	struct fs_header_v1_0 *fsh_idx; // header of INDEX image
-	struct fs_header_v1_0 *fsh_idx_entry; // header within INDEX image
-};
-
 static struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 		const char *type,
 		const char *descr,
@@ -418,7 +412,7 @@ static struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 
 static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent, struct fs_header_v1_0 *fsh, uint offs, int level)
 {
-	struct index_info idx_info;
+	struct index_info idx_info = {0};
 	char info[MAX_DESCR_LEN + 1];
 	u32 *pcs;
 	bool crc_valid = false;
@@ -652,6 +646,7 @@ static struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx
 		idx_info->fsh_idx_entry = &fsh_idx[i];
 		idx_info->offset = img_offset;
 	}
+
 	return &fsh_idx[i];
 }
 
@@ -660,7 +655,7 @@ static struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx
  * @param *fsh: fs header to search for.
  * @param *type: type to search for
  * @param *decr: descr to search for or NULL
- * @param *idx_info: struct holds additional infos if fsh is index. NULL is allowed.
+ * @param *idx_info: struct holds additional infos if fsh is found. NULL is allowed.
  * @return ptr to fsh or NULL if not found
  */
 static struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
@@ -681,8 +676,12 @@ static struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 	if (!fs_image_is_fs_image(fsh))
 			return NULL;
 
-	if (fs_image_match(fsh, type, descr))
-			return fsh;
+	if (fs_image_match(fsh, type, descr)){
+		if(idx_info)
+			idx_info->fsh_idx_entry = fsh;
+
+		return fsh;
+	}
 
 	extra_size = fs_image_get_extra_size(fsh);
 	remaining = fs_image_get_size(fsh, false);
@@ -696,8 +695,12 @@ static struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 			return NULL;
 		}
 
-		if (fs_image_match(fsh, type, descr))
+		if (fs_image_match(fsh, type, descr)){
+			if(idx_info)
+				idx_info->fsh_idx_entry = fsh;
+
 			return fsh;
+		}
 
 		if(fs_image_is_index(fsh)){
 			/* Search iterative:
@@ -1307,19 +1310,17 @@ static struct fs_header_v1_0 *find_board_info_in_cntr_imgs(
  */
 static int fs_image_find_board_cfg(ulong addr, bool force,
 				   const char *action,
-				   struct fs_header_v1_0 **used_cfg,
+				   struct index_info *cfg_info,
 				   struct fs_header_v1_0 **nboot)
 {
 	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)addr;
 	struct fs_header_v1_0 *cfg = NULL;
 	const char *id;
+	char bcfg_name[MAX_DESCR_LEN + 1] = {0};
 	const char *arch = fs_image_get_arch();
 	const char *nboot_version;
 	void *fdt;
-	uint size, remaining, extra_size;
 	int ret = 1;
-
-	*used_cfg = NULL;
 
 	if (!fs_image_is_fs_image(fsh)) {
 		printf("No F&S image found at address 0x%lx\n", addr);
@@ -1355,6 +1356,7 @@ static int fs_image_find_board_cfg(ulong addr, bool force,
 	}
 
 	id = fs_image_get_board_id();
+	fs_image_get_bcfg_name(bcfg_name, MAX_DESCR_LEN);
 
 	/* In case of an imx8m NBoot image */
 	if (fs_image_match(fsh, "NBOOT", arch))
@@ -1367,26 +1369,18 @@ static int fs_image_find_board_cfg(ulong addr, bool force,
 	if(!cfg)
 		return -ENOENT;
 
-	extra_size = fs_image_get_extra_size(cfg);
-	remaining = fs_image_get_size(cfg, false);
-	remaining -= extra_size;
-
-	cfg = (void *)cfg + FSH_SIZE + extra_size;
-
-	while (1) {
-		if (!remaining || !fs_image_is_fs_image(cfg)) {
-			printf("No BOARD-CFG found for BOARD-ID %s\n", id);
-			return -ENOENT;
-		}
-		if (fs_image_match_board_id(cfg))
-			break;
-		size = fs_image_get_size(cfg, true);
-		remaining -= size;
-		cfg = (struct fs_header_v1_0 *)((void *)cfg + size);
-	}
+	cfg = fs_image_find(cfg, "BOARD-CFG", bcfg_name, cfg_info);
+	if(!cfg)
+		return -ENOENT;
 
 	/* Get and show NBoot version as noted in BOARD-CFG */
-	fdt = fs_image_find_cfg_fdt(cfg);
+	fdt = fs_image_find_cfg_fdt_idx(cfg_info);
+	if(!fdt)
+		return -ENOENT;
+
+	if (!fs_image_match_board_id(cfg)){
+		return -EINVAL;
+	}
 
 	nboot_version = fs_image_get_nboot_version(fdt);
 	if (!nboot_version) {
@@ -1395,7 +1389,6 @@ static int fs_image_find_board_cfg(ulong addr, bool force,
 	}
 	printf("Found NBOOT version %s\n", nboot_version);
 
-	*used_cfg = cfg;
 	if (nboot)
 		*nboot = fsh;
 
@@ -3509,20 +3502,20 @@ static int do_fsimage_boardcfg(struct cmd_tbl *cmdtp, int flag, int argc,
 	ulong addr;
 	int ret;
 	void *fdt = fs_image_get_cfg_fdt();
-	struct fs_header_v1_0 *cfg;
+	struct index_info cfg_info = {0};
 
 	addr = fs_image_get_loadaddr(argc, argv, true);
 	if (IS_ERR_VALUE(addr))
 		return CMD_RET_USAGE;
 
 	if (addr) {
-		ret = fs_image_find_board_cfg(addr, true, "show", &cfg, NULL);
+		ret = fs_image_find_board_cfg(addr, true, "show", &cfg_info, NULL);
 		if (ret <= 0)
 			return CMD_RET_FAILURE;
 	} else
-		cfg = fs_image_get_cfg_addr();
-
-	fdt = fs_image_find_cfg_fdt(cfg);
+		cfg_info.fsh_idx_entry = fs_image_get_cfg_addr();
+	
+	fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
 	if (!fdt)
 		return CMD_RET_FAILURE;
 
@@ -4062,6 +4055,7 @@ static int do_fsimage_load(struct cmd_tbl *cmdtp, int flag, int argc,
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 {
+	struct index_info cfg_info = {0};
 	struct fs_header_v1_0 *cfg_fsh;
 	struct fs_header_v1_0 *nboot_fsh;
 	struct fs_header_v1_0 firmware_fsh, dram_info_fsh, dram_type_fsh;
@@ -4095,9 +4089,15 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 
 	/* Handle NBoot image */
 	ret = fs_image_find_board_cfg(addr, force, "save",
-				      &cfg_fsh, &nboot_fsh);
+				      &cfg_info, &nboot_fsh);
 	if (ret <= 0)
 		return CMD_RET_FAILURE;
+	
+	/**
+	 * TODO: For non-Container Images,
+	 * it is not expected to handle index structures.
+	 */
+	cfg_fsh = cfg_info.fsh_idx_entry;
 	ignore_old = (ret == 2);	/* Ignore old BOARD-CFG if ID changed */
 
 	fdt = fs_image_find_cfg_fdt(cfg_fsh);
@@ -4677,6 +4677,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 {
 	const char *arch = fs_image_get_arch();
+	struct index_info cfg_info = {0};
 	struct fs_header_v1_0 *cfg_fsh;
 	struct flash_info fi;
 	struct nboot_info ni_new;
@@ -4698,11 +4699,11 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		return CMD_RET_FAILURE;
 
 	/* This call will set new board-id if available */
-	ret = fs_image_find_board_cfg(addr, force, "save", &cfg_fsh, NULL);
+	ret = fs_image_find_board_cfg(addr, force, "save", &cfg_info, NULL);
 	if (ret <= 0)
 		return CMD_RET_FAILURE;
 
-	fdt_new = fs_image_find_cfg_fdt(cfg_fsh);
+	fdt_new = fs_image_find_cfg_fdt_idx(&cfg_info);
 	if(!fdt_new)
 		return CMD_RET_FAILURE;
 
@@ -4787,8 +4788,16 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		goto put_fi;
 
 	/* Success: Activate new BOARD-CFG by copying it to OCRAM */
-	memcpy(fs_image_get_cfg_addr(), cfg_fsh,
-	       fs_image_get_size(cfg_fsh, true));
+	{
+		void *dest;
+
+		cfg_fsh = cfg_info.fsh_idx_entry;
+		memcpy(fs_image_get_cfg_addr(), cfg_fsh,
+				sizeof(struct fs_header_v1_0));
+		dest = (void *)cfg_fsh + sizeof(struct fs_header_v1_0) + cfg_info.offset;
+		memcpy(fs_image_get_cfg_addr() + sizeof(struct fs_header_v1_0), dest,
+				fs_image_get_size(cfg_fsh, false));
+	}
 
 	cfg_fsh = fs_image_get_cfg_addr();
 	update_board_cfg(&ni_new);
@@ -4859,7 +4868,7 @@ static int do_fsimage_save(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_fsimage_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char * const argv[])
 {
-	struct fs_header_v1_0 *cfg_fsh;
+	struct index_info cfg_info = {0};
 	void *fdt;
 	int offs;
 	int rev_offs;
@@ -4886,13 +4895,13 @@ static int do_fsimage_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (addr) {
 		ret = fs_image_find_board_cfg(addr, force, "fuse",
-					      &cfg_fsh, NULL);
+					      &cfg_info, NULL);
 		if (ret <= 0)
 			return CMD_RET_FAILURE;
 	} else
-		cfg_fsh = fs_image_get_cfg_addr();
+		cfg_info.fsh_idx_entry = fs_image_get_cfg_addr();
 
-	fdt = fs_image_find_cfg_fdt(cfg_fsh);
+	fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
 	if (fs_image_get_boot_dev(fdt, &boot_dev, &boot_dev_name)
 	    || fs_image_check_boot_dev_fuses(boot_dev, "fuse") < 0)
 		return CMD_RET_FAILURE;
@@ -4988,7 +4997,8 @@ static int do_fsimage_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_fsimage_checksum(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char * const argv[])
 {
-	struct fs_header_v1_0 *nboot_fsh, *cfg_fsh, *check_fsh = NULL;
+	struct index_info cfg_info = {0};
+	struct fs_header_v1_0 *nboot_fsh, *check_fsh = NULL;
 	char fsh_type[MAX_TYPE_LEN + 1] = {0};
 	char fsh_descr[MAX_DESCR_LEN +1] = {0};
 	ulong addr;
@@ -5017,19 +5027,19 @@ static int do_fsimage_checksum(struct cmd_tbl *cmdtp, int flag, int argc,
 	else
 		addr = get_loadaddr();
 
-	ret = fs_image_find_board_cfg(addr, false, "checksum", &cfg_fsh, &nboot_fsh);
+	ret = fs_image_find_board_cfg(addr, false, "checksum", &cfg_info, &nboot_fsh);
 	if(ret <= 0)
 		return CMD_RET_FAILURE;
 
 	if (type) {
 		/* Check BOARD-CFG Header */
 		if (!strncmp(type, "BOARD-CFG", MAX_DESCR_LEN)) {
-			check_fsh = cfg_fsh;
+			check_fsh = cfg_info.fsh_idx_entry;
 		}
 
 		/* Get correct HEADER for DRAM-TIMING */
 		if (!strcmp(type, "DRAM-TIMING")) {
-			void *fdt = fs_image_find_cfg_fdt(cfg_fsh);
+			void *fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
 			int offs = fs_image_get_board_cfg_offs(fdt);
 			int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 			const char *prop;
