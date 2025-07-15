@@ -32,6 +32,7 @@
  *     DRAM-FW: Training Firmware (up to 96KB, immediately behind end of SPL)
  * 0x0096_4000: DRAM Timing Data    ---       (16KB) CONFIG_SPL_DRAM_TIMING_ADDR
  * 0x0096_8000: ATF (8MP)           ATF       (96KB) CONFIG_SPL_ATF_ADDR
+ * 0x0098_8000: (SPL Multi DTB)     ---       (32KB) (CONFIG_SPL_MULTI_DTB_FIT_USER_DEF_ADDR)
  * 0x0098_FFFF: END (8MP) #####!!!!!##### (MP hat 576KB OCRAM, nicht nur 512KB)
  *
  * The sum of SPL and DDR_FW must not exceed 240KB (0x3C000). However there is

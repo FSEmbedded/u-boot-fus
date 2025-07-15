@@ -51,3 +51,38 @@
 	};
 
 };
+
+&gpio1 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
+};
+
+&gpio2 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
+};
+
+&gpio3 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
+};
+
+&gpio4 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
+};
+
+&gpio5 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
+};

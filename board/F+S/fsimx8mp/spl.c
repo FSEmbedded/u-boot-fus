@@ -25,6 +25,9 @@
 #include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/boot_mode.h>
 #include <fdt_support.h>		/* fdt_getprop_u32_default_node() */
+#ifdef CONFIG_SPL_MULTI_DTB_FIT
+#include <dm/root.h>
+#endif
 #include <power/pmic.h>
 #include <power/pca9450.h>
 #include <asm/arch/clock.h>
@@ -500,6 +503,20 @@ static void basic_init(const char *layout_name)
 	}
 
 	config_uart(board_type);
+
+#ifdef CONFIG_SPL_MULTI_DTB_FIT
+	{
+		int rescan = 0;
+		gd->board_type = board_type;
+		fdtdec_resetup(&rescan);
+
+		if(rescan) {
+			dm_uninit();
+			dm_init_and_scan(!CONFIG_IS_ENABLED(OF_PLATDATA));
+		}
+	}
+#endif
+
 	if (secondary)
 		puts("Warning! Running secondary SPL, please check if"
 		     " primary SPL is damaged.\n");
