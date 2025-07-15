@@ -43,14 +43,14 @@ NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 # revisions .130, .120 and .100. Boards with revision .121 or .120 in their
 # BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
-	OSM91-FERT1.fs \
-	efusMX91-FERT1.fs \
+	OSM91-FERT1.fsh \
+	efusMX91-FERT1.fsh \
 
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
-	lpddr4_osm_1g2400m1ch1cs_timing.fs \
-	lpddr4_ef_1g2400m1ch1cs_timing.fs \
+	lpddr4_osm_1g2400m1ch1cs_timing.fsh \
+	lpddr4_ef_1g2400m1ch1cs_timing.fsh \
 
 RT_LPDDR4X :=
 
@@ -75,8 +75,8 @@ DRAM_TYPES += lpddr4x_type.fs
 endif
 
 # Prepend the DDR Training Firmware as an additional file before the timings
-RT_LPDDR4 := lpddr4_fw.fs $(RT_LPDDR4)
-RT_LPDDR4X := lpddr4x_fw.fs $(RT_LPDDR4X)
+RT_LPDDR4 := lpddr4_fw.fsh $(RT_LPDDR4)
+RT_LPDDR4X := lpddr4x_fw.fsh $(RT_LPDDR4X)
 
 # List of files to add to EXTRA image
 EXTRA_FILES = addfsheader.sh.fs fsimage.sh.fs
@@ -115,6 +115,7 @@ IMAGE_TYPE := imx8image
 CNTR_LOG = cntr.log
 
 ### DDR SPECIFIC TARGETS ###
+### prepare DRAM FW blob ###
 quiet_cmd_ddrfw = DDRFW	$@
 cmd_ddrfw= \
 	objcopy -I binary -O binary --pad-to 0x8000 --gap-fill=0x0 $(word 1,$^) $(NBOOT_PATH)/.$2_train_1d_imem_pad.tmp; \
@@ -126,17 +127,18 @@ cmd_ddrfw= \
 
 .INTERMEDIATE: $(NBOOT_PATH)/.lpddr4_fw.tmp $(NBOOT_PATH)/.lpddr4x_fw.tmp $(DRAM_TIMINGS_LDS)
 
-$(NBOOT_PATH)/.lpddr4_fw.tmp: $(NXP_PATH_LPDDR4)
+$(NBOOT_PATH)/lpddr4_fw.fsi: $(NXP_PATH_LPDDR4)
 	$(call cmd,ddrfw,lpddr4)
 
-$(NBOOT_PATH)/.lpddr4x_fw.tmp: $(NXP_PATH_LPDDR4X)
+$(NBOOT_PATH)/lpddr4x_fw.fsi: $(NXP_PATH_LPDDR4X)
 	$(call cmd,ddrfw,lpddr4x)
 
+### prepare DRAM linking ###
 quiet_cmd_sed = SED     $@
 cmd_sed = sed $2 $< > $@
 
 DRAM_IMAGE_ADDR = $(shell printf "%d" 0x204dc000)
-DRAM_TIMING_ADDR = $(shell expr ${DRAM_IMAGE_ADDR} + 64 )
+DRAM_TIMING_ADDR = $(shell expr ${DRAM_IMAGE_ADDR})
 DRAM_TIMINGS_LDS = $(NBOOT_PATH)/.dram-timings.lds.tmp
 DRAM_TIMINGS_REPLACE_SED_CMD = \
 	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(shell printf "0x%x" $(DRAM_TIMING_ADDR))/g"
@@ -147,6 +149,7 @@ $(DRAM_TIMINGS_LDS): $(obj)/dram-timings.lds
 quiet_cmd_dram_elf = LINK    $@
 cmd_dram_elf = $(LD) -T $(DRAM_TIMINGS_LDS) -o $@ $<
 
+### prepare DRAM-Timing files ###
 $(NBOOT_PATH)/%.o: $(obj)/%.c
 	$(Q)$(CC) $(c_flags) -c -o $@ $<
 
@@ -156,20 +159,28 @@ $(NBOOT_PATH)/.%.elf.tmp: $(NBOOT_PATH)/%.o $(DRAM_TIMINGS_LDS)
 quiet_cmd_dram_bin = OBJCOPY $@
 cmd_dram_bin = $(OBJCOPY) --gap-fill=0xff -O binary $< $@
 
-$(NBOOT_PATH)/.%.bin.tmp: $(NBOOT_PATH)/.%.elf.tmp
+$(NBOOT_PATH)/%_timing.fsi: $(NBOOT_PATH)/.%_timing.elf.tmp
 	$(call cmd,dram_bin)
 
 quiet_cmd_fsimg = FSIMG   $@
 cmd_fsimg = ${srctree}/scripts/addfsheader.sh $2 > $@
 
-$(NBOOT_PATH)/%_timing.fs: $(NBOOT_PATH)/.%_timing.bin.tmp
-	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%x" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40))) -t DRAM-TIMING -d $(*F) $< > $@)
+$(NBOOT_PATH)/%_timing.fsh: $(NBOOT_PATH)/%_timing.fsi
+	$(call cmd,fsimg,-c -a 0x400 -j -p32[7]=$(shell printf "0x%x" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40))) -t DRAM-TIMING -d $(*F) $<)
 
-$(NBOOT_PATH)/lpddr4_fw.fs: $(NBOOT_PATH)/.lpddr4_fw.tmp
-$(NBOOT_PATH)/lpddr4x_fw.fs: $(NBOOT_PATH)/.lpddr4x_fw.tmp
-$(NBOOT_PATH)/%_fw.fs: $(NBOOT_PATH)/.%_fw.tmp
-	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%x" $$(($(CONFIG_SPL_FUS_DRAM_FW_ADDR) + 0x40))) -t DRAM-FW -d $(*F) $< > $@ )
+$(NBOOT_PATH)/lpddr4_fw.fsh: $(NBOOT_PATH)/lpddr4_fw.fsi
+$(NBOOT_PATH)/lpddr4x_fw.fsh: $(NBOOT_PATH)/lpddr4x_fw.fsi
+$(NBOOT_PATH)/%_fw.fsh: $(NBOOT_PATH)/%_fw.fsi
+	$(call cmd,fsimg,-c -a 0x400 -j -p32[7]=$(shell printf "0x%x" $$(($(CONFIG_SPL_FUS_DRAM_FW_ADDR) + 0x40))) -t DRAM-FW -d $(*F) $<)
 
+### prepare DRAM Index ###
+$(NBOOT_PATH)/lpddr4_index.fs: $(OBJ_RT_LPDDR4) 
+	$(call cmd,fsimg,-c -w -a 0x400 -i -t INDEX $^)
+
+$(NBOOT_PATH)/lpddr4x_index.fs: $(OBJ_RT_LPDDR4X)
+	$(call cmd,fsimg,-c -w -a 0x400 -i -t INDEX $^)
+
+### prepare DRAM containers ###
 LPDDR4_CFG = lpddr4_type.cfg
 LPDDR4X_CFG = lpddr4x_type.cfg
 
@@ -181,8 +192,8 @@ MKIMAGEFLAGS_lpddr4x_type.cntr = -n ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG) 
 
 $(NBOOT_PATH)/lpddr4_type.cntr:  MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4_type$(CNTR_LOG)
 $(NBOOT_PATH)/lpddr4x_type.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4x_type$(CNTR_LOG)
-$(NBOOT_PATH)/lpddr4_type.cntr: $(OBJ_RT_LPDDR4) 
-$(NBOOT_PATH)/lpddr4x_type.cntr: $(OBJ_RT_LPDDR4X)
+$(NBOOT_PATH)/lpddr4_type.cntr: $(NBOOT_PATH)/lpddr4_index.fs
+$(NBOOT_PATH)/lpddr4x_type.cntr: $(NBOOT_PATH)/lpddr4x_index.fs
 
 $(NBOOT_PATH)/lpddr4_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG)
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG)
@@ -225,18 +236,25 @@ $(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts $(NBOOT_PATH)/$(BOARD)_boot-info.fs $(NBO
 	@echo "#define SPL_SIZE $(shell expr $(shell ls -la $(NBOOT_PATH)/$(BOARD)_boot-info.fs | cut -d ' ' -f 5 ) - 64)" >> $@
 	@cat $< >> $@
 
-$(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp
+$(NBOOT_PATH)/%.fsi: $(NBOOT_PATH)/.%.dts.tmp
 	$(call cmd,dtco)
 
-$(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp
-	$(call cmd,fsimg, -c -w -a 0x400 -p32[7]=$(CFG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
+$(NBOOT_PATH)/%.fsh: $(NBOOT_PATH)/%.fsi
+	$(call cmd,fsimg, -c -a 0x400 -j -p32[7]=$(CFG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
 
+
+# create Board-CFG INDEX
+$(NBOOT_PATH)/board-cfg_index.fs: $(OBJ_BOARD_CONFIGS)
+	$(call cmd,fsimg,-c -w -a 0x400 -i -t INDEX $^)
+
+
+# create board-cfg container
 BOARDINFO_CFG = board-info.cfg
 
 MKIMAGEFLAGS_board-info.cntr = -n ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG) \
 	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
 
-$(NBOOT_PATH)/board-info.cntr: $(OBJ_BOARD_CONFIGS)
+$(NBOOT_PATH)/board-info.cntr: $(NBOOT_PATH)/board-cfg_index.fs
 $(NBOOT_PATH)/board-info.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/board-info_$(CNTR_LOG)
 $(NBOOT_PATH)/board-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG)
 	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG)
