@@ -51,6 +51,12 @@ static inline int _spl_load(struct spl_image_info *spl_image,
 	/* Skip F&S Header */
 	header = (void *)header + ret;
 	info->extra_offset = ret;
+
+	/* Load next header, if not already read */
+	if (read < (ret + sizeof(*header))) {
+		read = info->read(info, offset + ret, ALIGN(sizeof(*header),
+							  spl_get_bl_len(info)), header);
+	}
 #endif
 
 	if (image_get_magic(header) == FDT_MAGIC) {
