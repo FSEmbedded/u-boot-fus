@@ -397,6 +397,11 @@ int board_mmc_init(struct bd_info *bd)
 		esdhc.esdhc_base = USDHC3_BASE_ADDR;
 		esdhc.sdhc_clk = mxc_get_clock(MXC_ESDHC3_CLK);
 		esdhc.max_bus_width = 8;
+		ret = gpio_request(USDHC3_RST_GPIO, "usdhc3_rst");
+		if (ret) {
+			printf("Could not request usdhc3_rst!\n");
+			return ret;
+		}
 		gpio_direction_output(USDHC3_RST_GPIO, 0);
 		break;
 	default:

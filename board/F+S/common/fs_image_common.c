@@ -1878,7 +1878,7 @@ static int fs_image_get_flash_info_spl_mmc(struct flash_info_spl *fi)
 	fi->hwpart[0] = boot_hwpart;
 #ifndef CONFIG_IMX8MM
 	if (boot_hwpart)
-		boot_hwpart = 3 - boot_hwpart;
+		fi->hwpart[1] = 3 - boot_hwpart;
 #else
 	fi->hwpart[1] = boot_hwpart;
 #endif
