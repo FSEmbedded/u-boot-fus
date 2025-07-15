@@ -274,7 +274,7 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 	if (ahab_verify_cntr_image(&images[image_index], image_index))
 		return NULL;
 #endif
-		return &images[image_index];
+	return &images[image_index];
 }
 
 /**
@@ -286,7 +286,7 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
  * @image_num: idx for image in image array.
  * @returns: 0 if success; else -ERRNO;
  */
-static int fs_cntr_load_single_image(struct spl_image_info *image_info,
+static int __maybe_unused fs_cntr_load_single_image(struct spl_image_info *image_info,
 				struct spl_image_info *cntr_info,
 				struct spl_load_info *load,
 				int image_num)
@@ -301,6 +301,35 @@ static int fs_cntr_load_single_image(struct spl_image_info *image_info,
 	image_info->load_addr = image->dst;
 	image_info->entry_point = image->entry;
 	image_info->size = image->size;
+
+	return 0;
+}
+
+/**
+ * fs_cntr_skip_streamed_images()
+ * 
+ * @image_info: returns image_info form last image
+ * @cntr_info: ptr to spl_image_info for container hdr
+ * @load: ptr to load_info
+ * @start_from_idx: idx for the first image to load.
+ * @stop_at_idx: idx for the last image to be load
+ * @returns: 0 if success; else -ERRNO;
+ */
+static int __maybe_unused fs_cntr_skip_streamed_images(struct spl_image_info *image_info,
+				struct spl_image_info *cntr_info,
+				struct spl_load_info *load,
+				int start_from_idx,
+				int stop_at_idx)
+{
+	struct container_hdr *cntr = (struct container_hdr *)cntr_info->load_addr;
+	int idx;
+	int ret;
+
+	for(idx=start_from_idx; idx <= stop_at_idx && idx < cntr->num_images; idx++){
+		ret = fs_cntr_load_single_image(image_info, cntr_info, load, idx);
+		if(ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -562,35 +591,76 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	cntr = (struct container_hdr *)cntr_info.load_addr;
 	num_imgs = cntr->num_images;
 
-	for (idx = 0; idx < num_imgs; idx++){
-		ret = fs_cntr_load_single_image(&cfg_info,
-					&cntr_info,
-					load_info,
-					idx);
-		if(ret)
-			continue;
-
-		cfg_fsh = (struct fs_header_v1_0 *)cfg_info.load_addr;
-
-		if(fs_image_match_board_id(cfg_fsh))
-			break;
-
-		/* when no img found */
-		ret = -EINVAL;
+	/* load index image */
+	ret = fs_cntr_load_single_image(&cfg_info,
+				&cntr_info,
+				load_info,
+				0);
+	if(ret){
+		free_container(&cntr_info);
+		return ret;
 	}
 
-	if(!ret){
-		debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh->type, cfg_fsh->param.descr);
+	cfg_fsh = (struct fs_header_v1_0 *)cfg_info.load_addr;
+
+	if(!fs_image_match(cfg_fsh, "INDEX", NULL)){
+		free_container(&cntr_info);
+		return -EINVAL;
+	}
+
+	/* search board-cfg fsh within index */
+	for(idx = 1; idx < num_imgs; idx++){
+		if(fs_image_match_board_id(&cfg_fsh[idx]))
+			break;
+	}
+
+	if(idx >= num_imgs){
+		free_container(&cntr_info);
+		return -EINVAL;
+	}
+
+	debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh[idx].type, cfg_fsh[idx].param.descr);
+
+	/* place fsh in OCRAM */
+	memcpy((void *)CFG_FUS_BOARDCFG_ADDR, &cfg_fsh[idx],
+			sizeof(struct fs_header_v1_0));
+
+	/* We need to skip images in stream */
+	if(is_boot_from_stream_device()){
+		ret = fs_cntr_skip_streamed_images(&cfg_info,
+				&cntr_info,
+				load_info,1,idx-1);
+		if(ret){
+			free_container(&cntr_info);
+			return ret;
+		}
+	}
+
+	/* load board-cfg.dtb */
+	ret = fs_cntr_load_single_image(&cfg_info,
+				&cntr_info,
+				load_info,
+				idx);
+
+	if(ret){
+		free_container(&cntr_info);
+		return ret;
+	}
+
+	{
 		/**
 		 * TODO: A simple workaround to load data in other sram areas using Cortex-A.
 		 * Check between Loadaddr and CFG_FUS_BOARDCFG_ADDR and copy the binary.
 		 */
-		if ((ulong) cfg_info.load_addr != CFG_FUS_BOARDCFG_ADDR)
-			memcpy((void *)CFG_FUS_BOARDCFG_ADDR, (void *)cfg_info.load_addr, cfg_info.size);
+		ulong load_addr = (CFG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0));
+
+		if ((ulong)cfg_info.load_addr != load_addr){
+			debug("FSCNTR: move board-cfg to another location!\n");
+			memcpy((void *)load_addr, (void *)cfg_info.load_addr, cfg_info.size);
+		}
 	}
 
 	free_container(&cntr_info);
-
 	return ret;
 }
 
@@ -635,10 +705,12 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	struct spl_image_info dram_info;
 	struct container_hdr *cntr;
 	struct fs_header_v1_0 *dram_fsh;
+	int fw_idx = 0;
 	int idx;
 	int num_imgs;
 	uint sector;
 	uint offset;
+	u32 *dram_crc;
 	int ret = 0;
 
 	fsh = fsh_info->fsh;
@@ -656,40 +728,99 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	cntr = (struct container_hdr *)cntr_info.load_addr;
 	num_imgs = cntr->num_images;
 
-	for (idx = 0; idx < num_imgs; idx++) {
+	/* load index image */
+	ret = fs_cntr_load_single_image(&dram_info,
+				&cntr_info,
+				load_info,
+				0);
+	if(ret){
+		free_container(&cntr_info);
+		return ret;
+	}
+
+	dram_fsh = (struct fs_header_v1_0 *)dram_info.load_addr;
+
+	if(!fs_image_match(dram_fsh, "INDEX", NULL)){
+		free_container(&cntr_info);
+		return -EINVAL;
+	}
+
+	/* search dram-fw within index */
+	for(idx = 1; idx < num_imgs; idx++){
+		if(fs_image_match(&dram_fsh[idx], "DRAM-FW", ram_info->type))
+			break;
+	}
+
+	/* load dram fw*/
+	if(idx < num_imgs){
+		fw_idx = idx;
+		/* We need to skip images in stream */
+		if(is_boot_from_stream_device()){
+			ret = fs_cntr_skip_streamed_images(&dram_info,
+					&cntr_info,
+					load_info,1,fw_idx-1);
+			if(ret){
+				free_container(&cntr_info);
+				return ret;
+			}
+		}
+
+		debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type, dram_fsh[idx].param.descr);
 		ret = fs_cntr_load_single_image(&dram_info, 
 					&cntr_info,
 					load_info,
-					idx);
-		if(ret)
-			continue;
-
-		dram_fsh = (struct fs_header_v1_0 *)dram_info.load_addr;
-		debug("FSCNTR: FOUND %s(%s)\n", dram_fsh->type, dram_fsh->param.descr);
-
-		if(idx == 0 && fs_image_match(dram_fsh, "DRAM-FW", ram_info->type)){
-			memcpy(&_end, (void *)(dram_info.load_addr + FSH_SIZE), dram_info.size);
-			ret = -EINVAL;
-			continue;
+					fw_idx);
+		if(ret){
+			free_container(&cntr_info);
+			return ret;
 		}
 
-		if(fs_image_match(dram_fsh, "DRAM-TIMING", ram_info->timing))
-			break;
-
-		/* when no img found */
-		ret = -EINVAL;
+		memcpy(&_end, (void *)dram_info.load_addr, dram_info.size);
 	}
 
-	if(!ret){
-		u32 *dram_crc;
-		dram_crc = (void *)&dram_fsh->type[12];
-
-		printf("DRAM-CRC32: 0x%08x\n", *dram_crc);
-		fs_board_init_dram_data((void *)(dram_info.load_addr + FSH_SIZE));
+	/* search dram-timing */
+	for(idx = 1; idx < num_imgs; idx++){
+		if(fs_image_match(&dram_fsh[idx], "DRAM-TIMING", ram_info->timing))
+		break;
 	}
+
+	if(idx >= num_imgs){
+		free_container(&cntr_info);
+		return -EINVAL;
+	}
+
+	/* We need to skip images in stream */
+	if(is_boot_from_stream_device()){
+		if(fw_idx >= idx)
+			return -EINVAL;
+
+		ret = fs_cntr_skip_streamed_images(&dram_info,
+				&cntr_info,
+				load_info,fw_idx+1,idx-1);
+		if(ret){
+			free_container(&cntr_info);
+			return ret;
+		}
+	}
+
+	/* load dram-timing */
+	debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type, dram_fsh[idx].param.descr);
+	ret = fs_cntr_load_single_image(&dram_info,
+					&cntr_info,
+					load_info,
+					idx);
+	if(ret){
+		free_container(&cntr_info);
+		return ret;
+	}
+
+
+	dram_crc = (void *)&dram_fsh->type[12];
+
+	printf("DRAM-CRC32: 0x%08x\n", *dram_crc);
+	fs_board_init_dram_data((void *)(dram_info.load_addr));
 
 	free_container(&cntr_info);
-
 	return ret;
 }
 

@@ -2295,7 +2295,8 @@ clean: $(clean-dirs)
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.asn1.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
-		-o -name '*.fs' \
+		-o -name '*.fs' -o -name '*.fsh' -o -name '*.fsi' \
+		-o -name '*.cntr' -o -name '*cntr.log'\
 		-o -name modules.builtin -o -name '.tmp_*.o.*' \
 		-o -name 'dsdt_generated.aml' -o -name 'dsdt_generated.asl.tmp' \
 		-o -name 'dsdt_generated.c' \
