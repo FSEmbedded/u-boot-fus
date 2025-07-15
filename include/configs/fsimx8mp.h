@@ -456,7 +456,7 @@
 #endif
 
 /* Initial environment variables */
-#define CONFIG_EXTRA_ENV_SETTINGS					\
+#define CFG_EXTRA_ENV_SETTINGS					\
 	"bd_kernel=undef\0"						\
 	"bd_fdt=undef\0"							\
 	"bd_rootfs=undef\0"						\
