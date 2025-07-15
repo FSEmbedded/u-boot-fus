@@ -69,10 +69,7 @@
 };
 
 &eqos {
-	/delete-property/ assigned-clocks;
-	/delete-property/ assigned-clock-parents;
-	/delete-property/ assigned-clock-rates;
-	compatible = "fsl,imx-eqos";
+	compatible = "nxp,imx8mp-dwmac-eqos";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_eqos>;
 	phy-mode = "rgmii-id";
@@ -476,8 +473,8 @@
 
 	pinctrl_uart2: uart2grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_SAI3_TXFS__UART2_DCE_RX	0x49
-			MX8MP_IOMUXC_SAI3_TXC__UART2_DCE_TX	0x49
+			MX8MP_IOMUXC_UART2_RXD__UART2_DCE_RX	0x49
+			MX8MP_IOMUXC_UART2_TXD__UART2_DCE_TX	0x49
 		>;
 	};
 

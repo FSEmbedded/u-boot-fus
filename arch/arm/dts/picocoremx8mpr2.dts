@@ -35,17 +35,11 @@
 };
 
 &eqos {
-	/delete-property/ assigned-clocks;
-	/delete-property/ assigned-clock-parents;
-	/delete-property/ assigned-clock-rates;
-	compatible = "fsl,imx-eqos";
+	compatible = "nxp,imx8mp-dwmac-eqos";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_eqos>;
 	phy-mode = "rgmii-id";
 	phy-handle = <&ethphy0>;
-	phy-reset-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <10>;
-	phy-reset-post-delay=<50>;
 	status = "okay";
 
 	mdio {
@@ -57,6 +51,9 @@
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <4>;
 			eee-broken-1000t;
+			reset-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <10000>;
+			reset-deassert-us=<100000>;
 		};
 	};
 };
@@ -67,9 +64,6 @@
 	phy-mode = "rgmii-id";
 	phy-handle = <&ethphy1>;
 	fsl,magic-packet;
-	phy-reset-gpios = <&gpio4 28 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <10>;
-	phy-reset-post-delay=<50>;
 	status = "okay";
 
 	mdio {
@@ -80,6 +74,9 @@
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <5>;
 			eee-broken-1000t;
+			reset-gpios = <&gpio4 28 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <10000>;
+			reset-deassert-us = <100000>;
 		};
 	};
 };
