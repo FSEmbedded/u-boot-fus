@@ -397,7 +397,7 @@ static void fdt_common_fixup(void *fdt)
 	/* Realloc FDT-Blob to next full page-size.
 	 * If NOSPACE Error appiers, increase extrasize.
 	 */
-	ret = fdt_shrink_to_minimum(fdt, 0x400);
+	ret = fdt_shrink_to_minimum(fdt, 0x800);
 	if(ret < 0){
 		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
 	}
