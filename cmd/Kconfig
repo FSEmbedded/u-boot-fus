@@ -419,6 +419,12 @@ config CMD_FSIMAGE
 	  Save F&S images or show information about them and the current
 	  board configuration.
 
+config CMD_HAB_FUSE
+	bool "Add additional HAB cmds for i.MX8M"
+	depends on FS_SECURE_BOOT && ARCH_IMX8M
+	help
+	  Helper commands to fuse the SRKH and close the Board
+
 config CMD_FSIMAGE_IMX6
 	bool "Handle F&S images, e.g. U-Boot"
 	depends on TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX7ULP
