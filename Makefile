@@ -1534,7 +1534,7 @@ uboot.fs:	$(addfsheader_target)
 
 PHONY += nboot
 NBOOT_PATH = board/$(BOARDDIR)/nboot
-nboot: SPL prepare_fus
+nboot: spl prepare_fus
 	$(Q)$(MAKE) $(build)=$(NBOOT_PATH) $@
 
 

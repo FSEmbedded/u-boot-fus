@@ -129,7 +129,7 @@ $(obj)/lpddr4_type.fs: $(OBJ_RT_LPDDR4)
 %_firmware.fs: $(OBJ_FIRMWARE_FILES)
 	$(call cmd,fsimg,-s -t FIRMWARE -d $(*F))
 
-%_spl.fs: SPL
+%_spl.fs: spl/u-boot-spl.bin
 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_ATF_ADDR) -t SPL -d $(*F))
 
 # Prepend some macros with varying content to BOARD-CFG .dts
