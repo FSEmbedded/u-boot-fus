@@ -91,7 +91,7 @@ OBJ_NBOOT_FILES = $(addprefix $(NBOOT_PATH)/, $(NBOOT_FILES))
 OBJ_NBOOT = $(addprefix $(NBOOT_PATH)/, $(NBOOT))
 
 # Add path for NXP firmware images
-NXP_PATH = board/F+S/NXP-Firmware
+NXP_PATH = board/F+S/NXP-Firmware/$(BOARD)
 
 # MKIMAGE defines
 CNTR_DEPFILES := $(srctree)/tools/imx_cntr_image.sh

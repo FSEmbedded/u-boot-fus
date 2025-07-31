@@ -121,7 +121,7 @@ OBJ_NBOOT_FILES = $(addprefix $(NBOOT_PATH)/, $(NBOOT_FILES))
 OBJ_NBOOT = $(addprefix $(NBOOT_PATH)/, $(NBOOT))
 
 # Add path for NXP firmware images
-NXP_PATH = board/F+S/NXP-Firmware
+NXP_PATH = board/F+S/NXP-Firmware/$(BOARD)
 NXP_PATH_LPDDR4 = $(addprefix $(NXP_PATH)/, $(NXP_LPDDR4))
 NXP_PATH_LPDDR4X = $(addprefix $(NXP_PATH)/, $(NXP_LPDDR4X))
 

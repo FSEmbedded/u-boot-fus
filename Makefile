@@ -1533,7 +1533,7 @@ uboot.fs:	$(addfsheader_target)
 	$(call cmd,addfsheader,$(FSIMG_OPT))
 
 PHONY += nboot
-NBOOT_PATH = $(srctree)/board/$(BOARDDIR)/nboot
+NBOOT_PATH = board/$(BOARDDIR)/nboot
 nboot: SPL prepare_fus
 	$(Q)$(MAKE) $(build)=$(NBOOT_PATH) $@
 
@@ -1970,7 +1970,7 @@ prepare_fus:
 ifneq ($(KBUILD_SRC),)
 	$(Q)mkdir -p board/F+S/NXP-Firmware
 	$(Q)mkdir -p board/F+S/${BOARD}/nboot
-	$(Q)cp -a ${KBUILD_SRC}/board/F+S/NXP-Firmware/* board/F+S/NXP-Firmware/
+	$(Q)cp -ar ${KBUILD_SRC}/board/F+S/NXP-Firmware/$(BOARD) board/F+S/NXP-Firmware/
 endif
 
 # prepare3 is used to check if we are building in a separate output directory,
