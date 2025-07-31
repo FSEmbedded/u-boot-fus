@@ -23,5 +23,3 @@ config FUS_UBOOTCNTR_CONFIG
 	 Configuration file to create a Container with all BL3x Images
 	 
 endif # TARGET_FSIMX8ULP
-
-source "board/F+S/common/Kconfig"

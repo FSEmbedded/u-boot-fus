@@ -1058,10 +1058,6 @@ ifeq ($(CONFIG_ARCH_ROCKCHIP)_$(CONFIG_SPL_FRAMEWORK),y_)
 INPUTS-y += u-boot.img
 endif
 
-ifeq ($(CONFIG_FSIMX_BOARDS)_$(CONFIG_FS_CNTR_COMMON), y_y)
-INPUTS-y += uboot-info.fs
-endif
-
 INPUTS-$(CONFIG_X86) += u-boot-x86-start16.bin u-boot-x86-reset16.bin \
 	$(if $(CONFIG_SPL_X86_16BIT_INIT),spl/u-boot-spl.bin) \
 	$(if $(CONFIG_TPL_X86_16BIT_INIT),tpl/u-boot-tpl.bin)
@@ -1529,14 +1525,18 @@ addfsheader_target = u-boot-dtb.img
 else
 addfsheader_target = u-boot.bin
 endif
+ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
+uboot.fs: u-boot.bin FORCE
+	$(Q)$(MAKE) $(build)=board/${BOARDDIR} $@
+else
 uboot.fs:	$(addfsheader_target)
 	$(call cmd,addfsheader,$(FSIMG_OPT))
+endif
 
 PHONY += nboot
 NBOOT_PATH = board/$(BOARDDIR)/nboot
-nboot: spl prepare_fus
+nboot: spl
 	$(Q)$(MAKE) $(build)=$(NBOOT_PATH) $@
-
 
 ifneq ($(CONFIG_SPL_PAYLOAD),)
 SPL_PAYLOAD := $(CONFIG_SPL_PAYLOAD:"%"=%)
@@ -1599,11 +1599,8 @@ endif
 #endif
 
 ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
-uboot-info.fs: prepare_fus u-boot.bin FORCE
-	$(Q)$(MAKE) $(build)=board/${BOARDDIR} $@
-
-flash.fs: uboot-info.fs nboot
-	$(Q)cat nboot.fs uboot-info.fs > $@
+flash.fs: uboot.fs nboot
+	$(Q)cat nboot.fs uboot.fs > $@
 endif
 
 u-boot.uim: u-boot.bin FORCE
@@ -1960,18 +1957,7 @@ include/config/uboot.release: include/config/auto.conf FORCE
 # version.h and scripts_basic is processed / created.
 
 # Listed in dependency order
-PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3 prepare_fus
-
-# prepare_fus is used to check if we are building in a seperate output directory,
-# and if so do:
-# 1) copy NXP-Firmware directory
-# 2) copy board specific nboot directory
-prepare_fus:
-ifneq ($(KBUILD_SRC),)
-	$(Q)mkdir -p board/F+S/NXP-Firmware
-	$(Q)mkdir -p board/F+S/${BOARD}/nboot
-	$(Q)cp -ar ${KBUILD_SRC}/board/F+S/NXP-Firmware/$(BOARD) board/F+S/NXP-Firmware/
-endif
+PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3
 
 # prepare3 is used to check if we are building in a separate output directory,
 # and if so do:
@@ -2259,7 +2245,7 @@ CLEAN_FILES += include/autoconf.mk* include/bmp_logo.h include/bmp_logo_data.h \
 	       mkimage-out.spl.mkimage mkimage.spl.mkimage imx-boot.map \
 	       itb.fit.fit itb.fit.itb itb.map spl.map mkimage-out.rom.mkimage \
 	       mkimage.rom.mkimage mkimage-in-simple-bin* rom.map simple-bin* \
-	       idbloader-spi.img lib/efi_loader/helloworld_efi.S *.itb
+	       idbloader-spi.img lib/efi_loader/helloworld_efi.S *.itb \
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated spl tpl vpl \
@@ -2296,7 +2282,6 @@ clean: $(clean-dirs)
 		-o -name '*.asn1.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
 		-o -name '*.fs' -o -name '*.fsh' -o -name '*.fsi' \
-		-o -name '*.cntr' -o -name '*cntr.log'\
 		-o -name modules.builtin -o -name '.tmp_*.o.*' \
 		-o -name 'dsdt_generated.aml' -o -name 'dsdt_generated.asl.tmp' \
 		-o -name 'dsdt_generated.c' \

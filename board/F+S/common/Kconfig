@@ -43,14 +43,14 @@ config FS_IMAGE_COMMON
 				TARGET_FSIMX91
 
 config FS_CNTR_COMMON
-	bool "build fs_cntr_common"
+	bool
 	select FS_IMAGE_COMMON
 	default y if TARGET_FSIMX8ULP || \
 				TARGET_FSIMX93 || \
 				TARGET_FSIMX91
 
 config FS_BOOTROM
-	bool "build fs_bootrom"
+	bool
 	default y if FS_CNTR_COMMON
 
 config FS_DRAM_COMMON

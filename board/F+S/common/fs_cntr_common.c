@@ -1,16 +1,137 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
-* Copyright 2024 F&S Elektronik Systeme GmbH
-*
-* This program is free software; you can redistribute it and/or modify
-* it under the terms of the GNU General Public License version 2 as
-* published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*/
+ * Copyright 2024 F&S Elektronik Systeme GmbH
+ *
+ * Format of an NBoot image
+ * ------------------------
+ *
+ * NBoot on one side has to use the i.MX container format to be loadable by
+ * the ROM Loader of the CPU. On the other hand, F&S tries to bring in more
+ * info so that the content can easily be listed and even be extracted with
+ * the fsimage.sh tool. This is basically done by prepending an F&S header to
+ * each single image. The F&S header shows the type of the image, a specific
+ * image description, and it can also hold a CRC32 checksum to enhance image
+ * robustness in the nonsigned case.
+ *
+ * So an NBoot image has actually two different views:
+ *
+ * 1. The F&S view starting with the BOOT-INFO header, consisting of a set of
+ *    at least five images: BOOT-INFO, BOOT-ID, BOARD-INFO, at least one
+ *    DRAM-TYPE and EXTRA. EXTRA holds the scripts that can be used to handle
+ *    F&S images: addfsheader to create F&S images, fsimage to list F&S images
+ *    and extract subimages. The fsimage script can be extracted from an NBoot
+ *    image with:
+ *
+ *      cat nboot.fs | tr '\0' '\n' | tac | sed "/#\!/q" | tac > fsimage.sh
+ *
+ *    Now fsimage.sh can be used to extract addfsheader and all other images.
+ *
+ * 2. The i.MX Container view starting after the first F&S header, consisting
+ *    of two boot containers, a container with BOARD-CFGs and at least one
+ *    container with DRAM settings, All containers and all images within need
+ *    to be aligned to 1KB boundaries. Most alignment is done by the mkimage
+ *    tool that is used to build the containers, but the overall padding of
+ *    each container needs to be done with respect to the containers, not with
+ *    respect to the F&S headers. If the first F&S header ist stripped from
+ *    the NBoot image, then the image can be stored 1:1 to the boot partition
+ *    and the system should boot (assuming that U-Boot is also present).
+ *
+ * To be able to have the extra info of F&S images also for all the images
+ * within a container, F&S has added an INDEX image to each container. It is
+ * the first image in the container and just contains all the F&S headers for
+ * all other images in the container. In addition, an additional F&S header is
+ * prepended to each container, to hold information of the container itself.
+ * The container header at the beginning of each container is handled as extra
+ * data. Extra data is skipped when listing F&S images, so from the point of
+ * view of the F&S image, the first subimage is actually the INDEX.
+ * Nonethelesse fsimage.sh will also output some useful info for the container
+ * header.
+ *
+ * Remark: The NXP boot container with the ELE firmware is signed and thus
+ * cannot be modified to hold an own INDEX image. Therefore the ELE firmware
+ * can not be listed as extra file, it is just shown as unspecified extra data
+ * at the beginning of the BOOT-INFO image.
+ *
+ * FS:  regular F&S image
+ * FSH: F&S header only
+ * FSI: F&S image part only, header is in INDEX
+ *
+ *   +----------------------------------------+
+ *   | FS: BOOT-INFO (arch) --> INDEX         |
+ *   |   +------------------------------------+--- 1KB aligned
+ *   |   | Container Header 1 (NXP)           |
+ *   |   +------------------------------------+
+ *   |   | Container Header 2 (F&S)           |
+ *   |   +------------------------------------+---
+ *   |   | ELE Firmware                       |    > Container 1 Content
+ *   |   +---+--------------------------------+---
+ *   |   | FS: INDEX                          |   \
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: UPOWER (arch)             |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: CORTEX-M (arch)           |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: SPL (arch)                |    > Container 2 Content
+ *   |   |---+--------------------------------+--- |
+ *   |   | FSI: UPOWER image                  |    |
+ *   |   |------------------------------------+--- |
+ *   |   | FSI: M33 image                     |    |
+ *   |   |------------------------------------+--- |
+ *   |   | FSI: SPL image                     |   /
+ *   +---+------------------------------------+
+ *   | FSH: BOOT-ID (id)                      |
+ *   +----------------------------------------+
+ *   | FS: BOARD-INFO (arch) --> INDEX        |
+ *   |   +------------------------------------+---
+ *   |   | Container Header                   |
+ *   |   +------------------------------------+---
+ *   |   | FS: INDEX                          |   \
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: BOARD-CFG2 (id)           |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: BOARD-CFG (id)            |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: ...                       |    > Container Content
+ *   |   +---+--------------------------------+--- |
+ *   |   | FSI: BOARD-CFG image               |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: BOARD-CFG image               |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: ...                           |   /
+ *   +---+---+--------------------------------+
+ *   | FS: DRAM-TYPE (type) --> INDEX         |
+ *   |   +------------------------------------+---
+ *   |   | Container Header                   |
+ *   |   +------------------------------------+---
+ *   |   | FS: INDEX                          |   \
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: DRAM-FW (type)            |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: DRAM-TIMING (chip)        |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: DRAM-TIMING (chip)        |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: ...                       |    > Container Content
+ *   |   +---+--------------------------------+--- |
+ *   |   | FSI: DRAM-FW image                 |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: DRAM-TIMING image             |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: DRAM-TIMING image             |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: ...                           |   /
+ *   +---+---+--------------------------------+
+ *   | FS: DRAM-TYPE (type)  --> INDEX        |
+ *   |   +------------------------------------+---
+ *   |   | ...                                |
+ *   +---+------------------------------------+
+ *   | FS: EXTRA (arch)                       |
+ *   |   +------------------------------------+
+ *   |   | FS: BASH-SCRIPT (addfsheader)      |
+ *   |   +------------------------------------+
+ *   |   | FS: BASH-SCRIPT (fsimage)          |
+ *   +---+------------------------------------+
+ */
 
 #include <common.h>
 #include <spl.h>
@@ -781,7 +902,7 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	/* search dram-timing */
 	for(idx = 1; idx < num_imgs; idx++){
 		if(fs_image_match(&dram_fsh[idx], "DRAM-TIMING", ram_info->timing))
-		break;
+			break;
 	}
 
 	if(idx >= num_imgs){

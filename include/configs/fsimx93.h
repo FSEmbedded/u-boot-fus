@@ -1,39 +1,43 @@
+// SPDX-License-Identifier: GPL-2.0+
 /*
-* Copyright 2024 F&S Elektronik Systeme GmbH
-*
-* This program is free software; you can redistribute it and/or modify
-* it under the terms of the GNU General Public License version 2 as
-* published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*/
+ * Copyright 2025 F&S Elektronik Systeme GmbH
+ */
 
 /*
  * TCM layout (SPL)
  * ----------------
  * unused
  *
- * OCRAM layout SPL/U-BOOT
- * ---------------------------------------------------------
- * 0x2048_0000: (Region reserved by ROM loader)(96KB)
- * 0x2049_8000: BOARD-CFG            (8KB)	CFG_FUS_BOARDCFG_ADDR
- * 0x2049_A000: SPL                  (<=208KB)  (loaded by ROM-Loader, address defined by ATF)
- *     DRAM-FW: Training Firmware    (up to 96KB, immediately behind end of SPL)
- * --------
- * CNTR_LOAD_AREA:
- * 0x204c0000 : DRAM-FW              (82KB)     (Load Image, validate and copy to &_end)
- * 0x204dc000 : DRAM Timing Data     (16KB)     CFG_SPL_DRAM_TIMING_ADDR
- *                                              (ddr_init() copies to SAVED_DRAM_TIMING_BASE)
- * --------
- * 0x204E_0000: EARLY_AHAB_BASE/ATF  (96KB)     CFG_SPL_ATF_ADDR
- * 0x2051_9DD0: SPL_STACK            (135KB)    (MALLOC_F, GLOBAL_DATA) CONFIG_SPL_STACK
+ * OCRAM layout SPL/ATF
+ * --------------------
+ * 0x2048_0000: (reserved)           (96KB)     (used by ROM loader)
+ * 0x2049_8000: BOARD-CFG            (8KB)      CFG_FUS_BOARDCFG_ADDR
+ * 0x2049_A000: SPL                  (152KB)    CONFIG_SPL_TEXT_BASE
+ * 0x204C_0000: DRAM-FW              (96KB)     CFG_SPL_DRAM_FW_ADDR
+ * 0x204D_8000: (free)               (16KB)
+ * 0x204D_C000: DRAM-TIMING          (16KB)     CFG_SPL_DRAM_TIMING_ADDR
+ * 0x204E_0000: ATF/EARLY_AHAB_BASE  (96KB)     CFG_SPL_ATF_ADDR
+ * 0x204F_8000: SPL_STACK            (136KB)    (+ MALLOC_F + GLOBAL_DATA)
+ * 0x2051_9DD0:                                 CONFIG_SPL_STACK
  * 0x2051_A000: BSS data             (8KB)      CONFIG_SPL_BSS_START_ADDR
- * 0x2051_C000: SAVED_DRAM_TIMING_BASE  (16KB)
- * 0x2051_FFFF: END (93)
-*/
+ * 0x2051_C000: DRAM-TIMING (ATF)    (16KB)     CONFIG_SAVED_DRAM_TIMING_BASE
+ * 0x2051_FFFF: (end of OCRAM)
+ *
+ * The DRAM_FW is loaded to the above address, validated and then copied to
+ * &_end of SPL where it is expected by the DRAM initialization code. The
+ * DRAM-TIMING is loaded to the above address, validated and used for DRAM
+ * initialization. Then ddr_init() copies it to CONFIG_SAVED_DRAM_TIMING_BASE
+ * where it is expected by the ATF (required later when switching bus speeds).
+ *
+ * DRAM Layout UBOOT/TEE
+ * ---------------------
+ * 0x8000_0000: AHAB_BASE            (64KB)     CFG_SYS_SDRAM_BASE
+ * 0x8001_0000: (free)               (1984KB)
+ * 0x8020_0000: UBOOT                (3MB)      CONFIG_TEXT_BASE
+ * 0x8050_0000: (free)               (347MB)
+ * 0x9600_0000: TEE                  (2MB)      CFG_SPL_TEE_ADDR
+ * 0x9620_0000: (free)
+ */
 
 #ifndef __FSIMX93_H
 #define __FSIMX93_H
@@ -47,6 +51,7 @@
 #define CFG_SYS_OCRAM_BASE 0x20498000
 #define CFG_SYS_OCRAM_SIZE 0x88000
 #define CFG_FUS_BOARDCFG_ADDR CFG_SYS_OCRAM_BASE
+#define CFG_SPL_DRAM_FW_ADDR 0x204C0000
 #define CFG_SPL_DRAM_TIMING_ADDR 0x204DC000
 #define CFG_SPL_ATF_ADDR 0x204E0000
 #define CFG_SPL_TEE_ADDR 0x96000000
