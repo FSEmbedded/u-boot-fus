@@ -1,15 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0+
 #
-# Copyright 2024 F&S Elektronik Systeme GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Copyright 2025 F&S Elektronik Systeme GmbH
 #
 
 include spl/include/autoconf.mk
@@ -22,26 +13,13 @@ GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
-# names given in the Selectsoft WaWi for the board and the PCB revision. The
-# format is:
+# names given in the Selectsoft WaWi for the board, without the PCB revision.
+# The format is:
 #
-#   <board>-FERT<n>.<rev>.fs
+#   <board>-FERT<n>.fs
 #
 # <board>: Name of the board
 # <n>:     Subtype of board (i.e. mounting variant)
-# <rev>:   Revision number, typically the PCB revision 100, 110, 120, etc.
-#
-# Group by <board> and <n>, then within each group sort by *descending* <rev>
-# number, i.e. add new revisions in front of the list. The first configuration
-# where <board> and <n> match and where <rev> is less than or equal to the
-# <rev> of the BOARD-ID is selected. This is because not every new board
-# revision needs a new software configuration. And a board with a new board
-# revision that does not have a its own configuration yet can at least be
-# started with an older configuration.
-#
-# For example assume for a certain board type, there are BOARD-CFGs with
-# revisions .130, .120 and .100. Boards with revision .121 or .120 in their
-# BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
 	PCore93-FERT2.fsh \
 	PCore93-FERT3.fsh \

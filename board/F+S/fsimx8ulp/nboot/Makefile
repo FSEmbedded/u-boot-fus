@@ -1,15 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0+
 #
-# Copyright 2024 F&S Elektronik Systeme GmbH
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Copyright 2025 F&S Elektronik Systeme GmbH
 #
 
 include spl/include/autoconf.mk
@@ -17,31 +8,18 @@ include spl/include/autoconf.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2025.02
+NBOOT_SUFFIX = 2025.07
 GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
-# names given in the Selectsoft WaWi for the board and the PCB revision. The
-# format is:
+# names given in the Selectsoft WaWi for the board, without the PCB revision.
+# The format is:
 #
-#   <board>-FERT<n>.<rev>.fs
+#   <board>-FERT<n>.fs
 #
 # <board>: Name of the board
 # <n>:     Subtype of board (i.e. mounting variant)
-# <rev>:   Revision number, typically the PCB revision 100, 110, 120, etc.
-#
-# Group by <board> and <n>, then within each group sort by *descending* <rev>
-# number, i.e. add new revisions in front of the list. The first configuration
-# where <board> and <n> match and where <rev> is less than or equal to the
-# <rev> of the BOARD-ID is selected. This is because not every new board
-# revision needs a new software configuration. And a board with a new board
-# revision that does not have a its own configuration yet can at least be
-# started with an older configuration.
-#
-# For example assume for a certain board type, there are BOARD-CFGs with
-# revisions .130, .120 and .100. Boards with revision .121 or .120 in their
-# BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
 	SCore8ULP-FERT1.fsh \
 	PCoreMX8ULP-FERT1.fsh \
@@ -57,11 +35,15 @@ RT_LPDDR4 := \
 	lpddr4_osm_1g1056m2ch1cs_timing.fsh \
 	lpddr4_osm_2g1056m2ch1cs_timing.fsh \
 	lpddr4_sc_1g1056m2ch1cs_timing.fsh
+RT_LPDDR4X :=
 
 # List of DRAM-INFO (TYPES) for DRAM-SETTINGS Container; only add those that have timings
 DRAM_TYPES :=
 ifneq ($(RT_LPDDR4),)
 DRAM_TYPES += lpddr4_type.fs
+endif
+ifneq ($(RT_LPDDR4X),)
+DRAM_TYPES += lpddr4x_type.fs
 endif
 
 # List of files to add to EXTRA image
