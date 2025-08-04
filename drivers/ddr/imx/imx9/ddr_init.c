@@ -340,7 +340,7 @@ int ddr_init(struct dram_timing_info *dram_timing)
 {
 	unsigned int initial_drate;
 	struct dram_timing_info *saved_timing;
-	void *fsp;
+	__maybe_unused void *fsp;
 	int i, ret;
 	u32 mr12, mr14;
 	u32 regval;
@@ -422,12 +422,14 @@ int ddr_init(struct dram_timing_info *dram_timing)
 	mr12 = lpddr4_mr_read(1, 12);
 	mr14 = lpddr4_mr_read(1, 14);
 
+	saved_timing = (struct dram_timing_info *)CONFIG_SAVED_DRAM_TIMING_BASE;
+#ifndef CONFIG_SKIP_DRAM_TIMING_SAVING
 	/* save the dram timing config into memory */
 	fsp = dram_config_save(dram_timing, CONFIG_SAVED_DRAM_TIMING_BASE);
 
-	saved_timing = (struct dram_timing_info *)CONFIG_SAVED_DRAM_TIMING_BASE;
 	saved_timing->fsp_cfg = fsp;
 	saved_timing->fsp_cfg_num = dram_timing->fsp_cfg_num;
+#endif
 	if (saved_timing->fsp_cfg_num) {
 		memcpy(saved_timing->fsp_cfg, dram_timing->fsp_cfg,
 		       dram_timing->fsp_cfg_num * sizeof(struct dram_fsp_cfg));

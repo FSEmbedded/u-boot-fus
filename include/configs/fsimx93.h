@@ -12,15 +12,14 @@
  * --------------------
  * 0x2048_0000: (reserved)           (96KB)     (used by ROM loader)
  * 0x2049_8000: BOARD-CFG            (8KB)      CFG_FUS_BOARDCFG_ADDR
- * 0x2049_A000: SPL                  (152KB)    CONFIG_SPL_TEXT_BASE
- * 0x204C_0000: DRAM-FW              (96KB)     CFG_SPL_DRAM_FW_ADDR
- * 0x204D_8000: (free)               (16KB)
- * 0x204D_C000: DRAM-TIMING          (16KB)     CFG_SPL_DRAM_TIMING_ADDR
+ * 0x2049_A000: SPL                  (176KB)    CONFIG_SPL_TEXT_BASE
+ * 0x204C_6000: DRAM-FW              (96KB)     CFG_SPL_DRAM_FW_ADDR
+ * 0x204D_E000: INDEX                (8KB)      CFG_FUS_INDEX_ADDR
  * 0x204E_0000: ATF/EARLY_AHAB_BASE  (96KB)     CFG_SPL_ATF_ADDR
  * 0x204F_8000: SPL_STACK            (136KB)    (+ MALLOC_F + GLOBAL_DATA)
  * 0x2051_9DD0:                                 CONFIG_SPL_STACK
  * 0x2051_A000: BSS data             (8KB)      CONFIG_SPL_BSS_START_ADDR
- * 0x2051_C000: DRAM-TIMING (ATF)    (16KB)     CONFIG_SAVED_DRAM_TIMING_BASE
+ * 0x2051_C000: DRAM-TIMING          (16KB)     CONFIG_SAVED_DRAM_TIMING_BASE
  * 0x2051_FFFF: (end of OCRAM)
  *
  * The DRAM_FW is loaded to the above address, validated and then copied to
@@ -48,13 +47,14 @@
 #include "imx_env.h"
 
 /* RAM Layout */
-#define CFG_SYS_OCRAM_BASE 0x20498000
-#define CFG_SYS_OCRAM_SIZE 0x88000
-#define CFG_FUS_BOARDCFG_ADDR CFG_SYS_OCRAM_BASE
-#define CFG_SPL_DRAM_FW_ADDR 0x204C0000
-#define CFG_SPL_DRAM_TIMING_ADDR 0x204DC000
-#define CFG_SPL_ATF_ADDR 0x204E0000
-#define CFG_SPL_TEE_ADDR 0x96000000
+#define CFG_SYS_OCRAM_BASE		0x20498000
+#define CFG_SYS_OCRAM_SIZE		0x88000
+#define CFG_FUS_BOARDCFG_ADDR		CFG_SYS_OCRAM_BASE
+#define CFG_SPL_DRAM_FW_ADDR		0x204C6000
+#define CFG_SPL_DRAM_TIMING_ADDR	CONFIG_SAVED_DRAM_TIMING_BASE
+#define CFG_SPL_INDEX_ADDR		0x204DE000
+#define CFG_SPL_ATF_ADDR		0x204E0000
+#define CFG_SPL_TEE_ADDR		0x96000000
 
 // /* eMMC Layout */
 // /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */

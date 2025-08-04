@@ -120,7 +120,7 @@ LPDDR4X_CFG = $(srctree)/$(src)/lpddr4x_info.cfg
 $(obj)/lpddr4x_DRAM-FW.fsi: $(LPDDR4X_FW_FILES)
 
 # 1. Build final linker script by replacing ###DRAM_TIMING_ADDR### with value
-DRAM_TIMING_ADDR = 0x204dc000
+DRAM_TIMING_ADDR = ${CONFIG_SAVED_DRAM_TIMING_BASE}
 DRAM_TIMINGS_LDS = $(obj)/.dram-timings.lds.tmp
 DRAM_TIMINGS_REPLACE_SED_CMD = \
 	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(DRAM_TIMING_ADDR)/g"

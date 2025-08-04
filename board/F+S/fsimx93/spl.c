@@ -65,7 +65,7 @@ int fs_board_init_dram_data(unsigned long *ptr){
 	if(!ptr)
 		return -ENODATA;
 
-	_dram_timing = (struct dram_timing_info *)*ptr;
+	_dram_timing = (struct dram_timing_info *)ptr;
 
 	return 0;
 }
