@@ -58,7 +58,7 @@ RT_LPDDR4 := lpddr4_fw.fs $(RT_LPDDR4)
 RT_DDR4 := ddr4_fw.fs $(RT_DDR4)
 
 # List of files to add to FIRMWARE image
-ifeq ($(CONFIG_IMX_OPTEE),y)
+ifeq ($(CONFIG_OPTEE),y)
 FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs $(BOARD)_optee.fs
 else
 FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs
@@ -95,7 +95,7 @@ NXP_LPDDR4 = lpddr4_pmu_train_1d_imem.bin lpddr4_pmu_train_1d_dmem.bin \
 	lpddr4_pmu_train_2d_imem.bin lpddr4_pmu_train_2d_dmem.bin
 NXP_DDR4 = ddr4_imem_1d$(NANO).bin ddr4_dmem_1d$(NANO).bin \
 	ddr4_imem_2d$(NANO).bin ddr4_dmem_2d$(NANO).bin
-ifeq ($(CONFIG_IMX_OPTEE),y)
+ifeq ($(CONFIG_OPTEE),y)
 NXP_ATF = bl31-optee.bin
 NXP_TEE = bl32.bin
 else

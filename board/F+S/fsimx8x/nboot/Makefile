@@ -37,7 +37,7 @@ DRAM_TYPES += ddr3_type.fs
 endif
 
 # List of files to add to FIRMWARE image
-ifeq ($(CONFIG_IMX_OPTEE),y)
+ifeq ($(CONFIG_OPTEE),y)
 FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs $(BOARD)_optee.fs
 else
 FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs

@@ -1113,7 +1113,7 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size)
 #define FSIMG_JOB_DRAM BIT(1)
 #define FSIMG_JOB_ATF BIT(2)
 #define FSIMG_JOB_TEE BIT(3)
-#ifdef CONFIG_IMX_OPTEE
+#ifdef CONFIG_OPTEE
 #define FSIMG_FW_JOBS (FSIMG_JOB_DRAM | FSIMG_JOB_ATF | FSIMG_JOB_TEE)
 #else
 #define FSIMG_FW_JOBS (FSIMG_JOB_DRAM | FSIMG_JOB_ATF)

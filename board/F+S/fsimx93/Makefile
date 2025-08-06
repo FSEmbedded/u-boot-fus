@@ -24,7 +24,7 @@ MKIMAGE_TYPE = imx8image
 # 3. u-boot.bin --> (cp) --> <arch>_UBOOT.fsi
 # 4. <arch>_ATF.fsi + <arch>_TEE.fsi + <arch>_UBOOT.fsi --> (fsc) --> uboot.fs
 
-ifeq ($(CONFIG_IMX_OPTEE),y)
+ifeq ($(CONFIG_OPTEE),y)
 UBOOT_ATF = $(NXP_PATH)/bl31-optee.bin
 else
 UBOOT_ATF = $(NXP_PATH)/bl31.bin
@@ -43,7 +43,7 @@ $(obj)/%_UBOOT.fsi: u-boot.bin
 	$(call cmd,copy)
 
 # 4. Build F&S container; delete TEE image line from .cfg if not using opTEE
-ifneq ($(CONFIG_IMX_OPTEE),y)
+ifneq ($(CONFIG_OPTEE),y)
 SED_UBOOT_EXTRA = -e '/^IMAGE.*TEE/d'
 endif
 
