@@ -34,6 +34,10 @@
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
 
+#if CONFIG_IS_ENABLED(IMX_HAB)
+#include <asm/mach-imx/hab.h>
+#endif
+
 /* ============= Functions not available in SPL ============================ */
 
 #ifndef CONFIG_SPL_BUILD
