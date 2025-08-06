@@ -1399,13 +1399,6 @@ int board_late_init(void)
 	if (fs_board_get_type() == BT_PICOCOREMX8MX)
 		env_set("platform", "picocoremx8mx");
 #endif
-
-#ifdef CONFIG_IMX_OPTEE
-	env_set("tee", "yes");
-#else
-	env_set("tee", "no");
-#endif
-
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttymxc");
 
