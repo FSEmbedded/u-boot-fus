@@ -28,6 +28,9 @@
 #if defined(CONFIG_CMD_USB)
 #include <usb.h>
 #endif
+#ifdef CONFIG_FS_SECURE_BOOT
+#include <asm/mach-imx/checkboot.h>
+#endif
 #else
 #include "mkimage.h"
 #endif
@@ -35,9 +38,6 @@
 #include <bootm.h>
 #include <image.h>
 
-#ifdef CONFIG_FS_SECURE_BOOT
-#include <asm/mach-imx/checkboot.h>
-#endif
 
 #define MAX_CMDLINE_SIZE	SZ_4K
 
@@ -1021,7 +1021,7 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 #ifdef CONFIG_FS_SECURE_BOOT
 	/* prepare images for authentification */
 	if (states & BOOTM_STATE_START)
-		if (parse_images_for_authentification(argc, argv))
+		if (parse_images_for_authentification(bmi->argc, bmi->argv))
 			return 1;
 #endif
 
