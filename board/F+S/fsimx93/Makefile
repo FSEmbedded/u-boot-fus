@@ -39,7 +39,7 @@ $(obj)/%_TEE.fsi: $(NXP_PATH)/bl32.bin
 	$(call cmd,copy)
 
 # 3. Copy U-Boot to desired filename
-$(obj)/%_UBOOT.fsi: u-boot.bin
+$(obj)/%_U-BOOT.fsi: u-boot.bin
 	$(call cmd,copy)
 
 # 4. Build F&S container; delete TEE image line from .cfg if not using opTEE
