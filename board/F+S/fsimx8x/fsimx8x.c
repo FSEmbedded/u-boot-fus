@@ -505,11 +505,6 @@ int board_late_init(void)
 	 */
 	env_set("fdtcontroladdr", "");
 
-	env_set("sec_boot", "no");
-#ifdef CONFIG_AHAB_BOOT
-	env_set("sec_boot", "yes");
-#endif
-
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttyLP");
 

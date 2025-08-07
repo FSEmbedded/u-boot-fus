@@ -459,11 +459,6 @@ int board_late_init(void)
 	/* Set mac addresses for corresponding boards */
 	fs_ethaddr_init();
 
-	if(fs_board_is_closed())
-		env_set("sec_boot", "yes");
-	else
-		env_set("sec_boot", "no");
-
 	/* Skip autoboot during USB-Boot*/
 	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
 		env_set_ulong("bootdelay", 0);

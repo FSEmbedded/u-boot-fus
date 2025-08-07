@@ -581,6 +581,11 @@ void fs_board_late_init_common(const char *serial_name)
 	setup_var("bootauxfile", "power_mode_switch.img", 0);
 #endif
 
+	if (fs_board_is_closed()) {
+		env_set("sec_boot", "yes");
+	} else {
+		env_set("sec_boot", "no");
+	}
 
 	/* Set some variables by runnning another variable */
 #ifdef CONFIG_FS_UPDATE_SUPPORT
