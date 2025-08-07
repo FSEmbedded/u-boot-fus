@@ -42,10 +42,11 @@ MKIMAGE_TYPE = imx8image
 # Data flow:
 # 1. u-boot-spl.bin -> (cp) -> fsimx93_SPL.fsi
 # 1. fsimx93_SPL.fsi -> (fsc) -> boot_info.fs
-#
-# TODO: Add optional Cortex-M image
 
 $(obj)/%_SPL.fsi: spl/u-boot-spl.bin
+	$(call cmd,copy)
+
+$(obj)/%_CORTEX-M.fsi: $(srctree)/board/$(BOARDDIR)/m33_image.bin
 	$(call cmd,copy)
 
 $(eval $(call fsc,boot_info,-a 0x400-0x40 -t BOOT-INFO -d $(BOARD)))
