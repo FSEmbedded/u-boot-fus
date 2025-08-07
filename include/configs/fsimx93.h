@@ -34,8 +34,8 @@
  * 0x8001_0000: (free)               (1984KB)
  * 0x8020_0000: UBOOT                (3MB)      CONFIG_TEXT_BASE
  * 0x8050_0000: (free)               (347MB)
- * 0x9600_0000: TEE                  (2MB)      CFG_SPL_TEE_ADDR
- * 0x9620_0000: (free)
+ * 0x9600_0000: TEE                  (32MB)     CFG_SPL_TEE_ADDR
+ * 0x9800_0000: (free)
  */
 
 #ifndef __FSIMX93_H
@@ -233,7 +233,7 @@
 #define CFG_SYS_INIT_RAM_SIZE		0x200000
 
 #define CFG_SYS_SDRAM_BASE		0x80000000
-#define CFG_SPL_FUS_EARLY_AHAB_BASE	0x204e0000
+#define CFG_SPL_FUS_EARLY_AHAB_BASE	CFG_SPL_ATF_ADDR
 #define PHYS_SDRAM			0x80000000
 #define PHYS_SDRAM_SIZE			0x40000000 /* 1GB DDR */
 
