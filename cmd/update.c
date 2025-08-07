@@ -495,6 +495,17 @@ int do_update(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 		}
 	}
 
+	/*
+	 * If secure boot is enabled, we do not allow update or install
+	 * scripts to be executed.
+	 *
+	 * TODO: prepare secure boot support for update and install
+	 */
+	if(env_get_yesno("sec_boot") == 1) {
+		puts("WARINING: Secure boot is enabled, update/install scripts are not allowed!\n");
+		return 1;
+	}
+
 	return update_script(action_id, check, fname, addr);
 }
 
