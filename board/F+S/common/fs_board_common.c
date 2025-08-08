@@ -298,6 +298,10 @@ enum update_action board_check_for_recover(void)
 {
 	char *gpiodesc;
 
+	if (env_get_yesno("sec_boot") == 1) {
+		return UPDATE_ACTION_NONE;
+	}
+
 #ifndef CONFIG_FS_BOARD_CFG
 	/* On some platforms, the check for recovery is already done in NBoot.
 	   Then the ACTION_RECOVER bit in the dwAction value is set. */
