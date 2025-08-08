@@ -236,8 +236,8 @@ define fsc
 $(1)_cfg := $$(srctree)/$$(src)/$(1).cfg
 $(1)_cfg_tmp := $$(obj)/.$(1).cfg.tmp
 $(1)_images := $$(shell sed -n $$(SED_PATHS) $(3) $$(SED_FILES) $$($(1)_cfg))
-$(1)_index := $$(word 1,$$($(1)_images))
-$(1)_others := $$(wordlist 2,$$(words $$($(1)_images)),$$($(1)_images))
+$(1)_index := $$(or $$(word 1, $$(filter %_INDEX.fs, $$($(1)_images))), $$(obj)/.$(1)_index.fs)
+$(1)_others := $$(if $$($(1)_index), $$(filter-out $$($(1)_index),$$($(1)_images)), $$($(1)_images))
 
 # 1. Replace path variables in cfg file
 $$($(1)_cfg_tmp): $$($(1)_cfg)
