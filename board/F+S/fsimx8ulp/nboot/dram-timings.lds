@@ -15,7 +15,7 @@ SECTIONS
 	. = 0x00000000;
 	.data : {
 		_start = .;
-		QUAD(dram_timing)	/* Pointer to dram_timing variable */
+		*(.data.dram_timing)	/* Have dram_timing right at beginning */
 		*(.data*)		/* DDR RAM timing data */
 		. = ALIGN(8);
 		_end = .;
