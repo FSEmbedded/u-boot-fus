@@ -334,7 +334,7 @@ static inline int erase_env(struct mmc *mmc, unsigned long size,
 	blk_cnt = ALIGN(size, erase_size) / desc->blksz;
 
 	n = blk_derase(desc, blk_start, blk_cnt);
-	printf("%d blocks erased at 0x%x: %s\n", n, blk_start,
+	debug("%d blocks erased at 0x%x: %s\n", n, blk_start,
 	       (n == blk_cnt) ? "OK" : "ERROR");
 
 	return (n == blk_cnt) ? 0 : 1;
