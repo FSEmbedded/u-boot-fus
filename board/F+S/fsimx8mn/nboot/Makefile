@@ -34,10 +34,7 @@ NBOOT_VERSION = 2024.02.1
 # BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
 	PCoreMX8MN-FERT1.fs \
-	PCoreMX8MN-FERT3.fs \
-	PCoreMX8MN-FERT4.fs \
 	PCoreMX8MN-FERT5.fs \
-	PCoreMX8MN-FERT6.fs \
 	PCoreMX8MN-FERT19.fs \
 	PCoreMX8MN-FERT20.fs \
 	PCoreMX8MN-FERT21.fs
