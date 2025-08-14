@@ -139,7 +139,7 @@
 				"if fstype ${devtype} ${devnum}:${distro_rootpart} rootfstype; then " \
 					"part uuid ${devtype} ${devnum}:${distro_rootpart} distro_rootpart_uuid; " \
 					"rauc_cmd=rauc.slot=${slot}; "				\
-					"scan_dev_for_boot; "					\
+					"run scan_dev_for_boot; "				\
 				"else "								\
 					"echo \"ROOTFS_PART_${slot} does not exist\"; "		\
 					"echo \"continuing ...\"; "				\
