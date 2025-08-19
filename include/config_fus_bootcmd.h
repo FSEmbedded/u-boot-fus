@@ -169,9 +169,18 @@
 	"mode=undef\0"										\
 	".mode_rw=setenv mode rw rootwait\0"							\
 	".mode_ro=setenv mode ro rootwait\0"							\
+	"login=undef\0"										\
+	".login_none=setenv login login_tty=null\0"						\
+	".login_serial=setenv login login_tty=${sercon},${baudrate}\0"				\
+	".login_display=setenv login login_tty=tty1\0"						\
+	"netdev=eth0\0"										\
+	".network_off=setenv network\0"								\
+	".network_on=setenv network ip=${ipaddr}:${serverip}:${gatewayip}:${netmask}:${hostname}:${netdev}\0" \
+	".network_dhcp=setenv network ip=dhcp\0"						\
+	"bd_kernel=undef\0"									\
 	"set_bootargs="										\
-		"setenv bootargs \"console=${console} root=${root} ${mode} cma=${cma_size} "	\
-		"${init} ${mcore_clk} ${rauc_cmd} ${extra}\"\0"					\
+		"setenv bootargs \"console=${console} ${login} root=${root} ${mode} ${network} "\
+			"${init} ${mcore_clk} ${rauc_cmd} ${extra}\"\0"		\
 	"cma_size=256M\0"									\
 	".tftp_nfs=setenv boot_targets tftp_nfs;\0"						\
 	".tftp_mmc=setenv boot_targets tftp_mmc;\0"						\
@@ -195,7 +204,7 @@
 			"run scan_dev_for_boot_part; "						\
 		"fi;\0"										\
 	".tftp_nfs_root="									\
-		"setenv root \"/dev/nfs ip=dhcp "						\
+		"setenv root \"/dev/nfs "							\
 			"nfsroot=${serverip}:${nfsroot},v3,tcp\";\0"				\
 	".tftp_mmc_root="									\
 		"setenv root \"/dev/mmcblk${mmcdev}p${default_rootpart}\";\0"			\
@@ -206,6 +215,7 @@
 		"run tftp_boot;\0"								\
 	"bootcmd_tftp_nfs="									\
 		"run .tftp_mmc_nfs; "								\
+		"run .network_dhcp; "								\
 		"run set_bootargs; "								\
 		"run tftp_boot;\0"								\
 	"tftp_boot="										\
