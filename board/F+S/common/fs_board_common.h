@@ -128,4 +128,7 @@ char * get_dram_result(void);
 /* Check if Board is closed */
 bool fs_board_is_closed(void);
 
+/* set cma size in the device tree according to env cma_size or dram_size */
+int fs_board_cma_fdt_fixup(void *fdt);
+
 #endif /* !__FS_BOARD_COMMON_H__ */

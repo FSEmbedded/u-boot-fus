@@ -29,6 +29,7 @@
 #endif
 #include <fuse.h>			/* fuse_read() */
 #include <update.h>			/* enum update_action */
+#include "fs_fdt_common.h"
 
 #ifdef CONFIG_FS_BOARD_CFG
 #include "fs_image_common.h"		/* fs_image_*() */
@@ -1076,4 +1077,55 @@ bool fs_board_is_closed(void)
 #endif
 
 	return false;
+}
+
+__weak int fs_board_cma_fdt_fixup(void * fdt)
+{
+	const char *cma_env;
+	int cma_value;
+	int env_len;
+	int size_shift;
+	int offs;
+	fdt32_t tmp[2];
+
+	cma_env = env_get("cma_size");
+
+	/*
+	 * Set linux,cma size depending on RAM size. Keep default from
+	 * device tree if DRAM_SIZE <= 1GB, increase to 640MB otherwise.
+	 */
+	if ((!cma_env || !*cma_env) && gd->ram_size > (1UL << 30)){
+		/* Set cma size to 640MB */
+		cma_env = "640M";
+	}
+
+	if (!cma_env || !*cma_env)
+		return -EINVAL;
+
+	env_len = strlen(cma_env);
+
+	/*convert cma_env to int value, first get identifier M/G and make str to ul*/
+	if(cma_env[env_len - 1] == 'M' || cma_env[env_len - 1] == 'm') {
+		size_shift = 20; /* M */
+	} else if (cma_env[env_len - 1] == 'G' || cma_env[env_len - 1] == 'g') {
+		size_shift = 30; /* G */
+	} else {
+		printf("Invalid cma size %s, cma_size=nn[M|G]\n", cma_env);
+		return -EINVAL;
+	}
+
+	cma_value = simple_strtoul(cma_env, NULL, 10);
+	debug("cma_value = %d, size_shift = %d\n", cma_value, size_shift);
+
+	tmp[0] = cpu_to_fdt32(0x0);
+	tmp[1] = cpu_to_fdt32(cma_value << size_shift);
+
+	offs = fs_fdt_path_offset(fdt, "/reserved-memory/linux,cma");
+	if (offs < 0) {
+		printf("Failed to find /reserved-memory/linux,cma in device tree\n");
+		return offs;
+	}
+
+	fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
+	return 0;
 }
