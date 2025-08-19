@@ -101,6 +101,8 @@
 	"BOOT_ORDER_OLD=A B\0"									\
 	"BOOT_A_LEFT=3\0"									\
 	"BOOT_B_LEFT=3\0"									\
+	"update=0000\0"										\
+	"application=A\0"									\
 	"update_reboot_state=0\0"								\
 	".boot_part_A=distro_bootpart=1; \0"							\
 	".boot_part_B=distro_bootpart=2; \0"							\
@@ -132,13 +134,14 @@
 			"fi; "									\
 			"if test ${slot_cnt} -gt 0; then "					\
 				"setexpr BOOT_${slot}_LEFT ${slot_cnt} - 1; "			\
+				"setenv rauc_cmd rauc.slot=${slot}; "				\
 				"saveenv; "							\
 				"echo \"Try to boot from slot ${slot} (${slot_cnt} tries left)\"; "	\
 				"run .boot_part_${slot}; "					\
 				"run .rootfs_part_${slot}; "					\
 				"if fstype ${devtype} ${devnum}:${distro_rootpart} rootfstype; then " \
 					"part uuid ${devtype} ${devnum}:${distro_rootpart} distro_rootpart_uuid; " \
-					"rauc_cmd=rauc.slot=${slot}; "				\
+					"init=init=/usr/sbin/preinit.sh; "			\
 					"run scan_dev_for_boot; "				\
 				"else "								\
 					"echo \"ROOTFS_PART_${slot} does not exist\"; "		\

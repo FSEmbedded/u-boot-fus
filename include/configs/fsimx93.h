@@ -108,7 +108,7 @@
 	FUS_LEGACY_BOOT								\
 	".default_boot=setenv boot_targets fus_legacy "				\
 		"mmc0 mmc1 usb0 usb1;\0"					\
-	"boot_targets=fus_legacy mmc0 mmc1 usb0 usb1;\0"
+	"boot_targets=fus_legacy mmc0 mmc1 usb0 usb1\0"
 	
 
 /* Link Definitions */
