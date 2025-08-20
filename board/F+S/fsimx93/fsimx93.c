@@ -402,8 +402,6 @@ static void fdt_common_fixup(void *fdt)
 		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
 	}
 
-	fs_board_cma_fdt_fixup(fdt);
-
 	if(!(features & FEAT_EMMC))
 		fs_fdt_enable(fdt, "emmc", 0);
 
@@ -430,7 +428,7 @@ static void fdt_common_fixup(void *fdt)
 		fs_fdt_enable(fdt, "ldb_phy", 0);
 	}
 #endif
-	
+
 	if(!(features & FEAT_RGB)){
 		fs_fdt_enable(fdt, "parallel_disp_fmt", 0);
 	}
@@ -482,7 +480,6 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 
 	fdt_common_fixup(fdt_blob);
 	ret = fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
-
 	if(ret)
 		return ret;
 
@@ -492,6 +489,8 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 		/* Set common bdinfo entries */
 		fs_fdt_set_bdinfo(fdt_blob, offs);
 	}
+
+	fs_board_cma_fdt_fixup(fdt_blob);
 
 	return 0;
 }
