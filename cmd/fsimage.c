@@ -4312,7 +4312,7 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 
 		printf("\nSaving copy 1 to %s:\n", fi.devname);
 		if (fs_image_save_region(&fi, 1, &envred_ri))
-			env_failed |= BIT(0);
+			env_failed |= BIT(1);
 
 		if (failed || (env_failed == 3))
 			failed = env_failed;
