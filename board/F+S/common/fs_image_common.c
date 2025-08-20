@@ -1241,7 +1241,8 @@ static void fs_image_next_header(enum fsimg_state new_state)
 /* State machine: Enter a new sub-image with given size and load the header */
 static void fs_image_enter(unsigned int size, enum fsimg_state new_state)
 {
-	fsimg_stack[nest_level].remaining -= size;
+	if (nest_level >= 0)
+		fsimg_stack[nest_level].remaining -= size;
 	fsimg_stack[++nest_level].remaining = size;
 	fsimg_stack[nest_level].size = size;
 	fs_image_next_header(new_state);
