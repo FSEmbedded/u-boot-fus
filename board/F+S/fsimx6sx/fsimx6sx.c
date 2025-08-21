@@ -2649,10 +2649,14 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 			fs_fdt_set_macaddr(fdt, offs, id++);
 		if (pargs->chFeatures2 & FEAT2_ETH_B)
 			fs_fdt_set_macaddr(fdt, offs, id++);
-		/* WLAN MAC address only required on Silex based board revs */
+		/*
+		 * WLAN MAC address only required on Silex SDPAC based board
+		 * revisions. VAND3 has Silex SDMAC with pre-programmed MAC
+		 * address, no F&S address needed there.
+		 */
 		if ((pargs->chFeatures2 & FEAT2_WLAN)
 		    && (((board_type == BT_EFUSA9X) && (board_rev >= 120))
-			|| (board_type == BT_VAND3) || (board_type == BT_EFUSA9XR2)))
+			|| (board_type == BT_EFUSA9XR2)))
 			fs_fdt_set_wlan_macaddr(fdt, offs, id++, 1);
 	}
 
