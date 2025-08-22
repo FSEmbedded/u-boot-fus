@@ -140,5 +140,12 @@ config FS_DEVICEINFO_COMMON
           Enable shared struct in RAM for Windows. Contains MAC-addresses and other
           board specific information which Windows needs. The memory address for the
 		  struct is controlled by CFG_FS_DEVICEINFO_ADDR, which is processor specific.
-		  
+
+config FUS_FORCE_DEFAULT_BOOTDELAY
+	bool "force default bootdelay (F&S)"
+	default n
+	help
+		If enabled, bootdelay defined in configs/<board>_defconfig keeps it value,
+		even during chain of trust. Use this setting only for debug purpose.
+
 endif
