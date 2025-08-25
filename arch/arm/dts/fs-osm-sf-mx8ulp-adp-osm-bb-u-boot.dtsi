@@ -12,14 +12,42 @@
 * GNU General Public License for more details.
 */
 
-/ {
-	mu@27020000 {
-		compatible = "fsl,imx8ulp-mu";
-		reg = <0 0x27020000 0 0x10000>;
-		status = "okay";
-		bootph-all;
-	};
+&{/aliases}{
+	/delete-property/ serial2;
+	/delete-property/ serial3;
+	/delete-property/ rtc0;
+	/delete-property/ isi0;
+	/delete-property/ csi0;
+	/delete-property/ pwm0;
+	/delete-property/ pwm1;
+	/delete-property/ pwm2;
+	/delete-property/ pwm3;
+	/delete-property/ i2c2;
+	/delete-property/ i2c3;
+	/delete-property/ gpio0;
+	/delete-property/ gpio1;
+	/delete-property/ gpio2;
+};
 
+&reg_carrier_pwr {
+	/delete-property/ gpio;
+};
+
+&emmc {
+	/delete-property/ vmmc-supply;
+	/delete-property/ vqmmc-supply;
+};
+
+&mu {
+	status = "disabled";
+};
+
+&s4muap {
+		compatible = "fsl,imx8ulp-mu";
+		bootph-all;
+};
+
+/ {
 	aliases {
 		usbgadget0 = &usbg1;
 	};
