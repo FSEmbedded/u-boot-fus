@@ -47,6 +47,16 @@
 	};
 };
 
+&emmc {
+	/delete-property/ vmmc-supply;
+	/delete-property/ vqmmc-supply;
+};
+
+&fs_sdio_a {
+	/delete-property/ vmmc-supply;
+};
+
+
 &{/soc@0} {
 	bootph-all;
 	bootph-pre-ram;
