@@ -408,4 +408,22 @@
 
 #endif
 
+#if defined(CONFIG_FS_WINIOT_SUPPORT)
+#define FUS_WIN_BOOT 										\
+	"mmc_boot="										\
+		"if mmc dev ${devnum}; then "							\
+			"devtype=mmc; "								\
+			"run scan_dev_for_uefi_fit; "						\
+			"run scan_dev_for_boot_part; "						\
+		"fi;\0"										\
+	"scan_dev_for_uefi_fit="								\
+		"mmc read ${loadaddr} 0x3a00 0xfff; "						\
+		"if iminfo ${loadaddr} ; then "							\
+			"bootm ${loadaddr}; "							\
+		"fi;\0"										\
+
+#else
+#define FUS_WIN_BOOT
+#endif
+
 #endif /* _CONFIG_FUS_BOOTCMD */
