@@ -233,7 +233,7 @@ static void fs_setup_cfg_info(void)
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
-	
+
 	set_gd_board_type();
 	info->board_type = gd->board_type;
 

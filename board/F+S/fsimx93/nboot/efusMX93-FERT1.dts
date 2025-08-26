@@ -13,7 +13,7 @@
 / {
 	board-cfg {
 		board-name = "efusMX93";
-		board-fdt = "efusmx93";
+		board-fdt = "efusmx93-SINTF";
 
 		/* DRAM: B.ICDRAM.40 */
 		dram-type = "lpddr4";
