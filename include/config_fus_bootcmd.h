@@ -346,7 +346,7 @@
 		"echo \"Validating Container ...\"; "						\
 		"if auth_cntr ${cntr_addr_r}; then "						\
 			"echo \"Container is valid\"; "						\
-			"bootm ${loadaddr}#conf-${fdtfile}; "					\
+			"bootm ${cntr_loadaddr}#conf-${fdtfile}; "					\
 		"else "										\
 			"echo \"Container is invalid!\"; "					\
 		"fi;\0"										\
@@ -370,9 +370,9 @@
 		"echo \"load script container  ...\"; "						\
 		"load ${devtype} ${devnum}:${distro_bootpart} ${cntr_addr_r} ${prefix}/${script}; "	\
 		"echo \"check container signature ...\"; "					\
-		"if auth_cntr {cntr_addr_r}; then "						\
+		"if auth_cntr ${cntr_addr_r}; then "						\
 			"echo \"container is valid!\"; "					\
-			"source ${scriptaddr}; "						\
+			"source ${cntr_loadaddr}; "						\
 		"else "										\
 			"echo \"container is invalid!\"; "					\
 		"fi;\0"										\
@@ -381,9 +381,9 @@
 		"setenv root PARTUUID=${distro_rootpart_uuid}; "				\
 		"run set_bootargs; "								\
 		"echo \"check container signature ...\"; "					\
-		"if auth_cntr {cntr_addr_r}; then "						\
+		"if auth_cntr ${cntr_addr_r}; then "						\
 			"echo \"container is valid!\";	"					\
-			"bootm ${loadaddr}#conf-${fdtfile}; "					\
+			"bootm ${cntr_loadaddr}#conf-${fdtfile}; "					\
 		"else "										\
 			"echo  \"container is invalid!\"; "					\
 		"fi;\0"										\
