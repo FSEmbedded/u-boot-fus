@@ -104,11 +104,20 @@ static int ksz8081_config(struct phy_device *phydev)
 {
 	u16 reg;
 	struct mii_dev *bus = phydev->bus;
+	ofnode node;
 
-	/* Switch to 50 MHz RMII mode */
-	reg = bus->read(bus, phydev->addr, MDIO_DEVAD_NONE, MII_KSZPHY_CTRL);
-	reg |= KSZPHY_RMII_50MHZ_CLK;
-	bus->write(bus, phydev->addr, MDIO_DEVAD_NONE, MII_KSZPHY_CTRL, reg);
+	node = phy_get_ofnode(phydev);
+
+	if (ofnode_valid(node)) {
+		bool rmii_50mhz = ofnode_read_bool(node, "microchip,rmii-50mhz");
+
+		/* Switch to 50 MHz RMII mode */
+		if (rmii_50mhz) {
+			reg = bus->read(bus, phydev->addr, MDIO_DEVAD_NONE, MII_KSZPHY_CTRL);
+			reg |= KSZPHY_RMII_50MHZ_CLK;
+			bus->write(bus, phydev->addr, MDIO_DEVAD_NONE, MII_KSZPHY_CTRL, reg);
+		}
+	}
 
 	return ksz_genconfig_bcastoff(phydev);
 }
