@@ -76,6 +76,12 @@ fs_can_b: &flexcan2 {};
 		pwm1 = &fs_pwm_a;
 	};
 
+	/* -------------------- BOARD INFO -------------------- */
+	bdinfo: bdinfo {
+		compatible = "bdinfo";
+		// dts_version = FS_LINUX_VERSION;
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -208,9 +214,9 @@ fs_can_b: &flexcan2 {};
 	uart-has-rtscts;
 	status = "okay";
 #ifdef CONFIG_EFUSMX93_BLUETOOTH
-    bluetooth {
-          compatible = "nxp,88w8997-bt";
-    };
+	bluetooth {
+		compatible = "nxp,88w8997-bt";
+	};
 #endif
 };
 #endif
@@ -491,25 +497,25 @@ fs_can_b: &flexcan2 {};
 		quartz-drive-strength = <PCF85363_OSC_DRIVE_LOW>;
 	};
 
-    expander: gpio-exp@20 {
-        compatible = "nxp,pcal6416";
-        reg = <0x20>;
-        vcc-supply = <&reg_3v3>;
-        gpio-controller;
-        #gpio-cells = <2>;
-        ngpios = <16>;
-        interrupt-parent = <&gpio4>;
-        interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
-        gpio-line-names = "eth_a_rst",
-            "eth_b_rst", "usb_host_pwr",
-            "usb_otg_pwr", "wlan_rst",
-            "reset_out", "usb_dev_oc", 
-            "not_connected",
-            "vlcd_on", "vbl_on",
-            "disp_rst", "i2c_a_rst",
-            "i2c_b_rst", "sd_b_gpio1",
-            "sd_b_gpio2", "spi_a_cs2";
-    };
+	expander: gpio-exp@20 {
+		compatible = "nxp,pcal6416";
+		reg = <0x20>;
+		vcc-supply = <&reg_3v3>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <16>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
+		gpio-line-names = "eth_a_rst",
+		"eth_b_rst", "usb_host_pwr",
+		"usb_otg_pwr", "wlan_rst",
+		"reset_out", "usb_dev_oc",
+		"not_connected",
+		"vlcd_on", "vbl_on",
+		"disp_rst", "i2c_a_rst",
+		"i2c_b_rst", "sd_b_gpio1",
+		"sd_b_gpio2", "spi_a_cs2";
+	};
 };
 #endif
 
@@ -559,7 +565,6 @@ fs_can_b: &flexcan2 {};
 	disable-over-current;
 	samsung,picophy-pre-emp-curr-control = <3>;
 	samsung,picophy-dc-vol-level-adjust = <7>;
-	
 	status = "okay";
 };
 #endif
@@ -636,7 +641,7 @@ fs_can_b: &flexcan2 {};
 	vqmmc-supply = <&reg_1v8>;
 	vqmmc-1-8-v;
 	bus-width = <4>;
-    status = "okay";
+	status = "okay";
 
 #ifdef CONFIG_EFUSMX93_WLAN
 	keep-power-in-suspend;
@@ -653,7 +658,7 @@ fs_can_b: &flexcan2 {};
 		reg = <1>;
 	};
 #else
-    cd-gpios = <&expander 1 GPIO_ACTIVE_LOW>;
+	cd-gpios = <&expander 1 GPIO_ACTIVE_LOW>;
 	wp-gpios = <&expander 2 GPIO_ACTIVE_HIGH>;
 #endif
 };
@@ -706,7 +711,7 @@ fs_can_b: &flexcan2 {};
 };
 
 &lcdif {
-	status = "disabled";	
+	status = "disabled";
 };
 
 &ldb {
@@ -731,25 +736,25 @@ fs_can_b: &flexcan2 {};
 
 &iomuxc {
 
-    pinctrl-names = "default";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog>;
 
 	pinctrl_hog: hoggrp {
 		fsl,pins = <
-            		/* I2C_A_IRQ */
+			/* I2C_A_IRQ */
 			MX93_PAD_GPIO_IO29__GPIO2_IO29		0x3fe
-           		 /* I2C_B_IRQ */
+			/* I2C_B_IRQ */
 			MX93_PAD_CCM_CLKO4__GPIO4_IO29		0x3fe
-            		/* GP_EXP_INT */
+			/* GP_EXP_INT */
 			MX93_PAD_ENET2_MDC__GPIO4_IO14		0x3fe
 			/* DISP_IRQ */
-			MX93_PAD_ENET2_MDIO__GPIO4_IO15         0x3fe
+			MX93_PAD_ENET2_MDIO__GPIO4_IO15		0x3fe
 			/* SPI_A_CS1 */
 			MX93_PAD_SAI1_TXFS__GPIO1_IO11		0x31e
 			/* SPI_A_IRQ1 */
-			MX93_PAD_PDM_BIT_STREAM1__GPIO1_IO10    0x31e
+			MX93_PAD_PDM_BIT_STREAM1__GPIO1_IO10	0x31e
 			/* SPI_A_IRQ2 */
-			MX93_PAD_GPIO_IO28__GPIO2_IO28          0x31e
+			MX93_PAD_GPIO_IO28__GPIO2_IO28		0x31e
 #if !defined(CONFIG_EFUSMX93_ETH_B)
 			/* SPI_B_CS1 */
 			MX93_PAD_ENET2_RXC__GPIO4_IO23		0x31e
@@ -757,12 +762,12 @@ fs_can_b: &flexcan2 {};
 			MX93_PAD_ENET2_RD1__GPIO4_IO25		0x31e
 #endif
 		>;
-    };
+	};
 #ifdef CONFIG_EFUSMX93_UART_A
 	pinctrl_uart1: uart1grp {
 		fsl,pins = <
-			MX93_PAD_UART1_TXD__LPUART1_TX			0x31e
-			MX93_PAD_UART1_RXD__LPUART1_RX			0x31e
+			MX93_PAD_UART1_TXD__LPUART1_TX		0x31e
+			MX93_PAD_UART1_RXD__LPUART1_RX		0x31e
 		>;
 	};
 #endif
@@ -927,8 +932,8 @@ fs_can_b: &flexcan2 {};
 			MX93_PAD_SD2_DATA3__USDHC2_DATA3	0x40001382
 			MX93_PAD_SD2_CD_B__USDHC2_CD_B		0x31e
 			MX93_PAD_SD2_VSELECT__USDHC2_VSELECT	0x51e
-            /* WP */
-            MX93_PAD_SD2_RESET_B__GPIO3_IO07    0x51e
+			/* WP */
+			MX93_PAD_SD2_RESET_B__GPIO3_IO07	0x31e
 		>;
 	};
 
@@ -943,9 +948,7 @@ fs_can_b: &flexcan2 {};
 			MX93_PAD_SD2_CD_B__USDHC2_CD_B		0x31e
 			MX93_PAD_SD2_VSELECT__USDHC2_VSELECT	0x51e
 			/* WP */
-			MX93_PAD_SD2_RESET_B__GPIO3_IO07    0x51e
-			/* CD */
-			MX93_PAD_SD2_CD_B__GPIO3_IO00       0x31e
+			MX93_PAD_SD2_RESET_B__GPIO3_IO07	0x31e
 		>;
 	};
 
@@ -960,9 +963,7 @@ fs_can_b: &flexcan2 {};
 			MX93_PAD_SD2_CD_B__USDHC2_CD_B		0x31e
 			MX93_PAD_SD2_VSELECT__USDHC2_VSELECT	0x51e
 			/* WP */
-			MX93_PAD_SD2_RESET_B__GPIO3_IO07	0x51e
-			/* CD */
-			MX93_PAD_SD2_CD_B__GPIO3_IO00		0x31e
+			MX93_PAD_SD2_RESET_B__GPIO3_IO07	0x31e
 		>;
 	};
 #endif
@@ -1017,8 +1018,8 @@ fs_can_b: &flexcan2 {};
 #ifdef CONFIG_EFUSMX93_ETH_A
 	pinctrl_eqos: eqosgrp {
 		fsl,pins = <
-			MX93_PAD_ENET1_MDC__ENET_QOS_MDC					0x57e
-			MX93_PAD_ENET1_MDIO__ENET_QOS_MDIO					0x57e
+			MX93_PAD_ENET1_MDC__ENET_QOS_MDC				0x57e
+			MX93_PAD_ENET1_MDIO__ENET_QOS_MDIO				0x57e
 			MX93_PAD_ENET1_TD3__ENET_QOS_RGMII_TD3				0x57e
 			MX93_PAD_ENET1_TD2__ENET_QOS_RGMII_TD2				0x57e
 			MX93_PAD_ENET1_TD1__ENET_QOS_RGMII_TD1				0x57e
@@ -1039,20 +1040,20 @@ fs_can_b: &flexcan2 {};
 #ifdef CONFIG_EFUSMX93_ETH_A
 	pinctrl_fec: fecgrp {
 		fsl,pins = <
-			MX93_PAD_ENET2_TD3__ENET1_RGMII_TD3				0x57e
-			MX93_PAD_ENET2_TD2__ENET1_RGMII_TD2				0x57e
-			MX93_PAD_ENET2_TD1__ENET1_RGMII_TD1				0x57e
-			MX93_PAD_ENET2_TD0__ENET1_RGMII_TD0				0x57e
+			MX93_PAD_ENET2_TD3__ENET1_RGMII_TD3			0x57e
+			MX93_PAD_ENET2_TD2__ENET1_RGMII_TD2			0x57e
+			MX93_PAD_ENET2_TD1__ENET1_RGMII_TD1			0x57e
+			MX93_PAD_ENET2_TD0__ENET1_RGMII_TD0			0x57e
 			MX93_PAD_ENET2_TX_CTL__ENET1_RGMII_TX_CTL		0x57e
-			MX93_PAD_ENET2_TXC__ENET1_RGMII_TXC				0x58e
+			MX93_PAD_ENET2_TXC__ENET1_RGMII_TXC			0x58e
 			MX93_PAD_ENET2_RX_CTL__ENET1_RGMII_RX_CTL		0x57e
-			MX93_PAD_ENET2_RXC__ENET1_RGMII_RXC				0x58e
-			MX93_PAD_ENET2_RD0__ENET1_RGMII_RD0				0x57e
-			MX93_PAD_ENET2_RD1__ENET1_RGMII_RD1				0x57e
-			MX93_PAD_ENET2_RD2__ENET1_RGMII_RD2				0x57e
-			MX93_PAD_ENET2_RD3__ENET1_RGMII_RD3				0x57e
+			MX93_PAD_ENET2_RXC__ENET1_RGMII_RXC			0x58e
+			MX93_PAD_ENET2_RD0__ENET1_RGMII_RD0			0x57e
+			MX93_PAD_ENET2_RD1__ENET1_RGMII_RD1			0x57e
+			MX93_PAD_ENET2_RD2__ENET1_RGMII_RD2			0x57e
+			MX93_PAD_ENET2_RD3__ENET1_RGMII_RD3			0x57e
 			/* ETH_B_PHY_INT_1V8 */
-			MX93_PAD_CCM_CLKO3__GPIO4_IO28					0x31e
+			MX93_PAD_CCM_CLKO3__GPIO4_IO28				0x31e
 		>;
 	};
 #endif
@@ -1066,8 +1067,9 @@ fs_can_b: &flexcan2 {};
 #ifdef CONFIG_EFUSMX93_PWM_A
 	pinctrl_tpm3: tpm3grp {
 		fsl,pins = <
-			MX93_PAD_GPIO_IO24__TPM3_CH3	0x51e
+			MX93_PAD_GPIO_IO24__TPM3_CH3		0x51e
 		>;
 	};
 #endif
 };
+
