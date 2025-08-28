@@ -1037,7 +1037,7 @@ fs_can_b: &flexcan2 {};
 		>;
 	};
 #endif
-#ifdef CONFIG_EFUSMX93_ETH_A
+#ifdef CONFIG_EFUSMX93_ETH_B
 	pinctrl_fec: fecgrp {
 		fsl,pins = <
 			MX93_PAD_ENET2_TD3__ENET1_RGMII_TD3			0x57e
