@@ -442,7 +442,7 @@ static int fs_spl_init_boot_dev(enum boot_device boot_dev, const char *type)
 	return 0;
 }
 
-void mmc_get_parts()
+static void mmc_get_parts(void)
 {
 	if(uboot_offs == uboot_offs_redundant){
 		uboot_part = 1;
@@ -542,7 +542,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	return part;
 }
 
-int check_if_secondary()
+static int check_if_secondary(void)
 {
 	return is_imx8m_running_secondary_boot_image();
 }
