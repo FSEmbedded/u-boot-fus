@@ -19,16 +19,16 @@
 /* Set baseboard revision as 3-digit number, e.g. 110 for board rev. 1.10 */
 #define CONFIG_PICOCOREBBDSI_BOARD_REVISION	140
 
-/* Cortex-M support */
-#define SUPPORT_RPMSG
+/* Cortex-M is always supported */
 
 /* Network*/
 /* WLAN/BLUETOOTH */
-#define CONFIG_PICOCOREMX8ULP_WLAN
+// #define CONFIG_PICOCOREMX8ULP_WLAN
+/* ETHERNET */
+#define CONFIG_PICOCOREMX8ULP_ETH_A
 
 /* AUDIO */
 // #define CONFIG_PICOCOREMX8ULP_AUDIO_APD
-/* LPAUDIO is currently not supported */
 // #define CONFIG_PICOCOREMX8ULP_AUDIO_RTD
 
 /*
@@ -42,8 +42,113 @@
 #endif
 
 #include "picocoremx8ulp.dtsi"
+#include <dt-bindings/usb/pd.h>
 
 / {
 	model = "F&S PicoCoreMX8ULP";
 	compatible = "fus,picocoremx8ulp", "fus,fsimx8ulp", "fsl,imx8ulp";
+};
+
+#if defined(CONFIG_PICOCOREMX8ULP_ETH_A)
+&pc_eth {
+	status = "okay";
+};
+#endif
+
+&pc_uart_a {
+	status = "okay";
+};
+
+&pc_uart_c {
+	status = "okay";
+};
+
+&pc_uart_d {
+	status = "okay";
+};
+
+&pc_i2c_a {
+	status = "okay";
+};
+
+&pc_i2c_b {
+	status = "okay";
+};
+
+&pc_i2c_c {
+	status = "okay";
+};
+
+&pc_i2c_d {
+	status = "okay";
+	ptn5110: tcpc@52 {
+		compatible = "nxp,ptn5110";
+		reg = <0x52>;
+		interrupt-parent = <&rp_gpioc>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+
+		port {
+			typec_dr_sw: endpoint {
+				remote-endpoint = <&usb1_drd_sw>;
+			};
+		};
+
+		usb_con: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			power-role = "dual";
+			data-role = "dual";
+			try-power-role = "sink";
+			source-pdos = <PDO_FIXED(5000, 3000,
+			PDO_FIXED_USB_COMM)>;
+			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)
+				     PDO_VAR(5000, 20000, 3000)>;
+			op-sink-microwatt = <15000000>;
+			self-powered;
+		};
+	};
+};
+
+&pc_spi_a {
+	status = "okay";
+
+	spidev0: spidev@0 {
+		/* use default driver */
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+		reg = <0>;
+		status = "okay";
+	};
+};
+
+&pc_sdio_a {
+	status = "okay";
+	no-1-8-v;
+};
+
+&pc_usb_1 {
+	dr_mode = "otg";
+	hnp-disable;
+	srp-disable;
+	adp-disable;
+	disable-over-current;
+	usb-role-switch;
+	status = "okay";
+
+	port {
+		usb1_drd_sw: endpoint {
+			remote-endpoint = <&typec_dr_sw>;
+		};
+	};
+};
+
+&pc_usb_2 {
+	dr_mode = "host";
+	power-active-high;
+	disable-over-current;
+	status = "okay";
+};
+
+&pc_bl_pwm {
+	status = "okay";
 };

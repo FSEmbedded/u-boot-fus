@@ -12,26 +12,51 @@
 * GNU General Public License for more details.
 */
 
-/ {
-    mu@27020000 {
-		compatible = "fsl,imx8ulp-mu";
-		reg = <0 0x27020000 0 0x10000>;
-		status = "okay";
-		bootph-all;
-	};
+&{/aliases}{
+	/delete-property/ serial2;
+	/delete-property/ isi0;
+	/delete-property/ csi0;
+	/delete-property/ pwm0;
 
-    aliases {
+	/delete-property/ i2c3;
+	/delete-property/ i2c4;
+	/delete-property/ gpio0;
+	/delete-property/ gpio1;
+	/delete-property/ gpio2;
+};
+
+&emmc {
+	/delete-property/ vmmc-supply;
+	/delete-property/ vqmmc-supply;
+};
+
+&pc_sdio_a {
+	/delete-property/ vmmc-supply;
+	/delete-property/ vqmmc-supply;
+};
+
+&mu {
+	status = "disabled";
+};
+
+&s4muap {
+		compatible = "fsl,imx8ulp-mu";
+		bootph-all;
+};
+
+/ {
+	aliases {
 		usbgadget0 = &usbg1;
 	};
 
-    usbg1: usbg1 {
+	usbg1: usbg1 {
 		compatible = "fsl,imx27-usb-gadget";
 		dr_mode = "peripheral";
 		chipidea,usb = <&usbotg1>;
 		status = "okay";
 	};
 
-    dsi_host: dsi-host {
+	dsi_host: dsi-host {
 		compatible = "northwest,mipi-dsi";
 		status = "disabled";
 	};
