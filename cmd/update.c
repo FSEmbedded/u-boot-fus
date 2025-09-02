@@ -220,6 +220,7 @@ static int update_mmc(const char *action, const char **check, const char *fname,
 	char if_dev_part_str[MAX_IF_DEV_PART_STR + 1];
 	int dev_num;
 	struct mmc *mmc;
+	loff_t actread;
 
 	if (get_if_dev_part_str(if_dev_part_str, check))
 		return 1;		/* Parse error */
@@ -239,7 +240,7 @@ static int update_mmc(const char *action, const char **check, const char *fname,
 	if (fs_set_blk_dev("mmc", if_dev_part_str + 4, FS_TYPE_ANY))
 		return -1;		  /* Device or partition not valid */
 
-	if (fs_read(fname, addr, 0, 0, NULL) < 0)
+	if (fs_read(fname, addr, 0, 0, &actread) < 0)
 		return -1;		  /* File not found or I/O error */
 
 	env_set(UPDATEDEV, if_dev_part_str);
@@ -254,6 +255,7 @@ static int update_usb(const char *action, const char **check, const char *fname,
 {
 	char if_dev_part_str[MAX_IF_DEV_PART_STR + 1];
 	static int usb_init_done = 0;
+	loff_t actread;
 
 	if (get_if_dev_part_str(if_dev_part_str, check))
 		return 1;		/* Parse error */
@@ -276,7 +278,7 @@ static int update_usb(const char *action, const char **check, const char *fname,
 	if (fs_set_blk_dev("usb", if_dev_part_str + 4, FS_TYPE_ANY))
 		return -1;		  /* Device or partition not valid */
 
-	if (fs_read(fname, addr, 0, 0, NULL) < 0)
+	if (fs_read(fname, addr, 0, 0, &actread) < 0)
 		return -1;		  /* File not found or I/O error */
 
 	env_set(UPDATEDEV, if_dev_part_str);
