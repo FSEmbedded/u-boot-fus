@@ -113,7 +113,7 @@ NXP_LPDDR4 = lpddr4_pmu_train_1d_imem.bin lpddr4_pmu_train_1d_dmem.bin \
 NXP_DDR4 = ddr4_imem_1d$(NANO).bin ddr4_dmem_1d$(NANO).bin \
 	ddr4_imem_2d$(NANO).bin ddr4_dmem_2d$(NANO).bin
 NXP_ATF = bl31-imx8mn.bin
-NXP_TEE = tee-fsimx8mn.bin
+NXP_TEE = tee-imx8mn.bin
 
 # Add path for NXP firmware images
 NXP_PATH = $(srctree)/board/F+S/NXP-Firmware
