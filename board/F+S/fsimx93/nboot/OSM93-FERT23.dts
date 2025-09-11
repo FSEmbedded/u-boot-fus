@@ -17,7 +17,7 @@
 
 		/* DRAM: B.ICDRAM.48 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_osm_1g3733m1ch1cs";
+		dram-timing = "lpddr4_osm_1g3200m1ch1cs";
 		dram-size = <0x400>;		/* In MiB */
 		dram-chips = <1>;
 
