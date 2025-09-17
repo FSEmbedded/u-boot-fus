@@ -1489,8 +1489,15 @@ static int ci_udc_otg_probe(struct udevice *dev)
 
 	ehci_mx6_phy_init(ehci, &priv->phy_data, dev_seq(dev));
 
-	if (ci_udc_otg_phy_mode(dev) != USB_INIT_DEVICE)
-		return -ENODEV;
+	ret = ci_udc_otg_phy_mode(dev);
+	if (ret != USB_INIT_DEVICE)
+	{
+		printf("Warning: USB PHY is not in Device mode!\n");
+		printf("Check for dr_mode configuration ...\n");
+
+		if (usb_get_dr_mode(dev_ofnode(dev)) != USB_DR_MODE_PERIPHERAL)
+			return -ENODEV;
+	}
 
 	priv->ctrl.hccr = (struct ehci_hccr *)((ulong)&ehci->caplength);
 	priv->ctrl.hcor = (struct ehci_hcor *)((ulong)priv->ctrl.hccr +
