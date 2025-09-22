@@ -229,7 +229,7 @@ static void lpuart_postinit(ulong lpuart_base)
 
 	if(lpuart_base == LPUART_BASE)
 		return;
-	
+
 	/* Disable default LPUART CLK */
 	for (i = 0; i < 4; i++) {
 		if (lpuart_array[i] == LPUART_BASE) {
@@ -242,7 +242,7 @@ static void lpuart_postinit(ulong lpuart_base)
 		return;
 
 	pcc_clock_enable(lpuart_pcc[index], lpuart_pcc_slots[index], false);
-	
+
 	/* Enable new lpuart clk */
 	init_clk_lpuart(lpuart_base);
 }
@@ -259,6 +259,7 @@ int board_early_init_f(void)
 	 */
 	switch(gd->board_type){
 	case BT_PICOCOREMX8ULP:
+		lpuart_postinit(LPUART6_RBASE);
 	case BT_OSMSFMX8ULP:
 		break;
 	case BT_ARMSTONEMX8ULP:
@@ -273,7 +274,7 @@ int board_early_init_f(void)
 
 	if(!rescan)
 		return 0;
-	
+
 	dm_uninit();
 	return dm_init_and_scan(!CONFIG_IS_ENABLED(OF_PLATDATA));
 }

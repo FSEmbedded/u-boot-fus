@@ -25,14 +25,26 @@
 	/delete-property/ gpio2;
 };
 
-&emmc {
-	/delete-property/ vmmc-supply;
-	/delete-property/ vqmmc-supply;
+&reg_usb1 {
+	/delete-property/ gpio;
 };
 
-&pc_sdio_a {
-	/delete-property/ vmmc-supply;
-	/delete-property/ vqmmc-supply;
+&reg_usb2 {
+	/delete-property/ gpio;
+};
+
+&reg_vlcd_en {
+	/delete-property/ gpio;
+};
+
+&reg_bl_en {
+	/delete-property/ gpio;
+};
+
+&fs_eth_phy {
+	/delete-property/ reset-gpios;
+	/delete-property/ interrupt-parent;
+	/delete-property/ interrupts;
 };
 
 &mu {
@@ -52,7 +64,7 @@
 	usbg1: usbg1 {
 		compatible = "fsl,imx27-usb-gadget";
 		dr_mode = "peripheral";
-		chipidea,usb = <&usbotg1>;
+		chipidea,usb = <&fs_usb_1>;
 		status = "okay";
 	};
 
@@ -95,18 +107,30 @@
 	fsl,mux_mask = <0xf00>;
 };
 
-&pinctrl_lpuart5 {
+&pinctrl_lpuart6 {
 	bootph-all;
 	bootph-pre-ram;
 };
 
-&pc_uart_a {
+&fs_uart_a {
 	bootph-all;
 	bootph-pre-ram;
 };
 
 &emmc {
 	bootph-pre-ram;
+	/delete-property/ vmmc-supply;
+	/delete-property/ vqmmc-supply;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+};
+
+&fs_sdio_a {
+	/delete-property/ vmmc-supply;
+	/delete-property/ vqmmc-supply;
+	status = "disabled";
 };
 
 &pinctrl_usdhc0 {
@@ -141,10 +165,11 @@
 	data-lanes-num = <4>;
 };
 
-&pc_usb_1 {
+&fs_usb_1 {
 	compatible = "fsl,imx8ulp-usb", "fsl,imx7ulp-usb", "fsl,imx27-usb";
+	/delete-property/ vbus-supply;
 };
 
-&pc_usb_2 {
+&fs_usb_2 {
 	compatible = "fsl,imx8ulp-usb", "fsl,imx7ulp-usb", "fsl,imx27-usb";
 };

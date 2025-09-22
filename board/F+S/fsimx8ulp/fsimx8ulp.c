@@ -191,7 +191,7 @@ static void fs_setup_cfg_info(void)
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
-	
+
 	set_gd_board_type();
 	info->board_type = gd->board_type;
 
@@ -207,31 +207,45 @@ static void fs_setup_cfg_info(void)
 	info->flags = flags;
 
 	features = 0;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-int-rtd", NULL))
+		features |= FEAT_I2C_INT_RTD;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-int-apd", NULL))
+		features |= FEAT_I2C_INT_APD;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-d-rtd", NULL))
+		features |= FEAT_I2C_D_RTD;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-d-apd", NULL))
+		features |= FEAT_I2C_D_APD;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
 		features |= FEAT_EMMC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
 		features |= FEAT_EXT_RTC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-qspi-psram", NULL))
+		features |= FEAT_QSPI_PSRAM;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-qspi-flash", NULL))
+		features |= FEAT_QSPI_FLASH;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth", NULL))
 		features |= FEAT_ETH;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy", NULL))
 		features |= FEAT_ETH_PHY;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio-apd", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-audio-apd", NULL))
 		features |= FEAT_AUDIO_APD;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio-rtd", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-audio-rtd", NULL))
 		features |= FEAT_AUDIO_RTD;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-bluetooth", NULL))
+		features |= FEAT_BLUETOOTH;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
 		features |= FEAT_SDIO_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b;", NULL))
-		features |= FEAT_SDIO_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
 		features |= FEAT_MIPI_DSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
 		features |= FEAT_MIPI_CSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
+		features |= FEAT_LVDS;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
 		features |= FEAT_RGB;
 
 	info->features = features;
@@ -278,30 +292,30 @@ static void fdt_common_fixup(void *fdt)
 		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
 	}
 
-	if(!(features & FEAT_EMMC))
+	if (!(features & FEAT_EMMC))
 		fs_fdt_enable(fdt, "emmc", 0);
 
-	if(!(features & FEAT_EXT_RTC))
+	if (!(features & FEAT_EXT_RTC))
 		fs_fdt_enable(fdt, "ext_rtc", 0);
 
-	if(!(features & FEAT_EEPROM))
+	if (!(features & FEAT_EEPROM))
 		fs_fdt_enable(fdt, "eeprom", 0);
 
-	if(!(features & FEAT_ETH))
+	if (!(features & FEAT_ETH))
 		fs_fdt_enable(fdt, "ethernet0", 0);
 
-	if(!(features & FEAT_MIPI_DSI)){
+	if (!(features & (FEAT_MIPI_DSI | FEAT_LVDS))){
 		fs_fdt_enable(fdt, "dsi", 0);
 		fs_fdt_enable(fdt, "dphy", 0);
 	}
 
-	if(!(features & (FEAT_RGB | FEAT_MIPI_DSI)))
+	if (!(features & (FEAT_RGB | FEAT_MIPI_DSI | FEAT_LVDS)))
 		fs_fdt_enable(fdt, "dcnano", 0);
 
-	if(gd->board_type == BT_PICOCOREMX8ULP)
+	if (gd->board_type == BT_PICOCOREMX8ULP)
 		fdt_pcore_fixup(fdt);
 
-	if(gd->board_type == BT_OSMSFMX8ULP)
+	if (gd->board_type == BT_OSMSFMX8ULP)
 		fdt_osm_fixup(fdt);
 
 	if(gd->board_type == BT_ARMSTONEMX8ULP)
