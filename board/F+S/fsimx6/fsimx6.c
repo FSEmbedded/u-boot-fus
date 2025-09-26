@@ -1673,7 +1673,7 @@ int board_eth_init(struct bd_info *bis)
 		case BT_ARMSTONEA9R3:
 		case BT_ARMSTONEA9R4:
 			/* Realtek RTL8211F(D): Assert reset for at least 10ms */
-			fs_board_issue_reset(10000, 50000, IMX_GPIO_NR(1, 25),
+			fs_board_issue_reset(10000, 100000, IMX_GPIO_NR(1, 25),
 					     ~0,~0);
 			phy_addr = 4;
 			xcv_type = RGMII;
