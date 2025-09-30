@@ -106,6 +106,7 @@ int mmc_load_image_raw_sector(struct spl_image_info *spl_image,
 	if ((extra_offset > 0) && fs_image_is_signed((void *)header)) {
 		u32 size;
 		void *addr = fs_image_get_ivt_info((void *)header, &size);
+		size = fs_image_get_size((struct fs_header_v1_0 *)header, true);
 
 		if (addr && size) {
 			u32 blocks = (size + bd->blksz - 1) / bd->blksz;
