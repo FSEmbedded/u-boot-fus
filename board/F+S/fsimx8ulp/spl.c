@@ -342,7 +342,6 @@ void board_init_f(ulong dummy)
 
 	xrdc_init_pdac_msc();
 
-
 	/* Load F&S NBOOT-Images */
 	fs_cntr_init(true);
 
