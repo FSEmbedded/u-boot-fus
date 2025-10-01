@@ -14,36 +14,136 @@
 
 /dts-v1/;
 
-/* Set board revision as 3-digit number, e.g. 110 for board rev. 1.10 */
-#define CONFIG_PICOCOREMX8ULP_BOARD_REVISION	110
-/* Set baseboard revision as 3-digit number, e.g. 110 for board rev. 1.10 */
-#define CONFIG_PICOCOREBBDSI_BOARD_REVISION	140
+/* Cortex-M is always supported */
+#define CONFIG_PICOCOREMX8ULP_REV 120
 
-/* Cortex-M support */
-#define SUPPORT_RPMSG
-
-/* Network*/
+/* Network */
 /* WLAN/BLUETOOTH */
 #define CONFIG_PICOCOREMX8ULP_WLAN
+#define CONFIG_PICOCOREMX8ULP_BLUETOOTH
+
+/* ETHERNET */
+#define CONFIG_PICOCOREMX8ULP_ETH_PHY
 
 /* AUDIO */
-// #define CONFIG_PICOCOREMX8ULP_AUDIO_APD
-/* LPAUDIO is currently not supported */
-// #define CONFIG_PICOCOREMX8ULP_AUDIO_RTD
+#define CONFIG_PICOCOREMX8ULP_AUDIO
 
-/*
- * SD_A - External SD port with Card Detect (CD) and Write Protect (WP)
- * On picocoremx8ulp SKIT: external port is Micro-SD card slot with CD but without WP
- */
+/* I2C_INT */
+#define CONFIG_PICOCOREMX8ULP_I2C_INT_RTD
+// #define CONFIG_PICOCOREMX8ULP_I2C_INT_APD
+
+/* GPIO */
+#define CONFIG_PICOCOREMX8ULP_GPIO_EXP
+
+/* Camera support */
+#define CONFIG_PICOCOREMX8ULP_CSI
+
+/* RTC Support */
+#define CONFIG_PICOCOREMX8ULP_EXT_RTC
+#define CONFIG_PICOCOREMX8ULP_INT_RTC
+
+/* EEPROM */
+#define CONFIG_PICOCOREMX8ULP_EEPROM
+
+/* SD_A */
 #if !defined(CONFIG_PICOCOREMX8ULP_WLAN)
-#define CONFIG_PICOCOREMX8ULP_SD_A
-#define CONFIG_PICOCOREMX8ULP_SD_A_CD
-#define CONFIG_PICOCOREMX8ULP_SD_A_WP
+#define CONFIG_PICOCOREMX8ULP_SD_A_SDCARD
+// #define CONFIG_PICOCOREMX8ULP_SD_A_8BIT
 #endif
 
-#include "picocoremx8ulp.dtsi"
+#if !defined(CONFIG_PICOCOREMX8ULP_MIPI_DSI)
+#define CONFIG_PICOCOREMX8ULP_LVDS
+#endif
 
-/ {
-	model = "F&S PicoCoreMX8ULP";
-	compatible = "fus,picocoremx8ulp", "fus,fsimx8ulp", "fsl,imx8ulp";
+/* FLEXSPI */
+/* TODO: there is no RPMSG LPSPI support yet */
+#define CONFIG_PICOCOREMX8ULP_FLEXSPI_USED
+
+#include "picocoremx8ulp.dtsi"
+#include <dt-bindings/usb/pd.h>
+
+&fs_uart_a {
+	/* DBG UART */
+	status = "okay";
+};
+
+&fs_uart_b {
+	status = "okay";
+};
+
+&fs_uart_c {
+	status = "okay";
+};
+
+&fs_i2c_a {
+	status = "okay";
+};
+
+&fs_i2c_b {
+	status = "okay";
+};
+
+&fs_i2c_c {
+	status = "okay";
+};
+
+&fs_i2c_d {
+	status = "okay";
+	ptn5110: tcpc@52 {
+		compatible = "nxp,ptn5110";
+		reg = <0x52>;
+		interrupt-parent = <&rp_gpiob>;
+		interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
+
+		port {
+			typec_dr_sw: endpoint {
+				remote-endpoint = <&usb1_drd_sw>;
+			};
+		};
+
+		usb_con: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			power-role = "dual";
+			data-role = "dual";
+			try-power-role = "sink";
+			source-pdos = <PDO_FIXED(5000, 3000,
+			PDO_FIXED_USB_COMM)>;
+			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)
+				     PDO_VAR(5000, 20000, 3000)>;
+			op-sink-microwatt = <15000000>;
+			self-powered;
+		};
+	};
+};
+
+&fs_usb_1 {
+	dr_mode = "otg";
+	hnp-disable;
+	srp-disable;
+	adp-disable;
+	disable-over-current;
+	usb-role-switch;
+	status = "okay";
+
+	port {
+		usb1_drd_sw: endpoint {
+			remote-endpoint = <&typec_dr_sw>;
+		};
+	};
+};
+
+&fs_usb_2 {
+	dr_mode = "host";
+	power-active-high;
+	disable-over-current;
+	status = "okay";
+};
+
+&fs_bl_pwm {
+	status = "okay";
+};
+
+&fs_pwm {
+	status = "okay";
 };

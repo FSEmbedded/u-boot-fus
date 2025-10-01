@@ -12,41 +12,38 @@
 
 / {
 	board-cfg {
-		board-name = "PicoCoreMX8ULP";
-		board-fdt = "picocoremx8ulp";
+		board-name = "FS-OSM-SF-MX93";
+		board-fdt = "fs-osm-sf-mx93-adp-osm-bb";
 
-        /* DRAM: B.ICDRAM.30 */
+		/* DRAM: B.ICDRAM.53 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_2g1056m2ch1cs";
+		dram-timing = "lpddr4_osm_2g3733m1ch1cs";
 		dram-size = <0x800>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
+
 		boot-dev = "MMC1";
 
 		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
-        /* 1: MMC Bus widht | 2. Boot from Fuses */
-		fuse-bankword = <0x00040001 0x00030007>;
-		fuse-mask =     <0x00c00000 0x00008000>;
-		fuse-value =    <0x00c00000 0x00008000>;
+		fuse-bankword = <0x00030000>;
+		fuse-mask =     <0x20000002>;
+		fuse-value =    <0x20000002>;
 
 		/* Common board features */
-		have-ext-rtc;
 		have-emmc;
+		have-ext-rtc;
 		have-eeprom;
-		have-eth;
-		have-eth-phy;
-		have-audio-apd;
-		// have-audio-rtd;
-		have-wlan;
-		have-sd-a;
-		// have-sd-b;
-		// have-rgb;
-		have-mipi-dsi;
+		have-eth-a;
+		have-eth-b;
+		have-uart-c;
+		have-uart-d;
+		// have-mipi-dsi;
 		have-mipi-csi;
+		have-lvds;
 
-        PCoreMX8ULP-FERT1.110 {
-            board-rev = <110>;
-        };
+		OSM93-FERT13.110 {
+			board-rev = <110>;
+		};
 	};
 };
