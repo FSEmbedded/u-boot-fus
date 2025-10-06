@@ -18,5 +18,3 @@
 &bdinfo {
 	board_name = "netdcumx93";
 };
-
-#include "picocoremx93-u-boot.dtsi"
