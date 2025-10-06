@@ -120,7 +120,20 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 3 (BT_PICOCOREMX91) */
+	{	/* 3 (BT_NDCU93) */
+		.name = "netDCU93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 4 (BT_PICOCOREMX91) */
 		.name = "PicoCoreMX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -133,7 +146,7 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 4 (BT_OSMSFMX91) */
+	{	/* 5 (BT_OSMSFMX91) */
 		.name = "FS-OSM-SF-MX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -146,7 +159,7 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 5 (BT_EFUSMX91) */
+	{	/* 6 (BT_EFUSMX91) */
 		.name = "efusMX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -178,6 +191,7 @@ static int set_gd_board_type(void)
 	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
 	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
+	SET_BOARD_TYPE("NDCU93", BT_NDCU93, board_id, len);
 
 	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
 	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
@@ -294,6 +308,7 @@ int board_early_init_f(void)
 			init_uart_clk(LPUART2_CLK_ROOT);
 			break;
 		case BT_OSMSFMX93:
+		case BT_NDCU93:
 		case BT_EFUSMX93:
 		case BT_OSMSFMX91:
 		case BT_EFUSMX91:
@@ -314,6 +329,7 @@ static void fdt_fsboard_fixup(void *fdt)
 	switch(gd->board_type){
 		case BT_PICOCOREMX91:
 		case BT_PICOCOREMX93:
+		case BT_NDCU93:
 			if(!(features & FEAT_ETH_PHY_A)){
 				fs_fdt_enable(fdt, "ethphy0", 0);
 			}
@@ -441,6 +457,7 @@ static void fdt_common_fixup(void *fdt)
 		case BT_PICOCOREMX93:
 		case BT_EFUSMX91:
 		case BT_EFUSMX93:
+		case BT_NDCU93:
 			fdt_fsboard_fixup(fdt);
 			break;
 		case BT_OSMSFMX91:
@@ -519,6 +536,7 @@ void fs_ethaddr_init(void)
 	case BT_PICOCOREMX93:
 	case BT_EFUSMX93:
 	case BT_OSMSFMX93:
+	case BT_NDCU93:
 	case BT_PICOCOREMX91:
 	case BT_EFUSMX91:
 	case BT_OSMSFMX91:
