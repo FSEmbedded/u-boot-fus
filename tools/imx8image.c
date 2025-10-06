@@ -874,7 +874,7 @@ static int build_container(soc_type_t soc, uint32_t sector_size,
 	set_imx_hdr_v3(&imx_header, 1);
 
 	file_off = get_container_image_start_pos(image_stack, sector_size);
-	fprintf(stdout, "container image offset (aligned):%x\n", file_off);
+	fprintf(stdout, "container image offset (aligned): 0x%x\n", file_off);
 
 	/* step through image stack and generate the header */
 	img_sp = image_stack;

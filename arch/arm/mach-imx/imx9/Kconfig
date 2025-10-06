@@ -82,11 +82,13 @@ config TARGET_IMX95_15X15_EVK
 
 config TARGET_FSIMX91
 	bool "fsimx91"
+	select FSIMX_BOARDS
 	select IMX91
 	select IMX9_DRAM
 
 config TARGET_FSIMX93
 	bool "fsimx93"
+	select FSIMX_BOARDS
 	select IMX93
 	select IMX9_LPDDR4X
 

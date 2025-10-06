@@ -54,6 +54,7 @@ struct ar803x_priv {
 	int flags;
 #define AR803x_FLAG_KEEP_PLL_ENABLED	BIT(0) /* don't turn off internal PLL */
 #define AR803x_FLAG_RGMII_1V8		BIT(1) /* use 1.8V RGMII I/O voltage */
+#define AR803x_FLAG_NO_EEE		BIT(2) /* do not advertise EEE */
 	u16 clk_25m_reg;
 	u16 clk_25m_mask;
 };
@@ -173,6 +174,13 @@ static int ar803x_regs_config(struct phy_device *phydev)
 			return ret;
 	}
 
+	/* Disable EEE advertising if requested */
+	if (priv->flags & AR803x_FLAG_NO_EEE) {
+		ret = phy_clear_bits_mmd(phydev, 0x0007, 0x3c, 0x06);
+		if (ret < 0)
+			return ret;
+	}
+
 	/* save the write access if the mask is empty */
 	if (priv->clk_25m_mask) {
 		val = phy_read_mmd(phydev, MDIO_MMD_AN, AR803x_CLK_25M_SEL_REG);
@@ -211,6 +219,9 @@ static int ar803x_of_init(struct phy_device *phydev)
 
 	if (ofnode_read_bool(node, "qca,keep-pll-enabled"))
 		priv->flags |= AR803x_FLAG_KEEP_PLL_ENABLED;
+
+	if (ofnode_read_bool(node, "qca,no-eee"))
+		priv->flags |= AR803x_FLAG_NO_EEE;
 
 	/*
 	 * We can't use the regulator framework because the regulator is

@@ -288,7 +288,7 @@ static int do_afs(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	} else if (argc == 4 && !strcmp(argv[1], "load")) {
 		ulong load_addr;
 
-		load_addr = hextoul(argv[3], NULL);
+		load_addr = parse_loadaddr(argv[3], NULL);
 		ret = load_image(argv[2], load_addr);
 	} else {
 		return CMD_RET_USAGE;

@@ -16,6 +16,7 @@
 *.dtbo
 *.dtb.S
 *.elf
+*.fs
 *.exe
 *.gcda
 *.gcno
@@ -31,6 +32,7 @@
 *.patch
 *.s
 *.su
+*.fs
 *.swp
 *.tab.[ch]
 
@@ -49,6 +51,7 @@ fit-dtb.blob*
 /simple-bin*
 /u-boot*
 /*.log
+/uboot.nb0
 
 #
 # git files that we don't want to ignore even it they are dot-files

@@ -65,7 +65,7 @@ int fs_board_init_dram_data(unsigned long *ptr){
 	if(!ptr)
 		return -ENODATA;
 
-	_dram_timing = (struct dram_timing_info *)*ptr;
+	_dram_timing = (struct dram_timing_info *)ptr;
 
 	return 0;
 }
@@ -163,7 +163,7 @@ int board_fit_config_name_match(const char *name)
 #if defined(CONFIG_TARGET_FSIMX93)
 	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93, name);
 	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx93-adp-osm-bb", BT_OSMSFMX93, name);
-	CHECK_BOARD_TYPE_AND_NAME("efusmx93", BT_EFUSMX93, name);
+	CHECK_BOARD_TYPE_AND_NAME("efusmx93-SINTF", BT_EFUSMX93, name);
 #elif defined(CONFIG_TARGET_FSIMX91)
 	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx91-adp-osm-bb", BT_OSMSFMX91, name);
 	CHECK_BOARD_TYPE_AND_NAME("efusmx91", BT_EFUSMX91, name);

@@ -10,6 +10,9 @@
 #include <stdbool.h>
 #include <linux/types.h>
 
+char *get_board_name(void);
+char *get_sys_prompt(void);
+
 /**
  * struct cli_ch_state - state information for reading cmdline characters
  *

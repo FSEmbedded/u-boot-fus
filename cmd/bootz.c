@@ -44,9 +44,9 @@ static int bootz_start(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* Setup Linux kernel zImage entry point */
 	if (!argc) {
-		images->ep = image_load_addr;
+		images->ep = get_loadaddr();
 		debug("*  kernel: default image load address = 0x%08lx\n",
-				image_load_addr);
+				images->ep);
 	} else {
 		images->ep = hextoul(argv[0], NULL);
 		debug("*  kernel: cmdline image address = 0x%08lx\n",
@@ -63,7 +63,7 @@ static int bootz_start(struct cmd_tbl *cmdtp, int flag, int argc,
 	 * Handle the BOOTM_STATE_FINDOTHER state ourselves as we do not
 	 * have a header that provide this informaiton.
 	 */
-	if (bootm_find_images(image_load_addr, cmd_arg1(argc, argv),
+	if (bootm_find_images(get_loadaddr(), cmd_arg1(argc, argv),
 			      cmd_arg2(argc, argv), images->ep,
 			      zi_end - zi_start))
 		return 1;
@@ -123,7 +123,7 @@ U_BOOT_LONGHELP(bootz,
 	"\ta third argument is required which is the address of the\n"
 	"\tdevice-tree blob. To boot that kernel without an initrd image,\n"
 	"\tuse a '-' for the second argument. If you do not pass a third\n"
-	"\ta bd_info struct will be passed instead\n"
+	"\targument, a bd_info struct will be passed instead\n"
 #endif
 	);
 

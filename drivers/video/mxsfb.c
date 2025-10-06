@@ -37,6 +37,14 @@
 #define BITS_PP		18
 #define BYTES_PP	4
 
+/* The color channels may easily be swapped in the driver */
+#define PATTERN_RGB     0
+#define PATTERN_RBG     1
+#define PATTERN_GBR     2
+#define PATTERN_GRB     3
+#define PATTERN_BRG     4
+#define PATTERN_BGR     5
+
 struct mxsfb_priv {
 	fdt_addr_t reg_base;
 	struct udevice *disp_dev;
@@ -68,13 +76,15 @@ __weak void mxsfb_system_setup(void)
  */
 
 static void mxs_lcd_init(struct udevice *dev, u32 fb_addr,
-			 struct display_timing *timings, int bpp, bool bridge)
+			 struct display_timing *timings, int bpp,
+			 int rgb_pattern, bool bridge)
 {
 	struct mxsfb_priv *priv = dev_get_priv(dev);
 	struct mxs_lcdif_regs *regs = (struct mxs_lcdif_regs *)priv->reg_base;
 	const enum display_flags flags = timings->flags;
 	uint32_t word_len = 0, bus_width = 0;
 	uint8_t valid_data = 0;
+	uint32_t ctrl2;
 	uint32_t vdctrl0;
 
 #if CONFIG_IS_ENABLED(CLK)
@@ -158,8 +168,11 @@ static void mxs_lcd_init(struct udevice *dev, u32 fb_addr,
 	writel(valid_data << LCDIF_CTRL1_BYTE_PACKING_FORMAT_OFFSET,
 		&regs->hw_lcdif_ctrl1);
 
+	ctrl2 = (rgb_pattern << LCDIF_CTRL2_ODD_LINE_PATTERN_OFFSET)
+	       | (rgb_pattern << LCDIF_CTRL2_EVEN_LINE_PATTERN_OFFSET);
 	if (bridge)
-		writel(LCDIF_CTRL2_OUTSTANDING_REQS_REQ_16, &regs->hw_lcdif_ctrl2);
+		ctrl2 |= LCDIF_CTRL2_OUTSTANDING_REQS_REQ_16;
+	writel(ctrl2,  &regs->hw_lcdif_ctrl2);
 
 	mxsfb_system_setup();
 
@@ -211,13 +224,6 @@ static void mxs_lcd_init(struct udevice *dev, u32 fb_addr,
 
 	/* RUN! */
 	writel(LCDIF_CTRL_RUN, &regs->hw_lcdif_ctrl_set);
-}
-
-static int mxs_probe_common(struct udevice *dev, struct display_timing *timings,
-			    int bpp, u32 fb, bool bridge)
-{
-	/* Start framebuffer */
-	mxs_lcd_init(dev, fb, timings, bpp, bridge);
 
 #ifdef CONFIG_VIDEO_MXS_MODE_SYSTEM
 	/*
@@ -228,8 +234,7 @@ static int mxs_probe_common(struct udevice *dev, struct display_timing *timings,
 	 * sets the RUN bit, then waits until it gets cleared and repeats this
 	 * infinitelly. This way, we get smooth continuous updates of the LCD.
 	 */
-	struct mxsfb_priv *priv = dev_get_priv(dev);
-	struct mxs_lcdif_regs *regs = (struct mxs_lcdif_regs *)priv->reg_base;
+	struct mxs_lcdif_regs *regs = (struct mxs_lcdif_regs *)reg_base;
 
 	memset(&desc, 0, sizeof(struct mxs_dma_desc));
 	desc.address = (dma_addr_t)&desc;
@@ -242,8 +247,6 @@ static int mxs_probe_common(struct udevice *dev, struct display_timing *timings,
 	/* Execute the DMA chain. */
 	mxs_dma_circ_start(MXS_DMA_CHANNEL_AHB_APBH_LCDIF, &desc);
 #endif
-
-	return 0;
 }
 
 static int mxs_remove_common(phys_addr_t reg_base, u32 fb)
@@ -343,7 +346,7 @@ static int mxs_video_probe(struct udevice *dev)
 	ret = mxs_of_get_timings(dev, &timings, &bpp);
 	if (ret)
 		return ret;
-	timings.flags |= DISPLAY_FLAGS_DE_HIGH;
+	timings.flags |= DISPLAY_FLAGS_DE_HIGH; //### Why?
 
 	if (CONFIG_IS_ENABLED(IMX_MODULE_FUSE)) {
 		if (check_module_fused(MODULE_LCDIF)) {
@@ -395,9 +398,7 @@ static int mxs_video_probe(struct udevice *dev)
 		}
 	}
 
-	ret = mxs_probe_common(dev, &timings, bpp, plat->base, enable_bridge);
-	if (ret)
-		return ret;
+	mxs_lcd_init(dev, plat->base, &timings, bpp, PATTERN_RGB, enable_bridge);
 
 	switch (bpp) {
 	case 32:
@@ -420,9 +421,9 @@ static int mxs_video_probe(struct udevice *dev)
 	uc_priv->ysize = timings.vactive.typ;
 
 	/* Enable dcache for the frame buffer */
-	fb_start = plat->base;
+	fb_start = plat->base & ~(MMU_SECTION_SIZE - 1);
 	fb_end = plat->base + plat->size;
-
+	fb_end = ALIGN(fb_end, 1 << MMU_SECTION_SHIFT);
 	mmu_set_region_dcache_behaviour(fb_start, fb_end - fb_start,
 					DCACHE_WRITEBACK);
 	video_set_flush_dcache(dev, true);

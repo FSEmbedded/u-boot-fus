@@ -46,39 +46,14 @@ static int do_zfs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 	struct zfs_file zfile;
 	struct device_s vdev;
 
-	if (argc < 3)
+	if ((argc < 3) || (argc > 6))
 		return CMD_RET_USAGE;
 
-	count = 0;
-	addr = hextoul(argv[3], NULL);
-	filename = env_get("bootfile");
-	switch (argc) {
-	case 3:
-		addr_str = env_get("loadaddr");
-		if (addr_str != NULL)
-			addr = hextoul(addr_str, NULL);
-		else
-			addr = CONFIG_SYS_LOAD_ADDR;
-
-		break;
-	case 4:
-		break;
-	case 5:
-		filename = argv[4];
-		break;
-	case 6:
-		filename = argv[4];
-		count = hextoul(argv[5], NULL);
-		break;
-
-	default:
-		return cmd_usage(cmdtp);
-	}
-
-	if (!filename) {
-		puts("** No boot file defined **\n");
-		return 1;
-	}
+	addr = (argc > 3) ? parse_loadaddr(argv[3], NULL) : get_loadaddr();
+	filename = (argc > 4) ? env_parse_bootfile(argv[4]) : env_get_bootfile();
+	count = (argc > 5) ? hextoul(argv[5], NULL) : 0;
+	pos = (argc > 6) ? hextoul(argv[6], NULL) : 0;
+	set_fileaddr(addr);
 
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);
 	if (part < 0)
@@ -111,11 +86,8 @@ static int do_zfs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	zfs_close(&zfile);
 
-	/* Loading ok, update default load address */
-	image_load_addr = addr;
-
 	printf("%llu bytes read\n", zfile.size);
-	env_set_hex("filesize", zfile.size);
+	env_set_fileinfo(zfile.size);
 
 	return 0;
 }

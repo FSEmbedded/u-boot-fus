@@ -457,32 +457,47 @@ void serial_stdio_init(void)
 {
 }
 
+int serial_get_alias_seq(void)
+{
+	int seq, err;
+
+	if (!gd->cur_serial_dev)
+		return -ENXIO;
+
+	err = fdtdec_get_alias_seq(gd->fdt_blob, "serial",
+				   dev_of_offset(gd->cur_serial_dev), &seq);
+	if (err < 0)
+		return err;
+
+	return seq;
+}
+
 #if CONFIG_IS_ENABLED(DM_STDIO)
 
 #if CONFIG_IS_ENABLED(SERIAL_PRESENT)
-static void serial_stub_putc(struct stdio_dev *sdev, const char ch)
+static void serial_stub_putc(const struct stdio_dev *sdev, const char ch)
 {
 	_serial_putc(sdev->priv, ch);
 }
 
-static void serial_stub_puts(struct stdio_dev *sdev, const char *str)
+static void serial_stub_puts(const struct stdio_dev *sdev, const char *str)
 {
 	_serial_puts(sdev->priv, str);
 }
 
 #ifdef CONFIG_CONSOLE_FLUSH_SUPPORT
-static void serial_stub_flush(struct stdio_dev *sdev)
+static void serial_stub_flush(const struct stdio_dev *sdev)
 {
 	_serial_flush(sdev->priv);
 }
 #endif
 
-static int serial_stub_getc(struct stdio_dev *sdev)
+static int serial_stub_getc(const struct stdio_dev *sdev)
 {
 	return _serial_getc(sdev->priv);
 }
 
-static int serial_stub_tstc(struct stdio_dev *sdev)
+static int serial_stub_tstc(const struct stdio_dev *sdev)
 {
 	return _serial_tstc(sdev->priv);
 }
@@ -555,10 +570,6 @@ U_BOOT_ENV_CALLBACK(baudrate, on_baudrate);
 static int serial_post_probe(struct udevice *dev)
 {
 	struct dm_serial_ops *ops = serial_get_ops(dev);
-#if CONFIG_IS_ENABLED(DM_STDIO)
-	struct serial_dev_priv *upriv = dev_get_uclass_priv(dev);
-	struct stdio_dev sdev;
-#endif
 	int ret;
 
 	/* Set the baud rate */
@@ -569,25 +580,26 @@ static int serial_post_probe(struct udevice *dev)
 	}
 
 #if CONFIG_IS_ENABLED(DM_STDIO)
-	if (!(gd->flags & GD_FLG_RELOC))
-		return 0;
-	memset(&sdev, '\0', sizeof(sdev));
-
-	strlcpy(sdev.name, dev->name, sizeof(sdev.name));
-	sdev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT | DEV_FLAGS_DM;
-	sdev.priv = dev;
-	sdev.putc = serial_stub_putc;
-	sdev.puts = serial_stub_puts;
-	STDIO_DEV_ASSIGN_FLUSH(&sdev, serial_stub_flush);
-	sdev.getc = serial_stub_getc;
-	sdev.tstc = serial_stub_tstc;
+	if (gd->flags & GD_FLG_RELOC) {
+		struct stdio_dev sdev;
+		struct serial_dev_priv *upriv = dev_get_uclass_priv(dev);
 
 #if CONFIG_IS_ENABLED(SERIAL_RX_BUFFER)
-	/* Allocate the RX buffer */
-	upriv->buf = malloc(CONFIG_SERIAL_RX_BUFFER_SIZE);
+		/* Allocate the RX buffer */
+		upriv->buf = malloc(CONFIG_SERIAL_RX_BUFFER_SIZE);
 #endif
 
-	stdio_register_dev(&sdev, &upriv->sdev);
+		memset(&sdev, '\0', sizeof(sdev));
+		strcpy(sdev.name, "serial");
+		sdev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT | DEV_FLAGS_DM;
+		sdev.priv = dev;
+		sdev.putc = serial_stub_putc;
+		sdev.puts = serial_stub_puts;
+		STDIO_DEV_ASSIGN_FLUSH(&sdev, serial_stub_flush);
+		sdev.getc = serial_stub_getc;
+		sdev.tstc = serial_stub_tstc;
+		stdio_register_dev(&sdev, &upriv->sdev);
+	}
 #endif
 	return 0;
 }

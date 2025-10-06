@@ -33,6 +33,12 @@ extern void * memchr(const void *, int, __kernel_size_t);
 #endif
 extern void * memset(void *, int, __kernel_size_t);
 
+/* This one is new: fill count words starting at dest with data */
+#ifdef CONFIG_USE_ARCH_MEMSET32
+#define __HAVE_ARCH_MEMSET32
+#endif
+extern unsigned *memset32(unsigned *, unsigned, __kernel_size_t);
+
 #if 0
 extern void __memzero(void *ptr, __kernel_size_t n);
 

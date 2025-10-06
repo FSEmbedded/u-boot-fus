@@ -14,21 +14,22 @@
 #include <command.h>			/* run_command() */
 #include <common.h>			/* types, get_board_name(), ... */
 #include <serial.h>			/* get_serial_device() */
-#include <stdio_dev.h>			/* DEV_NAME_SIZE */
+#include <stdio_dev.h>			/* STDIO_NAME_LEN */
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/delay.h>
 #if CONFIG_IS_ENABLED(MTD_RAW_NAND)
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #endif
+#include <dm/uclass.h>				/* uclass_get_device() */
 #include "fs_board_common.h"		/* Own interface */
 #include "fs_mmc_common.h"
-#include <fuse.h>			/* fuse_read() */
-#if !defined(CONFIG_TARGET_FSIMX93) && \
-	!defined(CONFIG_TARGET_FSIMX91) && \
-	!defined(CONFIG_TARGET_FSIMX8ULP)
-#include <update.h>			/* enum update_action */
+#ifdef CONFIG_FS_SELFTEST
+#include "fs_dram_test.h"
 #endif
+#include <fuse.h>			/* fuse_read() */
+#include <update.h>			/* enum update_action */
+#include "fs_fdt_common.h"
 
 #ifdef CONFIG_FS_BOARD_CFG
 #include "fs_image_common.h"		/* fs_image_*() */
@@ -44,8 +45,9 @@
 
 #endif /* __UBOOT__ */
 
-#define DEV_NAME_SIZE 32
-int serial_get_alias_seq(void);
+#if CONFIG_IS_ENABLED(IMX_HAB)
+#include <asm/mach-imx/hab.h>
+#endif
 
 /* ============= Functions not available in SPL ============================ */
 
@@ -56,6 +58,11 @@ static char fs_sys_prompt[32];
 
 /* Store a pointer to the current board info */
 static const struct fs_board_info *current_bi;
+
+#ifdef CONFIG_FS_SELFTEST
+/* Store DRAM test result for bdinfo */
+static char dram_result[64] = "FAILED (Not run)";
+#endif
 
 /* ------------- Functions using fs_nboot_args ----------------------------- */
 
@@ -151,8 +158,8 @@ const char *fs_board_get_nboot_version(void)
 	return &version[0];
 }
 
-#if 0
 /* Set RAM size (as given by NBoot) and RAM base */
+#ifndef CONFIG_TARGET_FSIMX8M
 int dram_init(void)
 {
 	DECLARE_GLOBAL_DATA_PTR;
@@ -162,8 +169,9 @@ int dram_init(void)
 
 	return 0;
 }
+#endif
 
-
+#ifndef CONFIG_TARGET_FSIMX7ULP
 void board_nand_state(struct mtd_info *mtd, unsigned int state)
 {
 	/* Save state to pass it to Linux later */
@@ -216,15 +224,13 @@ const char *fs_board_get_nboot_version(void)
 	return fs_image_get_nboot_version(NULL);
 }
 
-#if !defined(CONFIG_TARGET_FSIMX93)
 /* Set RAM size; optee will be subtracted in dram_init() */
 int board_phys_sdram_size(phys_size_t *size)
 {
-	*size = fs_board_get_cfg_info()->dram_size << 20;
+	*size = (phys_size_t)fs_board_get_cfg_info()->dram_size << 20;
 
 	return 0;
 }
-#endif
 
 #endif /* CONFIG_FS_BOARD_CFG */
 
@@ -259,9 +265,57 @@ void fs_board_issue_reset(uint active_us, uint delay_us,
 #endif /* __UBOOT__ */
 
 #ifdef CONFIG_CMD_UPDATE
+/*
+ * Returns true if the condition of the GPIO description is met.
+ *
+ * The given GPIO description contains the number of a GPIO, followed by an
+ * optional '-' or '_', followed by an optional "high" or "low" for active
+ * high or active low signal. Actually only the first character is checked,
+ * 'h' and 'H' mean "high", everything else is taken for "low". Default is
+ * active low.
+ *
+ * Examples:
+ *    123_high  GPIO #123, active high
+ *    65-low    GPIO #65, active low
+ *    13        GPIO #13, active low
+ *    0x1fh     GPIO #31, active high (this shows why a dash or
+ *              underscore before "high" or "low" makes sense)
+ *
+ * Remark:
+ * We do not have any clue here what the GPIO represents and therefore we do
+ * not assume any pad settings. So for example if the GPIO represents a button
+ * that is floating in the released state, an external pull-up or pull-down
+ * must be used to avoid unintentionally detecting the active state.
+ */
+static bool update_check_gpio(const char *gpiodesc)
+{
+	char *endp;
+	int active_state = 0;
+	unsigned int gpio = simple_strtoul(gpiodesc, &endp, 0);
+
+	if (endp != gpiodesc) {
+		char c = *endp;
+
+		if ((c == '-') || (c == '_'))
+			c = *(++endp);
+		if ((c == 'h') || (c == 'H'))
+			active_state = 1;
+		if (!gpio_direction_input(gpio)
+		    && (gpio_get_value(gpio) == active_state))
+			return true;
+	}
+
+	return false;
+}
+
+/* Check if recover or update procedure is requested (or none at all). */
 enum update_action board_check_for_recover(void)
 {
-	char *recover_gpio;
+	char *gpiodesc;
+
+	if (env_get_yesno("sec_boot") == 1) {
+		return UPDATE_ACTION_NONE;
+	}
 
 #ifndef CONFIG_FS_BOARD_CFG
 	/* On some platforms, the check for recovery is already done in NBoot.
@@ -270,46 +324,19 @@ enum update_action board_check_for_recover(void)
 		return UPDATE_ACTION_RECOVER;
 #endif
 
-	/*
-	 * If a recover GPIO is defined, check if it is in active state. The
-	 * variable contains the number of a gpio, followed by an optional '-'
-	 * or '_', followed by an optional "high" or "low" for active high or
-	 * active low signal. Actually only the first character is checked,
-	 * 'h' and 'H' mean "high", everything else is taken for "low".
-	 * Default is active low.
-	 *
-	 * Examples:
-	 *    123_high  GPIO #123, active high
-	 *    65-low    GPIO #65, active low
-	 *    13        GPIO #13, active low
-	 *    0x1fh     GPIO #31, active high (this shows why a dash or
-	 *              underscore before "high" or "low" makes sense)
-	 *
-	 * Remark:
-	 * We do not have any clue here what the GPIO represents and therefore
-	 * we do not assume any pad settings. So for example if the GPIO
-	 * represents a button that is floating in the released state, an
-	 * external pull-up or pull-down must be used to avoid unintentionally
-	 * detecting the active state.
-	 */
-	recover_gpio = env_get("recovergpio");
-	if (recover_gpio) {
-		char *endp;
-		int active_state = 0;
-		unsigned int gpio = simple_strtoul(recover_gpio, &endp, 0);
+	/* If a recover GPIO is defined, check if it is active. */
+	gpiodesc = env_get("recovergpio");
+	if (gpiodesc && update_check_gpio(gpiodesc))
+		return UPDATE_ACTION_RECOVER;
 
-		if (endp != recover_gpio) {
-			char c = *endp;
+	/* Handle optional GPIO for update */
+	gpiodesc = env_get("updategpio");
+	if (gpiodesc && !update_check_gpio(gpiodesc))
+		return UPDATE_ACTION_NONE;
 
-			if ((c == '-') || (c == '_'))
-				c = *(++endp);
-			if ((c == 'h') || (c == 'H'))
-				active_state = 1;
-			if (!gpio_direction_input(gpio)
-			    && (gpio_get_value(gpio) == active_state))
-				return UPDATE_ACTION_RECOVER;
-		}
-	}
+	/* Skip check for update when going for fastboot */
+	if (is_boot_from_usb())
+		return UPDATE_ACTION_NONE;
 
 	return UPDATE_ACTION_UPDATE;
 }
@@ -320,6 +347,8 @@ enum update_action board_check_for_recover(void)
 void fs_board_init_common(const struct fs_board_info *board_info)
 {
 	DECLARE_GLOBAL_DATA_PTR;
+	__maybe_unused struct udevice *udev;
+
 #ifndef CONFIG_FS_BOARD_CFG
 	struct fs_nboot_args *pargs = (struct fs_nboot_args *)NBOOT_ARGS_BASE;
 
@@ -340,6 +369,11 @@ void fs_board_init_common(const struct fs_board_info *board_info)
 
 	/* Prepare the command prompt */
 	sprintf(fs_sys_prompt, "%s # ", board_info->name);
+
+#ifdef CONFIG_IMX_TMU
+	/* Initialize thermal sensor */
+	uclass_get_device(UCLASS_THERMAL, 0, &udev);
+#endif
 }
 #endif /* __UBOOT__ */
 
@@ -402,13 +436,18 @@ void fs_board_late_init_common(const char *serial_name)
 		puts(" *** Warning - not compatible with current U-Boot!");
 	putc('\n');
 
+#ifdef CONFIG_FS_SELFTEST
+	/* Save dram_result for bdinfo */
+	fs_test_ram(dram_result);
+#endif
+
 	/* Set sercon variable if not already set */
 	envvar = env_get("sercon");
 	if (!envvar || !strcmp(envvar, "undef")) {
 #ifdef CONFIG_DM_SERIAL
-		char sercon[DEV_NAME_SIZE];
+		char sercon[STDIO_NAME_LEN];
 
-		snprintf(sercon, DEV_NAME_SIZE, "%s%d", serial_name,
+		snprintf(sercon, STDIO_NAME_LEN, "%s%d", serial_name,
 			 serial_get_alias_seq());
 		env_set("sercon", sercon);
 #else
@@ -489,7 +528,7 @@ void fs_board_late_init_common(const char *serial_name)
 	/* Set usdhcdev variable if not already set */
 	envvar = env_get("usdhcdev");
 	if (!envvar || !strcmp(envvar, "undef")) {
-		char usdhcdev[DEV_NAME_SIZE];
+		char usdhcdev[STDIO_NAME_LEN];
 
 		sprintf(usdhcdev, "%c", '0' + usdhc_boot_device);
 		env_set("usdhcdev", usdhcdev);
@@ -498,20 +537,27 @@ void fs_board_late_init_common(const char *serial_name)
 	/* Set mmcdev variable if not already set */
 	envvar = env_get("mmcdev");
 	if (!envvar || !strcmp(envvar, "undef")) {
-		char mmcdev[DEV_NAME_SIZE];
+		char mmcdev[STDIO_NAME_LEN];
 
 		sprintf(mmcdev, "%c", '0' + mmc_boot_device);
 		env_set("mmcdev", mmcdev);
 	}
 
 	/* Set some variables with a direct value */
+#if defined(CONFIG_FS_SELFTEST)
+	env_set("bootdelay", "0");
+	env_set("updatecheck", "");
+	env_set("installcheck", "");
+	env_set("recovercheck", "");
+#else
 	setup_var("bootdelay", current_bi->bootdelay, 0);
 	setup_var("updatecheck", current_bi->updatecheck, 0);
 	setup_var("installcheck", current_bi->installcheck, 0);
 	setup_var("recovercheck", current_bi->recovercheck, 0);
-#if defined(CONFIG_MTDIDS_DEFAULT)
-	setup_var("mtdids", CONFIG_MTDIDS_DEFAULT, 0);
-	setup_var("partition", CFG_MTDPART_DEFAULT, 0);
+#endif
+#if CONFIG_IS_ENABLED(MTD_RAW_NAND)
+	setup_var("mtdids", MTDIDS_DEFAULT, 0);
+	setup_var("partition", MTDPART_DEFAULT, 0);
 #endif
 #ifdef CONFIG_FS_BOARD_MODE_RO
 	setup_var("mode", "ro", 0);
@@ -549,12 +595,18 @@ void fs_board_late_init_common(const char *serial_name)
 	setup_var("mtdparts", current_bi->mtdparts, 1);
 	setup_var("network", current_bi->network, 1);
 	setup_var("init", current_bi->init, 1);
+	setup_var("bootfdt", "set_bootfdt", 1);
 	setup_var("fdtfile", "set_bootfdt", 1);
 	setup_var("bootargs", "set_bootargs", 1);
 #ifdef CONFIG_ARCH_MX7ULP
 	setup_var("bootauxfile", "power_mode_switch.img", 0);
 #endif
 
+	if (fs_board_is_closed()) {
+		env_set("sec_boot", "yes");
+	} else {
+		env_set("sec_boot", "no");
+	}
 
 	/* Set some variables by runnning another variable */
 #ifdef CONFIG_FS_UPDATE_SUPPORT
@@ -581,9 +633,9 @@ void fs_board_late_init_common(const char *serial_name)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 /* Return the board name (board specific) */
-const char *get_board_name(void)
+char *get_board_name(void)
 {
-	return (const char *)current_bi->name;
+	return current_bi->name;
 }
 
 /* Return the system prompt (board specific) */
@@ -591,6 +643,14 @@ char *get_sys_prompt(void)
 {
 	return fs_sys_prompt;
 }
+
+#ifdef CONFIG_FS_SELFTEST
+/* Return dram_result for bdinfo */
+char *get_dram_result(void)
+{
+	return dram_result;
+}
+#endif
 
 #endif /* ! CONFIG_SPL_BUILD */
 
@@ -603,6 +663,7 @@ struct boot_dev_name {
 
 const struct boot_dev_name boot_dev_names[] = {
 	{USB_BOOT,  "USB"},
+	{USB2_BOOT, "USB2"},
 	{NAND_BOOT, "NAND"},
 	{MMC1_BOOT, "MMC1"},
 	{MMC2_BOOT, "MMC2"},
@@ -809,6 +870,8 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	force_alt_usdhc = val & BOOT_CFG_FORCE_ALT_USDHC;
 	alt = (val & BOOT_CFG_ALT_SEL_MASK) >> BOOT_CFG_ALT_SEL_SHIFT;
 	switch ((val & BOOT_CFG_DEVSEL_MASK) >> BOOT_CFG_DEVSEL_SHIFT) {
+	case 0x1: // USB0 / USB1
+		boot_dev = get_boot_device();
 	case 0x2: // eMMC(SD3)
 		boot_dev = MMC3_BOOT;
 		if (force_alt_usdhc)
@@ -1053,4 +1116,55 @@ bool fs_board_is_closed(void)
 
 	return false;
 #endif
+}
+
+__weak int fs_board_cma_fdt_fixup(void * fdt)
+{
+	const char *cma_env;
+	int cma_value;
+	int env_len;
+	int size_shift;
+	int offs;
+	fdt32_t tmp[2];
+
+	cma_env = env_get("cma_size");
+
+	/*
+	 * Set linux,cma size depending on RAM size. Keep default from
+	 * device tree if DRAM_SIZE <= 1GB, increase to 640MB otherwise.
+	 */
+	if ((!cma_env || !*cma_env) && gd->ram_size > (1UL << 30)){
+		/* Set cma size to 640MB */
+		cma_env = "640M";
+	}
+
+	if (!cma_env || !*cma_env)
+		return -EINVAL;
+
+	env_len = strlen(cma_env);
+
+	/*convert cma_env to int value, first get identifier M/G and make str to ul*/
+	if(cma_env[env_len - 1] == 'M' || cma_env[env_len - 1] == 'm') {
+		size_shift = 20; /* M */
+	} else if (cma_env[env_len - 1] == 'G' || cma_env[env_len - 1] == 'g') {
+		size_shift = 30; /* G */
+	} else {
+		printf("Invalid cma size %s, cma_size=nn[M|G]\n", cma_env);
+		return -EINVAL;
+	}
+
+	cma_value = simple_strtoul(cma_env, NULL, 10);
+	debug("cma_value = %d, size_shift = %d\n", cma_value, size_shift);
+
+	tmp[0] = cpu_to_fdt32(0x0);
+	tmp[1] = cpu_to_fdt32(cma_value << size_shift);
+
+	offs = fs_fdt_path_offset(fdt, "/reserved-memory/linux,cma");
+	if (offs < 0) {
+		printf("Failed to find /reserved-memory/linux,cma in device tree\n");
+		return offs;
+	}
+
+	fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
+	return 0;
 }

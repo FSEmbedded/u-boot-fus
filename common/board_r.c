@@ -89,6 +89,13 @@ __weak int cpu_secondary_init_r(void)
 	return 0;
 }
 
+#ifdef CONFIG_DM_VIDEO
+__weak int board_video_init(void)
+{
+	return 0;
+}
+#endif
+
 static int initr_trace(void)
 {
 #ifdef CONFIG_TRACE
@@ -445,8 +452,9 @@ static int initr_env(void)
 		save_prev_bl_data();
 	#endif
 
-	/* Initialize from environment */
-	image_load_addr = env_get_ulong("loadaddr", 16, image_load_addr);
+	/* Initialize load address; the internal value is set via callback */
+	env_set_hex("loadaddr",
+		    env_get_ulong("loadaddr", 16, CONFIG_SYS_LOAD_ADDR));
 
 	return 0;
 }
@@ -459,6 +467,15 @@ static int initr_malloc_bootparams(void)
 		puts("WARNING: Cannot allocate space for boot parameters\n");
 		return -ENOMEM;
 	}
+	return 0;
+}
+#endif
+
+/* enable exceptions */
+#ifdef CONFIG_ARM
+static int initr_enable_interrupts(void)
+{
+	enable_interrupts();
 	return 0;
 }
 #endif
@@ -733,6 +750,9 @@ static init_fnc_t init_sequence_r[] = {
 	 */
 	pci_init,
 #endif
+#ifdef CONFIG_DM_VIDEO
+	board_video_init,
+#endif
 	stdio_add_devices,
 	jumptable_init,
 #ifdef CONFIG_API
@@ -754,6 +774,9 @@ static init_fnc_t init_sequence_r[] = {
 	kgdb_init,
 #endif
 	interrupt_init,
+#ifdef CONFIG_ARM
+	initr_enable_interrupts,
+#endif
 #if defined(CONFIG_MICROBLAZE) || defined(CONFIG_M68K)
 	timer_init,		/* initialize timer */
 #endif

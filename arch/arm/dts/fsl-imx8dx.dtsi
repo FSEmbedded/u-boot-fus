@@ -113,39 +113,6 @@
 		 * Shouldn't be used at A core and Linux side.
 		 *
 		 */
-		decoder_boot: decoder_boot@0x84000000 {
-			no-map;
-			reg = <0 0x84000000 0 0x2000000>;
-		};
-		encoder_boot: encoder_boot@0x86000000 {
-			no-map;
-			reg = <0 0x86000000 0 0x200000>;
-		};
-		rpmsg_reserved: rpmsg@0x90000000 {
-			no-map;
-			reg = <0 0x90000000 0 0x400000>;
-		};
-		rpmsg_dma_reserved:rpmsg_dma@0x90400000 {
-			compatible = "shared-dma-pool";
-			no-map;
-			reg = <0 0x90400000 0 0x1C00000>;
-		};
-		decoder_rpc: decoder_rpc@0x92000000 {
-			no-map;
-			reg = <0 0x92000000 0 0x200000>;
-		};
-		encoder_rpc: encoder_rpc@0x92200000 {
-			no-map;
-			reg = <0 0x92200000 0 0x200000>;
-		};
-		dsp_reserved: dsp@0x92400000 {
-			no-map;
-			reg = <0 0x92400000 0 0x2000000>;
-		};
-		encoder_reserved: encoder_reserved@0x94400000 {
-			no-map;
-			reg = <0 0x94400000 0 0x800000>;
-		};
 		/* global autoconfigured region for contiguous allocations */
 		linux,cma {
 			compatible = "shared-dma-pool";
@@ -325,7 +292,7 @@
 				#power-domain-cells = <0>;
 				power-domains = <&pd_lsio>;
 			};
-			pd_lsio_gpio6:PD_LSIO_GPIO_6 {
+			pd_lsio_gpio6: PD_LSIO_GPIO_6 {
 				reg = <SC_R_GPIO_6>;
 				#power-domain-cells = <0>;
 				power-domains = <&pd_lsio>;
@@ -2620,7 +2587,7 @@
 		interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
-                power-domains = <&pd_lsio_gpio0>;
+		power-domains = <&pd_lsio_gpio0>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2631,7 +2598,7 @@
 		interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
-                power-domains = <&pd_lsio_gpio1>;
+		power-domains = <&pd_lsio_gpio1>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2642,7 +2609,7 @@
 		interrupts = <GIC_SPI 138 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
-                power-domains = <&pd_lsio_gpio2>;
+		power-domains = <&pd_lsio_gpio2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2653,7 +2620,7 @@
 		interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
-                power-domains = <&pd_lsio_gpio3>;
+		power-domains = <&pd_lsio_gpio3>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2675,7 +2642,7 @@
 		interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
-                power-domains = <&pd_lsio_gpio5>;
+		power-domains = <&pd_lsio_gpio5>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2686,7 +2653,7 @@
 		interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
-                power-domains = <&pd_lsio_gpio6>;
+		power-domains = <&pd_lsio_gpio6>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2697,7 +2664,7 @@
 		interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 		gpio-controller;
 		#gpio-cells = <2>;
-                power-domains = <&pd_lsio_gpio7>;
+		power-domains = <&pd_lsio_gpio7>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
@@ -2817,7 +2784,7 @@
 		interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&wu>;
 		clocks = <&clk IMX8QXP_UART1_CLK>,
-			<&clk IMX8QXP_UART1_IPG_CLK>;
+			 <&clk IMX8QXP_UART1_IPG_CLK>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX8QXP_UART1_CLK>;
 		assigned-clock-rates = <80000000>;
@@ -2834,7 +2801,7 @@
 		interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&wu>;
 		clocks = <&clk IMX8QXP_UART2_CLK>,
-			<&clk IMX8QXP_UART2_IPG_CLK>;
+			 <&clk IMX8QXP_UART2_IPG_CLK>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX8QXP_UART2_CLK>;
 		assigned-clock-rates = <80000000>;
@@ -2851,7 +2818,7 @@
 		interrupts = <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&wu>;
 		clocks = <&clk IMX8QXP_UART3_CLK>,
-			<&clk IMX8QXP_UART3_IPG_CLK>;
+			 <&clk IMX8QXP_UART3_IPG_CLK>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX8QXP_UART3_CLK>;
 		assigned-clock-rates = <80000000>;
@@ -3293,7 +3260,6 @@
 
 	dsp: dsp@596e8000 {
 		compatible = "fsl,imx8qxp-dsp";
-		reserved-region = <&dsp_reserved>;
 		reg = <0x0 0x596e8000 0x0 0x88000>;
 		clocks = <&clk IMX8QXP_AUD_DSP_IPG>,
 			<&clk IMX8QXP_AUD_OCRAM_IPG>,
@@ -3390,7 +3356,6 @@
 		reg = <0x0 0x5f010000 0x0 0x10000>, /* Controller reg*/
 		      <0x0 0x7ff00000 0x0 0x80000>; /* PCI cfg space */
 		reg-names = "dbi", "config";
-		reserved-region = <&rpmsg_reserved>;
 		#address-cells = <3>;
 		#size-cells = <2>;
 		device_type = "pci";
@@ -3454,8 +3419,6 @@
 
 	vpu_decoder: vpu_decoder@2c000000 {
 		compatible = "nxp,imx8qm-b0-vpudec", "nxp,imx8qxp-b0-vpudec";
-		boot-region = <&decoder_boot>;
-		rpc-region = <&decoder_rpc>;
 		reg = <0x0 0x2c000000 0x0 0x1000000>;
 		reg-names = "vpu_regs";
 		power-domains = <&pd_vpu_dec>;
@@ -3467,10 +3430,6 @@
 		compatible = "nxp,imx8qxp-b0-vpuenc";
 		#address-cells = <1>;
 		#size-cells = <1>;
-
-		boot-region = <&encoder_boot>;
-		rpc-region = <&encoder_rpc>;
-		reserved-region = <&encoder_reserved>;
 		reg = <0x0 0x2d000000 0x0 0x1000000>,	/*VPU Encoder*/
 			<0x0 0x2c000000 0x0 0x2000000>; /*VPU*/
 		reg-names = "vpu_regs";
@@ -3512,7 +3471,6 @@
 			status = "disabled";
 			mub-partition = <3>;
 			power-domains = <&pd_lsio_mu5a>;
-			memory-region = <&rpmsg_dma_reserved>;
 		};
 	};
 

@@ -208,6 +208,7 @@ void eth_try_another(int first_restart);	/* Change the device */
 void eth_set_current(void);		/* set nterface to ethcur var */
 
 int eth_get_dev_index(void);		/* get the device index */
+void eth_parse_enetaddr(const char *addr, uchar *enetaddr);
 
 /**
  * eth_env_set_enetaddr_by_index() - set the MAC address environment variable
@@ -223,7 +224,7 @@ int eth_get_dev_index(void);		/* get the device index */
  * Return: 0 if OK, other value on error
  */
 int eth_env_set_enetaddr_by_index(const char *base_name, int index,
-				 uchar *enetaddr);
+				  uchar *enetaddr);
 
 
 /*
@@ -243,6 +244,18 @@ int usb_ether_init(void);
  *	Return true if the address is valid.
  */
 int eth_env_get_enetaddr_by_index(const char *base_name, int index,
+				  uchar *enetaddr);
+
+/*
+ * Set the environment variable for an ethernet interface if not already set
+ * Args:
+ *	base_name - base name for device (normally "eth")
+ *	index - device index number (0 for first)
+ *	enetaddr - 6 byte hardware address
+ * Returns:
+ *	Return 0 if the variable could be set
+ */
+int eth_setenv_enetaddr_by_index(const char *base_name, int index,
 				 uchar *enetaddr);
 
 int eth_init(void);			/* Initialize the device */

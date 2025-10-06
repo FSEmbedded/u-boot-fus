@@ -701,6 +701,8 @@ struct mmc {
 #endif
 #if CONFIG_IS_ENABLED(MMC_HW_PARTITIONING)
 	uint hc_wp_grp_size;	/* in 512-byte sectors */
+	uint max_enh_size_mult; /* in hc_wp_grp_size entities */
+
 #endif
 #if CONFIG_IS_ENABLED(MMC_WRITE)
 	struct sd_ssr	ssr;	/* SD status register */
@@ -984,8 +986,10 @@ void board_mmc_power_init(void);
 int board_mmc_init(struct bd_info *bis);
 int cpu_mmc_init(struct bd_info *bis);
 int mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr);
+int board_mmc_get_env_addr(struct mmc *mmc, int copy, u32 *env_addr);
 # ifdef CONFIG_SYS_MMC_ENV_PART
 extern uint mmc_get_env_part(struct mmc *mmc);
+extern uint board_mmc_get_env_part(struct mmc *mmc, int copy);
 # endif
 int mmc_get_env_dev(void);
 int mmc_map_to_kernel_blk(int dev_no);

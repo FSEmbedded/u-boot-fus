@@ -1,264 +1,185 @@
 # SPDX-License-Identifier: GPL-2.0+
 #
-# Copyright 2024 F&S Elektronik Systeme GmbH
+# Copyright 2025 F&S Elektronik Systeme GmbH
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
+# Build NBoot image as a set of F&S images.
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+#  +---------------------+
+#  | BOOT-INFO           | (Container)
+#  +---------------------+
+#  | BOARD-ID            |
+#  +---------------------+
+#  | BOARD-INFO          | (Container)
+#  +---------------------+
+#  | DRAM-TYPE (lpddr4)  | (Container)
+#  +---------------------+
+#  | DRAM-TYPE (lpddr4x) | (Container)
+#  +---------------------+
+#  | EXTRA               |
+#  +---------------------+
 #
+# For the layout of a container image, see board/F+S/common/fus-common.mk.
+# A detailed layout of the NBoot image is in board/F+S/common/fs_cntr_common.c.
 
 include spl/include/autoconf.mk
+include board/$(VENDOR)/common/fus-common.mk
 
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2025.02
+NBOOT_SUFFIX = 2025.07
+
+# Image type for mkimage
+MKIMAGE_TYPE = imx8image
+
+# - New BOARD-CFGs are added in board_info.cfg.
+# - New DRAM-TIMINGs are added in lpddr4(x)_info.cfg)
+
+# -----------------------------------------------------------------------------
+#
+# Rules for boot_info.fs.
+#
+# Data flow:
+# 1. u-boot-spl.bin -> (cp) -> fsimx93_SPL.fsi
+# 1. fsimx93_SPL.fsi -> (fsc) -> boot_info.fs
+
+$(obj)/%_SPL.fsi: spl/u-boot-spl.bin
+	$(call cmd,copy)
+
+$(obj)/%_CORTEX-M.fsi: $(srctree)/board/$(BOARDDIR)/m33_image.bin
+	$(call cmd,copy)
+
+$(obj)/%_UPOWER.fsi: $(NXP_PATH)/upower.bin
+	$(call cmd,copy)
+
+$(eval $(call fsc,boot_info,-a 0x400-0x40 -t BOOT-INFO -d $(BOARD)))
+
+# -----------------------------------------------------------------------------
+#
+# Rules for board_id.fsh.
+
+$(obj)/board_id.fsh:
+	${Q}cat /dev/null | $(FSIMG) -q -j -t BOARD-ID -d DUMMY-ID > $@
+
+# -----------------------------------------------------------------------------
+#
+# Rules for board_info.fs.
+#
+# Data flow:
+# 1. Dynamic macros + <cfg>.dts --> (cat) --> .<cfg>.dts.tmp
+# 2. .<cfg>.dts.tmp + nboot-info.dtsi --> (dtc) --> <cfg>_BOARD-CFG.fsi
+# 3. *_BOARD-CFG.fsi --> (fsc) --> board_info.fs
+
 GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
 
-# List of files to add to BOARD-CONFIGS image. The file name depends on the
-# names given in the Selectsoft WaWi for the board and the PCB revision. The
-# format is:
-#
-#   <board>-FERT<n>.<rev>.fs
-#
-# <board>: Name of the board
-# <n>:     Subtype of board (i.e. mounting variant)
-# <rev>:   Revision number, typically the PCB revision 100, 110, 120, etc.
-#
-# Group by <board> and <n>, then within each group sort by *descending* <rev>
-# number, i.e. add new revisions in front of the list. The first configuration
-# where <board> and <n> match and where <rev> is less than or equal to the
-# <rev> of the BOARD-ID is selected. This is because not every new board
-# revision needs a new software configuration. And a board with a new board
-# revision that does not have a its own configuration yet can at least be
-# started with an older configuration.
-#
-# For example assume for a certain board type, there are BOARD-CFGs with
-# revisions .130, .120 and .100. Boards with revision .121 or .120 in their
-# BOARD-ID would both select .120, a board with .110 would select .100.
-BOARD_CONFIGS = \
-	SCore8ULP-FERT1.fs \
-	PCoreMX8ULP-FERT1.fs \
-	PCoreMX8ULP-FERT2.fs \
-	PCoreMX8ULP-FERT5.fs \
-	PCoreMX8ULP-FERT6.fs \
-	OSM8ULP-FERT1.fs \
-	OSM8ULP-FERT2.fs
+# 1. Prepend some macros with varying content to .dts file of each board cfg
+quiet_cmd_cfg_dts_tmp = CAT     $@
+      cmd_cfg_dts_tmp = \
+	(echo "/* Macros with varying content */"; \
+	echo "\#define NBOOT_VERSION \"$(NBOOT_VERSION)\""; \
+	echo "\#define BOARD_CFG_NAME \"$(*F)\""; \
+	echo "\#define SPL_SIZE $$(($$(stat -c %s $(obj)/boot_info.fs)))"; \
+	cat $<) > $@
 
-# List of DRAM Timings for each DRAM-TYPE
-RT_LPDDR4 := \
-	lpddr4_pc_2g1056m2ch1cs_timing.fs \
-	lpddr4_osm_1g1056m2ch1cs_timing.fs \
-	lpddr4_osm_2g1056m2ch1cs_timing.fs \
-	lpddr4_sc_1g1056m2ch1cs_timing.fs
+$(obj)/.%.dts.tmp: $(SRC_PATH)/%.dts $(obj)/boot_info.fs
+	$(call cmd,cfg_dts_tmp)
 
-# List of DRAM-INFO (TYPES) for DRAM-SETTINGS Container; only add those that have timings
-DRAM_TYPES :=
-ifneq ($(RT_LPDDR4),)
-DRAM_TYPES += lpddr4_type.fs
-endif
-
-# List of files to add to EXTRA image
-EXTRA_FILES = addfsheader.sh.fs fsimage.sh.fs
-
-# List of files to add to NBOOT Image
-NBOOT_FILES = \
-	$(BOARD)_boot-info.fs \
-	$(BOARD)_board-id.fsh \
-	$(BOARD)_board-info.fs \
-	$(BOARD)_dram-infos.fs \
-	$(BOARD)_extra.fs
-
-# Final NBOOT image
-NBOOT = $(BOARD)_nboot.bin
-
-NBOOT_PATH = board/$(BOARDDIR)/nboot
-DTS_BOARD_CONFIGS = $(addprefix $(NBOOT_PATH)/, $(BOARD_CONFIGS:.fs,.dts))
-
-# Add object path for F&S images
-OBJ_BOARD_CONFIGS = $(addprefix $(NBOOT_PATH)/, $(BOARD_CONFIGS))
-OBJ_RT_LPDDR4 = $(addprefix $(NBOOT_PATH)/, $(RT_LPDDR4))
-OBJ_RT_LPDDR4X = $(addprefix $(NBOOT_PATH)/, $(RT_LPDDR4X))
-OBJ_DRAM_TYPES = $(addprefix $(NBOOT_PATH)/, $(DRAM_TYPES))
-OBJ_EXTRA_FILES = $(addprefix $(NBOOT_PATH)/, $(EXTRA_FILES))
-OBJ_NBOOT_FILES = $(addprefix $(NBOOT_PATH)/, $(NBOOT_FILES))
-OBJ_NBOOT = $(addprefix $(NBOOT_PATH)/, $(NBOOT))
-
-# Add path for NXP firmware images
-NXP_PATH = board/F+S/NXP-Firmware
-
-# MKIMAGE defines
-CNTR_DEPFILES := $(srctree)/tools/imx_cntr_image.sh
-IMAGE_TYPE := imx8image
-CNTR_LOG = cntr.log
-
-### DDR SPECIFIC TARGETS ###
-quiet_cmd_sed = SED     $@
-cmd_sed = sed $2 $< > $@
-
-DRAM_IMAGE_ADDR = $(shell printf "%d" 0x22048000)
-DRAM_TIMING_ADDR = $(shell expr ${DRAM_IMAGE_ADDR} + 64 )
-DRAM_TIMINGS_LDS = $(NBOOT_PATH)/.dram-timings.lds.tmp
-DRAM_TIMINGS_REPLACE_SED_CMD = \
-	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(shell printf "0x%x" $(DRAM_TIMING_ADDR))/g"
-
-$(DRAM_TIMINGS_LDS): $(obj)/dram-timings.lds
-	$(call cmd,sed,$(DRAM_TIMINGS_REPLACE_SED_CMD))
-
-quiet_cmd_dram_elf = LINK    $@
-cmd_dram_elf = $(LD) -T $(DRAM_TIMINGS_LDS) -o $@ $<
-
-$(NBOOT_PATH)/%.o: $(obj)/%.c
-	$(Q)$(CC) $(c_flags) -c -o $@ $<
-
-$(NBOOT_PATH)/.%.elf.tmp: $(NBOOT_PATH)/%.o $(DRAM_TIMINGS_LDS)
-	$(call cmd,dram_elf)
-
-quiet_cmd_dram_bin = OBJCOPY $@
-cmd_dram_bin = $(OBJCOPY) --gap-fill=0xff -O binary $< $@
-
-$(NBOOT_PATH)/.%.bin.tmp: $(NBOOT_PATH)/.%.elf.tmp
-	$(call cmd,dram_bin)
-
-quiet_cmd_fsimg = FSIMG   $@
-cmd_fsimg = ${srctree}/scripts/addfsheader.sh $2 > $@
-
-$(NBOOT_PATH)/%_timing.fs: $(NBOOT_PATH)/.%_timing.bin.tmp
-	$(call cmd,fsimg,-c -w -a 0x400 -p32[7]=$(shell printf "0x%x" $$(($(CONFIG_SPL_FUS_DRAM_TIMING_ADDR) + 0x40))) -t DRAM-TIMING -d $(*F) $< > $@)
-
-LPDDR4_CFG = lpddr4_type.cfg
-
-MKIMAGEFLAGS_lpddr4_type.cntr = -n ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG) \
-	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
-
-MKIMAGEFLAGS_lpddr4x_type.cntr = -n ${srctree}/board/$(BOARDDIR)/$(LPDDR4X_CFG) \
-	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
-
-$(NBOOT_PATH)/lpddr4_type.cntr:  MKIMAGEOUTPUT = $(NBOOT_PATH)/lpddr4_type$(CNTR_LOG)
-$(NBOOT_PATH)/lpddr4_type.cntr: $(OBJ_RT_LPDDR4) 
-
-$(NBOOT_PATH)/lpddr4_type.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG)
-	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(LPDDR4_CFG)
-	$(call if_changed,mkimage)
-
-$(NBOOT_PATH)/lpddr4_type.fs: $(NBOOT_PATH)/lpddr4_type.cntr
-	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/lpddr4_type${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+' | head -1))
-	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg, -c -w -a 0x400 -e ${index_offset} -t DRAM-INFO -d lpddr4 $^)
-
-$(NBOOT_PATH)/%_dram-infos.fs: $(OBJ_DRAM_TYPES)
-	$(Q)cat $(OBJ_DRAM_TYPES) > $@
-
-### END: DDR SPECIFIC TARGETS ###
-
-### BOARD-CFG SPECIFIC TARGETS ###
-
-ifneq ($(KBUILD_SRC),)
-prepare_nboot:
-	$(Q)cp -a ${KBUILD_SRC}/board/F+S/${BOARD}/nboot/*.dtsi board/F+S/${BOARD}/nboot/
-else
-prepare_nboot:
-endif
-
-# Prepend some macros with varying content to BOARD-CFG .dts
-$(NBOOT_PATH)/.%.dts.tmp: $(obj)/%.dts $(NBOOT_PATH)/$(BOARD)_boot-info.fs $(NBOOT_PATH)/nboot-info.dtsi FORCE
-	@echo "/* Macros with varying content */" > $@
-	@echo "#define NBOOT_VERSION \"$(NBOOT_VERSION)\"" >> $@
-	@echo "#define BOARD_CFG_NAME \"$(*F)\"" >> $@
-	@echo "#define CONFIG_SPL_BUILD" >> $@
-	@echo "#define SPL_SIZE $(shell expr $(shell ls -la $(NBOOT_PATH)/$(BOARD)_boot-info.fs | cut -d ' ' -f 5 ) - 64)" >> $@
-	@cat $< >> $@
-
-$(NBOOT_PATH)/.%.dtb.tmp: $(NBOOT_PATH)/.%.dts.tmp
+# 2. Call device tree compiler (dtc) to build dtb files
+$(obj)/%_BOARD-CFG.fsi: $(obj)/.%.dts.tmp
 	$(call cmd,dtco)
 
-$(NBOOT_PATH)/%.fs: $(NBOOT_PATH)/.%.dtb.tmp
-	$(call cmd,fsimg, -c -w -a 0x400 -p32[7]=$(CONFIG_FUS_BOARDCFG_ADDR) -t BOARD-CFG -d $(*F) $<)
+# 3. Build F&S container image
+$(eval $(call fsc,board_info,-a 0x400 -t BOARD-INFO -d $(BOARD)))
 
-BOARDINFO_CFG = board-info.cfg
+# -----------------------------------------------------------------------------
+#
+# Rules for lpddr4_info.fs/lpddr4x_info.fs
+#
+# Data flow (<t> is either lpddr4 or lpddr4x):
+# 1. dram-timings.lds --> (sed) --> .dram-timings.lds.tmp
+# 2. <t>_imem_1d/dmem_1d/imem_2d/dmem_2d.bin --> .<t>_type-fw.bin.tmp
+# 3. <t>_<timing>_timing.c --> (gcc) --> <t>_<timing>_timing.o
+# 4. <t>_<timing>_timing.o -> (ld) -> .<t>_<timing>_timing.elf.tmp
+# 5. .<t>_<timing>_timing.elf.tmp --> (objcopy) --> <t>_DRAM-TIMING.fsi
+# 6. *_DRAM-TIMING.fsi --> (fsc) --> <t>_info.fs
 
-MKIMAGEFLAGS_board-info.cntr = -n ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG) \
-	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
+LPDDR4_CFG = $(srctree)/$(src)/lpddr4_info.cfg
+LPDDR4X_CFG = $(srctree)/$(src)/lpddr4x_info.cfg
 
-$(NBOOT_PATH)/board-info.cntr: $(OBJ_BOARD_CONFIGS)
-$(NBOOT_PATH)/board-info.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/board-info_$(CNTR_LOG)
-$(NBOOT_PATH)/board-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG)
-	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(BOARDINFO_CFG)
-	$(call if_changed,mkimage)
+# 1. Build final linker script by replacing ###DRAM_TIMING_ADDR### with value
+DRAM_TIMING_ADDR = ${CONFIG_SAVED_DRAM_TIMING_BASE}
+DRAM_TIMINGS_LDS = $(obj)/.dram-timings.lds.tmp
+DRAM_TIMINGS_REPLACE_SED_CMD = \
+	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(DRAM_TIMING_ADDR)/g"
 
-$(NBOOT_PATH)/%_board-info.fs: $(NBOOT_PATH)/board-info.cntr
-	$(eval index_offset := $(shell grep DATA $(NBOOT_PATH)/board-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
-	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg, -c -w -a 0x400 -e ${index_offset} -t BOARD-INFO -d $(BOARD) $^)
+$(DRAM_TIMINGS_LDS): $(SRC_PATH)/dram-timings.lds
+	$(call cmd,sed,$(DRAM_TIMINGS_REPLACE_SED_CMD))
 
-### END: BOARD-CFG SPECIFIC TARGETS ###
+$(obj)/%_DRAM-FW.fsi:
+	$(call cmd,ddrfw)
 
-### BOOT-INFO SPECIFIC TARGETS ###
+# 3. Compile DRAM timings
+$(obj)/%_timing.o: TYPE = $(*F).x
+$(obj)/%_timing.o: $(SRC_PATH)/%_timing.c
+	$(call cmd,dram_cc)
 
-BOOTINFO_CFG = boot-info.cfg
+# 4. Link DRAM timings with our own linker skript
+$(obj)/.%_timing.elf.tmp: $(obj)/%_timing.o $(DRAM_TIMINGS_LDS)
+	$(call cmd,dram_elf,$(DRAM_TIMINGS_LDS))
 
-BOOTCNTR_IMGS = $(shell grep IMAGE $(srctree)/board/$(BOARDDIR)/$(BOOTINFO_CFG) | cut -f 3 )
-BOOTIMGS_FSH = $(shell echo ${BOOTCNTR_IMGS} | sed -e 's/\.bin/.fsh/g')
+# 5. Convert timings from ELF to binary format
+$(obj)/%_DRAM-TIMING.fsi: $(obj)/.%_timing.elf.tmp
+	$(call cmd,dram_bin)
 
-BOOTINDEX_FS_OPT = -c -w -a 0x400 -i -t INDEX $^
-BOOTIMGS_FS_OPT = -c -a 0x400 -j -t $(call map_boottype,$@) -d $(BOARD) $<
+# 6. Create lpddr4_info.fs/lpddr4x_info.fs
+ifneq ($(wildcard $(LPDDR4_CFG)),)
+$(eval $(call fsc,lpddr4_info,-a 0x400 -t DRAM-INFO -d lpddr4))
+endif
 
-define map_boottype
-$(if $(findstring m33_image.fsh,$(1)),CORTEX-M,\
-$(if $(findstring u-boot-spl.fsh,$(1)),SPL,\
-$(shell basename $(1) | cut -d '.' -f 1 | tr a-z A-Z)))
-endef
+ifneq ($(wildcard $(LPDDR4X_CFG)),)
+$(eval $(call fsc,lpddr4x_info,-a 0x400 -t DRAM-INFO -d lpddr4x))
+endif
 
-$(BOOTIMGS_FSH): ${BOOTCNTR_IMGS}
-%.fsh: %.bin
-	$(call cmd,fsimg,$(BOOTIMGS_FS_OPT))
+# -----------------------------------------------------------------------------
+#
+# Rules for extra.fs. This is not a container image, just a simple F&S image.
+#
+# Data flow:
+# 1. <script>.sh --> addfsheader --> .<script>.sh.fs.tmp
+# 2. .<script>.sh.fs.tmp --> addfsheader --> extra.fs
 
-$(NBOOT_PATH)/boot-index.fs: $(BOOTIMGS_FSH)
-	$(call cmd,fsimg,$(BOOTINDEX_FS_OPT))
+EXTRA_FILES = addfsheader.sh fsimage.sh
+EXTRA_FILES_OBJ = $(addprefix $(obj)/,$(addsuffix .fs,$(EXTRA_FILES)))
 
-MKIMAGEFLAGS_boot-info.cntr = -n ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_CFG) \
-	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
+$(obj)/%.sh.fs: $(srctree)/scripts/%.sh
+	$(call cmd,fsimg, -t BASH-SCRIPT -d $(*F) $<)
 
-$(NBOOT_PATH)/boot-info.cntr: $(NBOOT_PATH)/boot-index.fs
-$(NBOOT_PATH)/boot-info.cntr: MKIMAGEOUTPUT = $(NBOOT_PATH)/boot-info_$(CNTR_LOG)
-$(NBOOT_PATH)/boot-info.cntr: /dev/null ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_CFG)
-	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(BOOTINFO_CFG)
-	$(call if_changed,mkimage)
+$(obj)/extra.fs: $(EXTRA_FILES_OBJ)
+	$(call cmd,fsimg, -t EXTRA -a 0x400-0x40 -d $(BOARD) $^)
 
-# Do not align the binary. The correct Padding is done in boot-info.cntr
-# The Padding recuires BOARD-ID.fs directly after boot-info.fs
-$(NBOOT_PATH)/%_boot-info.fs: $(NBOOT_PATH)/boot-info.cntr
-	$(eval index_offset := $(shell grep -e DATA -e M33 -e AP $(NBOOT_PATH)/boot-info_$(CNTR_LOG) | grep -oP 'file_offset = \K[^ ]+' | head -1))
-	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,fsimg, -c -w -a 0x400-0x40 -e ${index_offset} -t BOOT-INFO -d $(BOARD) $^)
+# -----------------------------------------------------------------------------
+#
+# Rules for nboot.fs. This consists of a group of F&S images.
+#
+# Data flow:
+# 1. $(NBOOT_FILES) --> (cat) --> nboot-<arch>-<vers>.fs
+# 2. nboot-<arch>-<vers>.fs --> (cp) --> nboot.fs
 
-### END: BOOT-INFO SPECIFIC TARGETS ###
+NBOOT_FILES = \
+	$(obj)/boot_info.fs \
+	$(obj)/board_id.fsh \
+	$(obj)/board_info.fs \
+	$(if $(wildcard $(LPDDR4_CFG)),$(obj)/lpddr4_info.fs) \
+	$(if $(wildcard $(LPDDR4X_CFG)),$(obj)/lpddr4x_info.fs) \
+	$(obj)/extra.fs
 
-### NBOOT TARGETS ###
-$(NBOOT_PATH)/addfsheader.sh.fs: $(srctree)/scripts/addfsheader.sh
-$(NBOOT_PATH)/fsimage.sh.fs: $(srctree)/scripts/fsimage.sh
-%.sh.fs:
-	$(call cmd,fsimg, -t BASH-SCRIPT -d $(*F) $^)
-
-%_extra.fs: $(OBJ_EXTRA_FILES)
-	$(call cmd,fsimg, -t EXTRA -a 0x400-0x40 -d $(*F) $^)
-
-$(NBOOT_PATH)/$(BOARD)_board-id.fsh:
-	${Q}dd if=/dev/zero bs=1 count=0 status=none | $(srctree)/scripts/addfsheader.sh -j -t BOARD-ID -d DUMMY-ID > $@
-
-nboot-$(BOARD)-$(NBOOT_SUFFIX).fs: $(OBJ_NBOOT_FILES)
-	$(Q)cat $(OBJ_NBOOT_FILES) > $@
+nboot-$(BOARD)-$(NBOOT_SUFFIX).fs: $(NBOOT_FILES)
+	$(call cmd,cat)
 
 nboot.fs: nboot-$(BOARD)-$(NBOOT_SUFFIX).fs
-	$(Q)cp $< nboot.fs
+	$(call cmd,copy)
 
-PHONY += nboot prepare_nboot
-nboot: prepare_nboot nboot.fs
+PHONY += nboot
+nboot: nboot.fs
 	@echo "Finished doing nboot"
-### END: NBOOT TARGETS ###

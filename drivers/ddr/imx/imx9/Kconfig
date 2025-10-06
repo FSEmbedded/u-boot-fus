@@ -30,6 +30,13 @@ config SAVED_DRAM_TIMING_BASE
 	  info into memory for low power use.
 	default 0x2051C000
 
+config SKIP_DRAM_TIMING_SAVING
+	bool "Skip saving the dram timing to SAVED_DRAM_TIMING_BASE (F&S)"
+	help
+	  On F&S boards, the dram timing is loaded to SAVED_DRAM_TIMING_BASE
+	  by default. Then copying in-place is not required and my not
+	  even work.
+
 config SAVED_QB_STATE_BASE
 	hex "Define the base address for saved QuickBoot state"
 	depends on IMX_SNPS_DDR_PHY_QB_GEN

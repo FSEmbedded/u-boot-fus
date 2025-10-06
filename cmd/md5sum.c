@@ -147,7 +147,7 @@ static int do_md5sum(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc < 3)
 		return CMD_RET_USAGE;
 
-	addr = hextoul(argv[1], NULL);
+	addr = parse_loadaddr(argv[1], NULL);
 	len = hextoul(argv[2], NULL);
 
 	buf = map_sysmem(addr, len);

@@ -339,8 +339,8 @@ static int bootrom_find_fshdr_stream(struct fs_header_v1_0 *fsh)
 	u8 *phdr = NULL;
 	u8 *ptr = NULL;
 
-	/* look within 64K for FSH */
-	for (i = 0; i < 64; i++){
+	/* look within 256K for FSH */
+	for (i = 0; i < 256; i++){
 		ret = bootrom_download_page(&g_buffer, 0, PAGESIZE_USB);
 		if(ret < 0)
 			return ret;
@@ -355,7 +355,7 @@ static int bootrom_find_fshdr_stream(struct fs_header_v1_0 *fsh)
 	}
 
 	if(!phdr){
-		printf("Can't find F&S Header in 64K range\n");
+		printf("Can't find F&S Header in 256K range\n");
 		return -ENODATA;
 	}
 

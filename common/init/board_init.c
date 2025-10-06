@@ -159,7 +159,7 @@ void board_init_f_init_reserve(ulong base)
 	 * Use gd as it is now properly set for all architectures.
 	 */
 
-#if CONFIG_IS_ENABLED(SYS_MALLOC_F)
+#if CONFIG_IS_ENABLED(SYS_MALLOC_F) && !defined(CFG_MALLOC_F_ADDR)
 	/* go down one 'early malloc arena' */
 	gd->malloc_base = base;
 #if CONFIG_IS_ENABLED(ZERO_MEM_BEFORE_USE)

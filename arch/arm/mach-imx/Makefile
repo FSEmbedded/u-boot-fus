@@ -14,7 +14,7 @@ ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
 obj-$(CONFIG_CMD_PROVISION_KEY) += cmd_prov_key.o
 endif
-obj-y += mmc_env.o
+obj-$(CONFIG_ENV_IS_IN_MMC) += mmc_env.o
 obj-$(CONFIG_FEC_MXC) += mac.o
 obj-$(CONFIG_DWC_ETH_QOS) += mac.o
 obj-$(CONFIG_SYS_I2C_MXC) += i2c-mxv7.o
@@ -37,6 +37,8 @@ obj-$(CONFIG_SPL_BUILD)	+= spl.o
 endif
 ifeq ($(SOC),$(filter $(SOC),imx8m imx8 imx8ulp imx9))
 obj-y	+= dt_optee.o
+obj-$(CONFIG_IMX_HAB) += hab.o
+obj-$(CONFIG_FS_SECURE_BOOT) += checkboot.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx7))
 obj-y	+= cpu.o
@@ -60,12 +62,14 @@ obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
 endif
 obj-$(CONFIG_$(SPL_)SATA) += sata.o
 obj-$(CONFIG_IMX_HAB)    += hab.o
+obj-$(CONFIG_FS_SECURE_BOOT) += checkboot.o
 obj-$(CONFIG_SYSCOUNTER_TIMER) += syscounter.o
 obj-$(CONFIG_IMX_TRUSTY_OS) += trusty.o
 endif
 ifeq ($(SOC),$(filter $(SOC),mx7ulp))
 obj-y  += cache.o mmdc_size.o
 obj-$(CONFIG_IMX_HAB) += hab.o
+obj-$(CONFIG_IMX_BOOTAUX) += imx_bootaux.o
 endif
 ifeq ($(SOC),$(filter $(SOC),vf610))
 obj-y += ddrmc-vf610.o
@@ -79,6 +83,8 @@ endif
 ifneq ($(CONFIG_SPL_BUILD),y)
 obj-$(CONFIG_CMD_BMODE) += cmd_bmode.o
 obj-$(CONFIG_CMD_HDMIDETECT) += cmd_hdmidet.o
+obj-$(CONFIG_BLINK_IMX) += blink_timer.o
+obj-$(CONFIG_USE_IRQ) += interrupts.o
 obj-$(CONFIG_CMD_DEKBLOB) += cmd_dek.o
 obj-$(CONFIG_CMD_NANDBCB) += cmd_nandbcb.o
 obj-$(CONFIG_CMD_QSPIHDR) += cmd_qspihdr.o
@@ -134,7 +140,9 @@ endif
 DEPFILE_EXISTS := $(shell $(CPP) $(cpp_flags) -x c -o u-boot-dtb.cfgout $(srctree)/$(IMX_CONFIG); if [ -f u-boot-dtb.cfgout ]; then $(CNTR_DEPFILES) u-boot-dtb.cfgout; echo $$?; fi)
 else ifeq ($(CONFIG_ARCH_IMX8M), y)
 IMAGE_TYPE := imx8mimage
-DEPFILE_EXISTS := 0
+####DEPFILE_EXISTS := 0
+IMX8M_DEPFILES := $(srctree)/tools/imx8m_image.sh
+DEPFILE_EXISTS := $(shell $(CPP) $(cpp_flags) -x c -o spl/u-boot-spl.cfgout $(srctree)/$(IMX_CONFIG);if [ -f spl/u-boot-spl.cfgout ]; then $(IMX8M_DEPFILES) spl/u-boot-spl.cfgout 0; echo $$?; fi)
 else ifeq ($(CONFIG_ARCH_IMX9), y)
 IMAGE_TYPE := imx8image
 DEPFILE_EXISTS := 0
@@ -220,8 +228,12 @@ endif
 
 ifdef CONFIG_ARM64
 ifeq ($(CONFIG_ARCH_IMX8M), y)
+MKIMAGEFLAGS_SPL = -n spl/u-boot-spl.cfgout \
+		   -T $(IMAGE_TYPE) -e $(CONFIG_SPL_TEXT_BASE)
+SPL: MKIMAGEOUTPUT = SPL.log
 
-SPL: spl/u-boot-spl.bin spl/u-boot-spl.cfgout FORCE
+SPL: spl/u-boot-spl-ddr.bin FORCE
+	$(call if_changed,mkimage)
 
 MKIMAGEFLAGS_flash.bin = -n spl/u-boot-spl.cfgout \
 		   -T $(IMAGE_TYPE) -e $(CONFIG_SPL_TEXT_BASE)
@@ -232,13 +244,21 @@ spl/u-boot-spl.cfgout: $(IMX_CONFIG) FORCE
 	$(call if_changed_dep,cpp_cfg)
 
 spl/u-boot-spl-ddr.bin: spl/u-boot-spl.bin spl/u-boot-spl.cfgout FORCE
+ifeq ($(DEPFILE_EXISTS),0)
+	$(IMX8M_DEPFILES) spl/u-boot-spl.cfgout 1
+endif
 
 flash.bin: spl/u-boot-spl-ddr.bin u-boot.itb FORCE
 	$(call if_changed,mkimage)
 endif
 
 ifeq ($(CONFIG_ARCH_IMX8), y)
-SPL:
+MKIMAGEFLAGS_SPL = -n spl/u-boot-spl.cfgout \
+		   -T $(IMAGE_TYPE) -e 0x100000
+SPL: MKIMAGEOUTPUT = SPL.log
+
+SPL: spl/u-boot-spl.bin FORCE
+	$(call if_changed,mkimage)
 
 MKIMAGEFLAGS_flash.bin = -n spl/u-boot-spl.cfgout -T $(IMAGE_TYPE) -e 0x100000
 flash.bin: MKIMAGEOUTPUT = flash.log

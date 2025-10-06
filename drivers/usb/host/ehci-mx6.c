@@ -190,6 +190,7 @@ int ehci_hcd_init(int index, enum usb_init_type init,
 				HC_LENGTH(ehci_readl(&(*hccr)->cr_capbase)));
 	}
 
+	/* Enable VBUS power if done with GPIO */
 	if ((type == init) || (type == USB_INIT_DEVICE))
 		board_ehci_power(index, (type == USB_INIT_DEVICE) ? 0 : 1);
 	if (type != init)
@@ -213,6 +214,11 @@ int ehci_hcd_init(int index, enum usb_init_type init,
 
 int ehci_hcd_stop(int index)
 {
+#ifdef CONFIG_USB_EHCI_POWERDOWN
+	/* Shut down VBUS power if done with GPIO */
+	board_ehci_power(index, 0);
+#endif
+
 	return 0;
 }
 #else
@@ -378,7 +384,8 @@ static int ehci_usb_of_to_plat(struct udevice *dev)
 			"extcon", NULL);
 	if (extcon) {
 		priv->init_type = board_ehci_usb_phy_mode(dev);
-		goto check_type;
+		if ( priv->init_type != USB_INIT_UNKNOWN)
+			goto check_type;
 	}
 
 	dr_mode = usb_get_dr_mode(dev_ofnode(dev));
@@ -519,7 +526,7 @@ static int ehci_usb_probe(struct udevice *dev)
 	struct usb_plat *plat = dev_get_plat(dev);
 	struct usb_ehci *ehci = dev_read_addr_ptr(dev);
 	struct ehci_mx6_priv_data *priv = dev_get_priv(dev);
-	enum usb_init_type type = plat->init_type;
+	enum usb_init_type type = priv->init_type;
 	struct ehci_hccr *hccr;
 	struct ehci_hcor *hcor;
 	int ret;
@@ -588,11 +595,14 @@ static int ehci_usb_probe(struct udevice *dev)
 		ret = ehci_usb_phy_mode(dev);
 		if (ret)
 			goto err_clk;
-		if (priv->init_type != type) {
+		if (priv->init_type != type && type != USB_INIT_UNKNOWN) {
 			ret = -ENODEV;
 			goto err_clk;
 		}
 	}
+	plat->init_type = priv->init_type;
+
+	printf("%s \n", (priv->init_type == USB_INIT_DEVICE)? "Device":"Host");
 
 #if CONFIG_IS_ENABLED(DM_REGULATOR)
 	if (priv->vbus_supply) {

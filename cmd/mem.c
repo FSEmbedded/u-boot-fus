@@ -21,6 +21,7 @@
 #include <flash.h>
 #endif
 #include <hash.h>
+#include <image.h>			/* parse_loadaddr(), ... */
 #include <log.h>
 #include <mapmem.h>
 #include <rand.h>
@@ -31,6 +32,7 @@
 #include <linux/compiler.h>
 #include <linux/ctype.h>
 #include <linux/delay.h>
+#include <linux/sizes.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -90,7 +92,7 @@ static int do_mem_md(struct cmd_tbl *cmdtp, int flag, int argc,
 
 		/* Address is specified since argc > 1
 		*/
-		addr = hextoul(argv[1], NULL);
+		addr = parse_loadaddr(argv[1], NULL);
 		addr += base_address;
 
 		/* If another parameter, it is the length to display.
@@ -145,7 +147,7 @@ static int do_mem_mw(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* Address is specified since argc > 1
 	*/
-	addr = hextoul(argv[1], NULL);
+	addr = parse_loadaddr(argv[1], NULL);
 	addr += base_address;
 
 	/* Get the value to write.
@@ -259,10 +261,10 @@ static int do_mem_cmp(struct cmd_tbl *cmdtp, int flag, int argc,
 	       size == 4 ? "word" :
 	       size == 2 ? "halfword" : "byte";
 
-	addr1 = hextoul(argv[1], NULL);
+	addr1 = parse_loadaddr(argv[1], NULL);
 	addr1 += base_address;
 
-	addr2 = hextoul(argv[2], NULL);
+	addr2 = parse_loadaddr(argv[2], NULL);
 	addr2 += base_address;
 
 	count = hextoul(argv[3], NULL);
@@ -322,7 +324,7 @@ static int do_mem_cp(struct cmd_tbl *cmdtp, int flag, int argc,
 	if ((size = cmd_get_data_size(argv[0], 4)) < 0)
 		return 1;
 
-	addr = hextoul(argv[1], NULL);
+	addr = parse_loadaddr(argv[1], NULL);
 	addr += base_address;
 
 	dest = hextoul(argv[2], NULL);
@@ -414,7 +416,7 @@ static int do_mem_search(struct cmd_tbl *cmdtp, int flag, int argc,
 		}
 
 		/* Address is specified since argc > 1 */
-		addr = hextoul(argv[0], NULL);
+		addr = parse_loadaddr(argv[0], NULL);
 		addr += base_address;
 
 		/* Length is the number of objects, not number of bytes */
@@ -513,7 +515,7 @@ static int do_mem_base(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (argc > 1) {
 		/* Set new base address.
 		*/
-		base_address = hextoul(argv[1], NULL);
+		base_address = parse_loadaddr(argv[1], NULL);
 	}
 	/* Print the current base address.
 	*/
@@ -544,7 +546,7 @@ static int do_mem_loop(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* Address is always specified.
 	*/
-	addr = hextoul(argv[1], NULL);
+	addr = parse_loadaddr(argv[1], NULL);
 
 	/* Length is the number of objects, not number of bytes.
 	*/
@@ -637,7 +639,7 @@ static int do_mem_loopw(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* Address is always specified.
 	*/
-	addr = hextoul(argv[1], NULL);
+	addr = parse_loadaddr(argv[1], NULL);
 
 	/* Length is the number of objects, not number of bytes.
 	*/
@@ -1075,15 +1077,29 @@ static int do_mem_mtest(struct cmd_tbl *cmdtp, int flag, int argc,
 	ulong pattern = 0;
 	int iteration;
 
+#ifdef CONFIG_SYS_MEMTEST_START
 	start = CONFIG_SYS_MEMTEST_START;
+#else
+	start = CONFIG_SYS_SDRAM_BASE;
+#endif
+#ifdef CONFIG_SYS_MEM_TEST_END
 	end = CONFIG_SYS_MEMTEST_END;
+#else
+	/*
+	 * End before the stack. The stack is located before u-boot code at
+	 * the end of RAM. Unfortuntely we do not know the exact size of the
+	 * stack when memtest is called, but as this is typically directly
+	 * called from the main command loop, it should not exceed 16KB.
+	 */
+	end = gd->start_addr_sp - SZ_16K;
+#endif
 
 	if (argc > 1)
-		if (strict_strtoul(argv[1], 16, &start) < 0)
+		if (strict_parse_loadaddr(argv[1], &start) < 0)
 			return CMD_RET_USAGE;
 
 	if (argc > 2)
-		if (strict_strtoul(argv[2], 16, &end) < 0)
+		if (strict_parse_loadaddr(argv[2], &end) < 0)
 			return CMD_RET_USAGE;
 
 	if (argc > 3)
@@ -1172,7 +1188,7 @@ mod_mem(struct cmd_tbl *cmdtp, int incrflag, int flag, int argc,
 
 		/* Address is specified since argc > 1
 		*/
-		addr = hextoul(argv[1], NULL);
+		addr = parse_loadaddr(argv[1], NULL);
 		addr += base_address;
 	}
 

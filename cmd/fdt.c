@@ -35,21 +35,6 @@ static int is_printable_string(const void *data, int len);
  */
 struct fdt_header *working_fdt;
 
-static void set_working_fdt_addr_quiet(ulong addr)
-{
-	void *buf;
-
-	buf = map_sysmem(addr, 0);
-	working_fdt = buf;
-	env_set_hex("fdtaddr", addr);
-}
-
-void set_working_fdt_addr(ulong addr)
-{
-	printf("Working FDT set to %lx\n", addr);
-	set_working_fdt_addr_quiet(addr);
-}
-
 /*
  * Get a value from the fdt and format it to be set in the environment
  */
@@ -191,19 +176,15 @@ static int do_fdt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			return 0;
 		}
 
-		addr = hextoul(argv[0], NULL);
+		addr = parse_loadaddr(argv[0], NULL);
 		blob = map_sysmem(addr, 0);
 		if ((quiet && fdt_check_header(blob)) ||
 		    (!quiet && !fdt_valid(&blob)))
 			return 1;
-		if (control) {
+		if (control)
 			gd->fdt_blob = blob;
-		} else {
-			if (quiet)
-				set_working_fdt_addr_quiet(addr);
-			else
-				set_working_fdt_addr(addr);
-		}
+		else
+			set_working_fdt_addr(addr);
 
 		if (argc >= 2) {
 			int  len;
@@ -245,7 +226,7 @@ static int do_fdt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		if (!fdt_valid(&working_fdt))
 			return 1;
 
-		newaddr = map_sysmem(hextoul(argv[3], NULL), 0);
+		newaddr = map_sysmem(parse_loadaddr(argv[3], NULL), 0);
 
 		/*
 		 * If the user specifies a length, use that.  Otherwise use the
@@ -704,7 +685,7 @@ static int do_fdt(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			return CMD_RET_USAGE;
 
 		if (argc == 4) {
-			initrd_start = hextoul(argv[2], NULL);
+			initrd_start = parse_loadaddr(argv[2], NULL);
 			initrd_end = initrd_start + hextoul(argv[3], NULL) - 1;
 		}
 

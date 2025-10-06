@@ -68,11 +68,11 @@ static int do_load_serial(struct cmd_tbl *cmdtp, int flag, int argc,
 	else
 		do_echo = 0;
 
-#ifdef	CONFIG_SYS_LOADS_BAUD_CHANGE
-	if (argc >= 2) {
+	if (argc > 1) {
 		offset = simple_strtol(argv[1], NULL, 16);
 	}
-	if (argc == 3) {
+#ifdef	CONFIG_SYS_LOADS_BAUD_CHANGE
+	if (argc > 2) {
 		load_baudrate = (int)dectoul(argv[2], NULL);
 
 		/* default to current baudrate */
@@ -91,10 +91,6 @@ static int do_load_serial(struct cmd_tbl *cmdtp, int flag, int argc,
 			if (getchar() == '\r')
 				break;
 		}
-	}
-#else	/* ! CONFIG_SYS_LOADS_BAUD_CHANGE */
-	if (argc == 2) {
-		offset = simple_strtol(argv[1], NULL, 16);
 	}
 #endif	/* CONFIG_SYS_LOADS_BAUD_CHANGE */
 
@@ -119,7 +115,8 @@ static int do_load_serial(struct cmd_tbl *cmdtp, int flag, int argc,
 		rcode = 1;
 	} else {
 		printf("## Start Addr      = 0x%08lX\n", addr);
-		image_load_addr = addr;
+		set_fileaddr(addr);
+		env_set_fileinfo(addr);
 	}
 
 #ifdef	CONFIG_SYS_LOADS_BAUD_CHANGE
@@ -211,7 +208,8 @@ static ulong load_serial(long offset)
 			    start_addr, end_addr, size, size
 		    );
 		    flush_cache(start_addr, size);
-		    env_set_hex("filesize", size);
+		    set_fileaddr(start_addr);
+		    env_set_fileinfo(size);
 		    return (addr);
 		case SREC_START:
 		    break;
@@ -276,14 +274,12 @@ int do_save_serial(struct cmd_tbl *cmdtp, int flag, int argc,
 	save_baudrate = current_baudrate = gd->baudrate;
 #endif
 
-	if (argc >= 2) {
-		offset = hextoul(argv[1], NULL);
-	}
-#ifdef	CONFIG_SYS_LOADS_BAUD_CHANGE
-	if (argc >= 3) {
+	offset = (argc > 1) ? parse_loadaddr(argv[1], NULL) : get_loadaddr();
+	set_fileaddr(offset);
+	if (argc > 2)
 		size = hextoul(argv[2], NULL);
-	}
-	if (argc == 4) {
+#ifdef	CONFIG_SYS_LOADS_BAUD_CHANGE
+	if (argc > 3) {
 		save_baudrate = (int)dectoul(argv[3], NULL);
 
 		/* default to current baudrate */
@@ -301,10 +297,6 @@ int do_save_serial(struct cmd_tbl *cmdtp, int flag, int argc,
 			if (getchar() == '\r')
 				break;
 		}
-	}
-#else	/* ! CONFIG_SYS_LOADS_BAUD_CHANGE */
-	if (argc == 3) {
-		size = hextoul(argv[2], NULL);
 	}
 #endif	/* CONFIG_SYS_LOADS_BAUD_CHANGE */
 
@@ -451,25 +443,14 @@ static char his_quote;      /* quote chars he'll use */
 static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 			      char *const argv[])
 {
-	ulong offset = 0;
+	ulong offset;
 	ulong addr;
 	int load_baudrate, current_baudrate;
 	int rcode = 0;
-	char *s;
-
-	/* pre-set offset from CONFIG_SYS_LOAD_ADDR */
-	offset = CONFIG_SYS_LOAD_ADDR;
-
-	/* pre-set offset from $loadaddr */
-	s = env_get("loadaddr");
-	if (s)
-		offset = hextoul(s, NULL);
 
 	load_baudrate = current_baudrate = gd->baudrate;
-
-	if (argc >= 2) {
-		offset = hextoul(argv[1], NULL);
-	}
+	offset = (argc > 1) ? parse_loadaddr(argv[1], NULL) : get_loadaddr();
+	set_fileaddr(offset);
 	if (argc == 3) {
 		load_baudrate = (int)dectoul(argv[2], NULL);
 
@@ -499,15 +480,6 @@ static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 			load_baudrate);
 
 		addr = load_serial_ymodem(offset, xyzModem_ymodem);
-
-		if (addr == ~0) {
-			image_load_addr = 0;
-			printf("## Binary (ymodem) download aborted\n");
-			rcode = 1;
-		} else {
-			printf("## Start Addr      = 0x%08lX\n", addr);
-			image_load_addr = addr;
-		}
 	} else if (strcmp(argv[0],"loadx")==0) {
 		printf("## Ready for binary (xmodem) download "
 			"to 0x%08lX at %d bps...\n",
@@ -515,15 +487,6 @@ static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 			load_baudrate);
 
 		addr = load_serial_ymodem(offset, xyzModem_xmodem);
-
-		if (addr == ~0) {
-			image_load_addr = 0;
-			printf("## Binary (xmodem) download aborted\n");
-			rcode = 1;
-		} else {
-			printf("## Start Addr      = 0x%08lX\n", addr);
-			image_load_addr = addr;
-		}
 	} else {
 
 		printf("## Ready for binary (kermit) download "
@@ -531,16 +494,12 @@ static int do_load_serial_bin(struct cmd_tbl *cmdtp, int flag, int argc,
 			offset,
 			load_baudrate);
 		addr = load_serial_bin(offset);
-
-		if (addr == ~0) {
-			image_load_addr = 0;
-			printf("## Binary (kermit) download aborted\n");
-			rcode = 1;
-		} else {
-			printf("## Start Addr      = 0x%08lX\n", addr);
-			image_load_addr = addr;
-		}
 	}
+	if (addr == ~0) {
+		printf ("## Binary download aborted\n");
+		rcode = 1;
+	} else
+		printf ("## Start Addr      = 0x%08lX\n", addr);
 	if (load_baudrate != current_baudrate) {
 		printf("## Switch baudrate to %d bps and press ESC ...\n",
 			current_baudrate);
@@ -563,6 +522,7 @@ static ulong load_serial_bin(ulong offset)
 {
 	int size, i;
 
+	set_fileaddr(offset);
 	set_kerm_bin_mode((ulong *) offset);
 	size = k_recv();
 
@@ -584,7 +544,7 @@ static ulong load_serial_bin(ulong offset)
 	flush_cache(offset, size);
 
 	printf("## Total Size      = 0x%08x = %d Bytes\n", size, size);
-	env_set_hex("filesize", size);
+	env_set_fileinfo(size);
 
 	return offset;
 }
@@ -1016,6 +976,7 @@ static ulong load_serial_ymodem(ulong offset, int mode)
 	ulong store_addr = ~0;
 	ulong addr = 0;
 
+	set_fileaddr(offset);
 	size = 0;
 	info.mode = mode;
 	res = xyzModem_stream_open(&info, &err);
@@ -1071,7 +1032,7 @@ static ulong load_serial_ymodem(ulong offset, int mode)
 	flush_cache(offset, ALIGN(size, ARCH_DMA_MINALIGN));
 
 	printf("## Total Size      = 0x%08x = %d Bytes\n", size, size);
-	env_set_hex("filesize", size);
+	env_set_fileinfo(size);
 
 	return offset;
 }

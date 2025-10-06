@@ -575,7 +575,11 @@ int spi_claim_bus(struct spi_slave *slave)
 
 void spi_release_bus(struct spi_slave *slave)
 {
-	/* TODO: Shut the controller down */
+	struct mxc_spi_slave *mxcs = to_mxc_spi_slave(slave);
+	struct cspi_regs *regs = (struct cspi_regs *)mxcs->base;
+
+	/* Disable EN bit in ctrl by writing default value */
+	reg_write(&regs->ctrl, mxcs->ctrl_reg);
 }
 #else
 
@@ -648,6 +652,12 @@ static int mxc_spi_claim_bus(struct udevice *dev)
 
 static int mxc_spi_release_bus(struct udevice *dev)
 {
+	struct mxc_spi_slave *mxcs = dev_get_plat(dev->parent);
+	struct cspi_regs *regs = (struct cspi_regs *)mxcs->base;
+
+	/* Disable EN bit in ctrl by writing default value */
+	reg_write(&regs->ctrl, mxcs->ctrl_reg);
+
 	return 0;
 }
 

@@ -624,6 +624,21 @@ config VIDEO_LCD_HITACHI_TX18D42VM
 	lcd controller which needs to be initialized over SPI, once that is
 	done they work like a regular LVDS panel.
 
+config VIDEO_LCD_XINLI_TCXD078IBLMA_98
+	bool "XINLI TCXD078IBLMA-98 MIPI DSI panel support"
+	select VIDEO_MIPI_DSI
+	---help---
+	Say Y here if you want to enable support for XINLI TCXD078IBLMA-98
+	400x1280 DSI video mode panel.
+
+config NT35521
+	bool "MIPI DSI NT35521 display"
+	default n
+	---help---
+	Support for LVDS LCD panels, these panels have a
+	lcd controller which needs to be initialized over SPI, once that is
+	done they work like a regular LVDS panel.
+
 config VIDEO_LCD_SPI_CS
 	string "SPI CS pin for LCD related config job"
 	depends on VIDEO_LCD_SSD2828 || VIDEO_LCD_HITACHI_TX18D42VM
@@ -794,9 +809,10 @@ source "drivers/video/tegra20/Kconfig"
 source "drivers/video/nxp/Kconfig"
 
 config VIDEO_MXS
-	bool "Enable video support on i.MX28/i.MX6UL/i.MX7 SoCs"
+	bool "Enable video support on i.MX28/i.MX6UL/i.MX6SX/i.MX7 SoCs"
 	help
-	  Enable framebuffer driver for i.MX28/i.MX6UL/i.MX7 processors
+	  This enables framebuffer driver for i.MX processors working
+	  on the LCDIF display driver (MXSFB).
 
 config VIDEO_NX
 	bool "Enable video support on Nexell SoC"

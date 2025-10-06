@@ -199,7 +199,8 @@ int g_dnl_bind_fixup(struct usb_device_descriptor *dev, const char *name)
 	snprintf(serial_string, sizeof(serial_string), "%08x%08x", serialnr.high, serialnr.low);
 	g_dnl_set_serialnumber(serial_string);
 #endif
-	put_unaligned(0x0151, &dev->idProduct);
+//	put_unaligned(0x0151, &dev->idProduct);
+	put_unaligned(CONFIG_USB_GADGET_PRODUCT_NUM + 0xfff, &dev->idProduct);
 
 	return 0;
 }
@@ -328,11 +329,13 @@ ulong board_spl_fit_size_align(ulong size)
 	 * aligned to 0x1000
 	 */
 
+#ifndef CONFIG_FS_SECURE_BOOT
 	size = ALIGN(size, 0x1000);
 	size += 2 * CONFIG_CSF_SIZE;
 
 	if (size > CONFIG_SYS_BOOTM_LEN)
 		panic("spl: ERROR: image too big\n");
+#endif
 
 	return size;
 }
@@ -518,6 +521,7 @@ int board_spl_fit_post_load(const void *fit, struct spl_image_info *spl_image)
 	int ret;
 #endif
 
+#ifndef CONFIG_FS_SECURE_BOOT
 	if (IS_ENABLED(CONFIG_IMX_HAB)) {
 		u32 offset = ALIGN(fdt_totalsize(fit), 0x1000);
 
@@ -532,6 +536,7 @@ int board_spl_fit_post_load(const void *fit, struct spl_image_info *spl_image)
 #endif
 		}
 	}
+#endif
 #if defined(CONFIG_IMX8MP) || defined(CONFIG_IMX8MN)
 #define MCU_RDC_MAGIC "mcu_rdc"
 	memcpy((void *)CONFIG_IMX8M_MCU_RDC_START_CONFIG_ADDR, MCU_RDC_MAGIC, ALIGN(strlen(MCU_RDC_MAGIC), 4));

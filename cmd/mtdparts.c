@@ -111,17 +111,20 @@ DECLARE_GLOBAL_DATA_PTR;
 #define MTD_WRITEABLE_CMD		1
 
 /* default values for mtdids and mtdparts variables */
+#if !defined(MTDIDS_DEFAULT)
 #ifdef CONFIG_MTDIDS_DEFAULT
 #define MTDIDS_DEFAULT CONFIG_MTDIDS_DEFAULT
 #else
 #define MTDIDS_DEFAULT NULL
 #endif
+#endif
+#if !defined(MTDPARTS_DEFAULT)
 #ifdef CONFIG_MTDPARTS_DEFAULT
 #define MTDPARTS_DEFAULT CONFIG_MTDPARTS_DEFAULT
 #else
 #define MTDPARTS_DEFAULT NULL
 #endif
-
+#endif
 #if defined(CONFIG_SYS_MTDPARTS_RUNTIME)
 extern void board_mtdparts_default(const char **mtdids, const char **mtdparts);
 #endif
@@ -156,6 +159,15 @@ static struct part_info* mtd_part_info(struct mtd_device *dev, unsigned int part
 /* command line only routines */
 static struct mtdids* id_find_by_mtd_id(const char *mtd_id, unsigned int mtd_id_len);
 static int device_del(struct mtd_device *dev);
+
+
+static inline const char *__board_get_mtdparts_default(void)
+{
+	return NULL;
+}
+
+const char *board_get_mtdparts_default(void)
+	__attribute__((weak, alias("__board_get_mtdparts_default")));
 
 #ifdef CONFIG_MTDPARTS_SKIP_INVALID
 int skip_counter = 0;
@@ -335,7 +347,7 @@ static void current_save(void)
  * @param mtd a pointer to an mtd_info instance (output)
  * Return: 0 if device is valid, 1 otherwise
  */
-static int get_mtd_info(u8 type, u8 num, struct mtd_info **mtd)
+int get_mtd_info(u8 type, u8 num, struct mtd_info **mtd)
 {
 	char mtd_dev[16];
 
@@ -1338,6 +1350,7 @@ static void print_partition_table(void)
 static void list_partitions(void)
 {
 	struct part_info *part;
+	const char *mtdparts;
 
 	debug("\n---list_partitions---\n");
 	print_partition_table();
@@ -1364,7 +1377,10 @@ static void list_partitions(void)
 	 * printbuffer. Use puts() to prevent system crashes.
 	 */
 	puts("mtdparts: ");
-	puts(mtdparts_default ? mtdparts_default : "none");
+	mtdparts = mtdparts_default;
+	if (!mtdparts)
+		mtdparts = board_get_mtdparts_default();
+	puts(mtdparts ? mtdparts : "none");
 	puts("\n");
 }
 

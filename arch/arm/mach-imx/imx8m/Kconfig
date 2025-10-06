@@ -4,7 +4,7 @@ config IMX8M
 	bool
 	select GICV3 if ARMV8_PSCI
 	select HAS_CAAM
-	select LTO
+#	select LTO
 	select ROM_UNIFIED_SECTIONS
 	select ARMV8_CRYPTO
 
@@ -315,6 +315,49 @@ config TARGET_IMX8MP_EVK
 	select ARCH_MISC_INIT
 	select SPL_CRYPTO if SPL
 
+config TARGET_FSIMX8MM
+	bool "Support fsimx8mm boards from F&S"
+	select FSIMX_BOARDS
+	select IMX8MM
+	select SUPPORT_SPL
+	select IMX8M_LPDDR4
+	select IMX8M_DDR3L
+	select FSL_CAAM
+	select FSL_BLOB
+	select MISC
+	select FS_BOARD_CFG
+
+config TARGET_FSIMX8M
+	bool "Support fsimx8m boards from F&S"
+	select FSIMX_BOARDS
+	select IMX8MQ
+	select SUPPORT_SPL
+	select IMX8M_LPDDR4
+	select FS_NBOOT_ARGS
+
+config TARGET_FSIMX8MN
+	bool "Support fsimx8mn boards from F&S"
+	select FSIMX_BOARDS
+	select IMX8MN
+	select SUPPORT_SPL
+	select IMX8M_LPDDR4
+	select IMX8M_DDR3L
+	select FSL_CAAM
+	select FSL_BLOB
+	select MISC
+	select FS_BOARD_CFG
+
+config TARGET_FSIMX8MP
+	bool "Support fsimx8mp boards from F%S"
+	select FSIMX_BOARDS
+	select IMX8MP
+	select SUPPORT_SPL
+	select IMX8M_LPDDR4
+	select FSL_CAAM
+	select FSL_BLOB
+	select MISC
+	select FS_BOARD_CFG
+
 config TARGET_IMX8MP_VENICE
 	bool "Support Gateworks Venice iMX8M Plus module"
 	select IMX8MP
@@ -465,6 +508,10 @@ source "board/freescale/imx8mm_ab2/Kconfig"
 source "board/freescale/imx8mm_evk/Kconfig"
 source "board/freescale/imx8mn_evk/Kconfig"
 source "board/freescale/imx8mp_evk/Kconfig"
+source "board/F+S/fsimx8mm/Kconfig"
+source "board/F+S/fsimx8m/Kconfig"
+source "board/F+S/fsimx8mn/Kconfig"
+source "board/F+S/fsimx8mp/Kconfig"
 source "board/gateworks/venice/Kconfig"
 source "board/google/imx8mq_phanbell/Kconfig"
 source "board/kontron/pitx_imx8m/Kconfig"

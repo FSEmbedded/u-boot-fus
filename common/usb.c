@@ -25,6 +25,7 @@
  *
  * For each transfer (except "Interrupt") we wait for completion.
  */
+
 #include <common.h>
 #include <command.h>
 #include <dm.h>
@@ -43,7 +44,9 @@
 #define USB_BUFSIZ	512
 
 static int asynch_allowed;
+static char us_between_delays = 0;
 bool usb_started; /* flag for the started/stopped USB status */
+#define MAX_PREPARE_RETRIES 3
 
 #if !CONFIG_IS_ENABLED(DM_USB)
 static struct usb_device usb_dev[USB_MAX_DEVICE];
@@ -52,7 +55,7 @@ static int dev_index;
 /***************************************************************************
  * Init USB Device
  */
-int usb_init(void)
+int usb_init(int verbose)
 {
 	void *ctrl;
 	struct usb_device *dev;
@@ -73,10 +76,12 @@ int usb_init(void)
 	/* init low_level USB */
 	for (i = 0; i < CONFIG_USB_MAX_CONTROLLER_COUNT; i++) {
 		/* init low_level USB */
-		printf("USB%d:   ", i);
+		if (verbose)
+			printf("USB%d:   ", i);
 		ret = usb_lowlevel_init(i, USB_INIT_HOST, &ctrl);
 		if (ret == -ENODEV) {	/* No such device. */
-			puts("Port not available.\n");
+			if (verbose)
+				puts("Port not available as HOST.\n");
 			controllers_initialized++;
 			continue;
 		}
@@ -91,7 +96,8 @@ int usb_init(void)
 		 */
 		controllers_initialized++;
 		start_index = dev_index;
-		printf("scanning bus %d for devices... ", i);
+		if (verbose)
+			printf("scanning bus %d for devices... ", i);
 		ret = usb_alloc_new_device(ctrl, &dev);
 		if (ret)
 			break;
@@ -105,11 +111,13 @@ int usb_init(void)
 			usb_free_device(dev->controller);
 
 		if (start_index == dev_index) {
-			puts("No USB Device found\n");
+			if (verbose)
+				puts("No USB Device found\n");
 			continue;
 		} else {
-			printf("%d USB Device(s) found\n",
-				dev_index - start_index);
+			if (verbose)
+				printf("%d USB Device(s) found\n",
+				       dev_index - start_index);
 		}
 
 		usb_started = 1;
@@ -117,8 +125,10 @@ int usb_init(void)
 
 	debug("scan end\n");
 	/* if we were not able to find at least one working bus, bail out */
-	if (controllers_initialized == 0)
-		puts("USB error: all controllers failed lowlevel init\n");
+	if (controllers_initialized == 0) {
+		if (verbose)
+			puts("USB error: all controllers failed lowlevel init\n");
+	}
 
 	return usb_started ? 0 : -ENODEV;
 }
@@ -223,6 +233,7 @@ int usb_control_msg(struct usb_device *dev, unsigned int pipe,
 			void *data, unsigned short size, int timeout)
 {
 	ALLOC_CACHE_ALIGN_BUFFER(struct devrequest, setup_packet, 1);
+	unsigned char retries = 2;
 	int err;
 
 	if ((timeout == 0) && (!asynch_allowed)) {
@@ -230,15 +241,21 @@ int usb_control_msg(struct usb_device *dev, unsigned int pipe,
 		return -EINVAL;
 	}
 
+retry:
 	/* set setup command */
 	setup_packet->requesttype = requesttype;
 	setup_packet->request = request;
 	setup_packet->value = cpu_to_le16(value);
 	setup_packet->index = cpu_to_le16(index);
 	setup_packet->length = cpu_to_le16(size);
+
+	/* optional delay for slow devices */
+	udelay(us_between_delays);
+
 	debug("usb_control_msg: request: 0x%X, requesttype: 0x%X, " \
 	      "value 0x%X index 0x%X length 0x%X\n",
 	      request, requesttype, value, index, size);
+
 	dev->status = USB_ST_NOT_PROC; /*not yet processed */
 
 	err = submit_control_msg(dev, pipe, data, size, setup_packet);
@@ -257,6 +274,27 @@ int usb_control_msg(struct usb_device *dev, unsigned int pipe,
 			break;
 		mdelay(1);
 	}
+
+	/*
+	 * KM 2024-04-09: Devices might fail (TX_ERROR) when the time
+	 * between two requests is too short. If this happens, the
+	 * controller will halt, so trigger a reset_ep and retry the
+	 * communication with a delay in between requests.
+	 */
+	if (dev->status == 0x80) {
+		if (retries) {
+			err = submit_control_msg(dev, pipe, data, size, setup_packet);
+			if (err == -EPIPE) {
+				/* Increase delay between requests by 100 us */
+				if (us_between_delays < 200)
+					us_between_delays += 100;
+				retries--;
+				goto retry;
+			}
+		}
+		return -1;
+	}
+
 	if (dev->status)
 		return -1;
 
@@ -916,12 +954,31 @@ __weak int usb_alloc_device(struct usb_device *udev)
 }
 #endif /* !CONFIG_IS_ENABLED(DM_USB) */
 
-static int usb_hub_port_reset(struct usb_device *dev, struct usb_device *hub)
+static int usb_port_reset(struct usb_device *dev, struct usb_device *hub)
 {
-	if (!hub)
+#ifdef CONFIG_DM_USB
+	if (!hub) {
 		usb_reset_root_port(dev);
+	}
+        return 0;
+#else /* !CONFIG_DM_USB */
+	int port;
 
-	return 0;
+	if (!hub) {
+		usb_reset_root_port(dev);
+		return 0;
+	}
+
+	/* Find the port number of the hub we are at */
+	for (port = 0; port < hub->maxchild; port++) {
+		if (hub->children[port] == dev)
+			break;
+	}
+	if (port >= hub->maxchild)
+		return -1;
+
+	return usb_hub_port_reset(hub, port, NULL);
+#endif /* CONFIG_DM_USB */
 }
 
 static int get_descriptor_len(struct usb_device *dev, int len, int expect_len)
@@ -1039,6 +1096,7 @@ static int usb_prepare_device(struct usb_device *dev, int addr, bool do_read,
 			      struct usb_device *parent)
 {
 	int err;
+	int tries = MAX_PREPARE_RETRIES;
 
 	/*
 	 * Allocate usb 3.0 device context.
@@ -1051,10 +1109,11 @@ static int usb_prepare_device(struct usb_device *dev, int addr, bool do_read,
 		printf("Cannot allocate device context to get SLOT_ID\n");
 		return err;
 	}
+retry:
 	err = usb_setup_descriptor(dev, do_read);
 	if (err)
 		return err;
-	err = usb_hub_port_reset(dev, parent);
+	err = usb_port_reset(dev, parent);
 	if (err)
 		return err;
 
@@ -1063,7 +1122,12 @@ static int usb_prepare_device(struct usb_device *dev, int addr, bool do_read,
 	err = usb_set_address(dev); /* set address */
 
 	if (err < 0) {
-		printf("\n      USB device not accepting new address " \
+		/* If setting the address failed, reset and try again */
+		debug("Reset again\n");
+		if ((--tries > 0) && !usb_port_reset(dev, parent))
+			goto retry;
+
+		printf("\n       USB device not accepting new address " \
 			"(error=%lX)\n", dev->status);
 		return err;
 	}
@@ -1079,6 +1143,22 @@ static int usb_prepare_device(struct usb_device *dev, int addr, bool do_read,
 		err = usb_setup_descriptor(dev, true);
 		if (err)
 			return err;
+	}
+
+	/*
+	 * usb_setup_descriptor() only reads the descriptor in case of Full
+	 * Speed. Experience has shown that reading the device descriptor
+	 * later in usb_select_config() may still fail. Therefore actually
+	 * read the device descriptor here already, then we can try again if
+	 * this fails. This helped to bring up some problematic devices.
+	 */
+	err = get_descriptor_len(dev, USB_DT_DEVICE_SIZE, USB_DT_DEVICE_SIZE);
+	if (err) {
+		puts("Retry...\n");
+		if ((--tries > 0) && !usb_port_reset(dev, parent))
+			goto retry;
+
+		return err;
 	}
 
 	return 0;
@@ -1177,9 +1257,13 @@ int usb_setup_device(struct usb_device *dev, bool do_read,
 	addr = dev->devnum;
 	dev->devnum = 0;
 
+	/* Reset the delay before preparing the new device */
+	us_between_delays = 0;
+
 	ret = usb_prepare_device(dev, addr, do_read, parent);
 	if (ret)
 		return ret;
+
 	ret = usb_select_config(dev);
 
 	return ret;
@@ -1281,6 +1365,7 @@ void usb_find_usb2_hub_address_port(struct usb_device *udev,
 			       uint8_t *hub_address, uint8_t *hub_port)
 {
 	/* Find out the nearest parent which is high speed */
+#if 0
 	while (udev->parent->parent != NULL)
 		if (udev->parent->speed != USB_SPEED_HIGH) {
 			udev = udev->parent;
@@ -1289,6 +1374,16 @@ void usb_find_usb2_hub_address_port(struct usb_device *udev,
 			*hub_port = udev->portnr;
 			return;
 		}
+#else
+	while (udev->parent) {
+		if (udev->parent->speed == USB_SPEED_HIGH) {
+			*hub_address = udev->parent->devnum;
+			*hub_port = udev->portnr;
+			return;
+		}
+		udev = udev->parent;
+	}
+#endif
 
 	printf("Error: Cannot find high speed parent of usb-1 device\n");
 	*hub_address = 0;

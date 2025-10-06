@@ -143,7 +143,8 @@ static void ehci_set_usbmode(struct ehci_ctrl *ctrl)
 static void ehci_powerup_fixup(struct ehci_ctrl *ctrl, uint32_t *status_reg,
 			       uint32_t *reg)
 {
-	mdelay(50);
+	if (!ehci_is_TDI())
+		mdelay(50);
 }
 
 static uint32_t *ehci_get_portsc_register(struct ehci_ctrl *ctrl, int port)
@@ -171,7 +172,7 @@ static int handshake(uint32_t *ptr, uint32_t mask, uint32_t done, int usec)
 		result &= mask;
 		if (result == done)
 			return 0;
-		usec--;
+		usec -= 5;
 	} while (usec > 0);
 	return -1;
 }
@@ -208,7 +209,9 @@ static int ehci_shutdown(struct ehci_ctrl *ctrl)
 {
 	int i, ret = 0;
 	uint32_t cmd, reg;
-	int max_ports = HCS_N_PORTS(ehci_readl(&ctrl->hccr->cr_hcsparams));
+
+	if (!ctrl->host_valid)
+		return 0;
 
 	cmd = ehci_readl(&ctrl->hcor->or_usbcmd);
 	/* If not run, directly return */
@@ -220,7 +223,7 @@ static int ehci_shutdown(struct ehci_ctrl *ctrl)
 		100 * 1000);
 
 	if (!ret) {
-		for (i = 0; i < max_ports; i++) {
+		for (i = 0; i < ctrl->ports; i++) {
 			reg = ehci_readl(&ctrl->hcor->or_portsc[i]);
 			reg |= EHCI_PS_SUSP;
 			ehci_writel(&ctrl->hcor->or_portsc[i], reg);
@@ -230,6 +233,14 @@ static int ehci_shutdown(struct ehci_ctrl *ctrl)
 		ehci_writel(&ctrl->hcor->or_usbcmd, cmd);
 		ret = handshake(&ctrl->hcor->or_usbsts, STS_HALT, STS_HALT,
 			HCHALT_TIMEOUT);
+
+#ifdef CONFIG_USB_EHCI_POWERDOWN
+		for (i = 0; i < ctrl->ports; i++) {
+			reg = ehci_readl(&ctrl->hcor->or_portsc[i]);
+			reg &= ~EHCI_PS_PP;
+			ehci_writel(&ctrl->hcor->or_portsc[i], reg);
+		}
+#endif
 	}
 
 	if (ret)
@@ -906,15 +917,21 @@ static int ehci_submit_root(struct usb_device *dev, unsigned long pipe,
 				 * root
 				 */
 				ctrl->ops.powerup_fixup(ctrl, status_reg, &reg);
-
-				ehci_writel(status_reg, reg & ~EHCI_PS_PR);
-				/*
-				 * A host controller must terminate the reset
-				 * and stabilize the state of the port within
-				 * 2 milliseconds
-				 */
-				ret = handshake(status_reg, EHCI_PS_PR, 0,
-						2 * 1000);
+				if (ehci_is_TDI()) {
+					/* Bit is self-clearing */
+					ret = handshake(status_reg, EHCI_PS_PR,
+							0, 100 * 1000);
+				} else {
+					ehci_writel(status_reg,
+						    reg & ~EHCI_PS_PR);
+					/*
+					 * A host controller must terminate
+					 * the reset and stabilize the state
+					 * of the port within 2 milliseconds
+					 */
+					ret = handshake(status_reg, EHCI_PS_PR,
+							0, 2 * 1000);
+				}
 				if (!ret) {
 					reg = ehci_readl(status_reg);
 					if ((reg & (EHCI_PS_PE | EHCI_PS_CS))
@@ -1116,6 +1133,7 @@ static int ehci_common_init(struct ehci_ctrl *ctrl, uint tweaks)
 
 	reg = ehci_readl(&ctrl->hccr->cr_hcsparams);
 	descriptor.hub.bNbrPorts = HCS_N_PORTS(reg);
+	ctrl->ports = HCS_N_PORTS(reg);
 	debug("Register %x NbrPorts %d\n", reg, descriptor.hub.bNbrPorts);
 	/* Port Indicators */
 	if (HCS_INDICATOR(reg))
@@ -1148,6 +1166,8 @@ static int ehci_common_init(struct ehci_ctrl *ctrl, uint tweaks)
 	mdelay(5);
 	reg = HC_VERSION(ehci_readl(&ctrl->hccr->cr_capbase));
 	printf("USB EHCI %x.%02x\n", reg >> 8, reg & 0xff);
+
+	ctrl->host_valid = 1;
 
 	return 0;
 }

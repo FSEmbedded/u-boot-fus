@@ -304,14 +304,11 @@ int m33_image_handshake(ulong timeout_ms)
 #define CMC_SRS_POR                       BIT(1)
 #define CMC_SRS_WUP                       BIT(0)
 
-static char *get_reset_cause(char *ret)
+const char *get_reset_cause(void)
 {
 	u32 cause1, cause = 0, srs = 0;
 	void __iomem *reg_ssrs = (void __iomem *)(CMC1_BASE_ADDR + 0x88);
 	void __iomem *reg_srs = (void __iomem *)(CMC1_BASE_ADDR + 0x80);
-
-	if (!ret)
-		return "null";
 
 	srs = readl(reg_srs);
 	cause1 = readl(reg_ssrs);
@@ -320,36 +317,27 @@ static char *get_reset_cause(char *ret)
 
 	switch (cause) {
 	case CMC_SRS_POR:
-		sprintf(ret, "%s", "POR");
-		break;
+		return "POR";
 	case CMC_SRS_WUP:
-		sprintf(ret, "%s", "WUP");
-		break;
+		return "WUP";
 	case CMC_SRS_WARM:
 		cause = srs & (CMC_SRS_WDG | CMC_SRS_SW |
 			CMC_SRS_JTAG_RST);
 		switch (cause) {
 		case CMC_SRS_WDG:
-			sprintf(ret, "%s", "WARM-WDG");
-			break;
+			return "WARM-WDG";
 		case CMC_SRS_SW:
-			sprintf(ret, "%s", "WARM-SW");
-			break;
+			return "WARM-SW";
 		case CMC_SRS_JTAG_RST:
-			sprintf(ret, "%s", "WARM-JTAG");
-			break;
+			return "WARM-JTAG";
 		default:
-			sprintf(ret, "%s", "WARM-UNKN");
-			break;
+			return "WARM-UNKN";
 		}
-		break;
 	default:
-		sprintf(ret, "%s-%X", "UNKN", srs);
 		break;
 	}
 
-	debug("[%X] SRS[%X] %X - ", cause1, srs, srs ^ cause1);
-	return ret;
+	return "UNKN";
 }
 
 #if defined(CONFIG_DISPLAY_CPUINFO)
@@ -376,7 +364,6 @@ const char *get_imx_type(u32 imxtype)
 int print_cpuinfo(void)
 {
 	u32 cpurev, max_freq;
-	char cause[18];
 
 	cpurev = get_cpu_rev();
 
@@ -408,7 +395,7 @@ int print_cpuinfo(void)
 	}
 #endif
 
-	printf("Reset cause: %s\n", get_reset_cause(cause));
+	printf("Reset cause: %s\n", get_reset_cause());
 
 	printf("Boot mode: ");
 	switch (get_boot_mode()) {

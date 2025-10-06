@@ -345,9 +345,14 @@ int default_spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	return part;
 }
 
-int __weak spl_mmc_emmc_boot_partition(struct mmc *mmc)
+int __weak arch_spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	return default_spl_mmc_emmc_boot_partition(mmc);
+}
+
+int __weak spl_mmc_emmc_boot_partition(struct mmc *mmc)
+{
+	return arch_spl_mmc_emmc_boot_partition(mmc);
 }
 
 static int spl_mmc_get_mmc_devnum(struct mmc *mmc)
@@ -489,6 +494,21 @@ int spl_mmc_load_image(struct spl_image_info *spl_image,
 #endif
 }
 
-SPL_LOAD_IMAGE_METHOD("MMC1", 0, BOOT_DEVICE_MMC1, spl_mmc_load_image);
+int spl_mmc_load_image_redundant(struct spl_image_info *spl_image,
+		       struct spl_boot_device *bootdev)
+{
+	int err;
+	err = spl_mmc_load_image(spl_image, bootdev);
+	if(!err)
+		return err;
+	printf("WARNING: Loading UBoot from primary partition failed, try secondary\n");
+	printf("         Saving the UBoot again may fix this issue.\n");
+#ifdef CONFIG_FS_BOARD_CFG
+	fs_image_mark_secondary_uboot();
+#endif
+	return spl_mmc_load_image(spl_image, bootdev);
+}
+
+SPL_LOAD_IMAGE_METHOD("MMC1", 0, BOOT_DEVICE_MMC1, spl_mmc_load_image_redundant);
 SPL_LOAD_IMAGE_METHOD("MMC2", 0, BOOT_DEVICE_MMC2, spl_mmc_load_image);
 SPL_LOAD_IMAGE_METHOD("MMC2_2", 0, BOOT_DEVICE_MMC2_2, spl_mmc_load_image);

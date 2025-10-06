@@ -595,6 +595,13 @@ config CMD_FSIMAGE
 	  Save F&S images or show information about them and the current
 	  board configuration.
 
+config CMD_FSIMAGE_IMX6
+	bool "Handle F&S images, e.g. U-Boot"
+	depends on TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX7ULP
+	depends on !CMD_FSIMAGE
+	help
+	  Save F&S image U-Boot.
+
 config CMD_ZBOOT
 	bool "zboot - x86 boot command"
 	help
@@ -1420,6 +1427,15 @@ config CMD_NAND_TORTURE
 	help
 	  NAND torture support.
 
+config CMD_NAND_CONVERT
+	bool "nand convert (F&S)"
+	depends on TARGET_FSVYBRID
+	help
+	  The command nand convert can convert NAND content from an older
+	  NAND layout used before release fsvybrid-V2.2. This is only
+	  needed if NAND flash with OOB size different to 64 bytes is
+	  used and if U-Boot should be updated from U-Boot and not NBoot.
+
 endif # CMD_NAND
 
 config CMD_NVME
@@ -1623,7 +1639,7 @@ config CMD_ROCKUSB
 
 config CMD_USB_MASS_STORAGE
 	bool "UMS usb mass storage"
-	depends on USB_GADGET_DOWNLOAD
+	select USB_GADGET_DOWNLOAD
 	select USB_FUNCTION_MASS_STORAGE
 	depends on BLK && USB_GADGET
 	help
@@ -1718,6 +1734,15 @@ config CMD_XXD
 	bool "xxd"
 	help
 	  Print file as hexdump to standard output
+
+config CMD_UPDATE
+	bool "update/install/recover (F&S)"
+	help
+	  Add command update to check for scripts located on specific media
+          (MMC, USB, MTD, UBI, UBIFS, RAM, NET) to perform either an update,
+          a recovery or a basic installation. Call
+	     help update
+	  in U-Boot for more information.
 
 endmenu
 
@@ -2267,6 +2292,13 @@ config CMD_TIMER
 	bool "timer"
 	help
 	  Access the system timer.
+
+config CMD_BLINK
+	bool "Enable blinking elements (F&S)"
+	help
+	  Add support for blinking elements like LEDs. This requires
+	  associated drivers that register blinking elements. Examples
+	  are the F&S blink_timer implementations for i.MX6 and Vybrid.
 
 config CMD_SOUND
 	bool "sound"

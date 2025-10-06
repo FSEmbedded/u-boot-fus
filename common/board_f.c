@@ -53,27 +53,6 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 /*
- * TODO(sjg@chromium.org): IMO this code should be
- * refactored to a single function, something like:
- *
- * void led_set_state(enum led_colour_t colour, int on);
- */
-/************************************************************************
- * Coloured LED functionality
- ************************************************************************
- * May be supplied by boards if desired
- */
-__weak void coloured_LED_init(void) {}
-__weak void red_led_on(void) {}
-__weak void red_led_off(void) {}
-__weak void green_led_on(void) {}
-__weak void green_led_off(void) {}
-__weak void yellow_led_on(void) {}
-__weak void yellow_led_off(void) {}
-__weak void blue_led_on(void) {}
-__weak void blue_led_off(void) {}
-
-/*
  * Why is gd allocated a register? Prior to reloc it might be better to
  * just pass it around to each function in this file?
  *
@@ -135,6 +114,11 @@ static int display_text_info(void)
 
 	debug("U-Boot code: %08lX -> %08lX  BSS: -> %08lX\n",
 	      text_base, bss_start, bss_end);
+#endif
+
+#ifdef CONFIG_USE_IRQ
+	debug("IRQ Stack: %08lx\n", IRQ_STACK_START);
+	debug("FIQ Stack: %08lx\n", FIQ_STACK_START);
 #endif
 
 	return 0;

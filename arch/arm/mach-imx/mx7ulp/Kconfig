@@ -50,9 +50,16 @@ config TARGET_MX7ULP_EVK
 	select FSL_BLOB
 	select ARCH_MISC_INIT
 
+config TARGET_FSIMX7ULP
+        bool "Support fsimx7ulp boards from F&S"
+	select FSIMX_BOARDS
+	select SYS_ARCH_TIMER
+	select MX7ULP
+
 endchoice
 
 source "board/ea/mx7ulp_com/Kconfig"
 source "board/freescale/mx7ulp_evk/Kconfig"
+source "board/F+S/fsimx7ulp/Kconfig"
 
 endif

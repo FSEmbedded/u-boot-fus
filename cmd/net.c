@@ -295,22 +295,6 @@ static void netboot_update_env(void)
 }
 
 /**
- * parse_addr_size() - parse address and size arguments for tftpput
- *
- * @argv:	command line arguments
- * Return:	0 on success
- */
-static int parse_addr_size(char * const argv[])
-{
-	if (strict_strtoul(argv[1], 16, &image_save_addr) < 0 ||
-	    strict_strtoul(argv[2], 16, &image_save_size) < 0) {
-		printf("Invalid address/size\n");
-		return CMD_RET_USAGE;
-	}
-	return 0;
-}
-
-/**
  * parse_args() - parse command line arguments
  *
  * @proto:	command prototype
@@ -322,80 +306,78 @@ static int parse_args(enum proto_t proto, int argc, char *const argv[])
 {
 	ulong addr;
 	char *end;
+	char  *pname = NULL;
+	char  *paddr = NULL;
 
 	switch (argc) {
 	case 1:
-		if (IS_ENABLED(CONFIG_CMD_TFTPPUT) && proto == TFTPPUT)
-			return 1;
-
-		/* refresh bootfile name from env */
-		copy_filename(net_boot_file_name, env_get("bootfile"),
-			      sizeof(net_boot_file_name));
 		break;
 
-	case 2:
-		if (IS_ENABLED(CONFIG_CMD_TFTPPUT) && proto == TFTPPUT)
-			return 1;
-		/*
+	case 2:	/*
 		 * Only one arg - accept two forms:
 		 * Just load address, or just boot file name. The latter
 		 * form must be written in a format which can not be
 		 * mis-interpreted as a valid number.
 		 */
-		addr = hextoul(argv[1], &end);
-		if (end == (argv[1] + strlen(argv[1]))) {
-			image_load_addr = addr;
-			/* refresh bootfile name from env */
-			copy_filename(net_boot_file_name, env_get("bootfile"),
-				      sizeof(net_boot_file_name));
-		} else {
-			net_boot_file_name_explicit = true;
-			copy_filename(net_boot_file_name, argv[1],
-				      sizeof(net_boot_file_name));
-		}
+		parse_loadaddr(argv[1], &end);
+		if (*end)
+			pname = argv[1];
+		else
+			paddr = argv[1];
 		break;
 
 	case 3:
-		if (IS_ENABLED(CONFIG_CMD_TFTPPUT) && proto == TFTPPUT) {
-			if (parse_addr_size(argv))
-				return 1;
-		} else {
-			image_load_addr = hextoul(argv[1], NULL);
-			net_boot_file_name_explicit = true;
-			copy_filename(net_boot_file_name, argv[2],
-				      sizeof(net_boot_file_name));
-		}
+		paddr = argv[1];
+		pname = argv[2];
 		break;
 
 #ifdef CONFIG_CMD_TFTPPUT
 	case 4:
-		if (parse_addr_size(argv))
-			return 1;
-		net_boot_file_name_explicit = true;
-		copy_filename(net_boot_file_name, argv[3],
-			      sizeof(net_boot_file_name));
+	{
+		ulong savesize;
+
+		if ((strict_strtoul(argv[2], 16, &savesize) < 0)
+		    || (savesize == 0)) {
+			puts("Invalid size\n");
+			return CMD_RET_USAGE;
+		}
+		net_boot_file_size = savesize;
+		paddr = argv[1];
+		pname = argv[3];
 		break;
+	}
 #endif
 	default:
 		return 1;
 	}
+	if (paddr) {
+		if (strict_parse_loadaddr(paddr, &addr) < 0) {
+			puts("Invalid address\n");
+			return CMD_RET_USAGE;
+		}
+	} else
+		addr = get_loadaddr();
+	set_fileaddr(addr);
+
+	/* If name not given use default name made from IP address */
+	net_boot_file_name[0] = 0;
+	net_boot_file_name_explicit = false;
+	if (!pname)
+		pname = env_get("bootfile");
+	if (pname) {
+		net_boot_file_name_explicit = true;
+		copy_filename(net_boot_file_name, pname,
+			      sizeof(net_boot_file_name));
+	}
+
 	return 0;
 }
 
 static int netboot_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 			  char *const argv[])
 {
-	char *s;
 	int   rcode = 0;
 	int   size;
-
-	net_boot_file_name_explicit = false;
-	*net_boot_file_name = '\0';
-
-	/* pre-set image_load_addr */
-	s = env_get("loadaddr");
-	if (s != NULL)
-		image_load_addr = hextoul(s, NULL);
 
 	if (IS_ENABLED(CONFIG_IPV6)) {
 		use_ip6 = false;
@@ -443,6 +425,8 @@ static int netboot_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 		bootstage_error(BOOTSTAGE_ID_NET_LOADED);
 		return CMD_RET_SUCCESS;
 	}
+
+	env_set_fileinfo(size);
 
 	bootstage_mark(BOOTSTAGE_ID_NET_LOADED);
 

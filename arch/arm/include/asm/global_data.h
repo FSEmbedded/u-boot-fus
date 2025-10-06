@@ -18,6 +18,10 @@ struct arch_global_data {
 #if defined(CONFIG_FSL_ESDHC) || defined(CONFIG_FSL_ESDHC_IMX)
 	u32 sdhc_clk;
 #endif
+#ifdef CONFIG_VYBRID
+	unsigned long	ipg_clk;
+	unsigned long	bus_clk;
+#endif
 #if CONFIG_IS_ENABLED(ACPI)
 	ulong table_start;		/* Start address of ACPI tables */
 	ulong table_end;		/* End address of ACPI tables */
@@ -46,8 +50,6 @@ struct arch_global_data {
 #endif
 	/* "static data" needed by most of timer.c on ARM platforms */
 	unsigned long timer_rate_hz;
-	unsigned int tbu;
-	unsigned int tbl;
 	unsigned long lastinc;
 	unsigned long long timer_reset_value;
 #if !(CONFIG_IS_ENABLED(SYS_ICACHE_OFF) && CONFIG_IS_ENABLED(SYS_DCACHE_OFF))
@@ -58,6 +60,7 @@ struct arch_global_data {
 	unsigned long tlb_emerg;
 #endif
 #endif
+	unsigned int reset_cause;
 #ifdef CFG_SYS_MEM_RESERVE_SECURE
 #define MEM_RESERVE_SECURE_SECURED	0x1
 #define MEM_RESERVE_SECURE_MAINTAINED	0x2

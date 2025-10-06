@@ -13,9 +13,11 @@
 */
 
 #include <common.h>
+#include <command.h>
 #include <env.h>
 #include <init.h>
 #include <miiphy.h>
+#include <mmc.h>
 #include <netdev.h>
 #include <asm/global_data.h>
 #include <asm/arch-imx9/ccm_regs.h>
@@ -231,7 +233,7 @@ static void fs_setup_cfg_info(void)
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
-	
+
 	set_gd_board_type();
 	info->board_type = gd->board_type;
 
@@ -265,9 +267,9 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_AUDIO;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
 		features |= FEAT_SDIO_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b;", NULL))
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
 		features |= FEAT_SDIO_B;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
 		features |= FEAT_MIPI_DSI;
@@ -395,12 +397,10 @@ static void fdt_common_fixup(void *fdt)
 	/* Realloc FDT-Blob to next full page-size.
 	 * If NOSPACE Error appiers, increase extrasize.
 	 */
-	ret = fdt_shrink_to_minimum(fdt, 0x400);
+	ret = fdt_shrink_to_minimum(fdt, 0x800);
 	if(ret < 0){
 		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
 	}
-
-	fdt_thermal_fixup(fdt, 0);
 
 	if(!(features & FEAT_EMMC))
 		fs_fdt_enable(fdt, "emmc", 0);
@@ -428,7 +428,7 @@ static void fdt_common_fixup(void *fdt)
 		fs_fdt_enable(fdt, "ldb_phy", 0);
 	}
 #endif
-	
+
 	if(!(features & FEAT_RGB)){
 		fs_fdt_enable(fdt, "parallel_disp_fmt", 0);
 	}
@@ -480,7 +480,6 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 
 	fdt_common_fixup(fdt_blob);
 	ret = fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
-
 	if(ret)
 		return ret;
 
@@ -490,6 +489,8 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 		/* Set common bdinfo entries */
 		fs_fdt_set_bdinfo(fdt_blob, offs);
 	}
+
+	fs_board_cma_fdt_fixup(fdt_blob);
 
 	return 0;
 }
@@ -553,6 +554,30 @@ static void fsimx93_get_board_rev(char *str, int len)
 	snprintf(str, len, "REV%01d.%02d", rev / 100, rev % 100);
 }
 
+int mmc_map_to_kernel_blk(int devno)
+{
+	return devno;
+}
+
+void board_late_mmc_env_init(void)
+{
+	char cmd[32];
+	char mmcblk[32];
+	u32 dev_no = mmc_get_env_dev();
+
+	env_set_ulong("mmcdev", dev_no);
+
+	/**
+	 * TODO: consider F&S U-BOOT-ENV $rootfs_partition_mmc
+	 * This section will be replaced
+	*/
+	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw", mmc_map_to_kernel_blk(dev_no));
+	env_set("mmcroot", mmcblk);
+
+	sprintf(cmd, "mmc dev %d", dev_no);
+	run_command(cmd, 0);
+}
+
 int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
@@ -580,14 +605,23 @@ int board_late_init(void)
 	/* Set mac addresses for corresponding boards */
 	fs_ethaddr_init();
 
-	if(fs_board_is_closed())
-		env_set("sec_boot", "yes");
-	else
-		env_set("sec_boot", "no");
-
 	/* Skip autoboot during USB-Boot*/
 	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
 		env_set_ulong("bootdelay", 0);
+
+#if !CONFIG_IS_ENABLED(FUS_FORCE_DEFAULT_BOOTDELAY)
+	/* Disable Shell access, if board is closed*/
+	if(fs_board_is_closed()){
+
+		env_set_ulong("bootdelay", -2);
+		/* TODO: Maybe check images within all boot commands? */
+		if (boot_dev == USB_BOOT || boot_dev == USB2_BOOT){
+			printf("WARNING: USB Boot detected on closed board!\n");
+			printf("\tEnable FASTBOOT access with CONFIG_FUS_FORCE_DEFAULT_BOOTDELAY\n");
+			hang();
+		}
+	}
+#endif
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	char brev[MAX_DESCR_LEN] = {0};
@@ -601,6 +635,7 @@ int board_late_init(void)
 	return 0;
 }
 
+#if 0 //### defined in serial-uclass.c
 int serial_get_alias_seq(void)
 {
 	int seq, err;
@@ -615,3 +650,4 @@ int serial_get_alias_seq(void)
 
 	return seq;
 }
+#endif

@@ -1,16 +1,137 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
-* Copyright 2024 F&S Elektronik Systeme GmbH
-*
-* This program is free software; you can redistribute it and/or modify
-* it under the terms of the GNU General Public License version 2 as
-* published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*/
+ * Copyright 2024 F&S Elektronik Systeme GmbH
+ *
+ * Format of an NBoot image
+ * ------------------------
+ *
+ * NBoot on one side has to use the i.MX container format to be loadable by
+ * the ROM Loader of the CPU. On the other hand, F&S tries to bring in more
+ * info so that the content can easily be listed and even be extracted with
+ * the fsimage.sh tool. This is basically done by prepending an F&S header to
+ * each single image. The F&S header shows the type of the image, a specific
+ * image description, and it can also hold a CRC32 checksum to enhance image
+ * robustness in the nonsigned case.
+ *
+ * So an NBoot image has actually two different views:
+ *
+ * 1. The F&S view starting with the BOOT-INFO header, consisting of a set of
+ *    at least five images: BOOT-INFO, BOOT-ID, BOARD-INFO, at least one
+ *    DRAM-TYPE and EXTRA. EXTRA holds the scripts that can be used to handle
+ *    F&S images: addfsheader to create F&S images, fsimage to list F&S images
+ *    and extract subimages. The fsimage script can be extracted from an NBoot
+ *    image with:
+ *
+ *      cat nboot.fs | tr '\0' '\n' | tac | sed "/#\!/q" | tac > fsimage.sh
+ *
+ *    Now fsimage.sh can be used to extract addfsheader and all other images.
+ *
+ * 2. The i.MX Container view starting after the first F&S header, consisting
+ *    of two boot containers, a container with BOARD-CFGs and at least one
+ *    container with DRAM settings, All containers and all images within need
+ *    to be aligned to 1KB boundaries. Most alignment is done by the mkimage
+ *    tool that is used to build the containers, but the overall padding of
+ *    each container needs to be done with respect to the containers, not with
+ *    respect to the F&S headers. If the first F&S header ist stripped from
+ *    the NBoot image, then the image can be stored 1:1 to the boot partition
+ *    and the system should boot (assuming that U-Boot is also present).
+ *
+ * To be able to have the extra info of F&S images also for all the images
+ * within a container, F&S has added an INDEX image to each container. It is
+ * the first image in the container and just contains all the F&S headers for
+ * all other images in the container. In addition, an additional F&S header is
+ * prepended to each container, to hold information of the container itself.
+ * The container header at the beginning of each container is handled as extra
+ * data. Extra data is skipped when listing F&S images, so from the point of
+ * view of the F&S image, the first subimage is actually the INDEX.
+ * Nonethelesse fsimage.sh will also output some useful info for the container
+ * header.
+ *
+ * Remark: The NXP boot container with the ELE firmware is signed and thus
+ * cannot be modified to hold an own INDEX image. Therefore the ELE firmware
+ * can not be listed as extra file, it is just shown as unspecified extra data
+ * at the beginning of the BOOT-INFO image.
+ *
+ * FS:  regular F&S image
+ * FSH: F&S header only
+ * FSI: F&S image part only, header is in INDEX
+ *
+ *   +----------------------------------------+
+ *   | FS: BOOT-INFO (arch) --> INDEX         |
+ *   |   +------------------------------------+--- 1KB aligned
+ *   |   | Container Header 1 (NXP)           |
+ *   |   +------------------------------------+
+ *   |   | Container Header 2 (F&S)           |
+ *   |   +------------------------------------+---
+ *   |   | ELE Firmware                       |    > Container 1 Content
+ *   |   +---+--------------------------------+---
+ *   |   | FS: INDEX                          |   \
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: UPOWER (arch)             |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: CORTEX-M (arch)           |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: SPL (arch)                |    > Container 2 Content
+ *   |   |---+--------------------------------+--- |
+ *   |   | FSI: UPOWER image                  |    |
+ *   |   |------------------------------------+--- |
+ *   |   | FSI: M33 image                     |    |
+ *   |   |------------------------------------+--- |
+ *   |   | FSI: SPL image                     |   /
+ *   +---+------------------------------------+
+ *   | FSH: BOOT-ID (id)                      |
+ *   +----------------------------------------+
+ *   | FS: BOARD-INFO (arch) --> INDEX        |
+ *   |   +------------------------------------+---
+ *   |   | Container Header                   |
+ *   |   +------------------------------------+---
+ *   |   | FS: INDEX                          |   \
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: BOARD-CFG2 (id)           |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: BOARD-CFG (id)            |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: ...                       |    > Container Content
+ *   |   +---+--------------------------------+--- |
+ *   |   | FSI: BOARD-CFG image               |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: BOARD-CFG image               |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: ...                           |   /
+ *   +---+---+--------------------------------+
+ *   | FS: DRAM-TYPE (type) --> INDEX         |
+ *   |   +------------------------------------+---
+ *   |   | Container Header                   |
+ *   |   +------------------------------------+---
+ *   |   | FS: INDEX                          |   \
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: DRAM-FW (type)            |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: DRAM-TIMING (chip)        |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: DRAM-TIMING (chip)        |    |
+ *   |   |   +--------------------------------+    |
+ *   |   |   | FSH: ...                       |    > Container Content
+ *   |   +---+--------------------------------+--- |
+ *   |   | FSI: DRAM-FW image                 |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: DRAM-TIMING image             |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: DRAM-TIMING image             |    |
+ *   |   +------------------------------------+--- |
+ *   |   | FSI: ...                           |   /
+ *   +---+---+--------------------------------+
+ *   | FS: DRAM-TYPE (type)  --> INDEX        |
+ *   |   +------------------------------------+---
+ *   |   | ...                                |
+ *   +---+------------------------------------+
+ *   | FS: EXTRA (arch)                       |
+ *   |   +------------------------------------+
+ *   |   | FS: BASH-SCRIPT (addfsheader)      |
+ *   |   +------------------------------------+
+ *   |   | FS: BASH-SCRIPT (fsimage)          |
+ *   +---+------------------------------------+
+ */
 
 #if __UBOOT__
 #include <common.h>
@@ -289,7 +410,7 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 	if (ahab_verify_cntr_image(&images[image_index], image_index))
 		return NULL;
 #endif
-		return &images[image_index];
+	return &images[image_index];
 }
 
 /**
@@ -301,7 +422,7 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
  * @image_num: idx for image in image array.
  * @returns: 0 if success; else -ERRNO;
  */
-static int fs_cntr_load_single_image(struct spl_image_info *image_info,
+static int __maybe_unused fs_cntr_load_single_image(struct spl_image_info *image_info,
 				struct spl_image_info *cntr_info,
 				struct spl_load_info *load,
 				int image_num)
@@ -316,6 +437,35 @@ static int fs_cntr_load_single_image(struct spl_image_info *image_info,
 	image_info->load_addr = image->dst;
 	image_info->entry_point = image->entry;
 	image_info->size = image->size;
+
+	return 0;
+}
+
+/**
+ * fs_cntr_skip_streamed_images()
+ * 
+ * @image_info: returns image_info form last image
+ * @cntr_info: ptr to spl_image_info for container hdr
+ * @load: ptr to load_info
+ * @start_from_idx: idx for the first image to load.
+ * @stop_at_idx: idx for the last image to be load
+ * @returns: 0 if success; else -ERRNO;
+ */
+static int __maybe_unused fs_cntr_skip_streamed_images(struct spl_image_info *image_info,
+				struct spl_image_info *cntr_info,
+				struct spl_load_info *load,
+				int start_from_idx,
+				int stop_at_idx)
+{
+	struct container_hdr *cntr = (struct container_hdr *)cntr_info->load_addr;
+	int idx;
+	int ret;
+
+	for(idx=start_from_idx; idx <= stop_at_idx && idx < cntr->num_images; idx++){
+		ret = fs_cntr_load_single_image(image_info, cntr_info, load, idx);
+		if(ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -595,35 +745,76 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	cntr = (struct container_hdr *)cntr_info.load_addr;
 	num_imgs = cntr->num_images;
 
-	for (idx = 0; idx < num_imgs; idx++){
-		ret = fs_cntr_load_single_image(&cfg_info,
-					&cntr_info,
-					load_info,
-					idx);
-		if(ret)
-			continue;
-
-		cfg_fsh = (struct fs_header_v1_0 *)cfg_info.load_addr;
-
-		if(fs_image_match_board_id(cfg_fsh))
-			break;
-
-		/* when no img found */
-		ret = -EINVAL;
+	/* load index image */
+	ret = fs_cntr_load_single_image(&cfg_info,
+				&cntr_info,
+				load_info,
+				0);
+	if(ret){
+		free_container(&cntr_info);
+		return ret;
 	}
 
-	if(!ret){
-		debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh->type, cfg_fsh->param.descr);
+	cfg_fsh = (struct fs_header_v1_0 *)cfg_info.load_addr;
+
+	if(!fs_image_match(cfg_fsh, "INDEX", NULL)){
+		free_container(&cntr_info);
+		return -EINVAL;
+	}
+
+	/* search board-cfg fsh within index */
+	for(idx = 1; idx < num_imgs; idx++){
+		if(fs_image_match_board_id(&cfg_fsh[idx]))
+			break;
+	}
+
+	if(idx >= num_imgs){
+		free_container(&cntr_info);
+		return -EINVAL;
+	}
+
+	debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh[idx].type, cfg_fsh[idx].param.descr);
+
+	/* place fsh in OCRAM */
+	memcpy((void *)CFG_FUS_BOARDCFG_ADDR, &cfg_fsh[idx],
+			sizeof(struct fs_header_v1_0));
+
+	/* We need to skip images in stream */
+	if(is_boot_from_stream_device()){
+		ret = fs_cntr_skip_streamed_images(&cfg_info,
+				&cntr_info,
+				load_info,1,idx-1);
+		if(ret){
+			free_container(&cntr_info);
+			return ret;
+		}
+	}
+
+	/* load board-cfg.dtb */
+	ret = fs_cntr_load_single_image(&cfg_info,
+				&cntr_info,
+				load_info,
+				idx);
+
+	if(ret){
+		free_container(&cntr_info);
+		return ret;
+	}
+
+	{
 		/**
 		 * TODO: A simple workaround to load data in other sram areas using Cortex-A.
 		 * Check between Loadaddr and CFG_FUS_BOARDCFG_ADDR and copy the binary.
 		 */
-		if ((ulong) cfg_info.load_addr != CFG_FUS_BOARDCFG_ADDR)
-			memcpy((void *)CFG_FUS_BOARDCFG_ADDR, (void *)cfg_info.load_addr, cfg_info.size);
+		ulong load_addr = (CFG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0));
+
+		if ((ulong)cfg_info.load_addr != load_addr){
+			debug("FSCNTR: move board-cfg to another location!\n");
+			memcpy((void *)load_addr, (void *)cfg_info.load_addr, cfg_info.size);
+		}
 	}
 
 	free_container(&cntr_info);
-
 	return ret;
 }
 
@@ -668,10 +859,12 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	struct spl_image_info dram_info;
 	struct container_hdr *cntr;
 	struct fs_header_v1_0 *dram_fsh;
+	int fw_idx = 0;
 	int idx;
 	int num_imgs;
 	uint sector;
 	uint offset;
+	u32 *dram_crc;
 	int ret = 0;
 
 	fsh = fsh_info->fsh;
@@ -689,40 +882,99 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	cntr = (struct container_hdr *)cntr_info.load_addr;
 	num_imgs = cntr->num_images;
 
-	for (idx = 0; idx < num_imgs; idx++) {
+	/* load index image */
+	ret = fs_cntr_load_single_image(&dram_info,
+				&cntr_info,
+				load_info,
+				0);
+	if(ret){
+		free_container(&cntr_info);
+		return ret;
+	}
+
+	dram_fsh = (struct fs_header_v1_0 *)dram_info.load_addr;
+
+	if(!fs_image_match(dram_fsh, "INDEX", NULL)){
+		free_container(&cntr_info);
+		return -EINVAL;
+	}
+
+	/* search dram-fw within index */
+	for(idx = 1; idx < num_imgs; idx++){
+		if(fs_image_match(&dram_fsh[idx], "DRAM-FW", ram_info->type))
+			break;
+	}
+
+	/* load dram fw*/
+	if(idx < num_imgs){
+		fw_idx = idx;
+		/* We need to skip images in stream */
+		if(is_boot_from_stream_device()){
+			ret = fs_cntr_skip_streamed_images(&dram_info,
+					&cntr_info,
+					load_info,1,fw_idx-1);
+			if(ret){
+				free_container(&cntr_info);
+				return ret;
+			}
+		}
+
+		debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type, dram_fsh[idx].param.descr);
 		ret = fs_cntr_load_single_image(&dram_info, 
 					&cntr_info,
 					load_info,
-					idx);
-		if(ret)
-			continue;
-
-		dram_fsh = (struct fs_header_v1_0 *)dram_info.load_addr;
-		debug("FSCNTR: FOUND %s(%s)\n", dram_fsh->type, dram_fsh->param.descr);
-
-		if(idx == 0 && fs_image_match(dram_fsh, "DRAM-FW", ram_info->type)){
-			memcpy(&_end, (void *)(dram_info.load_addr + FSH_SIZE), dram_info.size);
-			ret = -EINVAL;
-			continue;
+					fw_idx);
+		if(ret){
+			free_container(&cntr_info);
+			return ret;
 		}
 
-		if(fs_image_match(dram_fsh, "DRAM-TIMING", ram_info->timing))
+		memcpy(&_end, (void *)dram_info.load_addr, dram_info.size);
+	}
+
+	/* search dram-timing */
+	for(idx = 1; idx < num_imgs; idx++){
+		if(fs_image_match(&dram_fsh[idx], "DRAM-TIMING", ram_info->timing))
 			break;
-
-		/* when no img found */
-		ret = -EINVAL;
 	}
 
-	if(!ret){
-		u32 *dram_crc;
-		dram_crc = (void *)&dram_fsh->type[12];
-
-		printf("DRAM-CRC32: 0x%08x\n", *dram_crc);
-		fs_board_init_dram_data((void *)(dram_info.load_addr + FSH_SIZE));
+	if(idx >= num_imgs){
+		free_container(&cntr_info);
+		return -EINVAL;
 	}
+
+	/* We need to skip images in stream */
+	if(is_boot_from_stream_device()){
+		if(fw_idx >= idx)
+			return -EINVAL;
+
+		ret = fs_cntr_skip_streamed_images(&dram_info,
+				&cntr_info,
+				load_info,fw_idx+1,idx-1);
+		if(ret){
+			free_container(&cntr_info);
+			return ret;
+		}
+	}
+
+	/* load dram-timing */
+	debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type, dram_fsh[idx].param.descr);
+	ret = fs_cntr_load_single_image(&dram_info,
+					&cntr_info,
+					load_info,
+					idx);
+	if(ret){
+		free_container(&cntr_info);
+		return ret;
+	}
+
+
+	dram_crc = (void *)&dram_fsh->type[12];
+
+	printf("DRAM-CRC32: 0x%08x\n", *dram_crc);
+	fs_board_init_dram_data((void *)(dram_info.load_addr));
 
 	free_container(&cntr_info);
-
 	return ret;
 }
 
@@ -888,7 +1140,7 @@ static void fs_cntr_handle(struct fsh_load_info *fsh_info)
 /**
  * fs_cntr_new_header
  */
-static void fs_cntr_new_header(void *dnl_address, int size)
+static void fs_cntr_new_header(void *dnl_address, uint size)
 {
 	struct fsh_load_info *fsh_info;
 

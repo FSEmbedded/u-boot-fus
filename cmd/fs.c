@@ -17,7 +17,7 @@ static int do_size_wrapper(struct cmd_tbl *cmdtp, int flag, int argc,
 
 U_BOOT_CMD(
 	size,	4,	0,	do_size_wrapper,
-	"determine a file's size",
+	"determine a file's size and set environment variable filesize",
 	"<interface> <dev[:part]> <filename>\n"
 	"    - Find file 'filename' from 'dev' on 'interface'\n"
 	"      determine its size, and store in the 'filesize' variable."

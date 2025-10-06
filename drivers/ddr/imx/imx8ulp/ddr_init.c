@@ -217,7 +217,7 @@ int ddr_calibration(unsigned int fsp_table[3])
 	return 0;
 }
 
-static void save_dram_config(struct dram_timing_info2 *timing_info, unsigned long saved_timing_base)
+__maybe_unused static void save_dram_config(struct dram_timing_info2 *timing_info, unsigned long saved_timing_base)
 {
 	int i = 0;
 	struct dram_timing_info2 *saved_timing = (struct dram_timing_info2 *)saved_timing_base;
@@ -282,8 +282,10 @@ int ddr_init(struct dram_timing_info2 *dram_timing)
 		clrbits_le32(AVD_SIM_BASE_ADDR, 0x1); /* SIM_DDR_CTRL_DIV2_EN */
 	}
 
+#if !defined(CONFIG_SKIP_DRAM_TIMING_SAVING)
 	/* save the dram config into sram for low power mode */
 	save_dram_config(dram_timing, CONFIG_SAVED_DRAM_TIMING_BASE);
+#endif
 
 	/* Initialize CTL registers */
 	for (i = 0; i < dram_timing->ctl_cfg_num; i++)

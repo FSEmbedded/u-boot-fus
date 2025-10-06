@@ -76,8 +76,8 @@ int timer_init(void)
 	val |= SC_CNTCR_FREQ0 | SC_CNTCR_ENABLE | SC_CNTCR_HDBG;
 	writel(val, &sctr->cntcr);
 
-	gd->arch.tbl = 0;
-	gd->arch.tbu = 0;
+	gd->timebase_h = 0;
+	gd->timebase_l = 0;
 
 	gd->arch.timer_rate_hz = freq;
 	return 0;
@@ -90,8 +90,8 @@ unsigned long long get_ticks(void)
 
 	asm volatile("mrrc p15, 0, %Q0, %R0, c14" : "=r" (now));
 
-	gd->arch.tbl = (unsigned long)(now & 0xffffffff);
-	gd->arch.tbu = (unsigned long)(now >> 32);
+	gd->timebase_l = (unsigned long)(now & 0xffffffff);
+	gd->timebase_h = (unsigned long)(now >> 32);
 
 	return now;
 }

@@ -391,7 +391,7 @@ static int spl_romapi_load_image_stream(struct spl_image_info *spl_image,
 
 	if (p - phdr < imagesize) {
 		imagesize -= p - phdr;
-		/*need pagesize hear after ROM fix USB problme*/
+		/*need pagesize hear after ROM fix USB problem*/
 		imagesize += pg - 1;
 		imagesize /= pg;
 		imagesize *= pg;

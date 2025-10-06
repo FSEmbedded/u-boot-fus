@@ -10,6 +10,7 @@
 #include <display_options.h>
 #include <div64.h>
 #include <dm.h>
+#include <image.h>			/* parse_loadaddr() */
 #include <log.h>
 #include <malloc.h>
 #include <mapmem.h>
@@ -282,7 +283,7 @@ static int do_spi_flash_read_write(int argc, char *const argv[])
 	if (argc < 3)
 		return CMD_RET_USAGE;
 
-	addr = hextoul(argv[1], &endp);
+	addr = parse_loadaddr(argv[1], &endp);
 	if (*argv[1] == 0 || *endp != 0)
 		return CMD_RET_USAGE;
 

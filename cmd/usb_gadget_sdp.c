@@ -41,7 +41,7 @@ static int do_sdp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	}
 
 	/* This command typically does not return but jumps to an image */
-	sdp_handle(udc);
+	sdp_handle(udc, NULL, 0);
 	pr_err("SDP ended\n");
 
 exit:

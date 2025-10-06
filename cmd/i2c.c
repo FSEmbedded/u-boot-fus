@@ -73,6 +73,7 @@
 #include <edid.h>
 #include <errno.h>
 #include <i2c.h>
+#include <image.h>			/* parse_loadaddr() */
 #include <log.h>
 #include <malloc.h>
 #include <asm/byteorder.h>
@@ -279,7 +280,7 @@ static int do_i2c_read(struct cmd_tbl *cmdtp, int flag, int argc,
 	/*
 	 * memaddr is the address where to store things in memory
 	 */
-	memaddr = (u_char *)hextoul(argv[4], NULL);
+	memaddr = (u_char *)parse_loadaddr(argv[4], NULL);
 
 #if CONFIG_IS_ENABLED(DM_I2C)
 	ret = i2c_get_cur_bus_chip(chip, &dev);

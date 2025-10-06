@@ -1,53 +1,53 @@
 # SPDX-License-Identifier: GPL-2.0+
+#
+# Copyright 2025 F&S Elektronik Systeme GmbH
+#
 
-ifndef CONFIG_SPL_BUILD
-obj-y   += fsimx8ulp.o
-else
+include board/$(VENDOR)/common/fus-common.mk
+
+ifdef CONFIG_SPL_BUILD
 obj-y += spl.o
-endif #CONFIG_SPL_BUILD
+else
+obj-y += fsimx8ulp.o
+endif
 
-### UBOOT-INFO CREATION ###
-CNTR_DEPFILES := $(srctree)/tools/imx_cntr_image.sh
-IMAGE_TYPE := imx8image
+# Image type for mkimage
+MKIMAGE_TYPE = imx8image
 
-UBOOTCNTR_CFG = $(CONFIG_FUS_UBOOTCNTR_CONFIG:"%"=%)
+# -----------------------------------------------------------------------------
+#
+# Rules for uboot.fs.
+#
+# Data flow:
+# 1. bl31.bin/bl31-optee.bin --> (cp) --> <arch>_ATF.fsi
+# 2. bl32.bin --> (cp) --> <arch>_TEE.fsi
+# 3. u-boot.bin --> (cp) --> <arch>_UBOOT.fsi
+# 4. <arch>_ATF.fsi + <arch>_TEE.fsi + <arch>_UBOOT.fsi --> (fsc) --> uboot.fs
 
-MKIMAGEFLAGS_uboot-info.cntr = -n ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG) \
-	-T $(IMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
+ifeq ($(CONFIG_OPTEE),y)
+UBOOT_ATF = $(NXP_PATH)/bl31-optee.bin
+else
+UBOOT_ATF = $(NXP_PATH)/bl31.bin
+endif
 
-CNTR_LOG = board/$(BOARDDIR)/uboot-info.cntr.log
-board/$(BOARDDIR)/uboot-info.cntr:  MKIMAGEOUTPUT = $(CNTR_LOG)
+# 1. Copy ATF file to desired filename
+$(obj)/%_ATF.fsi: $(UBOOT_ATF)
+	$(call cmd,copy)
 
-CNTR_IMGS = $(shell grep IMAGE $(srctree)/board/$(BOARDDIR)/$(UBOOTCNTR_CFG) | cut -f 3 )
-IMGS_FSH = $(shell echo ${CNTR_IMGS} | sed -e 's/\.bin/.fsh/g')
+# 2. Copy opTEE file to desired filename
+$(obj)/%_TEE.fsi: $(NXP_PATH)/bl32.bin
+	$(call cmd,copy)
 
-define map_type
-$(if $(findstring bl31.fsh,$(1)),ATF,\
-$(if $(findstring bl32.fsh,$(1)),TEE,\
-$(if $(findstring u-boot.fsh,$(1)),UBOOT,\
-$(shell basename $(1) | cut -d '.' -f 1 | tr a-z A-Z))))
-endef
+# 3. Copy U-Boot to desired filename
+$(obj)/%_U-BOOT.fsi: u-boot.bin
+	$(call cmd,copy)
 
-IMGS_FS_OPT = -c -a 0x400 -j -t $(call map_type,$@) -d $(BOARD) $<
-INDEX_FS_OPT = -c -w -a 0x400 -i -t INDEX $^
+# 4. Build F&S container; delete TEE image line from .cfg if not using opTEE
+ifneq ($(CONFIG_OPTEE),y)
+SED_UBOOT_EXTRA = -e '/^IMAGE.*TEE/d'
+endif
 
-quiet_cmd_addfsheader = FSIMG   $@
-cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
+$(eval $(call fsc,uboot,-t U-BOOT-INFO -d $(BOARD),$(SED_UBOOT_EXTRA)))
 
-$(IMGS_FSH): ${CNTR_IMGS}
-%.fsh: %.bin
-	$(call cmd,addfsheader,$(IMGS_FS_OPT))
-
-board/$(BOARDDIR)/uboot-index.fs: $(IMGS_FSH)
-	$(call cmd,addfsheader,$(INDEX_FS_OPT))
-
-board/$(BOARDDIR)/uboot-info.cntr: board/$(BOARDDIR)/uboot-index.fs ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG)
-	$(Q)$(CNTR_DEPFILES) ${srctree}/board/$(BOARDDIR)/$(UBOOTCNTR_CFG)
-	$(call if_changed,mkimage)
-
-uboot-info.fs: board/$(BOARDDIR)/uboot-info.cntr
-	$(eval index_offset := $(shell grep DATA ${CNTR_LOG} | grep -oP 'file_offset = \K[^ ]+'))
-	$(eval index_offset := $(shell printf "%d\n" "${index_offset}"))
-	$(call cmd,addfsheader,-c -a 0x400 -e ${index_offset} -t U-BOOT-INFO -d ${BOARD} $^)
-
-### END: UBOOT-INFO CREATION ###
+uboot.fs: $(obj)/uboot.fs
+	$(call cmd,copy)

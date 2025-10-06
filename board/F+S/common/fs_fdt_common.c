@@ -14,16 +14,17 @@
 #ifdef CONFIG_OF_BOARD_SETUP
 
 #include <common.h>			/* types, get_board_name(), ... */
-#include <version.h>			/* version_string[] */
+#include <version_string.h>		/* version_string[] */
+#include <cli.h>			/* get_board_name() */
 #include <net.h>			/* eth_env_get_enetaddr_by_index() */
 #include <fdt_support.h>		/* do_fixup_by_path_u32(), ... */
 #include <asm/arch/sys_proto.h>		/* get_reset_cause() */
 #include "fs_fdt_common.h"		/* Own interface */
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
-#include <version_string.h>
-
-const char *get_reset_cause(void);
-const char *get_board_name(void);
+#include "fs_image_common.h"	/* fs_image_*() */
+#ifdef CONFIG_FS_SELFTEST
+#include "fs_processor_info.h"	/* fs_get_processorInfo() */
+#endif
 
 /* Set a generic value, if it was not already set in the device tree */
 void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
@@ -37,11 +38,10 @@ void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
 
 	/* Warn if property already exists in device tree */
 	if (fdt_get_property(fdt, offs, name, NULL) != NULL) {
-		if(verbose)
-                {
-                    printk("## %s property %s/%s from device tree!\n",
-		       force ? "Overwriting": "Keeping",
-		       fdt_get_name(fdt, offs, NULL), name);
+		if(verbose) {
+			printk("## %s property %s/%s from device tree!\n",
+			       force ? "Overwriting": "Keeping",
+			       fdt_get_name(fdt, offs, NULL), name);
 		}
 		if (!force)
 			return;
@@ -82,6 +82,7 @@ void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force, b
 /* Set ethernet MAC address aa:bb:cc:dd:ee:ff for given index */
 void fs_fdt_set_macaddr(void *fdt, int offs, int id)
 {
+#ifdef CONFIG_NET
 	uchar enetaddr[6];
 	char name[10];
 	char str[20];
@@ -91,11 +92,13 @@ void fs_fdt_set_macaddr(void *fdt, int offs, int id)
 		sprintf(str, "%pM", enetaddr);
 		fs_fdt_set_string(fdt, offs, name, str, 1);
 	}
+#endif
 }
 
 /* Set MAC address in bdinfo as MAC_WLAN and in case of Silex as Silex-MAC */
 void fs_fdt_set_wlan_macaddr(void *fdt, int offs, int id, int silex)
 {
+#ifdef CONFIG_NET
 	uchar enetaddr[6];
 	char str[30];
 
@@ -109,6 +112,7 @@ void fs_fdt_set_wlan_macaddr(void *fdt, int offs, int id, int silex)
 			fs_fdt_set_string(fdt, offs, "Silex-MAC", str, 1);
 		}
 	}
+#endif
 }
 
 /* If environment variable exists, set a string property with the same name */
@@ -150,7 +154,7 @@ int fs_fdt_path_offset(void *fdt, const char *path)
  * @fdt: pointer to the device tree blob
  * @path: full path or name of the node to locate
  * @enable: if set, then status = "okay", else "disabled"
- * Retrun: 0 if succesed, else -FDT_ERR
+ * Return: 0 if succesed, else -FDT_ERR
  */
 int fs_fdt_enable(void *fdt, const char *path, bool enable)
 {
@@ -191,6 +195,24 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	char rev[6];
 	unsigned int board_rev = fs_board_get_rev();
 
+	/* Add board-config to bdinfo node */
+#ifdef CFG_FUS_BOARDCFG_ADDR
+	void *fdt_cfg = fs_image_get_cfg_fdt();
+	int offs_cfg = fs_image_get_board_cfg_offs(fdt_cfg);
+	int offs_bdinfo_cfg = fdt_add_subnode(fdt, offs, "board-cfg");
+	fdt_overlay_apply_node(fdt, offs_bdinfo_cfg, fdt_cfg, offs_cfg);
+
+	fs_image_set_board_id_from_cfg();
+	fs_fdt_set_string(fdt, offs, "board-id", fs_image_get_board_id(), 1);
+#endif
+
+#ifdef CONFIG_FS_SELFTEST
+	char cpu_info[128];
+	fs_get_processorInfo(cpu_info);
+	fs_fdt_set_string(fdt, offs, "cpu_info", cpu_info, 1);
+	fs_fdt_set_string(fdt, offs, "dram_test_result", get_dram_result(), 1);
+#endif
+
 #ifndef CONFIG_FS_BOARD_CFG
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 
@@ -220,11 +242,9 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	!CONFIG_IS_ENABLED(ARCH_IMX8ULP)
 	fs_fdt_set_string(fdt, offs, "reset_cause", get_reset_cause(), 1);
 #endif
-#if 0 // TODO:
 	fs_fdt_set_string(fdt, offs, "nboot_version",
 			  fs_board_get_nboot_version(), 1);
 	fs_fdt_set_string(fdt, offs, "u-boot_version", version_string, 1);
-#endif
 }
 
 #endif /* CONFIG_OF_BOARD_SETUP */

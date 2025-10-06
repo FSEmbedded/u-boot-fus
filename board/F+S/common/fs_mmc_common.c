@@ -245,8 +245,8 @@ static void fs_mmc_get_env_info(struct mmc *mmc, struct cfg_info *cfg)
 		err = fs_image_get_known_env_mmc(0, cfg->env_start, NULL);
 	}
 	if (err) {
-		cfg->env_start[0] = CONFIG_ENV_OFFSET;
-		cfg->env_start[1] = CONFIG_ENV_OFFSET_REDUND;
+		cfg->env_start[0] = CONFIG_ENV_MMC_OFFSET;
+		cfg->env_start[1] = CONFIG_ENV_MMC_OFFSET_REDUND;
 	}
 
 	cfg->flags |= CI_FLAGS_HAVE_ENV;
@@ -292,31 +292,6 @@ __weak int get_usdhc_boot_device()
 __weak int get_mmc_boot_device()
 {
 	return mmc_boot_device;
-}
-
-/* This should be defined for each board */
-__weak int mmc_map_to_kernel_blk(int dev_no)
-{
-	return dev_no;
-}
-
-void board_late_mmc_env_init(void)
-{
-	char cmd[32];
-	char mmcblk[32];
-	u32 dev_no = mmc_get_env_dev();
-
-	env_set_ulong("mmcdev", dev_no);
-
-	/**
-	 * TODO: consider F&S U-BOOT-ENV $rootfs_partition_mmc
-	 * This section will be replaced
-	*/
-	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw", mmc_map_to_kernel_blk(dev_no));
-	env_set("mmcroot", mmcblk);
-
-	sprintf(cmd, "mmc dev %d", dev_no);
-	run_command(cmd, 0);
 }
 
 #endif /* CONFIG_FSL_ESDHC_IMX */

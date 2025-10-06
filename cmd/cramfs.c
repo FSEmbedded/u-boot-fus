@@ -99,7 +99,7 @@ int do_cramfs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 {
 	char *filename;
 	int size;
-	ulong offset = image_load_addr;
+	ulong offset;
 	char *offset_virt;
 
 	struct part_info part;
@@ -119,18 +119,17 @@ int do_cramfs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 	/* fake the address offset */
 	part.offset = (u64)(uintptr_t) map_sysmem(addr - OFFSET_ADJUSTMENT, 0);
 
-	/* pre-set Boot file name */
-	filename = env_get("bootfile");
-	if (!filename)
-		filename = "uImage";
+	/* pre-set Boot file name and offset */
+	offset = get_loadaddr();
+	filename = env_get_bootfile();
 
 	if (argc == 2) {
-		filename = argv[1];
+		filename = env_parse_bootfile(argv[1]);
 	}
 	if (argc == 3) {
-		offset = simple_strtoul(argv[1], NULL, 0);
-		image_load_addr = offset;
-		filename = argv[2];
+		offset = parse_loadaddr(argv[1], NULL);
+		set_fileaddr(offset);
+		filename = env_parse_bootfile(argv[2]);
 	}
 
 	offset_virt = map_sysmem(offset, 0);
@@ -141,7 +140,7 @@ int do_cramfs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 	if (size > 0) {
 		printf("### CRAMFS load complete: %d bytes loaded to 0x%lx\n",
 			size, offset);
-		env_set_hex("filesize", size);
+		env_set_fileinfo(size);
 	} else {
 		printf("### CRAMFS LOAD ERROR<%x> for %s!\n", size, filename);
 	}

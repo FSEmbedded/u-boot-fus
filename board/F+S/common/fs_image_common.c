@@ -154,6 +154,7 @@
 #include "fs_image_common.h"		/* Own interface */
 #include "fs_cntr_common.h"
 
+#include <asm/mach-imx/checkboot.h>
 #ifdef CONFIG_FS_SECURE_BOOT
 #include <asm/mach-imx/hab.h>
 #include <stdbool.h>
@@ -277,7 +278,31 @@ void *fs_image_find_cfg_fdt(struct fs_header_v1_0 *fsh)
 	if (fs_image_is_signed(fsh))
 		fdt += HAB_HEADER;
 #endif
+	if(fdt_check_header(fdt)){
+		return NULL;
+	}
 
+	return fdt;
+}
+
+/* Return the fdt part of the given board configuration with index header */
+void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info)
+{
+	void *fdt;
+
+	if(!cfg_info)
+		return NULL;
+	
+	if(cfg_info->fsh_idx == NULL)
+		return fs_image_find_cfg_fdt(cfg_info->fsh_idx_entry);
+	
+	fdt = (void *)cfg_info->fsh_idx_entry;
+	fdt += sizeof(struct fs_header_v1_0) + cfg_info->offset;
+
+	if(fdt_check_header(fdt)){
+		return NULL;
+	}
+	
 	return fdt;
 }
 
@@ -424,7 +449,6 @@ bool fs_image_match_board_id(struct fs_header_v1_0 *cfg_fsh)
 	 */
 	if (strncmp(bnr.name, compare_bnr.name, sizeof(bnr.name)))
 		return false;
-
 	if (bnr.rev > compare_bnr.rev)
 		return false;
 
@@ -435,13 +459,13 @@ bool fs_image_match_board_id(struct fs_header_v1_0 *cfg_fsh)
 const void *fs_image_getprop(const void *fdt, int cfg_offs, int rev_offs,
 			     const char *name, int *lenp)
 {
-	const void *prop = NULL;
+	const void *prop;
 
-	if (rev_offs)
+	if (rev_offs) {
 		prop = fdt_getprop(fdt, rev_offs, name, lenp);
-
-	if (prop)
-		return prop;
+		if (prop)
+			return prop;
+	}
 
 	return fdt_getprop(fdt, cfg_offs, name, lenp);
 }
@@ -450,15 +474,15 @@ const void *fs_image_getprop(const void *fdt, int cfg_offs, int rev_offs,
 u32 fs_image_getprop_u32(const void *fdt, int cfg_offs, int rev_offs,
 			 int cell, const char *name, const u32 dflt)
 {
-	const void *prop = NULL;
+	const void *prop;
 	int len;
 
-	if (rev_offs)
+	if (rev_offs) {
 		prop = fdt_getprop(fdt, rev_offs, name, &len);
-
-	if (prop)
-		return fdt_getprop_u32_default_node(fdt, rev_offs,
-											    cell, name, dflt);
+		if (prop)
+			return fdt_getprop_u32_default_node(fdt, rev_offs,
+							    cell, name, dflt);
+	}
 
 	return fdt_getprop_u32_default_node(fdt, cfg_offs, cell, name, dflt);
 }
@@ -548,6 +572,7 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 			return false;
 	}
 #endif
+
 	return true;
 }
 #else
@@ -615,7 +640,8 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
  * 2: CRC32 was Image only (only FSH_FLAGS_CRC32 set)
  * 3: CRC32 was Header+Image (both FSH_FLAGS_SECURE and FSH_FLAGS_CRC32 set)
  */
-int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh, unsigned int offset)
+int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh,
+				unsigned int offset)
 {
 	u32 expected_cs;
 	u32 computed_cs;
@@ -734,6 +760,17 @@ void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh)
 const char *fs_image_get_board_id(void)
 {
 	return board_id;
+}
+
+void fs_image_get_bcfg_name(char *bcfg_name, ulong len)
+{
+	const char* board_id = fs_image_get_board_id();
+	const char* ptr;
+	ulong cnt;
+
+	ptr = memchr(board_id, '.', len);
+	cnt = (int)(ptr - board_id);
+	strncpy(bcfg_name, board_id, cnt);
 }
 
 void fs_image_get_compare_id(char *id, uint len)
@@ -1143,7 +1180,7 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size)
 #define FSIMG_JOB_DRAM BIT(1)
 #define FSIMG_JOB_ATF BIT(2)
 #define FSIMG_JOB_TEE BIT(3)
-#ifdef CONFIG_IMX_OPTEE
+#ifdef CONFIG_OPTEE
 #define FSIMG_FW_JOBS (FSIMG_JOB_DRAM | FSIMG_JOB_ATF | FSIMG_JOB_TEE)
 #else
 #define FSIMG_FW_JOBS (FSIMG_JOB_DRAM | FSIMG_JOB_ATF)
@@ -1175,7 +1212,7 @@ static unsigned int jobs;
 static int nest_level;
 static const char *ram_type;
 static const char *ram_timing;
-// static basic_init_t basic_init_callback;
+static basic_init_t basic_init_callback;
 static const char *layout_name;
 static struct fs_header_v1_0 one_fsh;	/* Buffer for one F&S header */
 static void *validate_addr = NULL;
@@ -1271,7 +1308,8 @@ static void fs_image_next_header(enum fsimg_state new_state)
 /* State machine: Enter a new sub-image with given size and load the header */
 static void fs_image_enter(unsigned int size, enum fsimg_state new_state)
 {
-	fsimg_stack[nest_level].remaining -= size;
+	if (nest_level >= 0)
+		fsimg_stack[nest_level].remaining -= size;
 	fsimg_stack[++nest_level].remaining = size;
 	fsimg_stack[nest_level].size = size;
 	fs_image_next_header(new_state);
@@ -1744,7 +1782,7 @@ static void fs_image_sdp_rx_data(u8 *data_buf, int data_len)
 }
 
 /* This is called when the SDP protocol starts a new file */
-static void fs_image_sdp_new_file(u32 dnl_address, u32 size)
+static void fs_image_sdp_new_file(void *dnl_address, uint size)
 {
 	fs_image_start(size, jobs, basic_init_callback, NULL);
 }
@@ -1774,6 +1812,12 @@ void fs_image_all_sdp(bool need_cfg, basic_init_t basic_init)
 		jobs = jobs_todo;
 		spl_sdp_stream_continue(&fs_image_sdp_stream_ops, true);
 	};
+
+	/*
+	 * Remark: Don't call spl_sdp_stream_done() here; this would stop the
+	 * UUU transfer. But we need a continuous stream right up to fastboot
+	 * that does never end from our side.
+	 */
 }
 
 #ifdef CONFIG_NAND_MXS
@@ -1915,7 +1959,7 @@ static int fs_image_get_flash_info_spl_mmc(struct flash_info_spl *fi)
 	u8 boot_hwpart;
 
 	/* Start mmc device once */
-	fi->blk_desc = blk_get_devnum_by_type(IF_TYPE_MMC, 0);
+	fi->blk_desc = blk_get_devnum_by_uclass_id(UCLASS_MMC, 0);
 	if (!fi->blk_desc) {
 		printf("Cannot start MMC boot device\n");
 		return -ENODEV;
@@ -1937,7 +1981,7 @@ static int fs_image_get_flash_info_spl_mmc(struct flash_info_spl *fi)
 	fi->hwpart[0] = boot_hwpart;
 #ifndef CONFIG_IMX8MM
 	if (boot_hwpart)
-		boot_hwpart = 3 - boot_hwpart;
+		fi->hwpart[1] = 3 - boot_hwpart;
 #else
 	fi->hwpart[1] = boot_hwpart;
 #endif
@@ -2077,5 +2121,5 @@ int fs_image_load_system(enum boot_device boot_dev, bool secondary,
 
 	return -ENOENT;
 }
-#endif
+#endif /* !defined(CONFIG_FS_CNTR_COMMON) */
 #endif /* CONFIG_SPL_BUILD */
