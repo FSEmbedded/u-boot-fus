@@ -1093,7 +1093,7 @@ static void fs_cntr_handle(struct fsh_load_info *fsh_info)
 			break;
 		jobs &= ~FSIMG_JOB_UBOOT;
 		next = FSIMG_STATE_DONE;
-		break;		
+		break;
 	default:
 		debug("%s: Current State %d is not considered\n", __func__, state);
 		printf("FSCNTR: FSM violation\n");
@@ -1245,7 +1245,7 @@ static int load_uboot(struct spl_image_info *spl_image)
 		return ret;
 
 	ret = fs_cntr_load_all_images(spl_image, &cntr_info, load_info, 1);
-	
+
 	free_container(&cntr_info);
 
 	return ret;
