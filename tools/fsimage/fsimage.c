@@ -36,29 +36,25 @@ int load_saved_nboot(void) {
 
 void extract_board_config(void){
 	u64 search = (u64)(saved_nboot_buffer + 0x40);
-	do {
-		search += 0x400;
-	} while(!valid_container_hdr((struct container_hdr *)search));
-	do {
-		search += 0x400;
-	} while(!valid_container_hdr((struct container_hdr *)search));
+	for(int i = 0; i < 2; i++) {
+		do {
+			search += 0x400;
+		} while(!valid_container_hdr((struct container_hdr *)search));
+	}
 
 	char *fert = ((struct fs_header_v1_0*)(search - 0x80))->param.descr;
-
 	char *point = strchr(fert, '.');
 	int diff = point - fert;
 	char fert_no_rev[256];
 	strncpy(fert_no_rev, fert, diff);
 	fert_no_rev[diff] = 0;
 
-	int size = fs_image_get_extra_size((struct fs_header_v1_0*)(search - 0x40));
+	struct index_info idx_info;
+	struct fs_header_v1_0* fsh_cfg = fs_image_find((search - 0x40) , "BOARD-CFG", fert_no_rev, &idx_info);
+	void * test = fs_image_find_cfg_fdt_idx(&idx_info);
 
-	u64 cfg = search + size;
-
-	while(!fs_image_match((struct fs_header_v1_0 *)cfg, "BOARD-CFG", fert_no_rev)){
-		cfg += fs_image_get_size((struct fs_header_v1_0 *)cfg, true);
-	}
-	memcpy(saved_board_cfg_buffer, (void *)cfg, fs_image_get_size((struct fs_header_v1_0 *)cfg, true));
+	memcpy(saved_board_cfg_buffer, (void *)fsh_cfg, 0x40);
+	memcpy(saved_board_cfg_buffer + 0x40, test, fs_image_get_size(fsh_cfg, false));
 }
 
 struct cmd_tbl_fsimage {

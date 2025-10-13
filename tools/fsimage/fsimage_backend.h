@@ -22,11 +22,11 @@ extern char saved_board_cfg_buffer[4*1024*1024];
 extern int current_boot_part;
 #endif
 
-struct index_info {
-	uint offset;		// offset after fsh_entry to blob
-	struct fs_header_v1_0 *fsh_idx; // header of INDEX image
-	struct fs_header_v1_0 *fsh_idx_entry; // header within INDEX image
-};
+//struct index_info {
+//	uint offset;		// offset after fsh_entry to blob
+//	struct fs_header_v1_0 *fsh_idx; // header of INDEX image
+//	struct fs_header_v1_0 *fsh_idx_entry; // header within INDEX image
+//};
 
 /* Structure to hold regions in NAND/eMMC for an image, taken from nboot-info */
 struct storage_info {

@@ -224,6 +224,7 @@ const char *fs_board_get_nboot_version(void)
 	return fs_image_get_nboot_version(NULL);
 }
 
+#ifdef __UBOOT__
 /* Set RAM size; optee will be subtracted in dram_init() */
 int board_phys_sdram_size(phys_size_t *size)
 {
@@ -231,6 +232,7 @@ int board_phys_sdram_size(phys_size_t *size)
 
 	return 0;
 }
+#endif
 
 #endif /* CONFIG_FS_BOARD_CFG */
 
@@ -1118,6 +1120,7 @@ bool fs_board_is_closed(void)
 #endif
 }
 
+#ifdef __UBOOT__
 __weak int fs_board_cma_fdt_fixup(void * fdt)
 {
 	const char *cma_env;
@@ -1168,3 +1171,4 @@ __weak int fs_board_cma_fdt_fixup(void * fdt)
 	fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	return 0;
 }
+#endif
