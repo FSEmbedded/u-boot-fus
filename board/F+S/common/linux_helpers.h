@@ -26,8 +26,7 @@ typedef unsigned long ulong;
 
 #define HASH_MAX_DIGEST_SIZE	64
 
-#define TESTVAL_1 1
-#define _CONFIG_IS_ENABLED(x) TESTVAL_##x
+#define _CONFIG_IS_ENABLED(x) CONFIG_##x
 #define CONFIG_IS_ENABLED(x) _CONFIG_IS_ENABLED(x)
 
 #endif /* FSIMAGE_LINUX_HELPERS_H */

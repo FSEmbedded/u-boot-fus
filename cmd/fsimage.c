@@ -136,6 +136,7 @@
  * can be kept common for both types of flash memory.
  */
 
+#if __UBOOT__
 #include <common.h>
 #include <command.h>
 #include <mmc.h>
@@ -155,15 +156,344 @@
 #include "../board/F+S/common/fs_board_common.h"	/* fs_board_*() */
 #include "../board/F+S/common/fs_image_common.h"	/* fs_image_*() */
 #include "../board/F+S/common/fs_bootrom.h"
+#else
+#include <stdio.h>
+#include <errno.h>
+//#include "../tools/fsimage/fsimage_backend.h"
+#include "../board/F+S/common/fs_image_common.h"
+#include "../board/F+S/common/fs_board_common.h"
+#include "../board/F+S/common/linux_helpers.h"
+#include "../include/fdt_support.h"
+#include "../include/linux/libfdt.h"
+#include "../include/linux/libfdt_env.h"
+#include <stdlib.h>
+#include <ctype.h>
+#include "../board/F+S/common/crc32.h"
+#include "../include/imx_container.h"
+
+#define __maybe_unused __attribute((unused))
+
+#define FIT_IMAGES_PATH		"/images"
+#define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
+#define ALIGN(x,a)		__ALIGN_MASK((x),(typeof(x))(a)-1)
+
+#define CMD_RET_FAILURE -1
+#define CMD_RET_SUCCESS 0
+#define CMD_RET_USAGE -2
+
+extern char saved_nboot_buffer[1024*1024*4];
+extern char nboot_buffer[1024*1024*4];
+int current_boot_part = 0;
+
+#ifdef DEBUG
+#define debug(fmt, ...) fprintf(stderr, "DEBUG: " fmt "\n", ##__VA_ARGS__)
+#else
+#define debug(fmt, ...) do {} while (0)
+#endif
+
+#define FIT_DATA_SIZE_PROP	"data-size"
+/**
+ * Get 'data-size' property from a given image node.
+ *
+ * @fit: pointer to the FIT image header
+ * @noffset: component image node offset
+ * @data_size: holds the data-size property
+ *
+ * returns:
+ *     0, on success
+ *     -ENOENT if the property could not be found
+ */
+int fit_image_get_data_size(const void *fit, int noffset, int *data_size)
+{
+	const fdt32_t *val;
+
+	val = fdt_getprop(fit, noffset, FIT_DATA_SIZE_PROP, NULL);
+	if (!val)
+		return -ENOENT;
+
+	*data_size = fdt32_to_cpu(*val);
+
+	return 0;
+}
+
+#define FIT_DATA_OFFSET_PROP	"data-offset"
+/**
+ * Get 'data-offset' property from a given image node.
+ *
+ * @fit: pointer to the FIT image header
+ * @noffset: component image node offset
+ * @data_offset: holds the data-offset property
+ *
+ * returns:
+ *     0, on success
+ *     -ENOENT if the property could not be found
+ */
+int fit_image_get_data_offset(const void *fit, int noffset, int *data_offset)
+{
+	const fdt32_t *val;
+
+	val = fdt_getprop(fit, noffset, FIT_DATA_OFFSET_PROP, NULL);
+	if (!val)
+		return -ENOENT;
+
+	*data_offset = fdt32_to_cpu(*val);
+
+	return 0;
+}
+
+/**
+ * Get 'data-position' property from a given image node.
+ *
+ * @fit: pointer to the FIT image header
+ * @noffset: component image node offset
+ * @data_position: holds the data-position property
+ *
+ * returns:
+ *     0, on success
+ *     -ENOENT if the property could not be found
+ */
+
+#define FIT_DATA_POSITION_PROP	"data-position"
+int fit_image_get_data_position(const void *fit, int noffset,
+				int *data_position)
+{
+	const fdt32_t *val;
+
+	val = fdt_getprop(fit, noffset, FIT_DATA_POSITION_PROP, NULL);
+	if (!val)
+		return -ENOENT;
+
+	*data_position = fdt32_to_cpu(*val);
+
+	return 0;
+}
+
+/**
+ * fit_get_end - get FIT image size
+ * @fit: pointer to the FIT format image header
+ *
+ * returns:
+ *     size of the FIT image (blob) in memory
+ */
+static inline ulong fit_get_size(const void *fit)
+{
+	return fdt_totalsize(fit);
+}
+
+/**
+ * fit_get_name - get FIT node name
+ * @fit: pointer to the FIT format image header
+ *
+ * returns:
+ *     NULL, on error
+ *     pointer to node name, on success
+ */
+static inline const char *fit_get_name(const void *fit_hdr,
+		int noffset, int *len)
+{
+	return fdt_get_name(fit_hdr, noffset, len);
+}
+
+static void fit_get_debug(const void *fit, int noffset,
+		char *prop_name, int err)
+{
+	debug("Can't get '%s' property from FIT 0x%08lx, node: offset %d, name %s (%s)\n",
+	      prop_name, (ulong)fit, noffset, fit_get_name(fit, noffset, NULL),
+	      fdt_strerror(err));
+}
+
+#define FIT_DATA_PROP		"data"
+/**
+ * fit_image_get_data - get data property and its size for a given component image node
+ * @fit: pointer to the FIT format image header
+ * @noffset: component image node offset
+ * @data: double pointer to void, will hold data property's data address
+ * @size: pointer to size_t, will hold data property's data size
+ *
+ * fit_image_get_data() finds data property in a given component image node.
+ * If the property is found its data start address and size are returned to
+ * the caller.
+ *
+ * returns:
+ *     0, on success
+ *     -1, on failure
+ */
+int fit_image_get_data(const void *fit, int noffset,
+		const void **data, size_t *size)
+{
+	int len;
+
+	*data = fdt_getprop(fit, noffset, FIT_DATA_PROP, &len);
+	if (*data == NULL) {
+		fit_get_debug(fit, noffset, FIT_DATA_PROP, len);
+		*size = 0;
+		return -1;
+	}
+
+	*size = len;
+	return 0;
+}
+
+// Digest is for compatibility between nboot and linux function signature,
+// always NULL when called and unused for Linux implementatiom.
+ulong parse_loadaddr(char *filename, void *digest) {
+    FILE *file = fopen(filename, "ro");
+	if(!file) {
+		printf("Error opening %s, exiting...\n", filename);
+		return -ENOENT;
+	}
+	size_t bytes_read = fread(nboot_buffer, 1, 4*1024*1024, file);
+	if(!bytes_read) {
+		printf("Error reading data from %s, exiting...\n", filename);
+		return -EINVAL;
+	}	
+	fclose(file);
+	return (ulong)nboot_buffer;
+}
+
+ulong get_loadaddr(void){
+    return (ulong)saved_nboot_buffer;
+}
+
+unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base) {
+	return strtoul(cp, endp, base);
+}
+
+long simple_strtol(const char *cp, char **endp, unsigned int base) {
+	return strtol(cp, endp, base);
+}
+
+//TODO: DD klappt das??
+#define cpu_to_fdt32(x) __builtin_bswap32(x)
+
+static u32 fdt_getprop_u32_default_node(const void *fdt, int off, int cell,
+				const char *prop, const u32 dflt)
+{
+	const fdt32_t *val;
+	int len;
+
+	val = fdt_getprop(fdt, off, prop, &len);
+
+	/* Check if property exists */
+	if (!val)
+		return dflt;
+
+	/* Check if property is long enough */
+	if (len < ((cell + 1) * sizeof(uint32_t)))
+		return dflt;
+
+	return fdt32_to_cpu(*val);
+}
+
+/**
+ * fdt_find_and_setprop: Find a node and set it's property
+ *
+ * @fdt: ptr to device tree
+ * @node: path of node
+ * @prop: property name
+ * @val: ptr to new value
+ * @len: length of new property value
+ * @create: flag to create the property if it doesn't exist
+ *
+ * Convenience function to directly set a property given the path to the node.
+ */
+int fdt_find_and_setprop(void *fdt, const char *node, const char *prop,
+			 const void *val, int len, int create)
+{
+	int nodeoff = fdt_path_offset(fdt, node);
+
+	if (nodeoff < 0)
+		return nodeoff;
+
+	if ((!create) && (fdt_get_property(fdt, nodeoff, prop, NULL) == NULL))
+		return 0; /* create flag not set; so exit quietly */
+
+	return fdt_setprop(fdt, nodeoff, prop, val, len);
+}
+
+enum boot_stage_type {
+	BT_STAGE_PRIMARY = 0x6,
+	BT_STAGE_SECONDARY = 0x9,
+	BT_STAGE_RECOVERY = 0xa,
+	BT_STAGE_USB = 0x5,
+};
+
+int get_bootrom_bootstage(u32 *bstage)
+{
+	return -ENODEV;
+}
+
+int get_container_size(ulong addr, u16 *header_length)
+{
+	struct container_hdr *phdr;
+	struct boot_img_t *img_entry;
+	struct signature_block_hdr *sign_hdr;
+	u8 i = 0;
+	u32 max_offset = 0, img_end;
+
+	phdr = (struct container_hdr *)addr;
+	if (!valid_container_hdr(phdr)) {
+		debug("Wrong container header\n");
+		return -EFAULT;
+	}
+
+	max_offset = phdr->length_lsb + (phdr->length_msb << 8);
+	if (header_length)
+		*header_length = max_offset;
+
+	img_entry = (struct boot_img_t *)(addr + sizeof(struct container_hdr));
+	for (i = 0; i < phdr->num_images; i++) {
+		img_end = img_entry->offset + img_entry->size;
+		if (img_end > max_offset)
+			max_offset = img_end;
+
+		debug("img[%u], end = 0x%x\n", i, img_end);
+
+		img_entry++;
+	}
+
+	if (phdr->sig_blk_offset != 0) {
+		sign_hdr = (struct signature_block_hdr *)(addr + phdr->sig_blk_offset);
+		u16 len = sign_hdr->length_lsb + (sign_hdr->length_msb << 8);
+
+		if (phdr->sig_blk_offset + len > max_offset)
+			max_offset = phdr->sig_blk_offset + len;
+
+		debug("sigblk, end = 0x%x\n", phdr->sig_blk_offset + len);
+	}
+
+	return max_offset;
+}
+
+int confirm_yesno(void) {
+	char input[8];
+	if(!fgets(input, sizeof(input), stdin)) {
+		return 0;
+	}
+	input[strcspn(input, "\n")] = '\0';
+	for(char *p = input; *p; ++p) {
+		*p = tolower((unsigned char) *p);
+	}
+	if((strcmp(input, "y") == 0) || (strcmp(input, "yes") == 0)) {
+		return 1;
+	}
+	return 0;
+}
+
+
+#define BIT(n) (1 << (n))
+#endif
 
 #if CONFIG_IS_ENABLED(IMX_HAB)
 #include <asm/mach-imx/hab.h>
 #endif
 
+#if __UBOOT__
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 #include <imx_container.h>
 #else
 #include <asm/mach-imx/checkboot.h>
+#endif
 #endif
 
 /* Structure to hold regions in NAND/eMMC for an image, taken from nboot-info */
@@ -391,7 +721,7 @@ static void fs_image_print_line(struct fs_header_v1_0 *fsh, uint offs, int level
 	/* Show info for this image */
 	printf("%08x %08x", offs, fs_image_get_size(fsh, false));
 	for (i = 0; i < level; i++)
-		putc(' ');
+		printf(" ");
 	if (fsh->type[0]) {
 		memcpy(info, fsh->type, MAX_TYPE_LEN);
 		info[MAX_TYPE_LEN] = '\0';
@@ -405,7 +735,7 @@ static void fs_image_print_line(struct fs_header_v1_0 *fsh, uint offs, int level
 	puts("\n");
 }
 
-static struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
+struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 		const char *type,
 		const char *descr,
 		struct index_info *idx_info);
@@ -432,7 +762,7 @@ static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent, struct fs_head
 	puts(" ");
 
 	for (i = 0; i < level; i++)
-		putc(' ');
+		printf(" ");
 
 	if (fsh->type[0]) {
 		memcpy(info, fsh->type, MAX_TYPE_LEN);
@@ -498,7 +828,7 @@ static void fs_image_parse_index_image(enum parse_type ptype,
 		level--;
 		printf("%08x %08x", offs, remaining);
 		for (i = 0; i < level; i++)
-				putc(' ');
+				printf(" ");
 		puts(" [padding/unknown data]\n");
 	}
 
@@ -525,7 +855,7 @@ static void fs_image_parse_subimage(enum parse_type ptype,
 			if (had_sub_image && ptype == PARSE_CONTENT) {
 				printf("%08x %08x", offs, size);
 				for (i = 0; i < level; i++)
-					putc(' ');
+					printf(" ");
 				puts(" [padding/unknown data]\n");
 			}
 		}
@@ -556,7 +886,7 @@ static void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs, i
 		if(extra_size){
 			printf("%08x %08x", offs, extra_size);
 			for (i = 0; i < level; i++)
-					putc(' ');
+					printf(" ");
 			printf(" %s\n", "[header/extra data]");
 		}
 	}else if(ptype == PARSE_CHECKSUM){
@@ -605,7 +935,7 @@ static void fs_image_set_header(struct fs_header_v1_0 *fsh, const char *type,
  * @param *idx_info: struct holds additional infos if fsh is index. NULL is allowed.
  * @return ptr to fsh or NULL if not found
  */
-static struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx,
+struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx,
 		const char *type,
 		const char *descr,
 		struct index_info *idx_info)
@@ -658,7 +988,7 @@ static struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx
  * @param *idx_info: struct holds additional infos if fsh is found. NULL is allowed.
  * @return ptr to fsh or NULL if not found
  */
-static struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
+struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 		const char *type, const char *descr,
 		struct index_info *idx_info)
 {
@@ -943,6 +1273,7 @@ static int fs_image_get_start_copy_uboot(void)
 /* Determine first copy to modify depending on which SPL copy we booted */
 static int fs_image_get_start_copy(void)
 {
+#if __UBOOT__
 	int start_copy;
 
 	if (fs_board_get_cfg_info()->flags & CI_FLAGS_SECONDARY)
@@ -954,10 +1285,21 @@ static int fs_image_get_start_copy(void)
 	       start_copy ? "Primary" : "Secondary", start_copy);
 
 	return start_copy;
+#else
+	int start_copy = 0;
+
+	printf("Booted from %s SPL, so starting with copy %d\n", \
+	       start_copy ? "Primary" : "Secondary", start_copy);
+
+	printf("shortcut... cannot determine start copy right now...\n");
+
+	return start_copy;
+#endif
 }
 
 static int fs_image_get_start_copy_uboot(void)
 {
+#if __UBOOT__
 	int start_copy;
 
 	if (fs_board_get_cfg_info()->flags & CI_FLAGS_SECONDARY_UBOOT)
@@ -969,6 +1311,16 @@ static int fs_image_get_start_copy_uboot(void)
 	       start_copy ? "Primary" : "Secondary", start_copy);
 
 	return start_copy;
+#else
+	int start_copy = 0;
+
+	printf("Booted from %s UBOOT, so starting with copy %d\n", \
+	       start_copy ? "Primary" : "Secondary", start_copy);
+
+	printf("shortcut... cannot determine start copy right now...\n");
+
+	return start_copy;
+#endif
 }
 #endif
 
@@ -1231,6 +1583,7 @@ static int fs_image_get_size_from_fsh_or_ivt(struct sub_info *sub, uint *size)
 		*size = fs_image_get_size(fsh, true);
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	} else {
+#if __UBOOT__
 		struct ivt *ivt = sub->img;
 		struct boot_data *boot_data;
 
@@ -1240,6 +1593,10 @@ static int fs_image_get_size_from_fsh_or_ivt(struct sub_info *sub, uint *size)
 			return -ENOENT;
 		boot_data = (struct boot_data *)(ivt + 1);
 		*size = boot_data->length;
+#else
+		printf("shortcut... cannot handle ivt at this moment...\n");
+		return -ENOENT;
+#endif
 #endif
 	}
 
@@ -1418,7 +1775,7 @@ static ulong fs_image_get_loadaddr(int argc, char * const argv[],
 	printf("No F&S NBoot image found at 0x%lx", addr);
 
 	if (argc > 1) {
-		putc('\n');
+		printf("\n");
 		return -ENOENT;
 	}
 
@@ -2749,6 +3106,7 @@ static bool fs_image_check_for_uboot_mmc(struct storage_info *si, bool force)
 static bool fs_image_check_for_nboot_mmc(struct flash_info *fi,
 					 struct storage_info *si, bool force)
 {
+#if __UBOOT__
 #ifndef CONFIG_IMX8MM
 	u32 offset_fuses = fs_board_get_secondary_offset();
 	u32 offset_nboot = si->start[1];
@@ -2767,11 +3125,16 @@ static bool fs_image_check_for_nboot_mmc(struct flash_info *fi,
 #endif
 
 	return false;
+#else
+	printf("shortcut... not implemented yet...\n");
+	return true;
+#endif
 }
 
 static int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
 				   const struct storage_info *si)
 {
+#if __UBOOT__
 	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
 	int err;
 	uint hwpart = si->hwpart[copy];
@@ -2782,6 +3145,10 @@ static int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
 		       hwpart, bdesc->devnum, si->type, err);
 
 	return err;
+#else
+	current_boot_part = copy;
+	return 0;
+#endif
 }
 
 /* Parse nboot-info for MMC settings and fill struct */
@@ -2789,9 +3156,11 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, void *fdt,
 				       int offs, struct nboot_info *ni,
 				       int boot_hwpart, bool show)
 {
+#if __UBOOT__
 	struct udevice *mmc_dev = dev_get_parent(fi->bdev);
 	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(mmc_dev);
 	struct mmc *mmc = upriv->mmc;
+#endif
 	int layout;
 	const char *layout_name;
 	int err;
@@ -2833,8 +3202,10 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, void *fdt,
 		ni->uboot.hwpart[0] = first;
 		ni->uboot.hwpart[1] = second;
 		/* Limit U-Boot size to boot part size */
+#if __UBOOT__
 		if (ni->uboot.size > (u32)(mmc->capacity_boot))
 			ni->uboot.size = (u32)(mmc->capacity_boot);
+#endif
 	} else {
 		ni->uboot.hwpart[0] = 0;
 		ni->uboot.hwpart[1] = 0;
@@ -2920,6 +3291,7 @@ static bool fs_image_si_differs_mmc(const struct storage_info *si1,
 static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
 			     uint lim, uint flags, u8 *buf)
 {
+#if __UBOOT__
 	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
 	ulong count;
 	ulong blksz = bdesc->blksz;
@@ -2936,6 +3308,27 @@ static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
 		return (int)count;
 
 	return 0;
+#else
+	char devicename[32];
+	snprintf(devicename, 32, "/dev/mmcblk0boot%x", current_boot_part);
+	FILE *mmc = fopen(devicename, "rb");
+	if(!mmc) {
+		printf("Error opening %s, exiting...\n", devicename);
+		return -EINVAL;
+	}
+	int seek = fseek(mmc, offs, SEEK_SET);
+	if(seek != 0) {
+		printf("Error (0x%x) while seeking in %s, exiting...\n", seek, devicename);
+		return -EINVAL;
+	}
+	size_t bytes_read = fread(buf, 1, size, mmc);
+	if(bytes_read != size) {
+		printf("Error while reading %s, exiting...\n", devicename);
+		return -EINVAL;
+	}
+	fclose(mmc);
+	return 0;
+#endif
 }
 
 /* Load the image of given type/descr from eMMC at given offset */
@@ -3097,6 +3490,7 @@ static int fs_image_invalidate_mmc(struct flash_info *fi, int copy,
 static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 			      uint lim, uint flags, u8 *buf)
 {
+#if __UBOOT__
 	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
 	ulong count;
 	ulong blksz = bdesc->blksz;
@@ -3112,6 +3506,28 @@ static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 		return -EIO;
 	else if (IS_ERR_VALUE(count))
 		return (int)count;
+#else
+	char devicename[32];
+	snprintf(devicename, 32, "/dev/mmcblk0boot%x", current_boot_part);
+	FILE *mmc = fopen(devicename, "w+b");
+	if(!mmc) {
+		printf("Error opening %s, exiting...\n", devicename);
+		return -EINVAL;
+	}
+
+	int seek = fseek(mmc, offs, SEEK_SET);
+	if(seek != 0) {
+		printf("Error (0x%x) while seeking in %s, exiting...\n", seek, devicename);
+		return -EINVAL;
+	}
+
+	size_t bytes_read = fwrite(buf, 1, size, mmc);
+	if(bytes_read != size) {
+		printf("Error (0x%lx) while writing %s, exiting...\n", bytes_read, devicename);
+		return -EINVAL;
+	}
+	fclose(mmc);
+#endif
 
 	return 0;
 }
@@ -3307,6 +3723,7 @@ static int fs_image_save_nboot_mmc(struct flash_info *fi,
 
 static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 {
+#if __UBOOT__
 	int err;
 
 	if ((boot_hwpart < 0) || (boot_hwpart == fi->boot_hwpart))
@@ -3320,10 +3737,15 @@ static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 		fi->boot_hwpart = boot_hwpart;
 
 	return err;
+#else
+	current_boot_part = boot_hwpart;
+	return 0;
+#endif
 }
 
 static void fs_image_get_flash_mmc(struct flash_info *fi)
 {
+#if __UBOOT__
 	struct udevice *mmc_dev = dev_get_parent(fi->bdev);
 	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
 	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(mmc_dev);
@@ -3340,14 +3762,26 @@ static void fs_image_get_flash_mmc(struct flash_info *fi)
 
 	/* Set device name */
 	sprintf(fi->devname, "mmc%d", bdesc->devnum);
+#else
+//TODO: DD Das muss implementiert werden
+	sprintf(fi->devname, "mmc%d", 0);
+	fi->temp_size = 0x200;
+	fi->old_hwpart = 0;
+	fi->boot_hwpart = 1;
+	printf("shortcut... cannot decide for flash info values dynamically at this time...\n");
+#endif
 }
 
 static void fs_image_put_flash_mmc(struct flash_info *fi)
 {
+#if __UBOOT__
 	if (blk_select_hwpart(fi->bdev, fi->old_hwpart)) {
 		printf("Cannot switch back to original hwpart %d\n",
 		       fi->old_hwpart);
 	}
+#else
+	current_boot_part = 0;
+#endif
 }
 
 struct flash_ops flash_ops_mmc = {
@@ -3384,6 +3818,7 @@ static int fs_image_get_flash_info(struct flash_info *fi, void *fdt)
 
 	/* Prepare flash information from where to load */
 	switch (fi->boot_dev) {
+#if __UBOOT__
 #ifdef CONFIG_NAND_MXS
 	case NAND_BOOT:
 		fi->mtd = get_nand_dev_by_index(0);
@@ -3408,7 +3843,13 @@ static int fs_image_get_flash_info(struct flash_info *fi, void *fdt)
 		fi->ops = &flash_ops_mmc;
 		break;
 #endif
-
+#else
+	case MMC1_BOOT:
+	case MMC2_BOOT:
+	case MMC3_BOOT:
+		fi->ops = &flash_ops_mmc;
+		break;
+#endif
 	default:
 		printf("Cannot handle %s boot device\n", fi->boot_dev_name);
 		return -ENODEV;
@@ -3476,6 +3917,7 @@ static int __maybe_unused do_fsimage_save_uboot(ulong addr, bool force)
 
 /* ------------- Command implementation ------------------------------------ */
 
+#if __UBOOT__
 /* Show the F&S architecture */
 static int do_fsimage_arch(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char * const argv[])
@@ -3546,6 +3988,9 @@ static int do_fsimage_boot(struct cmd_tbl *cmdtp, int flag, int argc,
 /* List contents of an F&S image */
 static int do_fsimage_list(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char * const argv[])
+#else
+int do_fsimage_list(int argc, char * const argv[])
+#endif
 {
 	ulong addr;
 	ulong offs = 0;
@@ -3994,8 +4439,12 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 
 /* Load NBOOT and SPL regions from the boot device (NAND or MMC) to DRAM,
    create minimal NBoot image that could be saved again */
+#if __UBOOT__
 static int do_fsimage_load(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char * const argv[])
+#else
+int do_fsimage_load(int argc, char * const argv[])
+#endif
 {
 	struct fs_header_v1_0 *fsh;
 	ulong addr;
@@ -4811,8 +5260,12 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 #endif /* !CONFIG_IS_ENABLED(FS_CNTR_COMMON) */
 
 /* Save the F&S NBoot image to the boot device (NAND or MMC) */
+#if __UBOOT__
 static int do_fsimage_save(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char * const argv[])
+#else
+int do_fsimage_save(int argc, char * const argv[])
+#endif
 {
 	int boot_hwpart = -1;
 	ulong addr;
@@ -4864,6 +5317,7 @@ static int do_fsimage_save(struct cmd_tbl *cmdtp, int flag, int argc,
 	return ret;
 }
 
+#if __UBOOT__
 /* Burn the fuses according to the NBoot in DRAM */
 static int do_fsimage_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char * const argv[])
@@ -5174,3 +5628,36 @@ U_BOOT_CMD(fsimage, 4, 1, do_fsimage,
 	   "works. Be careful when storing such an old NBoot, you need to\n"
 	   "know the right <n> or you will lose the environment.\n"
 );
+#endif
+
+int fs_image_check_saved_cfg(void) {
+	void *found_cfg;
+	void *expected_cfg;
+
+	/*
+	 * All fsimage commands will access the BOARD-CFG in OCRAM. Make sure
+	 * it is still valid and not compromised in any way.
+	 */
+	if (!fs_image_is_ocram_cfg_valid()) {
+		printf("Error: BOARD-CFG in OCRAM at 0x%lx damaged\n",
+		       (ulong)fs_image_get_cfg_addr());
+		return -EINVAL;
+	}
+
+	/*
+	 * Set the current board_id name and the compare_id that is used in
+	 * fs_image_find_board_cfg().
+	 */
+	fs_image_set_board_id_from_cfg();
+
+	found_cfg = fs_image_get_cfg_addr();
+	expected_cfg = fs_image_get_regular_cfg_addr();
+	if (found_cfg != expected_cfg) {
+		printf("\n"
+		       "*** Warning!\n"
+		       "*** BOARD-CFG found at 0x%lx, expected at 0x%lx\n"
+		       "*** Installed NBoot and U-Boot are not compatible!\n"
+		       "\n", (ulong)found_cfg, (ulong)expected_cfg);
+	}
+	return 0;
+}

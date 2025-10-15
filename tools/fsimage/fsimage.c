@@ -1,22 +1,23 @@
-#include "fsimage_backend.h"
-#include "../../board/F+S/common/fs_image_common.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <errno.h>
+#include <string.h>
+#include "../../board/F+S/common/fs_image_common.h"
+#include "../../board/F+S/common/linux_helpers.h"
 #include "../../include/imx_container.h"
 
-#define ARRAY_SIZE(a) sizeof(a)/sizeof(a[0])
+struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
+		const char *type,
+		const char *descr,
+		struct index_info *idx_info);
 
-#if 0
-static void hexdump(uint32_t* buffer, int size, int offset) {
-	for (int line = 0; line < size/16; line++) {
-		for (int word = 0; word < 4; word++) {
-			printf("%08x ", buffer[line*4 + word]);
-		}
-		printf("\n");
-	}
-}
-#endif
+int do_fsimage_list(int argc, char * const argv[]);
+int do_fsimage_load(int argc, char * const argv[]);
+int do_fsimage_save(int argc, char * const argv[]);
+int fs_image_check_saved_cfg(void);
+
+char saved_nboot_buffer[1024*1024*4];
+char nboot_buffer[1024*1024*4];
+char saved_board_cfg_buffer[4*1024*1024];
 
 int load_saved_nboot(void) {
 	FILE *hwpart = fopen("/dev/mmcblk0boot1", "ro");
@@ -50,7 +51,7 @@ void extract_board_config(void){
 	fert_no_rev[diff] = 0;
 
 	struct index_info idx_info;
-	struct fs_header_v1_0* fsh_cfg = fs_image_find((search - 0x40) , "BOARD-CFG", fert_no_rev, &idx_info);
+	struct fs_header_v1_0* fsh_cfg = fs_image_find((struct fs_header_v1_0 *)(search - 0x40) , "BOARD-CFG", fert_no_rev, &idx_info);
 	void * test = fs_image_find_cfg_fdt_idx(&idx_info);
 
 	memcpy(saved_board_cfg_buffer, (void *)fsh_cfg, 0x40);
@@ -62,24 +63,11 @@ struct cmd_tbl_fsimage {
     int (*cmd)(int, char**);
 };
 
-int do_fsimage_list(int argc, char*argv[]) {
-	return do_list(argc, argv);
-}
-
-
-int do_fsimage_save(int argc, char*argv[]) {
-	return do_save_nboot_uboot(argc, argv);
-}
-
-int do_fsimage_load(int argc, char*argv[]) {
-	return do_load_from_system(argc, argv);
-}
-
-const struct cmd_tbl_fsimage cmd_fsimage_sub[] = {
-    { "list", do_fsimage_list },
-    { "load", do_fsimage_load },
-    { "save", do_fsimage_save }
-};
+//const struct cmd_tbl_fsimage cmd_fsimage_sub[] = {
+//    { "list", do_fsimage_list },
+//    { "load", do_fsimage_load },
+//    { "save", do_fsimage_save }
+//};
 
 const struct cmd_tbl_fsimage *find_cmd_tbl(const char *cmd, const struct cmd_tbl_fsimage *table,
 			     int table_len) {
@@ -100,25 +88,23 @@ int do_fsimage(int argc, char *argv[]) {
 	argc--;
 	argv++;
 
-	cp = find_cmd_tbl(argv[0], cmd_fsimage_sub,
-			  ARRAY_SIZE(cmd_fsimage_sub));
-	if (!cp)
-		return -EINVAL;
-
-	/*
-	 * All fsimage commands will access the BOARD-CFG in OCRAM. Make sure
-	 * it is still valid and not compromised in any way.
-	 */
-	if(fs_image_check_saved_cfg() == -EINVAL)
-		return -EINVAL;
-
-	return cp->cmd(argc, argv);
+	if(!strncmp(argv[0], "list", sizeof("list"))) {
+		return do_fsimage_list(argc, argv);
+	} else if (!strncmp(argv[0], "load", sizeof("load"))) {
+		return do_fsimage_load(argc, argv);
+	}else if (!strncmp(argv[0], "save", sizeof("save"))) {
+		return do_fsimage_save(argc, argv);
+	} else {
+		printf("usage...\n");
+	}
+	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-    load_saved_nboot();
-    extract_board_config();
-    do_fsimage(argc, argv);
-    return 0;
+	load_saved_nboot();
+	extract_board_config();
+	fs_image_check_saved_cfg();
+	do_fsimage(argc, argv);
+	return 0;
 }

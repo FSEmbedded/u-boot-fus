@@ -175,7 +175,7 @@
 
 static char arch[64];
 
-char saved_board_cfg_buffer[4*1024*1024];
+extern char saved_board_cfg_buffer[4*1024*1024];
 
 /* TODO: Only copied for use with Linux fsimage tool. Original include may be 
    too messy. May be moved */
