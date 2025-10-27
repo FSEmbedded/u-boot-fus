@@ -140,11 +140,7 @@
 #include <asm/sections.h>
 #include <hang.h>
 #include <asm/arch/sys_proto.h>
-#include <fdt_support.h>
-#include <memalign.h>
-#include <u-boot/sha256.h>
-#include <u-boot/sha512.h>
-#include <hash.h>
+#include <image.h>
 #ifdef CONFIG_AHAB_BOOT
 #include <asm/mach-imx/ahab.h>
 #endif
@@ -174,6 +170,132 @@ static struct fsh_load_info uboot_info;
 
 static unsigned int get_jobs(void);
 #endif
+
+
+enum sha_types {
+	SHA256,
+	SHA384,
+	SHA512,
+};
+
+/*
+ * Use a "constant-length" time compare function for this
+ * hash compare:
+ *
+ * https://crackstation.net/hashing-security.htm
+ */
+static int slow_equals(u8 *a, u8 *b, int len)
+{
+	int diff = 0;
+	int i;
+
+	for (i = 0; i < len; i++)
+		diff |= a[i] ^ b[i];
+
+	return diff == 0;
+}
+
+static void __maybe_unused print_hash(u8 *hash, int hash_size)
+{
+	int i;
+	for (i = 0; i < hash_size; i++) {
+		printf("%02x", hash[i]);
+	}
+	puts("\n");
+}
+
+bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
+{
+	unsigned int sha_type;
+	const char *algo_name;
+	u8 sha[HASH_MAX_DIGEST_SIZE];
+	int sha_size;
+	int ret;
+
+	sha_type = ((img->hab_flags & GENMASK(10,8)) >> 8);
+	switch(sha_type) {
+	case SHA256:
+		sha_size = SHA256_SUM_LEN;
+		algo_name = "sha256";
+		break;
+	case SHA384:
+		sha_size = SHA384_SUM_LEN;
+		algo_name = "sha384";
+		break;
+	case SHA512:
+		sha_size = SHA512_SUM_LEN;
+		algo_name = "sha512";
+		break;
+	default:
+		algo_name = "NONE";
+		break;
+	}
+
+	debug("%s: validate %ssum\n", __func__ , algo_name);
+	ret = calculate_hash(blob, img->size, algo_name, sha, &sha_size);
+	if(ret){
+		printf("failed to calc hash: %d\n", ret);
+		return false;
+	}
+
+#ifdef DEBUG
+	puts("CNTR_HASH is ");
+	print_hash(img->hash, sha_size);
+	puts("Calc HASH is ");
+	print_hash(sha, sha_size);
+#endif
+
+	return slow_equals(sha, img->hash, sha_size);
+}
+
+bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
+{
+	__maybe_unused struct container_hdr *authhdr = NULL;
+	u16 cntr_length;
+	int i;
+	bool ret = false;
+	struct boot_img_t *img_idx;
+
+
+	if(!valid_container_hdr(cntr_hdr)){
+		return false;
+	}
+
+	cntr_length = cntr_hdr->length_lsb + (cntr_hdr->length_msb << 8);;
+
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	authhdr = ahab_auth_cntr_hdr(cntr_hdr, cntr_length);
+	if(!authhdr)
+		goto ahab_release;
+#endif
+
+	if(!cntr_hdr->num_images)
+		goto ahab_release;
+
+	img_idx = (struct boot_img_t *)((u8 *)cntr_hdr + sizeof(struct container_hdr));
+
+	for (i = 0; i < cntr_hdr->num_images; i++) {
+		void *img_ptr;
+
+		img_ptr = (void *)cntr_hdr + img_idx[i].offset;
+
+		ret = cntr_image_check_sha(&img_idx[i], img_ptr);
+		if(!ret)
+			goto ahab_release;
+	}
+
+	ahab_release:
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	ahab_auth_release();
+#endif
+	return ret;
+}
+
+bool fs_cntr_is_signed(struct container_hdr *cntr)
+{
+	/* CHECK CNTR FLAG SRK Set*/
+	return !!(cntr->flags & GENMASK(1,0) );
+}
 
 /*-------------- Adapted functions from parse-container.c--------------------*/
 
@@ -392,8 +514,22 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 	}
 
 #ifdef CONFIG_AHAB_BOOT
+/* NOTE:
+ * On i.MX8ULP, the ELE configures tRDC (RWX flags) when using SSRAM, preventing
+ * overwriting of already validated images and causing resets. To avoid this,
+ * only CNTR-HDR signatures are validated via AHAB; image hashes are checked in software.
+ */
+
+#if defined(CONFIG_TARGET_FSIMX8ULP)
+	if (!cntr_image_check_sha(&images[image_index], (void *)images[image_index].dst)) {
+		printf("ERROR: image %d failed SHA check\n", image_index);
+		hang();
+		return NULL;
+	}
+#else
 	if (ahab_verify_cntr_image(&images[image_index], image_index))
 		return NULL;
+#endif
 #endif
 	return &images[image_index];
 }
@@ -474,10 +610,10 @@ static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_i
 	int idx;
 	int num_images;
 	int ret;
-	
+
 	cntr = (struct container_hdr *)cntr_info->load_addr;
 	num_images = (int)cntr->num_images;
-	
+
 	for (idx = 0; idx < num_images; idx++) {
 		ret = fs_cntr_load_single_image(&info, cntr_info, load, idx);
 		if(idx == fst_idx)
@@ -490,130 +626,6 @@ static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_i
 	return ret;
 }
 
-enum sha_types {
-	SHA256,
-	SHA384,
-	SHA512,
-};
-
-/*
- * Use a "constant-length" time compare function for this
- * hash compare:
- *
- * https://crackstation.net/hashing-security.htm
- */
-static int slow_equals(u8 *a, u8 *b, int len)
-{
-	int diff = 0;
-	int i;
-
-	for (i = 0; i < len; i++)
-		diff |= a[i] ^ b[i];
-
-	return diff == 0;
-}
-
-static void __maybe_unused print_hash(u8 *hash, int hash_size)
-{
-	int i;
-	for (i = 0; i < hash_size; i++) {
-		printf("%02x", hash[i]);
-	}
-	puts("\n");
-}
-
-bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
-{
-	unsigned int sha_type;
-	const char *algo_name;
-	u8 sha[HASH_MAX_DIGEST_SIZE];
-	int sha_size;
-	int ret;
-
-	sha_type = ((img->hab_flags & GENMASK(10,8)) >> 8);
-	switch(sha_type) {
-	case SHA256:
-		sha_size = SHA256_SUM_LEN;
-		algo_name = "sha256";
-		break;
-	case SHA384:
-		sha_size = SHA384_SUM_LEN;
-		algo_name = "sha384";
-		break;
-	case SHA512:
-		sha_size = SHA512_SUM_LEN;
-		algo_name = "sha512";
-		break;
-	default:
-		algo_name = "NONE";
-		break;
-	}
-
-	debug("%s: validate %ssum\n", __func__ , algo_name);
-	ret = hash_block(algo_name, blob, img->size, sha, &sha_size);
-	if(ret){
-		printf("failed to calc hash: %d\n", ret);
-		return false;
-	}
-
-#ifdef DEBUG
-	puts("CNTR_HASH is ");
-	print_hash(img->hash, sha_size);
-	puts("Calc HASH is ");
-	print_hash(sha, sha_size);
-#endif
-
-	return slow_equals(sha, img->hash, sha_size);
-}
-
-bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
-{
-	__maybe_unused struct container_hdr *authhdr = NULL;
-	u16 cntr_length;
-	int i;
-	bool ret = false;
-	struct boot_img_t *img_idx;
-
-
-	if(!valid_container_hdr(cntr_hdr)){
-		return false;
-	}
-
-	cntr_length = cntr_hdr->length_lsb + (cntr_hdr->length_msb << 8);;
-
-#if CONFIG_IS_ENABLED(AHAB_BOOT)
-	authhdr = ahab_auth_cntr_hdr(cntr_hdr, cntr_length);
-	if(!authhdr)
-		goto ahab_release;
-#endif
-
-	if(!cntr_hdr->num_images)
-		goto ahab_release;
-
-	img_idx = (struct boot_img_t *)((u8 *)cntr_hdr + sizeof(struct container_hdr));
-
-	for (i = 0; i < cntr_hdr->num_images; i++) {
-		void *img_ptr;
-
-		img_ptr = (void *)cntr_hdr + img_idx[i].offset;
-
-		ret = cntr_image_check_sha(&img_idx[i], img_ptr);
-		if(!ret)
-			goto ahab_release;
-	}
-
-	ahab_release:
-#if CONFIG_IS_ENABLED(AHAB_BOOT)
-	ahab_auth_release();
-#endif
-	return ret;
-}
-
-bool fs_cntr_is_signed(struct container_hdr *cntr)
-{
-	/* CHECK CNTR FLAG SRK Set*/
-	return !!(cntr->flags & GENMASK(1,0) );
-}
 
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
 /**
