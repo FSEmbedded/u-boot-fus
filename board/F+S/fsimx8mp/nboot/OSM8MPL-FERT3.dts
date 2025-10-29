@@ -14,10 +14,10 @@
 	board-cfg {
 		board-name = "OSM8MP";
 
-		/* DRAM: 2GB Samsung B.ICDRAM.51 */
+		/* DRAM: 2GB Samsung B.ICDRAM.41 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_os_2g2000m2ch1cs";
-		dram-size = <0x800>;		/* In MiB */
+		dram-timing = "lpddr4_os_1g2000m2ch1cs";
+		dram-size = <0x400>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
