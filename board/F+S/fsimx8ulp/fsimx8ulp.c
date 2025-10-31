@@ -351,8 +351,15 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 	/* fixup bdinfo */
 	offs = fs_fdt_path_offset(fdt_blob, "/bdinfo");
 	if (offs >= 0) {
+		uint features = fs_board_get_features();
+		uint id = 0;
+
 		/* Set common bdinfo entries */
 		fs_fdt_set_bdinfo(fdt_blob, offs);
+
+		/* MAC addresses */
+		if (features & FEAT_ETH)
+			fs_fdt_set_macaddr(fdt_blob, offs, id++);
 	}
 
 	return 0;
