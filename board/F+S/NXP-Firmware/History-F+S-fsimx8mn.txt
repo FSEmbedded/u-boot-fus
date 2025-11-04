@@ -19,6 +19,11 @@ ATF-Version: atf-f+s
 DDR Training Firmware Version: 8.10.1
 
 
+nboot-fsimx8mn-2023.05.5 (16.10.2025)
+-----------------------------------------------
+Supported boards: PicoCoreMX8MN
+
+
 nboot-fsimx8mn-2023.05.4 (18.02.2025)
 -----------------------------------------------
 Supported boards: PicoCoreMX8MN
