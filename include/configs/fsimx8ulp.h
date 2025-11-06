@@ -77,6 +77,7 @@
 	"set_bootfdt=setenv fdtfile ${platform}.dtb\0"				\
 	"fdtfile=undef\0" 							\
 	"cntr_addr_r=0x98000000\0"						\
+	"cntr_loadaddr=0x84000000\0"						\
 	"bootcntrfile=os_cntr_signed.cntr\0" 					\
 	"splashimage=0x90000000\0" 						\
 	"bootfile=Image\0" 							\
