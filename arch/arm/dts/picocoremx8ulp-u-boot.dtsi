@@ -37,9 +37,11 @@
 	/delete-property/ gpio;
 };
 
+#if CONFIG_PICOCOREMX8ULP_REV >= 120
 &reg_bl_en {
 	/delete-property/ gpio;
 };
+#endif
 
 &fs_eth_phy {
 	/delete-property/ reset-gpios;
@@ -107,10 +109,17 @@
 	fsl,mux_mask = <0xf00>;
 };
 
+#if CONFIG_PICOCOREMX8ULP_REV >= 120
 &pinctrl_lpuart6 {
 	bootph-all;
 	bootph-pre-ram;
 };
+#else
+&pinctrl_lpuart5 {
+	bootph-all;
+	bootph-pre-ram;
+};
+#endif
 
 &fs_uart_a {
 	bootph-all;

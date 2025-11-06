@@ -15,8 +15,9 @@
 /dts-v1/;
 
 /* Cortex-M is always supported */
-#define CONFIG_PICOCOREMX8ULP_REV 120
+#define CONFIG_PICOCOREMX8ULP_REV 110
 
+#if CONFIG_PICOCOREMX8ULP_REV >= 120
 /* Network */
 /* WLAN/BLUETOOTH */
 #define CONFIG_PICOCOREMX8ULP_WLAN
@@ -60,6 +61,29 @@
 #define CONFIG_PICOCOREMX8ULP_FLEXSPI_USED
 
 #include "picocoremx8ulp.dtsi"
+#else /* CONFIG_PICOCOREMX8ULP_REV */
+/* TODO: Support of rev 110 or lower will be droped after next release */
+
+/* Network*/
+/* WLAN/BLUETOOTH */
+#define CONFIG_PICOCOREMX8ULP_WLAN
+
+/* AUDIO */
+// #define CONFIG_PICOCOREMX8ULP_AUDIO_APD
+// #define CONFIG_PICOCOREMX8ULP_AUDIO_RTD
+
+/*
+ * SD_A - External SD port with Card Detect (CD) and Write Protect (WP)
+ * On picocoremx8ulp SKIT: external port is Micro-SD card slot with CD but without WP
+ */
+#if !defined(CONFIG_PICOCOREMX8ULP_WLAN)
+#define CONFIG_PICOCOREMX8ULP_SD_A
+#define CONFIG_PICOCOREMX8ULP_SD_A_CD
+#define CONFIG_PICOCOREMX8ULP_SD_A_WP
+#endif
+#include "picocoremx8ulp_rev110.dtsi"
+#endif
+
 #include <dt-bindings/usb/pd.h>
 
 &fs_uart_a {
@@ -67,9 +91,15 @@
 	status = "okay";
 };
 
+#if CONFIG_PICOCOREMX8ULP_REV >= 120
 &fs_uart_b {
 	status = "okay";
 };
+#else
+&fs_uart_d {
+	status = "okay";
+};
+#endif
 
 &fs_uart_c {
 	status = "okay";

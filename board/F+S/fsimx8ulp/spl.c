@@ -259,7 +259,9 @@ int board_early_init_f(void)
 	 */
 	switch(gd->board_type){
 	case BT_PICOCOREMX8ULP:
-		lpuart_postinit(LPUART6_RBASE);
+		if (fs_image_get_board_rev() >= 120 )
+			lpuart_postinit(LPUART6_RBASE);
+		break;
 	case BT_OSMSFMX8ULP:
 		break;
 	case BT_ARMSTONEMX8ULP:

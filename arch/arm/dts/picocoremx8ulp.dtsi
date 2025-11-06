@@ -21,8 +21,8 @@
 // #include <fsversion.h>
 
 
-#if defined(CONFIG_PICOCOREMX8ULP_I2C_INT_RTD) && defined(CONFIG_PICOCOREMX8ULP_I2C_INT_APD)
-#error "Set only on config at a time"
+#if defined(CONFIG_PICOCOREMX8ULP_I2C_INT_RTD) == defined(CONFIG_PICOCOREMX8ULP_I2C_INT_APD)
+#error "Set only/at least on config at a time"
 #endif
 
 #if defined(CONFIG_PICOCOREMX8ULP_SD_A_SDCARD) && defined(CONFIG_PICOCOREMX8ULP_SD_A_8BIT)
@@ -42,13 +42,14 @@ fs_i2c_c: &lpi2c4 {};
 fs_uart_a: &lpuart6 {};
 fs_uart_b: &tty0_rpchip {};
 fs_uart_c: &lpuart5 {};
+fs_uart_d: &tty1_rpchip {};
 fs_eth: &fec {};
 fs_usb_1: &usbotg1 {};
 fs_usb_2: &usbotg2 {};
 emmc: &usdhc0 {};
 fs_sdio_a: &usdhc1 {};
 fs_bl_pwm: &tpm7 {};
-fs_pwm: &tpm0_rpchip{};
+fs_pwm: &tpm2_rpchip{};
 
 / {
 	model = "F&S PicoCoreMX8ULP";
@@ -85,8 +86,8 @@ fs_pwm: &tpm0_rpchip{};
 		rtc0 = &ext_rtc;
 		isi0 = &isi_0;
 		csi0 = &mipi_csi0;
-		pwm0 = &fs_pwm;
-		pwm1 = &fs_bl_pwm;
+		pwm0 = &fs_bl_pwm;
+		pwm1 = &fs_pwm;
 	};
 
 	/* -------------------- BOARD INFO -------------------- */
@@ -230,14 +231,9 @@ fs_pwm: &tpm0_rpchip{};
 			enable-active-high;
 		};
 
-		reg_usdhc1_vmmc: regulator_usdhc1_wlan {
-			compatible = "regulator-fixed";
-			regulator-name = "WLAN_RESET";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpiod 13 GPIO_ACTIVE_LOW>;
-			off-on-delay-us = <1000>;
-			enable-active-high;
+		wlan_pwrseq: pwrseq {
+			compatible = "mmc-pwrseq-simple";
+			reset-gpios = <&gpiod 13 GPIO_ACTIVE_LOW>;
 #if !defined(CONFIG_PICOCOREMX8ULP_WLAN)
 			status = "disabled";
 #endif
@@ -478,7 +474,6 @@ fs_pwm: &tpm0_rpchip{};
 &fs_uart_b {
 	status = "disabled";
 #if defined(CONFIG_PICOCOREMX8ULP_BLUETOOTH)
-	status = "okay";
 	bluetooth {
 		compatible = "nxp,88w8997-bt";
 	};
@@ -492,7 +487,10 @@ fs_pwm: &tpm0_rpchip{};
 	status = "disabled";
 };
 
-/* UART_D is M33 DBG */
+/* UART_D is controlled by M33 */
+&fs_uart_d {
+	status = "disabled";
+};
 
 /* I2C decleration */
 &fs_i2c_int {
@@ -538,9 +536,9 @@ fs_pwm: &tpm0_rpchip{};
 			/* 0-2 */ "BT_IRQ", "BT_HOST_WAKE",
 			/* 3-4 */ "BT_LED", "WLAN_LED", "WLAN_HOST_WAKE",
 			/* 5-6 */ "GPIO-EXP_GPIO1", "GPIO-EXP_GPIO2",
-			/* 7-8 */ "WLAN_WAKE_HOST", "WLAN_WAKE_HOST",
-			/* 9-10 */ "BL_EN", "VLCD_EN",
-			/* 11-12 */ "USB_HOST_PWR", "USB_OTG_PWR",
+			/* 7-8 */ "WLAN_WAKE_HOST", "BL_EN",
+			/* 9-10 */ "VLCD_EN", "VLCD_EN",
+			/* 11-12 */ "", "USB_OTG_PWR",
 			/* 13-14 */ "ETH_RST", "ETH_IRQ",
 			/* 15 */ "LVDS_CONV_STBY";
 		status = "okay";
@@ -568,20 +566,21 @@ fs_pwm: &tpm0_rpchip{};
 				#size-cells = <0>;
 				reg = <0>;
 
-				lvds_from_dsi: endpoint {
 #if defined(CONFIG_PICOCOREMX8ULP_LVDS)
+				lvds_from_dsi: endpoint {
 					remote-endpoint = <&dsi_to_lvds>;
-#endif
 				};
+#endif
 			};
 
 			port@1 {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <1>;
-
-				// lvds_to_panel: endpoint {
-				// };
+#if defined(CONFIG_PICOCOREMX8ULP_LVDS)
+				lvds_to_panel: endpoint {
+				};
+#endif
 			};
 		};
 	};
@@ -595,7 +594,11 @@ fs_pwm: &tpm0_rpchip{};
 		VDDA-supply = <&reg_sgtl5000_vdda>;
 		VDDIO-supply = <&reg_sgtl5000_vddio>;
 		VDDD-supply = <&reg_sgtl5000_vddd>;
+#if defined(CONFIG_PICOCOREMX8ULP_AUDIO)
+		status = "okay";
+#else
 		status = "disabled";
+#endif
 	};
 };
 
@@ -646,6 +649,9 @@ fs_pwm: &tpm0_rpchip{};
 };
 
 &gpiod {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_gpiod>;
+	pinctrl-1 = <&pinctrl_gpiod>;
 	gpio-line-names = 
 	/* 0-4 */ "eMMC_RST", "eMMC_CMD", "eMMC_CLK", "eMMC_D7", "eMMC_D6",
 	/* 5-9 */ "eMMC_D5", "eMMC_D4", "eMMC_D3", "eMMC_D2", "eMMC_D1",
@@ -658,6 +664,9 @@ fs_pwm: &tpm0_rpchip{};
 };
 
 &gpioe {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_gpioe>;
+	pinctrl-1 = <&pinctrl_gpioe>;
 	gpio-line-names = 
 	/* 0-4 */ "I2C_C_SCL", "I2C_C_SDA", "GPIO_J1_86", "I2C_APD_IRQ", "I2C_APD_SCL",
 	/* 5-9 */ "I2C_APD_SDA", "UART_C_TX", "UART_C_RX", "UART_A_CTS", "UART_A_RTS",
@@ -670,6 +679,9 @@ fs_pwm: &tpm0_rpchip{};
 };
 
 &gpiof {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_gpiof>;
+	pinctrl-1 = <&pinctrl_gpiof>;
 	gpio-line-names = 
 	/* 0-4 */ "RGB_D23", "RGB_D22", "RGB_D21", "RGB_D20", "RGB_D19",
 	/* 5-9 */ "RGB_D18", "RGB_D17", "RGB_D16", "RGB_D15", "RGB_D14",
@@ -707,12 +719,14 @@ fs_pwm: &tpm0_rpchip{};
 	status = "disabled";
 
 #if defined(CONFIG_PICOCOREMX8ULP_WLAN)
+	mmc-pwrseq = <&wlan_pwrseq>;
 	non-removable;
 	pm-ignore-notify;
-	keep-power-in-suspend;
+	// keep-power-in-suspend;
 	enable-sdio-wakeup;
 	cap-power-off-card;
 	fsl,sdio-async-interrupt-enabled;
+	/delete-property/ status;
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -796,6 +810,8 @@ fs_pwm: &tpm0_rpchip{};
 			};
 		};
 	};
+#elif defined(CONFIG_PICOCOREMX8ULP_MIPI_DSI)
+	status = "okay";
 #else
 	status = "disabled";
 #endif
@@ -888,9 +904,9 @@ fs_pwm: &tpm0_rpchip{};
 		>;
 	};
 
-	pinctrl_otgid1: usb1grp {
+	pinctrl_otgid1: otgid1grp {
 		fsl,pins = <
-			MX8ULP_PAD_PTD12__USB0_ID	0x10003
+			MX8ULP_PAD_PTD12__USB0_ID	0x3
 		>;
 	};
 
