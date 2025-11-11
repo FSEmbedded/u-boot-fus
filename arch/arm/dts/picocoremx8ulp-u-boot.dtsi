@@ -25,6 +25,7 @@
 	/delete-property/ gpio2;
 };
 
+#if CONFIG_PICOCOREMX8ULP_REV >= 120
 &reg_usb1 {
 	/delete-property/ gpio;
 };
@@ -37,17 +38,16 @@
 	/delete-property/ gpio;
 };
 
-#if CONFIG_PICOCOREMX8ULP_REV >= 120
 &reg_bl_en {
 	/delete-property/ gpio;
 };
-#endif
 
 &fs_eth_phy {
 	/delete-property/ reset-gpios;
 	/delete-property/ interrupt-parent;
 	/delete-property/ interrupts;
 };
+#endif
 
 &mu {
 	status = "disabled";
@@ -176,7 +176,6 @@
 
 &fs_usb_1 {
 	compatible = "fsl,imx8ulp-usb", "fsl,imx7ulp-usb", "fsl,imx27-usb";
-	/delete-property/ vbus-supply;
 };
 
 &fs_usb_2 {

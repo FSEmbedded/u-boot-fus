@@ -408,6 +408,16 @@ fs_pwm: &tpm0_rpchip{};
 	};
 };
 
+#if defined(CONFIG_PICOCOREMX8ULP_ETH_PHY)
+&fs_eth {
+	status = "okay";
+};
+
+&fs_eth_phy {
+	status = "okay";
+};
+#endif
+
 /* SPI decleration */
 &fs_spi_a {
 	pinctrl-names = "default";
@@ -716,8 +726,8 @@ fs_pwm: &tpm0_rpchip{};
 			MX8ULP_PAD_PTE15__ENET0_MDC	0x43
 			MX8ULP_PAD_PTE16__ENET0_TXEN	0x43
 			MX8ULP_PAD_PTE17__ENET0_RXER	0x43
-			MX8ULP_PAD_PTE18__ENET0_CRS_DV	0x43
-			MX8ULP_PAD_PTE19__ENET0_REFCLK	0x42 //PHYAD2
+			MX8ULP_PAD_PTE18__ENET0_CRS_DV	0x42	//PHYAD[1:0]
+			MX8ULP_PAD_PTE19__ENET0_REFCLK	0x42	//PHYAD[2]
 			MX8ULP_PAD_PTE20__ENET0_RXD1	0x43
 			MX8ULP_PAD_PTE21__ENET0_RXD0	0x43
 			MX8ULP_PAD_PTE22__ENET0_TXD1	0x43
