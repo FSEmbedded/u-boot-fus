@@ -29,7 +29,7 @@
 		fuse-value =    <0x10002a00>;
 
 		/* Common board features */
-		board-rev = <100>;
+		board-rev = <110>;
 		//have-nand;
 		have-emmc;
 		//have-audio;

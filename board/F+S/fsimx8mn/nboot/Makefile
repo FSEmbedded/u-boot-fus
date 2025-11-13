@@ -27,7 +27,8 @@ BOARD_CONFIGS = \
 	PCoreMX8MN-FERT19.fs \
 	PCoreMX8MN-FERT20.fs \
 	PCoreMX8MN-FERT21.fs \
-	PCoreMX8MN-FERT23.fs
+	PCoreMX8MN-FERT23.fs \
+	PCoreMX8MN-FERT24.fs
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_DDR3L := \
