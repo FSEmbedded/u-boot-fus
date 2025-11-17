@@ -217,7 +217,13 @@ $(obj)/ddr4_type.fs: $(OBJ_RT_DDR4)
 %_firmware.fs: $(OBJ_FIRMWARE_FILES)
 	$(call cmd,fsimg,-s -t FIRMWARE -d $(*F))
 
-%_spl.fs: spl/u-boot-spl.bin
+MKIMAGEFLAGS_u-boot-spl-ivt.bin = -n spl/u-boot-spl.cfgout -T imx8mimage -e $(CONFIG_SPL_TEXT_BASE)
+$(obj)/u-boot-spl-ivt.bin: MKIMAGEOUTPUT = $(obj)/u-boot-spl-ivt.log
+
+$(obj)/u-boot-spl-ivt.bin: spl/u-boot-spl.bin FORCE
+	$(call if_changed,mkimage)
+
+%_spl.fs: $(obj)/u-boot-spl-ivt.bin
 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_ATF_ADDR) -t SPL -d $(*F))
 
 # Prepend some macros with varying content to BOARD-CFG .dts
