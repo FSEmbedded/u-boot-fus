@@ -230,6 +230,9 @@ obj-$(CONFIG_CMD_REGULATOR) += regulator.o
 obj-$(CONFIG_CMD_FSIMAGE) += fsimage.o
 obj-$(CONFIG_CMD_FSIMAGE_IMX6) += fsimage_imx6.o
 
+# additional HAB commands
+obj-$(CONFIG_CMD_HAB_FUSE) += hab_fuse.o
+
 # Extended LCD support (F&S)
 obj-$(CONFIG_CMD_LCD) += lcd.o
 obj-$(CONFIG_CMD_WIN) += win.o

@@ -58,7 +58,8 @@ BOARD_CONFIGS = \
 	SM8MP-FERT3.fs \
 	SM8MP-FERT4.fs \
 	SM8MP-FERT5.fs \
-	OSM8MPL-FERT2.fs
+	OSM8MPL-FERT2.fs \
+	OSM8MPL-FERT3.fs
 
 
 # List of DRAM Timings for each DRAM-TYPE
@@ -71,6 +72,7 @@ RT_LPDDR4 := \
 	lpddr4_ef_1g1800m2ch1cs_timing.fs \
 	lpddr4_ef_1g2000m2ch1cs_timing.fs \
 	lpddr4_os_2g2000m2ch1cs_timing.fs \
+	lpddr4_os_1g2000m2ch1cs_timing.fs \
 	lpddr4_pc_4g1500m2ch2cs_timing.fs \
 	lpddr4_pc_2g1500m2ch1cs_timing.fs \
 	lpddr4_pc_2g1300m2ch1cs_timing.fs \
@@ -215,7 +217,13 @@ $(obj)/ddr4_type.fs: $(OBJ_RT_DDR4)
 %_firmware.fs: $(OBJ_FIRMWARE_FILES)
 	$(call cmd,fsimg,-s -t FIRMWARE -d $(*F))
 
-%_spl.fs: spl/u-boot-spl.bin
+MKIMAGEFLAGS_u-boot-spl-ivt.bin = -n spl/u-boot-spl.cfgout -T imx8mimage -e $(CONFIG_SPL_TEXT_BASE)
+$(obj)/u-boot-spl-ivt.bin: MKIMAGEOUTPUT = $(obj)/u-boot-spl-ivt.log
+
+$(obj)/u-boot-spl-ivt.bin: spl/u-boot-spl.bin FORCE
+	$(call if_changed,mkimage)
+
+%_spl.fs: $(obj)/u-boot-spl-ivt.bin
 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_ATF_ADDR) -t SPL -d $(*F))
 
 # Prepend some macros with varying content to BOARD-CFG .dts

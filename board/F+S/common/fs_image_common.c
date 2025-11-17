@@ -1119,6 +1119,7 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size)
 #define FSIMG_FW_JOBS (FSIMG_JOB_DRAM | FSIMG_JOB_ATF)
 #endif
 
+
 /* Load mode */
 enum fsimg_mode {
 	FSIMG_MODE_HEADER,		/* Loading F&S header */
