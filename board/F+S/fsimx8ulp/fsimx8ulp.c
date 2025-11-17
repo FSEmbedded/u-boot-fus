@@ -486,6 +486,20 @@ int board_late_init(void)
 	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
 		env_set_ulong("bootdelay", 0);
 
+#if !CONFIG_IS_ENABLED(FUS_FORCE_DEFAULT_BOOTDELAY)
+	/* Disable Shell access, if board is closed*/
+	if(fs_board_is_closed()){
+
+		env_set_ulong("bootdelay", -2);
+		/* TODO: Maybe check images within all boot commands? */
+		if (boot_dev == USB_BOOT || boot_dev == USB2_BOOT){
+			printf("WARNING: USB Boot detected on closed board!\n");
+			printf("\tEnable FASTBOOT access with CONFIG_FUS_FORCE_DEFAULT_BOOTDELAY\n");
+			hang();
+		}
+	}
+#endif
+
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	char brev[MAX_DESCR_LEN] = {0};
 	fsimx8ulp_get_board_rev(brev, MAX_DESCR_LEN);
