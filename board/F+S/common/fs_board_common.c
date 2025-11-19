@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-#if __UBOOT__
+#ifdef __UBOOT__
 #include <config.h>
 #include <env.h>			/* env_get() */
 #include <command.h>			/* run_command() */
@@ -21,8 +21,7 @@
 #if CONFIG_IS_ENABLED(MTD_RAW_NAND)
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #endif
-#include <dm/uclass.h>				/* uclass_get_device() */
-#include "fs_board_common.h"		/* Own interface */
+#include <dm/uclass.h>			/* uclass_get_device() */
 #include "fs_mmc_common.h"
 #ifdef CONFIG_FS_SELFTEST
 #include "fs_dram_test.h"
@@ -31,19 +30,20 @@
 #include <update.h>			/* enum update_action */
 #include "fs_fdt_common.h"
 
-#ifdef CONFIG_FS_BOARD_CFG
-#include "fs_image_common.h"		/* fs_image_*() */
-#endif
 #else
+
+#include <linux/kconfig.h>		/* Get kconfig macros only */
+#include <linux/bitops.h>		/* BITS_PER_LONG */
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>			/* strcmp() */
+
+#endif /* __UBOOT__ */
+
 #include "fs_board_common.h"		/* Own interface */
 #ifdef CONFIG_FS_BOARD_CFG
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-
-#endif /* __UBOOT__ */
 
 #if CONFIG_IS_ENABLED(IMX_HAB)
 #include <asm/mach-imx/hab.h>
@@ -184,7 +184,7 @@ void board_nand_state(struct mtd_info *mtd, unsigned int state)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
-#if __UBOOT__ /* unused outside of u-boot and spl */
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 /* Get Pointer to struct cfg_info */
 struct cfg_info *fs_board_get_cfg_info(void)
 {
@@ -216,7 +216,6 @@ unsigned int fs_board_get_features(void)
 {
 	return fs_board_get_cfg_info()->features;
 }
-#endif /* __UBOOT__ */
 
 /* Get the NBoot version */
 const char *fs_board_get_nboot_version(void)
@@ -224,7 +223,6 @@ const char *fs_board_get_nboot_version(void)
 	return fs_image_get_nboot_version(NULL);
 }
 
-#ifdef __UBOOT__
 /* Set RAM size; optee will be subtracted in dram_init() */
 int board_phys_sdram_size(phys_size_t *size)
 {
@@ -232,13 +230,13 @@ int board_phys_sdram_size(phys_size_t *size)
 
 	return 0;
 }
-#endif
+#endif /* __UBOOT__ */
 
 #endif /* CONFIG_FS_BOARD_CFG */
 
 /* ------------- Generic functions ----------------------------------------- */
 
-#if __UBOOT__ /* unused outside of u-boot and spl */
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 /* Issue reset signal on up to three gpios (~0: gpio unused) */
 void fs_board_issue_reset(uint active_us, uint delay_us,
 			  uint gpio0, uint gpio1, uint gpio2)
@@ -264,7 +262,6 @@ void fs_board_issue_reset(uint active_us, uint delay_us,
 	if (delay_us)
 		udelay(delay_us);
 }
-#endif /* __UBOOT__ */
 
 #ifdef CONFIG_CMD_UPDATE
 /*
@@ -344,7 +341,6 @@ enum update_action board_check_for_recover(void)
 }
 #endif /* CONFIG_CMD_UPDATE */
 
-#if __UBOOT__ /* Only useable if compiled for U-Boot or SPL */
 /* Copy NBoot args to variables and prepare command prompt string */
 void fs_board_init_common(const struct fs_board_info *board_info)
 {
@@ -377,7 +373,6 @@ void fs_board_init_common(const struct fs_board_info *board_info)
 	uclass_get_device(UCLASS_THERMAL, 0, &udev);
 #endif
 }
-#endif /* __UBOOT__ */
 
 #ifdef CONFIG_BOARD_LATE_INIT
 /* If variable has value "undef", update it with a board specific value */
@@ -645,7 +640,6 @@ char *get_sys_prompt(void)
 {
 	return fs_sys_prompt;
 }
-
 #ifdef CONFIG_FS_SELFTEST
 /* Return dram_result for bdinfo */
 char *get_dram_result(void)
@@ -653,6 +647,7 @@ char *get_dram_result(void)
 	return dram_result;
 }
 #endif
+#endif /* __UBOOT__ */
 
 #endif /* ! CONFIG_SPL_BUILD */
 
@@ -702,7 +697,7 @@ const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
-#if __UBOOT__
+#ifdef __UBOOT__
 #include <fdtdec.h>
 #endif
 
@@ -872,8 +867,6 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	force_alt_usdhc = val & BOOT_CFG_FORCE_ALT_USDHC;
 	alt = (val & BOOT_CFG_ALT_SEL_MASK) >> BOOT_CFG_ALT_SEL_SHIFT;
 	switch ((val & BOOT_CFG_DEVSEL_MASK) >> BOOT_CFG_DEVSEL_SHIFT) {
-	case 0x1: // USB0 / USB1
-		boot_dev = get_boot_device();
 	case 0x2: // eMMC(SD3)
 		boot_dev = MMC3_BOOT;
 		if (force_alt_usdhc)
@@ -891,6 +884,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 		boot_dev = NAND_BOOT;
 		break;
 
+	case 0x1: // USB0 / USB1
 	default:
 		break;
 	}
@@ -926,17 +920,6 @@ u32 fs_board_get_secondary_offset(void)
 /* Definitions in boot_cfg (fuse bank 3, word 0) */
 #define BOOT_CFG_BOOT_MODE_SHIFT 0
 #define BOOT_CFG_BOOT_MODE_MASK GENMASK(3, BOOT_CFG_BOOT_MODE_SHIFT)
-
-#ifndef __UBOOT__
-unsigned int fuse_read(int bank, int word, uint32_t* buf) {
-    FILE *nvmem = fopen("/sys/bus/nvmem/devices/fsb_s400_fuse0/nvmem", "rb");
-	if(nvmem)
-    fseek(nvmem, (bank*8+word)*4, SEEK_SET);
-    fread(&buf, 4, 1, nvmem);
-    fclose(nvmem);
-    return 0;
-}
-#endif
 
 /*
  * Return the boot device as programmed in the fuses. This may differ from the
@@ -979,7 +962,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	return boot_dev;
 }
 
-#if __UBOOT__ /* unused outside of u-boot and spl */
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 #define IMG_CNTN_SET1_OFFSET_SHIFT 8
 #define IMG_CNTN_SET1_OFFSET_MASK GENMASK(15, IMG_CNTN_SET1_OFFSET_SHIFT)
 u32 fs_board_get_secondary_offset(void)
@@ -1102,7 +1085,7 @@ static bool imx_ele_ahab_is_enabled(void)
 	return !!(lc != 0x8);
 }
 #endif
-#endif
+#endif /* __UBOOT__ */
 
 //TODO: not used in linux because of missing functionality. Will  be activated
 //      when possible.
@@ -1113,11 +1096,12 @@ bool fs_board_is_closed(void)
 	return imx_ele_ahab_is_enabled();
 #elif CONFIG_IS_ENABLED(IMX_HAB)
 	return imx_hab_is_enabled();
-#endif
 #else
-
 	return false;
 #endif
+#else
+	return false;
+#endif /* __UBOOT__ */
 }
 
 #ifdef __UBOOT__
@@ -1171,4 +1155,4 @@ __weak int fs_board_cma_fdt_fixup(void * fdt)
 	fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	return 0;
 }
-#endif
+#endif /* __UBOOT__ */

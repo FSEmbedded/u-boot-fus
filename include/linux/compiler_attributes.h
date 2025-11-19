@@ -65,9 +65,7 @@
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-always_005finline-function-attribute
  * clang: mentioned
  */
-#if __UBOOT__
 #define __always_inline                 inline __attribute__((__always_inline__))
-#endif
 
 /*
  * The second argument is optional (default 0), so we use a variadic macro
@@ -102,9 +100,7 @@
  *
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-const-function-attribute
  */
-#if __UBOOT__
 #define __attribute_const__             __attribute__((__const__))
-#endif
 
 /*
  * Optional: only supported since gcc >= 9
@@ -238,9 +234,7 @@
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Type-Attributes.html#index-packed-type-attribute
  * clang: https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-packed-variable-attribute
  */
-#if __UBOOT__
 #define __packed                        __attribute__((__packed__))
-#endif
 
 /*
  *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-pure-function-attribute

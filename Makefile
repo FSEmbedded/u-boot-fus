@@ -2206,6 +2206,9 @@ tools/version.h: include/version.h
 envtools: u-boot-initial-env scripts_basic $(version_h) $(timestamp_h) tools/version.h
 	$(Q)$(MAKE) $(build)=tools/env
 
+fsimage:
+	$(Q)$(MAKE) $(build)=tools/fsimage
+
 tools-only: export TOOLS_ONLY=y
 tools-only: scripts_basic $(version_h) $(timestamp_h) tools/version.h
 	$(Q)$(MAKE) $(build)=tools

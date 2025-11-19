@@ -11,11 +11,7 @@
 #ifndef __FS_IMAGE_COMMON_H__
 #define __FS_IMAGE_COMMON_H__
 
-#ifndef __UBOOT__
-#include <stdbool.h>
-#include <stdint.h>
-#include "linux_helpers.h"
-#endif
+#include <linux/compiler_attributes.h>	/* __nonstring */
 
 #define MAX_TYPE_LEN 16
 #define MAX_DESCR_LEN 32
@@ -41,9 +37,9 @@ struct fs_header_v0_0 {			/* Size: 16 Bytes */
 /* F&S header (V1.0) for a generic file */
 struct fs_header_v1_0 {			/* Size: 64 bytes */
 	struct fs_header_v0_0 info;	/* Image info, see above */
-	char type[16];			/* Image type, e.g. "U-BOOT" */
+	char type[16] __nonstring;	/* Image type, e.g. "U-BOOT" */
 	union {
-		char descr[32];		/* Description, null-terminated */
+		char descr[32] __nonstring; /* Description, null-terminated */
 		u8 p8[32];		/* 8-bit parameters */
 		u16 p16[16];		/* 16-bit parameters */
 		u32 p32[8];		/* 32-bit parameters */
@@ -58,8 +54,6 @@ struct fs_header_v1_0 {			/* Size: 64 bytes */
 #define FSH_FLAGS_INDEX		0x1000	/* Image contains an index */
 #define FSH_FLAGS_EXTRA 	0x0800	/* Extra offset sub-header in p32[7] */
 #define FSH_SIZE sizeof(struct fs_header_v1_0)
-
-extern char saved_board_cfg_buffer[4*1024*1024];
 
 /* Return the F&S architecture */
 const char *fs_image_get_arch(void);
@@ -139,6 +133,9 @@ void fs_image_get_compare_id(char *id, uint len);
 
 /* Get the board-rev from BOARD-ID (in compare-id) */
 unsigned int fs_image_get_board_rev(void);
+
+/* Store current compare_id as board_id */
+void fs_image_set_board_id(void);
 
 /* Set the board_id and compare_id from the BOARD-CFG */
 void fs_image_set_board_id_from_cfg(void);
