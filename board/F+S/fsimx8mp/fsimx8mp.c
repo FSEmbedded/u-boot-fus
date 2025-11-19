@@ -1016,12 +1016,16 @@ int board_usb_init(int index, enum usb_init_type init)
 			 * for device
 			 * */
 			ret = tcpc_setup_ufp_mode(&port1);
-			if(ret)
+			if(ret) {
 				/*
 				 * second check downstream facing port (dfp)
 				 * for usb host
 				 * */
 				ret = tcpc_setup_dfp_mode(&port1);
+				/* MK_2025-11-19:
+				 * Force host because tcpc decides dr_mode */
+				dwc3_device_data.dr_mode = USB_DR_MODE_HOST;
+			}
 #endif
 		}
 	}
