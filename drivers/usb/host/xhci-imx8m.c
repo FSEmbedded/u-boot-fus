@@ -221,6 +221,9 @@ static int xhci_imx8m_probe(struct udevice *dev)
 		return ret;
 	}
 
+	/* We are hard-coding DWC3 core to Host Mode */
+	dwc3_set_mode(dwc3_reg, DWC3_GCTL_PRTCAP_HOST);
+
 	debug("imx8m-xhci: init hccr %lx and hcor %lx hc_length %lx\n",
 	      (uintptr_t)hccr, (uintptr_t)hcor,
 	      (uintptr_t)HC_LENGTH(xhci_readl(&(hccr)->cr_capbase)));
