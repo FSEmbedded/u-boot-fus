@@ -28,12 +28,16 @@
 #if defined(CONFIG_CMD_USB)
 #include <usb.h>
 #endif
+#ifdef CONFIG_FS_SECURE_BOOT
+#include <asm/mach-imx/checkboot.h>
+#endif
 #else
 #include "mkimage.h"
 #endif
 
 #include <bootm.h>
 #include <image.h>
+
 
 #define MAX_CMDLINE_SIZE	SZ_4K
 
@@ -274,9 +278,9 @@ static ulong bootm_data_addr(const char *addr_str)
 	ulong addr;
 
 	if (addr_str)
-		addr = hextoul(addr_str, NULL);
+		addr = parse_loadaddr(addr_str, NULL);
 	else
-		addr = image_load_addr;
+		addr = get_loadaddr();
 
 	return addr;
 }
@@ -319,6 +323,7 @@ static int bootm_find_os(const char *cmd_name, const char *addr_fit)
 	const void *vendor_boot_img;
 	const void *boot_img;
 #endif
+	int image_format;
 	bool ep_found = false;
 	int ret;
 
@@ -332,9 +337,10 @@ static int bootm_find_os(const char *cmd_name, const char *addr_fit)
 		printf("ERROR %dE: can't get kernel image!\n", ret);
 		return 1;
 	}
+	image_format = genimg_get_format(os_hdr);
 
 	/* get image parameters */
-	switch (genimg_get_format(os_hdr)) {
+	switch (image_format) {
 #if CONFIG_IS_ENABLED(LEGACY_IMAGE_FORMAT)
 	case IMAGE_FORMAT_LEGACY:
 		images.os.type = image_get_type(os_hdr);
@@ -346,6 +352,14 @@ static int bootm_find_os(const char *cmd_name, const char *addr_fit)
 		images.os.arch = image_get_arch(os_hdr);
 		break;
 #endif
+	case IMAGE_FORMAT_ZIMAGE:
+		images.os.type = IH_TYPE_KERNEL;
+		images.os.comp = IH_COMP_NONE;
+		images.os.os = IH_OS_LINUX;
+		images.os.load = (ulong)os_hdr;
+		images.os.end = (ulong)os_hdr;
+		images.ep = (ulong)os_hdr;
+		break;
 #if CONFIG_IS_ENABLED(FIT)
 	case IMAGE_FORMAT_FIT:
 		if (fit_image_get_type(images.fit_hdr_os,
@@ -412,6 +426,12 @@ static int bootm_find_os(const char *cmd_name, const char *addr_fit)
 	default:
 		puts("ERROR: unknown image format type!\n");
 		return 1;
+	}
+
+	if (image_format == IMAGE_FORMAT_ZIMAGE) {
+		images.os.start = (ulong)os_hdr;
+
+		return 0;
 	}
 
 	/* If we have a valid setup.bin, we will use that for entry (x86) */
@@ -998,6 +1018,13 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 	ulong iflag = 0;
 	int ret = 0, need_boot_fn;
 
+#ifdef CONFIG_FS_SECURE_BOOT
+	/* prepare images for authentification */
+	if (states & BOOTM_STATE_START)
+		if (parse_images_for_authentification(bmi->argc, bmi->argv))
+			return 1;
+#endif
+
 	images->state |= states;
 
 	/*
@@ -1016,8 +1043,8 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 	if (!ret && (states & BOOTM_STATE_FINDOTHER)) {
 		ulong img_addr;
 
-		img_addr = bmi->addr_img ? hextoul(bmi->addr_img, NULL)
-			: image_load_addr;
+		img_addr = bmi->addr_img ? parse_loadaddr(bmi->addr_img, NULL)
+			: get_loadaddr();
 		ret = bootm_find_other(img_addr, bmi->conf_ramdisk,
 				       bmi->conf_fdt);
 	}
@@ -1183,6 +1210,7 @@ int bootm_boot_start(ulong addr, const char *cmdline)
 		printf("Failed to set cmdline\n");
 		return ret;
 	}
+	// ### FIXME: Handle IMAGE_FORMAT_ZIMAGE
 	bootm_init(&bmi);
 	bmi.addr_img = addr_str;
 	bmi.cmd_name = "bootm";

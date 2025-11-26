@@ -768,6 +768,12 @@ void ipu_init_dc_mappings(void)
 	ipu_dc_map_config(4, 0, 5, 0xFC);
 	ipu_dc_map_config(4, 1, 13, 0xFC);
 	ipu_dc_map_config(4, 2, 21, 0xFC);
+
+	/* IPU_PIX_FMT_BGR666 */
+	ipu_dc_map_clear(5);
+	ipu_dc_map_config(5, 0, 17, 0xFC);
+	ipu_dc_map_config(5, 1, 11, 0xFC);
+	ipu_dc_map_config(5, 2, 5, 0xFC);
 }
 
 static int ipu_pixfmt_to_map(uint32_t fmt)
@@ -784,6 +790,8 @@ static int ipu_pixfmt_to_map(uint32_t fmt)
 		return 3;
 	case IPU_PIX_FMT_LVDS666:
 		return 4;
+	case IPU_PIX_FMT_BGR666:
+		return 5;
 	}
 
 	return -1;
@@ -1196,6 +1204,9 @@ int32_t ipu_disp_set_global_alpha(ipu_channel_t channel, unsigned char enable,
 	else
 		bg_chan = 0;
 
+	if (!g_ipu_clk_enabled)
+		clk_enable(g_ipu_clk);
+
 	if (bg_chan) {
 		reg = __raw_readl(DP_COM_CONF());
 		__raw_writel(reg & ~DP_COM_CONF_GWSEL, DP_COM_CONF());
@@ -1218,6 +1229,9 @@ int32_t ipu_disp_set_global_alpha(ipu_channel_t channel, unsigned char enable,
 
 	reg = __raw_readl(IPU_SRM_PRI2) | 0x8;
 	__raw_writel(reg, IPU_SRM_PRI2);
+
+	if (!g_ipu_clk_enabled)
+		clk_disable(g_ipu_clk);
 
 	return 0;
 }
@@ -1244,6 +1258,9 @@ int32_t ipu_disp_set_color_key(ipu_channel_t channel, unsigned char enable,
 		(channel == MEM_BG_ASYNC0 || channel == MEM_FG_ASYNC0) ||
 		(channel == MEM_BG_ASYNC1 || channel == MEM_FG_ASYNC1)))
 		return -EINVAL;
+
+	if (!g_ipu_clk_enabled)
+		clk_enable(g_ipu_clk);
 
 	color_key_4rgb = 1;
 	/* Transform color key from rgb to yuv if CSC is enabled */
@@ -1281,6 +1298,9 @@ int32_t ipu_disp_set_color_key(ipu_channel_t channel, unsigned char enable,
 
 	reg = __raw_readl(IPU_SRM_PRI2) | 0x8;
 	__raw_writel(reg, IPU_SRM_PRI2);
+
+	if (!g_ipu_clk_enabled)
+		clk_disable(g_ipu_clk);
 
 	return 0;
 }

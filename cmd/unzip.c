@@ -8,6 +8,7 @@
 #include <command.h>
 #include <env.h>
 #include <gzip.h>
+#include <image.h>			/* parse_loadaddr(), ... */
 #include <mapmem.h>
 #include <part.h>
 
@@ -22,19 +23,20 @@ static int do_unzip(struct cmd_tbl *cmdtp, int flag, int argc,
 			dst_len = hextoul(argv[3], NULL);
 			/* fall through */
 		case 3:
-			src = hextoul(argv[1], NULL);
-			dst = hextoul(argv[2], NULL);
+			src = parse_loadaddr(argv[1], NULL);
+			dst = parse_loadaddr(argv[2], NULL);
 			break;
 		default:
 			return CMD_RET_USAGE;
 	}
 
+	set_fileaddr(dst);
 	if (gunzip(map_sysmem(dst, dst_len), dst_len, map_sysmem(src, 0),
 		   &src_len) != 0)
 		return 1;
 
 	printf("Uncompressed size: %lu = 0x%lX\n", src_len, src_len);
-	env_set_hex("filesize", src_len);
+	env_set_fileinfo(src_len);
 
 	return 0;
 }

@@ -11,6 +11,7 @@
 #include <common.h>
 #include <blk.h>
 #include <command.h>
+#include <image.h>			/* parse_loadaddr() */
 #include <mapmem.h>
 
 int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
@@ -64,7 +65,7 @@ int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
 
 	default: /* at least 4 args */
 		if (strcmp(argv[1], "read") == 0) {
-			phys_addr_t paddr = hextoul(argv[2], NULL);
+			phys_addr_t paddr = parse_loadaddr(argv[2], NULL);
 			lbaint_t blk = hextoul(argv[3], NULL);
 			ulong cnt = hextoul(argv[4], NULL);
 			struct blk_desc *desc;
@@ -86,7 +87,7 @@ int blk_common_cmd(int argc, char *const argv[], enum uclass_id uclass_id,
 			       n == cnt ? "OK" : "ERROR");
 			return n == cnt ? CMD_RET_SUCCESS : CMD_RET_FAILURE;
 		} else if (strcmp(argv[1], "write") == 0) {
-			phys_addr_t paddr = hextoul(argv[2], NULL);
+			phys_addr_t paddr = parse_loadaddr(argv[2], NULL);
 			lbaint_t blk = hextoul(argv[3], NULL);
 			ulong cnt = hextoul(argv[4], NULL);
 			struct blk_desc *desc;

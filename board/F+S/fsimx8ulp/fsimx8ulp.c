@@ -13,8 +13,10 @@
 */
 
 #include <common.h>
+#include <command.h>
 #include <env.h>
 #include <miiphy.h>
+#include <mmc.h>
 #include <netdev.h>
 #include <asm/arch/imx8ulp-pins.h>
 #include <asm/arch/clock.h>
@@ -189,7 +191,7 @@ static void fs_setup_cfg_info(void)
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
-	
+
 	set_gd_board_type();
 	info->board_type = gd->board_type;
 
@@ -205,31 +207,45 @@ static void fs_setup_cfg_info(void)
 	info->flags = flags;
 
 	features = 0;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-int-rtd", NULL))
+		features |= FEAT_I2C_INT_RTD;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-int-apd", NULL))
+		features |= FEAT_I2C_INT_APD;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-d-rtd", NULL))
+		features |= FEAT_I2C_D_RTD;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-d-apd", NULL))
+		features |= FEAT_I2C_D_APD;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
 		features |= FEAT_EMMC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
 		features |= FEAT_EXT_RTC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-qspi-psram", NULL))
+		features |= FEAT_QSPI_PSRAM;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-qspi-flash", NULL))
+		features |= FEAT_QSPI_FLASH;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth", NULL))
 		features |= FEAT_ETH;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy", NULL))
 		features |= FEAT_ETH_PHY;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio-apd", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-audio-apd", NULL))
 		features |= FEAT_AUDIO_APD;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio-rtd", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-audio-rtd", NULL))
 		features |= FEAT_AUDIO_RTD;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-bluetooth", NULL))
+		features |= FEAT_BLUETOOTH;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
 		features |= FEAT_SDIO_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b;", NULL))
-		features |= FEAT_SDIO_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
 		features |= FEAT_MIPI_DSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
 		features |= FEAT_MIPI_CSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
+		features |= FEAT_LVDS;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
 		features |= FEAT_RGB;
 
 	info->features = features;
@@ -271,35 +287,35 @@ static void fdt_common_fixup(void *fdt)
 	/* Realloc FDT-Blob to next full page-size.
 	 * If NOSPACE Error appiers, increase extrasize.
 	 */
-	ret = fdt_shrink_to_minimum(fdt, 0x400);
+	ret = fdt_shrink_to_minimum(fdt, 0x800);
 	if(ret < 0){
 		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
 	}
 
-	if(!(features & FEAT_EMMC))
+	if (!(features & FEAT_EMMC))
 		fs_fdt_enable(fdt, "emmc", 0);
 
-	if(!(features & FEAT_EXT_RTC))
+	if (!(features & FEAT_EXT_RTC))
 		fs_fdt_enable(fdt, "ext_rtc", 0);
 
-	if(!(features & FEAT_EEPROM))
+	if (!(features & FEAT_EEPROM))
 		fs_fdt_enable(fdt, "eeprom", 0);
 
-	if(!(features & FEAT_ETH))
+	if (!(features & FEAT_ETH))
 		fs_fdt_enable(fdt, "ethernet0", 0);
 
-	if(!(features & FEAT_MIPI_DSI)){
+	if (!(features & (FEAT_MIPI_DSI | FEAT_LVDS))){
 		fs_fdt_enable(fdt, "dsi", 0);
 		fs_fdt_enable(fdt, "dphy", 0);
 	}
 
-	if(!(features & (FEAT_RGB | FEAT_MIPI_DSI)))
+	if (!(features & (FEAT_RGB | FEAT_MIPI_DSI | FEAT_LVDS)))
 		fs_fdt_enable(fdt, "dcnano", 0);
 
-	if(gd->board_type == BT_PICOCOREMX8ULP)
+	if (gd->board_type == BT_PICOCOREMX8ULP)
 		fdt_pcore_fixup(fdt);
 
-	if(gd->board_type == BT_OSMSFMX8ULP)
+	if (gd->board_type == BT_OSMSFMX8ULP)
 		fdt_osm_fixup(fdt);
 
 	if(gd->board_type == BT_ARMSTONEMX8ULP)
@@ -335,9 +351,18 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 	/* fixup bdinfo */
 	offs = fs_fdt_path_offset(fdt_blob, "/bdinfo");
 	if (offs >= 0) {
+		uint features = fs_board_get_features();
+		uint id = 0;
+
 		/* Set common bdinfo entries */
 		fs_fdt_set_bdinfo(fdt_blob, offs);
+
+		/* MAC addresses */
+		if (features & FEAT_ETH)
+			fs_fdt_set_macaddr(fdt_blob, offs, id++);
 	}
+
+	fs_board_cma_fdt_fixup(fdt_blob);
 
 	return 0;
 }
@@ -406,6 +431,30 @@ static void fsimx8ulp_get_board_rev(char *str, int len)
 	snprintf(str, len, "REV%01d.%02d", rev / 100, rev % 100);
 }
 
+int mmc_map_to_kernel_blk(int devno)
+{
+	return devno;
+}
+
+void board_late_mmc_env_init(void)
+{
+	char cmd[32];
+	char mmcblk[32];
+	u32 dev_no = mmc_get_env_dev();
+
+	env_set_ulong("mmcdev", dev_no);
+
+	/**
+	 * TODO: consider F&S U-BOOT-ENV $rootfs_partition_mmc
+	 * This section will be replaced
+	*/
+	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw", mmc_map_to_kernel_blk(dev_no));
+	env_set("mmcroot", mmcblk);
+
+	sprintf(cmd, "mmc dev %d", dev_no);
+	run_command(cmd, 0);
+}
+
 int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
@@ -433,14 +482,23 @@ int board_late_init(void)
 	/* Set mac addresses for corresponding boards */
 	fs_ethaddr_init();
 
-	if(fs_board_is_closed())
-		env_set("sec_boot", "yes");
-	else
-		env_set("sec_boot", "no");
-
 	/* Skip autoboot during USB-Boot*/
 	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
 		env_set_ulong("bootdelay", 0);
+
+#if !CONFIG_IS_ENABLED(FUS_FORCE_DEFAULT_BOOTDELAY)
+	/* Disable Shell access, if board is closed*/
+	if(fs_board_is_closed()){
+
+		env_set_ulong("bootdelay", -2);
+		/* TODO: Maybe check images within all boot commands? */
+		if (boot_dev == USB_BOOT || boot_dev == USB2_BOOT){
+			printf("WARNING: USB Boot detected on closed board!\n");
+			printf("\tEnable FASTBOOT access with CONFIG_FUS_FORCE_DEFAULT_BOOTDELAY\n");
+			hang();
+		}
+	}
+#endif
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	char brev[MAX_DESCR_LEN] = {0};
@@ -454,6 +512,7 @@ int board_late_init(void)
 	return 0;
 }
 
+#if 0 //### defined in serial-uclass.c
 int serial_get_alias_seq(void)
 {
 	int seq, err;
@@ -468,6 +527,7 @@ int serial_get_alias_seq(void)
 
 	return seq;
 }
+#endif
 
 void board_quiesce_devices(void)
 {

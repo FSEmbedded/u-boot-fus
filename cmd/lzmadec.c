@@ -12,6 +12,7 @@
 #include <common.h>
 #include <command.h>
 #include <env.h>
+#include <image.h>			/* parse_loadaddr(), ... */
 #include <mapmem.h>
 #include <asm/io.h>
 
@@ -29,13 +30,14 @@ static int do_lzmadec(struct cmd_tbl *cmdtp, int flag, int argc,
 		dst_len = hextoul(argv[3], NULL);
 		/* fall through */
 	case 3:
-		src = hextoul(argv[1], NULL);
-		dst = hextoul(argv[2], NULL);
+		src = parse_loadaddr(argv[1], NULL);
+		dst = parse_loadaddr(argv[2], NULL);
 		break;
 	default:
 		return CMD_RET_USAGE;
 	}
 
+	set_fileaddr(dst);
 	ret = lzmaBuffToBuffDecompress(map_sysmem(dst, dst_len), &src_len,
 				       map_sysmem(src, 0), dst_len);
 
@@ -43,7 +45,7 @@ static int do_lzmadec(struct cmd_tbl *cmdtp, int flag, int argc,
 		return 1;
 	printf("Uncompressed size: %ld = %#lX\n", (ulong)src_len,
 	       (ulong)src_len);
-	env_set_hex("filesize", src_len);
+	env_set_fileinfo(src_len);
 
 	return 0;
 }

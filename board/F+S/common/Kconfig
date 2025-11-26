@@ -1,3 +1,6 @@
+config FSIMX_BOARDS
+	bool
+
 if FSIMX_BOARDS
 
 config ETHADDR_BASE
@@ -40,14 +43,14 @@ config FS_IMAGE_COMMON
 				TARGET_FSIMX91
 
 config FS_CNTR_COMMON
-	bool "build fs_cntr_common"
+	bool
 	select FS_IMAGE_COMMON
 	default y if TARGET_FSIMX8ULP || \
 				TARGET_FSIMX93 || \
 				TARGET_FSIMX91
 
 config FS_BOOTROM
-	bool "build fs_bootrom"
+	bool
 	default y if FS_CNTR_COMMON
 
 config FS_DRAM_COMMON
@@ -63,7 +66,7 @@ config FS_FDT_COMMON
 
 config FS_MMC_COMMON
 	bool
-	default y
+	default y if !TARGET_FSIMX8X && !TARGET_FSIMX8M
 
 config FS_ETH_COMMON
 	bool
@@ -94,6 +97,17 @@ config FS_SPL_MEMTEST_COMMON
 	help
         Run a DRAM test in SPL. The board will have to be resettet after
         the test.
+
+config FS_SELFTEST
+	bool "Activate F&S U-boot selftest"
+	depends on TARGET_FSIMX8MP || TARGET_FSIMX8MM || TARGET_FSIMX8MN
+	default n
+	help
+        Runs a quick DRAM test and checks the CPU type. Writes the result to bdinfo.
+		The DRAM test will write values all over the memory, so only use this, if you
+		are sure, that nothing will get coruppted!
+		Also sets the bootdely and all update checks to 0, so the U-boot can start as
+		quick as possible
 
 config FS_DISP_COMMON
 	bool
@@ -126,5 +140,12 @@ config FS_DEVICEINFO_COMMON
           Enable shared struct in RAM for Windows. Contains MAC-addresses and other
           board specific information which Windows needs. The memory address for the
 		  struct is controlled by CFG_FS_DEVICEINFO_ADDR, which is processor specific.
-		  
+
+config FUS_FORCE_DEFAULT_BOOTDELAY
+	bool "force default bootdelay (F&S)"
+	default n
+	help
+		If enabled, bootdelay defined in configs/<board>_defconfig keeps it value,
+		even during chain of trust. Use this setting only for debug purpose.
+
 endif

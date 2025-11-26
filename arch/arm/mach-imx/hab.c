@@ -450,7 +450,8 @@ static void display_event(uint8_t *event_data, size_t bytes)
 static int get_hab_status(void)
 {
 	uint32_t index = 0; /* Loop index */
-	uint8_t event_data[128]; /* Event data buffer */
+	//event data is casted to record which is much bigger than NXPs 128 reserved bytes
+	uint8_t event_data[sizeof(struct record)]; /* Event data buffer */
 	size_t bytes = sizeof(event_data); /* Event size in bytes */
 	enum hab_config config = 0;
 	enum hab_state state = 0;
@@ -899,8 +900,10 @@ int imx_hab_authenticate_image(uint32_t ddr_start, uint32_t image_size,
 	if (!imx_hab_is_enabled())
 		puts("hab fuse not enabled\n");
 
+#ifndef CONFIG_ARCH_IMX8M
 	printf("\nAuthenticate image from DDR location 0x%x...\n",
 	       ddr_start);
+#endif
 
 	hab_caam_clock_enable(1);
 

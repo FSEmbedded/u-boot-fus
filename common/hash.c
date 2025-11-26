@@ -534,7 +534,7 @@ int hash_command(const char *algo_name, int flags, struct cmd_tbl *cmdtp,
 	if ((argc < 2) || ((flags & HASH_FLAG_VERIFY) && (argc < 3)))
 		return CMD_RET_USAGE;
 
-	addr = hextoul(*argv++, NULL);
+	addr = parse_loadaddr(*argv++, NULL);
 	len = hextoul(*argv++, NULL);
 
 	if (multi_hash()) {

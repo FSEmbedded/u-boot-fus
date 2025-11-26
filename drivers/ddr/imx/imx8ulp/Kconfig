@@ -15,4 +15,11 @@ config SAVED_DRAM_TIMING_BASE
 	  for low power use.
 	default 0x20055000
 
+config SKIP_DRAM_TIMING_SAVING
+	bool "Skip saving the dram timing to SAVED_DRAM_TIMING_BASE (F&S)"
+	help
+	  On F&S boards, the dram timing is loaded to SAVED_DRAM_TIMING_BASE
+	  by default. Then copying in-place is not required and my not
+	  even work.
+
 endmenu

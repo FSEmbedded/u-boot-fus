@@ -19,19 +19,20 @@ static int do_zip(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			dst_len = hextoul(argv[4], NULL);
 			/* fall through */
 		case 4:
-			src = hextoul(argv[1], NULL);
+			src = parse_loadaddr(argv[1], NULL);
 			src_len = hextoul(argv[2], NULL);
-			dst = hextoul(argv[3], NULL);
+			dst = parse_loadaddr(argv[3], NULL);
 			break;
 		default:
 			return cmd_usage(cmdtp);
 	}
 
+	set_fileaddr(dst);
 	if (gzip((void *) dst, &dst_len, (void *) src, src_len) != 0)
 		return 1;
 
 	printf("Compressed size: %lu = 0x%lX\n", dst_len, dst_len);
-	env_set_hex("filesize", dst_len);
+	env_set_fileinfo(dst_len);
 
 	return 0;
 }

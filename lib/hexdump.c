@@ -151,7 +151,7 @@ int print_hex_dump(const char *prefix_str, int prefix_type, int rowsize,
 			       (ulong)map_to_sysmem(ptr) + i, linebuf);
 			break;
 		case DUMP_PREFIX_OFFSET:
-			printf("%s%.8x: %s\n", prefix_str, i, linebuf);
+			printf("%s%08x: %s\n", prefix_str, i, linebuf);
 			break;
 		default:
 			printf("%s%s\n", prefix_str, linebuf);

@@ -32,6 +32,7 @@
 #include <log.h>
 #include <search.h>
 #include <errno.h>
+#include <image.h>			/* parse_loadaddr() */
 #include <malloc.h>
 #include <mapmem.h>
 #include <asm/global_data.h>
@@ -682,7 +683,7 @@ NXTARG:		;
 	if (argc < 1)
 		return CMD_RET_USAGE;
 
-	addr = hextoul(argv[0], NULL);
+	addr = parse_loadaddr(argv[0], NULL);
 	ptr = map_sysmem(addr, size);
 
 	if (size)
@@ -821,7 +822,7 @@ static int do_env_import(struct cmd_tbl *cmdtp, int flag,
 	if (sep != '\n' && crlf_is_lf )
 		crlf_is_lf = 0;
 
-	addr = hextoul(argv[0], NULL);
+	addr = parse_loadaddr(argv[0], NULL);
 	ptr = map_sysmem(addr, 0);
 
 	if (argc >= 2 && strcmp(argv[1], "-")) {

@@ -316,7 +316,7 @@ static int do_flerase(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	if (strcmp(argv[1], "all") == 0) {
 		for (bank = 1; bank <= CFI_FLASH_BANKS; ++bank) {
-			printf("Erase Flash Bank # %ld ", bank);
+			printf ("Erase Flash Bank # %ld \n", bank);
 			info = &flash_info[bank - 1];
 			rcode = flash_erase(info, 0, info->sector_count - 1);
 		}
@@ -370,7 +370,7 @@ static int do_flerase(struct cmd_tbl *cmdtp, int flag, int argc,
 			       CFI_FLASH_BANKS);
 			return 1;
 		}
-		printf("Erase Flash Bank # %ld ", bank);
+		printf ("Erase Flash Bank # %ld \n", bank);
 		info = &flash_info[bank - 1];
 		rcode = flash_erase(info, 0, info->sector_count - 1);
 		return rcode;

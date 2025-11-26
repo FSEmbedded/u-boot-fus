@@ -51,8 +51,17 @@
 		have-mipi-dsi;
 		have-mipi-csi;
 
-        OSM8ULP-FERT2.100 {
-            board-rev = <100>;
-        };
+		OSM8ULP-FERT2.100 {
+			board-rev = <100>;
+		};
+
+		OSM8ULP-FERT2.110 {
+			board-rev = <110>;
+			/* DRAM: B.ICDRAM.30 */
+			dram-type = "lpddr4";
+			dram-timing = "lpddr4_osm_v110_2g1056m2ch1cs";
+			dram-size = <0x800>;		/* In MiB */
+			dram-chips = <1>;
+		};
 	};
 };

@@ -1081,7 +1081,8 @@ dtb-$(CONFIG_MX7) += imx7d-sdb.dtb \
 dtb-$(CONFIG_ARCH_MX7ULP) += imx7ulp-com.dtb \
 	imx7ulp-evk.dtb \
 	imx7ulp-evk-emmc.dtb \
-	imx7ulp-evk-qspi.dtb
+	imx7ulp-evk-qspi.dtb \
+	picocoremx7ulp.dtb
 
 dtb-$(CONFIG_ARCH_HIGHBANK) += highbank.dtb
 
@@ -1107,7 +1108,8 @@ dtb-$(CONFIG_ARCH_IMX8) += \
 	fsl-imx8dxl-evk-lcdif.dtb \
 	fsl-imx8dxl-ddr3l-evk.dtb \
 	imx8-deneb.dtb \
-	imx8-giedi.dtb
+	imx8-giedi.dtb \
+	efusmx8x.dtb
 
 dtb-$(CONFIG_ARCH_IMX8ULP) += \
 	imx8ulp-evk.dtb \
@@ -1184,7 +1186,24 @@ dtb-$(CONFIG_ARCH_IMX8M) += \
 	imx8mp-navqp.dtb \
 	imx8mq-pico-pi.dtb \
 	imx8mq-kontron-pitx-imx8m.dtb \
-	imx8mq-librem5-r4.dtb
+	imx8mq-librem5-r4.dtb \
+	picocoremx8mm.dtb \
+	picocoremx8mmr2.dtb \
+	picocoremx8mx.dtb \
+	picocoremx8mm-lpddr4.dtb \
+	picocoremx8mmr2-lpddr4.dtb \
+	picocoremx8mm-ddr3l.dtb \
+	osm8mm.dtb \
+	armstonemx8m.dtb \
+	picocoremx8mn-lpddr4.dtb \
+	picocoremx8mn-ddr3l.dtb \
+	tbs2.dtb \
+	picocoremx8mp.dtb \
+	picocoremx8mpr2.dtb \
+	armstonemx8mp.dtb \
+	efusmx8mp.dtb \
+	fssmmx8mp.dtb \
+	osm8mp.dtb
 
 dtb-$(CONFIG_ARCH_IMX9) += \
 	imx95-15x15-evk.dtb \
@@ -1387,7 +1406,7 @@ dtb-$(CONFIG_ARCH_BCM283X) += \
 	bcm2835-rpi-b-rev2.dtb \
 	bcm2835-rpi-cm1-io1.dtb \
 	bcm2835-rpi-zero.dtb \
-	bcm2835-rpi-zero-w.dtb\
+	bcm2835-rpi-zero-w.dtb \
 	bcm2836-rpi-2-b.dtb \
 	bcm2837-rpi-3-a-plus.dtb \
 	bcm2837-rpi-3-b.dtb \

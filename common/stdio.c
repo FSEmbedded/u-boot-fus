@@ -44,17 +44,17 @@ int stdio_file_to_flags(const int file)
 }
 
 #if CONFIG_IS_ENABLED(SYS_DEVICE_NULLDEV)
-static void nulldev_putc(struct stdio_dev *dev, const char c)
+static void nulldev_putc(const struct stdio_dev *dev, const char c)
 {
 	/* nulldev is empty! */
 }
 
-static void nulldev_puts(struct stdio_dev *dev, const char *s)
+static void nulldev_puts(const struct stdio_dev *dev, const char *s)
 {
 	/* nulldev is empty! */
 }
 
-static int nulldev_input(struct stdio_dev *dev)
+static int nulldev_input(const struct stdio_dev *dev)
 {
 	/* nulldev is empty! */
 	return 0;
@@ -79,33 +79,6 @@ static void nulldev_register(void)
 static inline void nulldev_register(void) {}
 #endif	/* SYS_DEVICE_NULLDEV */
 
-static void stdio_serial_putc(struct stdio_dev *dev, const char c)
-{
-	serial_putc(c);
-}
-
-static void stdio_serial_puts(struct stdio_dev *dev, const char *s)
-{
-	serial_puts(s);
-}
-
-#ifdef CONFIG_CONSOLE_FLUSH_SUPPORT
-static void stdio_serial_flush(struct stdio_dev *dev)
-{
-	serial_flush();
-}
-#endif
-
-static int stdio_serial_getc(struct stdio_dev *dev)
-{
-	return serial_getc();
-}
-
-static int stdio_serial_tstc(struct stdio_dev *dev)
-{
-	return serial_tstc();
-}
-
 /**************************************************************************
  * SYSTEM DRIVERS
  **************************************************************************
@@ -113,19 +86,6 @@ static int stdio_serial_tstc(struct stdio_dev *dev)
 
 static void drv_system_init (void)
 {
-	struct stdio_dev dev;
-
-	memset (&dev, 0, sizeof (dev));
-
-	strcpy (dev.name, "serial");
-	dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT;
-	dev.putc = stdio_serial_putc;
-	dev.puts = stdio_serial_puts;
-	STDIO_DEV_ASSIGN_FLUSH(&dev, stdio_serial_flush);
-	dev.getc = stdio_serial_getc;
-	dev.tstc = stdio_serial_tstc;
-	stdio_register (&dev);
-
 	nulldev_register();
 }
 
@@ -223,7 +183,7 @@ struct stdio_dev *stdio_get_by_name(const char *name)
 	return NULL;
 }
 
-struct stdio_dev *stdio_clone(struct stdio_dev *dev)
+struct stdio_dev* stdio_clone(const struct stdio_dev *dev)
 {
 	struct stdio_dev *_dev;
 
@@ -239,7 +199,7 @@ struct stdio_dev *stdio_clone(struct stdio_dev *dev)
 	return _dev;
 }
 
-int stdio_register_dev(struct stdio_dev *dev, struct stdio_dev **devp)
+int stdio_register_dev(const struct stdio_dev *dev, struct stdio_dev **devp)
 {
 	struct stdio_dev *_dev;
 
@@ -253,7 +213,7 @@ int stdio_register_dev(struct stdio_dev *dev, struct stdio_dev **devp)
 	return 0;
 }
 
-int stdio_register(struct stdio_dev *dev)
+int stdio_register(const struct stdio_dev *dev)
 {
 	return stdio_register_dev(dev, NULL);
 }

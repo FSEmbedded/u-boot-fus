@@ -25,7 +25,7 @@ static int usb_bootdev_hunt(struct bootdev_hunter *info, bool show)
 	if (usb_started)
 		return 0;
 
-	return usb_init();
+	return usb_init(show);
 }
 
 struct bootdev_ops usb_bootdev_ops = {

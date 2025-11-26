@@ -43,6 +43,10 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#ifndef PHYS_SDRAM
+#define PHYS_SDRAM CFG_SYS_SDRAM_BASE
+#endif
+
 #if defined(CONFIG_IMX_HAB) || defined(CONFIG_AVB_ATX) || defined(CONFIG_IMX_TRUSTY_OS)
 struct imx_sec_config_fuse_t const imx_sec_config_fuse = {
 	.bank = 1,
@@ -63,8 +67,8 @@ int timer_init(void)
 			SC_CNTCR_FREQ0 | SC_CNTCR_ENABLE | SC_CNTCR_HDBG);
 #endif
 
-	gd->arch.tbl = 0;
-	gd->arch.tbu = 0;
+	gd->timebase_l = 0;
+	gd->timebase_h = 0;
 
 	return 0;
 }
@@ -144,9 +148,15 @@ static struct mm_region imx8m_mem_map[] = {
 		.virt = 0x7C0000UL,
 		.phys = 0x7C0000UL,
 		.size = 0x80000UL,
+/* i.MX8MM boots SPL from TCM so we have to apply different attrs */
+#if defined(CONFIG_FS_SPL_MEMTEST_COMMON) && defined(CONFIG_IMX8MM)
+		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
+			 PTE_BLOCK_OUTER_SHARE
+#else
 		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN | PTE_MAP_NS
+#endif
 	}, {
 		/* OCRAM */
 		.virt = 0x900000UL,
@@ -166,25 +176,27 @@ static struct mm_region imx8m_mem_map[] = {
 		/* DRAM1 */
 		.virt = 0x40000000UL,
 		.phys = 0x40000000UL,
-		.size = PHYS_SDRAM_SIZE,
+		.size = 0x0,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 #ifdef CONFIG_IMX_TRUSTY_OS
 			 PTE_BLOCK_INNER_SHARE | PTE_MAP_NS
 #else
 			 PTE_BLOCK_OUTER_SHARE | PTE_MAP_NS
 #endif
-#ifdef PHYS_SDRAM_2_SIZE
 	}, {
 		/* DRAM2 */
 		.virt = 0x100000000UL,
 		.phys = 0x100000000UL,
+#ifdef PHYS_SDRAM_2_SIZE
 		.size = PHYS_SDRAM_2_SIZE,
+#else
+		.size = 0x0,
+#endif
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 #ifdef CONFIG_IMX_TRUSTY_OS
 			 PTE_BLOCK_INNER_SHARE | PTE_MAP_NS
 #else
 			 PTE_BLOCK_OUTER_SHARE | PTE_MAP_NS
-#endif
 #endif
 	}, {
 		/* empty entrie to split table entry 5 if needed when TEEs are used */
@@ -210,9 +222,11 @@ static unsigned int imx8m_find_dram_entry_in_mem_map(void)
 
 void enable_caches(void)
 {
-	/* If OPTEE runs, remove OPTEE memory from MMU table to avoid speculative prefetch
-	 * If OPTEE does not run, still update the MMU table according to dram banks structure
-	 * to set correct dram size from board_phys_sdram_size
+	/*
+	 * If OPTEE runs, remove OPTEE memory from MMU table to avoid
+	 * speculative prefetch. If OPTEE does not run, still update
+	 * the MMU table according to dram banks structure to set
+	 * correct dram size from board_phys_sdram_size().
 	 */
 	int i = 0;
 	/*
@@ -241,15 +255,18 @@ void enable_caches(void)
 
 __weak int board_phys_sdram_size(phys_size_t *size)
 {
-	if (!size)
-		return -EINVAL;
-
-	*size = PHYS_SDRAM_SIZE;
+#ifdef PHYS_SDRAM_SIZE
+	if (size) {
+		*size = PHYS_SDRAM_SIZE;
 
 #ifdef PHYS_SDRAM_2_SIZE
-	*size += PHYS_SDRAM_2_SIZE;
+		*size += PHYS_SDRAM_2_SIZE;
 #endif
-	return 0;
+		return 0;
+	}
+#endif
+
+	return -EINVAL;
 }
 
 int dram_init(void)
@@ -281,7 +298,7 @@ int dram_init_banksize(void)
 	if (ret)
 		return ret;
 
-	/* Bank 1 can't cross over 4GB space */
+	/* Bank 1 starts at PHYS_SDRAM (0x40000000) and can't cross over 4GB space */
 	if (sdram_size > 0xc0000000) {
 		sdram_b1_size = 0xc0000000;
 		sdram_b2_size = sdram_size - 0xc0000000;
@@ -295,18 +312,23 @@ int dram_init_banksize(void)
 		phys_addr_t optee_start = (phys_addr_t)rom_pointer[0];
 		phys_size_t optee_size = (size_t)rom_pointer[1];
 
-		gd->bd->bi_dram[bank].size = optee_start - gd->bd->bi_dram[bank].start;
+		/* Entry 0 defines region from start of RAM to start of optee */
+		gd->bd->bi_dram[bank].size = optee_start - PHYS_SDRAM;
+
+		/* If optee reaches end of RAM, no additional entry required */
 		if ((optee_start + optee_size) < (PHYS_SDRAM + sdram_b1_size)) {
 			if (++bank >= CONFIG_NR_DRAM_BANKS) {
 				puts("CONFIG_NR_DRAM_BANKS is not enough\n");
 				return -1;
 			}
 
+			/* Add entry 1 for region from end of optee to end of bank 1 */
 			gd->bd->bi_dram[bank].start = optee_start + optee_size;
 			gd->bd->bi_dram[bank].size = PHYS_SDRAM +
 				sdram_b1_size - gd->bd->bi_dram[bank].start;
 		}
 	} else {
+		/* No optee, entry 0 is from start of RAM to end of RAM */
 		gd->bd->bi_dram[bank].size = sdram_b1_size;
 	}
 
@@ -326,30 +348,28 @@ phys_size_t get_effective_memsize(void)
 {
 	int ret;
 	phys_size_t sdram_size;
-	phys_size_t sdram_b1_size;
 	ret = board_phys_sdram_size(&sdram_size);
-	if (!ret) {
-		/* Bank 1 can't cross over 4GB space */
-		if (sdram_size > 0xc0000000) {
-			sdram_b1_size = 0xc0000000;
-		} else {
-			sdram_b1_size = sdram_size;
-		}
-
-		if (!IS_ENABLED(CONFIG_ARMV8_PSCI) && !IS_ENABLED(CONFIG_SPL_BUILD) &&
-		    rom_pointer[1]) {
-			/* We will relocate u-boot to Top of dram1. Tee position has two cases:
-			 * 1. At the top of dram1,  Then return the size removed optee size.
-			 * 2. In the middle of dram1, return the size of dram1.
-			 */
-			if ((rom_pointer[0] + rom_pointer[1]) == (PHYS_SDRAM + sdram_b1_size))
-				return ((phys_addr_t)rom_pointer[0] - PHYS_SDRAM);
-		}
-
-		return sdram_b1_size;
-	} else {
-		return PHYS_SDRAM_SIZE;
+	if (ret) {
+#ifdef PHYS_SDRAM_SIZE
+		sdram_size = PHYS_SDRAM_SIZE;
+#else
+		return 0;
+#endif
 	}
+
+	/* Reduce size to bank 1, bank 1 can't cross over 4GB space */
+	if (sdram_size > 0xc0000000)
+		sdram_size = 0xc0000000;
+
+	/*
+	 * Relocate u-boot to top of bank 1; if optee is also at top of bank1,
+	 * put u-boot before it by returning a smaller size.
+	 */
+	if (!IS_ENABLED(CONFIG_ARMV8_PSCI) && rom_pointer[1] &&
+	    ((rom_pointer[0] + rom_pointer[1]) == (PHYS_SDRAM + sdram_size)))
+		sdram_size -= rom_pointer[1];
+
+	return sdram_size;
 }
 
 static u32 get_cpu_variant_type(u32 type)
@@ -778,7 +798,7 @@ int imx8m_detect_secondary_image_boot(void)
 	return boot_secondary;
 }
 
-int spl_mmc_emmc_boot_partition(struct mmc *mmc)
+int arch_spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	int part, ret;
 
@@ -855,7 +875,13 @@ unsigned long arch_spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
 
 bool is_usb_boot(void)
 {
-	return get_boot_device() == USB_BOOT;
+	switch (get_boot_device()) {
+		case USB_BOOT:
+		case USB2_BOOT:
+			return 1;
+		default:
+			return 0;
+	}
 }
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
@@ -1639,7 +1665,7 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 	int rc;
 	int nodeoff;
 
-	if (get_boot_device() == USB_BOOT) {
+	if (is_usb_boot()) {
 		disable_dcss_nodes(blob);
 
 		bool new_path = check_fdt_new_path(blob);
@@ -1875,6 +1901,23 @@ void reset_cpu(void)
 #endif
 
 #if defined(CONFIG_ARCH_MISC_INIT)
+static __maybe_unused void acquire_buildinfo(void)
+{
+	u64 atf_commit = 0;
+	struct arm_smccc_res res;
+
+	/* Get ARM Trusted Firmware commit id */
+	arm_smccc_smc(IMX_SIP_BUILDINFO, IMX_SIP_BUILDINFO_GET_COMMITHASH,
+		      0, 0, 0, 0, 0, 0, &res);
+	atf_commit = res.a0;
+	if (atf_commit == 0xffffffff) {
+		debug("ATF does not support build info\n");
+		atf_commit = 0x30; /* Display 0, 0 ascii is 0x30 */
+	}
+
+	printf("ATF:   %s\n", (char *)&atf_commit);
+}
+
 int arch_misc_init(void)
 {
 #if !defined(CONFIG_IMX_TRUSTY_OS) || defined(CONFIG_SPL_BUILD)
@@ -1887,6 +1930,7 @@ int arch_misc_init(void)
 			printf("Failed to initialize caam_jr: %d\n", ret);
 	}
 #endif
+	acquire_buildinfo();
 
 	return 0;
 }
@@ -1897,13 +1941,21 @@ int arch_misc_init(void)
 #define HSIO_GPR_BASE                               (0x32F10000U)
 #define HSIO_GPR_REG_0_USB_CLOCK_MODULE_EN_SHIFT    (1)
 #define HSIO_GPR_REG_0_USB_CLOCK_MODULE_EN          (0x1U << HSIO_GPR_REG_0_USB_CLOCK_MODULE_EN_SHIFT)
-#endif
 
+static uint32_t gpc_pu_m_core_offset[4] = {
+	0xb00, 0xb40, 0xb80, 0xbc0,
+};
+#define PU_REQ 0xd8
+#define PDN_REQ 0xe4
+#else
 static uint32_t gpc_pu_m_core_offset[11] = {
 	0xc00, 0xc40, 0xc80, 0xcc0,
 	0xdc0, 0xe00, 0xe40, 0xe80,
 	0xec0, 0xf00, 0xf40,
 };
+#define PU_REQ 0xf8
+#define PDN_REQ 0x104
+#endif
 
 #define PGC_PCR				0
 
@@ -1936,7 +1988,7 @@ void imx8m_usb_power_domain(uint32_t domain_id, bool on)
 
 	imx_gpc_set_m_core_pgc(gpc_pu_m_core_offset[domain_id], true);
 
-	reg = GPC_BASE_ADDR + (on ? 0xf8 : 0x104);
+	reg = GPC_BASE_ADDR + (on ? PU_REQ : PDN_REQ);
 	val = 1 << (domain_id > 3 ? (domain_id + 3) : domain_id);
 	writel(val, reg);
 	while (readl(reg) & val)
@@ -2012,6 +2064,7 @@ void do_error(struct pt_regs *pt_regs)
 #endif
 #endif
 
+#if !defined(CONFIG_TARGET_FSIMX8MN) && !defined(CONFIG_TARGET_FSIMX8MP)
 #if defined(CONFIG_IMX8MN) || defined(CONFIG_IMX8MP)
 enum env_location arch_env_get_location(enum env_operation op, int prio)
 {
@@ -2049,37 +2102,7 @@ enum env_location arch_env_get_location(enum env_operation op, int prio)
 }
 
 #endif
-
-#ifdef CONFIG_IMX_BOOTAUX
-const struct rproc_att hostmap[] = {
-	/* aux core , host core,  size */
-	{ 0x00000000, 0x007e0000, 0x00020000 },
-	/* OCRAM_S */
-	{ 0x00180000, 0x00180000, 0x00008000 },
-	/* OCRAM */
-	{ 0x00900000, 0x00900000, 0x00020000 },
-	/* OCRAM */
-	{ 0x00920000, 0x00920000, 0x00020000 },
-	/* QSPI Code - alias */
-	{ 0x08000000, 0x08000000, 0x08000000 },
-	/* DDR (Code) - alias */
-	{ 0x10000000, 0x80000000, 0x0FFE0000 },
-	/* TCML */
-	{ 0x1FFE0000, 0x007E0000, 0x00040000 },
-	/* OCRAM_S */
-	{ 0x20180000, 0x00180000, 0x00008000 },
-	/* OCRAM */
-	{ 0x20200000, 0x00900000, 0x00040000 },
-	/* DDR (Data) */
-	{ 0x40000000, 0x40000000, 0x80000000 },
-	{ /* sentinel */ }
-};
-
-const struct rproc_att *imx_bootaux_get_hostmap(void)
-{
-	return hostmap;
-}
-#endif
+#endif /* !defined(TARGET_FSIMX8MN) && !defined(TARGET_FSIMX8MP) */
 
 #ifdef CONFIG_IMX8MQ
 int imx8m_dcss_power_init(void)

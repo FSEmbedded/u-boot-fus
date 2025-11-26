@@ -394,11 +394,13 @@ static void fec_rbd_clean(int last, struct fec_bd *prbd)
 	writew(0, &prbd->data_length);
 }
 
+#ifdef CONFIG_FEC_GET_MAC_FROM_FUSES
 static int fec_get_hwaddr(int dev_id, unsigned char *mac)
 {
 	imx_get_mac_from_fuse(dev_id, mac);
 	return !is_valid_ethaddr(mac);
 }
+#endif
 
 static int fecmxc_set_hwaddr(struct udevice *dev)
 {
@@ -523,8 +525,20 @@ static int fec_open(struct udevice *dev)
 	}
 #endif
 
+	/* Determine default speed from link type, PHY may override */
+	switch (fec->xcv_type) {
+	case MII10:
+		speed = _10BASET;
+		break;
+	default:
+		speed = _100BASET;
+		break;
+	case RGMII:
+		speed = _1000BASET;
+		break;
+	}
 #ifdef CONFIG_PHYLIB
-	{
+	if (fec->phydev) {
 		/* Start up the PHY */
 		int ret = phy_startup(fec->phydev);
 
@@ -536,9 +550,11 @@ static int fec_open(struct udevice *dev)
 		speed = fec->phydev->speed;
 	}
 #else
-	miiphy_wait_aneg(edev);
-	speed = miiphy_speed(edev->name, fec->phy_id);
-	miiphy_duplex(edev->name, fec->phy_id);
+	if (fec->bus) {
+		miiphy_wait_aneg(edev);
+		speed = miiphy_speed(edev->name, fec->phy_id);
+		miiphy_duplex(edev->name, fec->phy_id);
+	}
 #endif
 
 #ifdef FEC_QUIRK_ENET_MAC
@@ -580,7 +596,7 @@ static int fecmxc_init(struct udevice *dev)
 
 	fec_reg_setup(fec);
 
-	if (fec->xcv_type != SEVENWIRE)
+	if (fec->bus && (fec->xcv_type != SEVENWIRE))
 		fec_mii_setspeed(fec->bus->priv, fec->dev_id);
 
 	/* Set Opcode/Pause Duration Register */
@@ -612,11 +628,13 @@ static int fecmxc_init(struct udevice *dev)
 	writel((uint32_t)addr, &fec->eth->erdsr);
 
 #ifndef CONFIG_PHYLIB
-	if (fec->xcv_type != SEVENWIRE)
-		miiphy_restart_aneg(dev);
+	if (fec->bus && (fec->xcv_type != SEVENWIRE)) {
+		int ret = miiphy_restart_aneg(dev);
+		if (ret)
+			return ret;
+	}
 #endif
-	fec_open(dev);
-	return 0;
+	return fec_open(dev);
 }
 
 /**
@@ -886,9 +904,15 @@ static int fecmxc_recv(struct udevice *dev, int flags, uchar **packetp)
 			memcpy(*packetp, (char *)addr, frame_length);
 			len = frame_length;
 		} else {
-			if (bd_status & FEC_RBD_ERR)
-				debug("error frame: 0x%08lx 0x%08x\n",
+			if (bd_status & FEC_RBD_ERR) {
+#if 1
+				putc('E');
+#else
+				debug("error frame: 0x%08x 0x%08x\n",
 				      addr, bd_status);
+#endif
+				len = -1;
+			}
 		}
 
 		/*
@@ -1098,6 +1122,7 @@ static int dm_fec_bind_mdio(struct udevice *dev)
 }
 #endif
 
+#ifdef CONFIG_FEC_GET_MAC_FROM_FUSES
 static int fecmxc_read_rom_hwaddr(struct udevice *dev)
 {
 	struct fec_priv *priv = dev_get_priv(dev);
@@ -1105,6 +1130,7 @@ static int fecmxc_read_rom_hwaddr(struct udevice *dev)
 
 	return fec_get_hwaddr(priv->dev_id, pdata->enetaddr);
 }
+#endif
 
 static int fecmxc_set_promisc(struct udevice *dev, bool enable)
 {
@@ -1130,7 +1156,9 @@ static const struct eth_ops fecmxc_ops = {
 	.free_pkt		= fecmxc_free_pkt,
 	.stop			= fecmxc_halt,
 	.write_hwaddr		= fecmxc_set_hwaddr,
+#ifdef CONFIG_FEC_GET_MAC_FROM_FUSES
 	.read_rom_hwaddr	= fecmxc_read_rom_hwaddr,
+#endif
 	.set_promisc		= fecmxc_set_promisc,
 };
 

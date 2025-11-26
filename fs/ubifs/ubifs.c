@@ -14,6 +14,7 @@
 #include <common.h>
 #include <env.h>
 #include <gzip.h>
+#include <image.h>			/* set_fileaddr(), env_set_fileinfo() */
 #include <log.h>
 #include <malloc.h>
 #include <memalign.h>
@@ -459,7 +460,7 @@ out_free:
 	return ret;
 }
 
-static unsigned long ubifs_findfile(struct super_block *sb, char *filename)
+static unsigned long ubifs_findfile(struct super_block *sb, const char *filename)
 {
 	int ret;
 	char *next;
@@ -919,16 +920,17 @@ void ubifs_close(void)
 }
 
 /* Compat wrappers for common/cmd_ubifs.c */
-int ubifs_load(char *filename, unsigned long addr, u32 size)
+int ubifs_load(const char *filename, unsigned long addr, u32 size)
 {
 	loff_t actread;
 	int err;
 
 	printf("Loading file '%s' to addr 0x%08lx...\n", filename, addr);
 
+	set_fileaddr(addr);
 	err = ubifs_read(filename, (void *)(uintptr_t)addr, 0, size, &actread);
 	if (err == 0) {
-		env_set_hex("filesize", actread);
+		env_set_fileinfo(actread);
 		printf("Done\n");
 	}
 

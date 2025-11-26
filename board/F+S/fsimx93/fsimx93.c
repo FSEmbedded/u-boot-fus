@@ -13,9 +13,11 @@
 */
 
 #include <common.h>
+#include <command.h>
 #include <env.h>
 #include <init.h>
 #include <miiphy.h>
+#include <mmc.h>
 #include <netdev.h>
 #include <asm/global_data.h>
 #include <asm/arch-imx9/ccm_regs.h>
@@ -118,7 +120,20 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 3 (BT_PICOCOREMX91) */
+	{	/* 3 (BT_NDCU93) */
+		.name = "netDCU93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 4 (BT_PICOCOREMX91) */
 		.name = "PicoCoreMX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -131,7 +146,7 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 4 (BT_OSMSFMX91) */
+	{	/* 5 (BT_OSMSFMX91) */
 		.name = "FS-OSM-SF-MX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -144,7 +159,7 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 5 (BT_EFUSMX91) */
+	{	/* 6 (BT_EFUSMX91) */
 		.name = "efusMX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -176,6 +191,7 @@ static int set_gd_board_type(void)
 	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
 	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
+	SET_BOARD_TYPE("NDCU93", BT_NDCU93, board_id, len);
 
 	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
 	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
@@ -231,7 +247,7 @@ static void fs_setup_cfg_info(void)
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
-	
+
 	set_gd_board_type();
 	info->board_type = gd->board_type;
 
@@ -265,9 +281,9 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_AUDIO;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a;", NULL))
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
 		features |= FEAT_SDIO_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b;", NULL))
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
 		features |= FEAT_SDIO_B;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
 		features |= FEAT_MIPI_DSI;
@@ -292,6 +308,7 @@ int board_early_init_f(void)
 			init_uart_clk(LPUART2_CLK_ROOT);
 			break;
 		case BT_OSMSFMX93:
+		case BT_NDCU93:
 		case BT_EFUSMX93:
 		case BT_OSMSFMX91:
 		case BT_EFUSMX91:
@@ -312,6 +329,7 @@ static void fdt_fsboard_fixup(void *fdt)
 	switch(gd->board_type){
 		case BT_PICOCOREMX91:
 		case BT_PICOCOREMX93:
+		case BT_NDCU93:
 			if(!(features & FEAT_ETH_PHY_A)){
 				fs_fdt_enable(fdt, "ethphy0", 0);
 			}
@@ -400,8 +418,6 @@ static void fdt_common_fixup(void *fdt)
 		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
 	}
 
-	fdt_thermal_fixup(fdt, 0);
-
 	if(!(features & FEAT_EMMC))
 		fs_fdt_enable(fdt, "emmc", 0);
 
@@ -428,7 +444,7 @@ static void fdt_common_fixup(void *fdt)
 		fs_fdt_enable(fdt, "ldb_phy", 0);
 	}
 #endif
-	
+
 	if(!(features & FEAT_RGB)){
 		fs_fdt_enable(fdt, "parallel_disp_fmt", 0);
 	}
@@ -441,6 +457,7 @@ static void fdt_common_fixup(void *fdt)
 		case BT_PICOCOREMX93:
 		case BT_EFUSMX91:
 		case BT_EFUSMX93:
+		case BT_NDCU93:
 			fdt_fsboard_fixup(fdt);
 			break;
 		case BT_OSMSFMX91:
@@ -480,16 +497,26 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 
 	fdt_common_fixup(fdt_blob);
 	ret = fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
-
 	if(ret)
 		return ret;
 
 	/* fixup bdinfo */
 	offs = fs_fdt_path_offset(fdt_blob, "/bdinfo");
 	if (offs >= 0) {
+		uint features = fs_board_get_features();
+		uint id = 0;
+
 		/* Set common bdinfo entries */
 		fs_fdt_set_bdinfo(fdt_blob, offs);
+
+		/* MAC addresses */
+		if (features & FEAT_ETH_A)
+			fs_fdt_set_macaddr(fdt_blob, offs, id++);
+		if (features & FEAT_ETH_B)
+			fs_fdt_set_macaddr(fdt_blob, offs, id++);
 	}
+
+	fs_board_cma_fdt_fixup(fdt_blob);
 
 	return 0;
 }
@@ -518,6 +545,7 @@ void fs_ethaddr_init(void)
 	case BT_PICOCOREMX93:
 	case BT_EFUSMX93:
 	case BT_OSMSFMX93:
+	case BT_NDCU93:
 	case BT_PICOCOREMX91:
 	case BT_EFUSMX91:
 	case BT_OSMSFMX91:
@@ -553,6 +581,30 @@ static void fsimx93_get_board_rev(char *str, int len)
 	snprintf(str, len, "REV%01d.%02d", rev / 100, rev % 100);
 }
 
+int mmc_map_to_kernel_blk(int devno)
+{
+	return devno;
+}
+
+void board_late_mmc_env_init(void)
+{
+	char cmd[32];
+	char mmcblk[32];
+	u32 dev_no = mmc_get_env_dev();
+
+	env_set_ulong("mmcdev", dev_no);
+
+	/**
+	 * TODO: consider F&S U-BOOT-ENV $rootfs_partition_mmc
+	 * This section will be replaced
+	*/
+	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw", mmc_map_to_kernel_blk(dev_no));
+	env_set("mmcroot", mmcblk);
+
+	sprintf(cmd, "mmc dev %d", dev_no);
+	run_command(cmd, 0);
+}
+
 int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
@@ -580,14 +632,23 @@ int board_late_init(void)
 	/* Set mac addresses for corresponding boards */
 	fs_ethaddr_init();
 
-	if(fs_board_is_closed())
-		env_set("sec_boot", "yes");
-	else
-		env_set("sec_boot", "no");
-
 	/* Skip autoboot during USB-Boot*/
 	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
 		env_set_ulong("bootdelay", 0);
+
+#if !CONFIG_IS_ENABLED(FUS_FORCE_DEFAULT_BOOTDELAY)
+	/* Disable Shell access, if board is closed*/
+	if(fs_board_is_closed()){
+
+		env_set_ulong("bootdelay", -2);
+		/* TODO: Maybe check images within all boot commands? */
+		if (boot_dev == USB_BOOT || boot_dev == USB2_BOOT){
+			printf("WARNING: USB Boot detected on closed board!\n");
+			printf("\tEnable FASTBOOT access with CONFIG_FUS_FORCE_DEFAULT_BOOTDELAY\n");
+			hang();
+		}
+	}
+#endif
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	char brev[MAX_DESCR_LEN] = {0};
@@ -601,6 +662,7 @@ int board_late_init(void)
 	return 0;
 }
 
+#if 0 //### defined in serial-uclass.c
 int serial_get_alias_seq(void)
 {
 	int seq, err;
@@ -615,3 +677,4 @@ int serial_get_alias_seq(void)
 
 	return seq;
 }
+#endif

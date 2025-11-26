@@ -7,7 +7,7 @@
 #ifndef __TCPCI_H
 #define __TCPCI_H
 
-#include <dm.h>
+#include <compiler.h>			/* le16_to_cpu() */
 
 #define TCPC_VENDOR_ID			0x0
 #define TCPC_PRODUCT_ID			0x2

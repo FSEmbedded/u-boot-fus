@@ -31,6 +31,7 @@ obj-$(CONFIG_USB_EHCI_EXYNOS) += ehci-exynos.o
 obj-$(CONFIG_USB_EHCI_MXS) += ehci-mxs.o
 obj-$(CONFIG_USB_EHCI_MX5) += ehci-mx5.o
 obj-$(CONFIG_USB_EHCI_MX6) += ehci-mx6.o
+obj-$(CONFIG_USB_EHCI_VYBRID) += ehci-vybrid.o
 obj-$(CONFIG_USB_EHCI_MX7) += ehci-mx6.o
 obj-$(CONFIG_USB_EHCI_NPCM) += ehci-npcm.o
 obj-$(CONFIG_USB_EHCI_OMAP) += ehci-omap.o
@@ -43,7 +44,7 @@ obj-$(CONFIG_USB_EHCI_ZYNQ) += ehci-zynq.o
 
 # xhci
 obj-$(CONFIG_USB_XHCI_BRCM) += xhci-brcm.o
-obj-$(CONFIG_USB_XHCI_HCD) += xhci.o xhci-mem.o xhci-ring.o
+obj-$(CONFIG_$(SPL_)USB_XHCI_HCD) += xhci.o xhci-mem.o xhci-ring.o
 obj-$(CONFIG_USB_XHCI_DWC3) += xhci-dwc3.o
 obj-$(CONFIG_USB_XHCI_DWC3_OF_SIMPLE) += dwc3-of-simple.o
 obj-$(CONFIG_USB_XHCI_EXYNOS) += xhci-exynos5.o
@@ -55,8 +56,8 @@ obj-$(CONFIG_USB_XHCI_PCI) += xhci-pci.o
 obj-$(CONFIG_USB_XHCI_RCAR) += xhci-rcar.o
 obj-$(CONFIG_USB_XHCI_STI) += dwc3-sti-glue.o
 obj-$(CONFIG_USB_XHCI_OCTEON) += dwc3-octeon-glue.o
-obj-$(CONFIG_USB_XHCI_IMX8) += xhci-imx8.o
-obj-$(CONFIG_USB_XHCI_IMX8M) += xhci-imx8m.o
+obj-$(CONFIG_$(SPL_)USB_XHCI_IMX8) += xhci-imx8.o
+obj-$(CONFIG_$(SPL_)USB_XHCI_IMX8M) += xhci-imx8m.o
 
 # designware
 obj-$(CONFIG_USB_DWC2) += dwc2.o

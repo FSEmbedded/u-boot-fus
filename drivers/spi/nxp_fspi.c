@@ -575,6 +575,7 @@ static void nxp_fspi_prepare_lut(struct nxp_fspi *f,
 					      op->dummy.buswidth);
 		lutidx++;
 	}
+	//  2 * op->dummy.nbytes * 8 /
 
 	/* read/write data bytes */
 	if (op->data.nbytes) {
@@ -1125,7 +1126,7 @@ static int nxp_fspi_default_setup(struct nxp_fspi *f)
 
 	/* enable module */
 	fspi_writel(f, (u32)FSPI_MCR0_AHB_TIMEOUT(0xFF) |
-		    FSPI_MCR0_IP_TIMEOUT(0xFF) | FSPI_MCR0_OCTCOMB_EN,
+		    FSPI_MCR0_IP_TIMEOUT(0xFF)/* | FSPI_MCR0_OCTCOMB_EN*/,
 		    base + FSPI_MCR0);
 
 	/*

@@ -708,6 +708,20 @@ ifeq ($(CONFIG_XTENSA),)
 LDPPFLAGS	+= -ansi
 endif
 
+
+ifneq ($(CONFIG_FUS_BOARDTYPE),)
+KBUILD_CFLAGS	+= -DFUS_CONFIG_BOARDTYPE=$(CONFIG_FUS_BOARDTYPE)
+endif
+
+ifneq ($(CONFIG_FUS_BOARDREV),)
+KBUILD_CFLAGS	+= -DFUS_CONFIG_BOARDREV=$(CONFIG_FUS_BOARDREV)
+endif
+
+ifneq ($(CONFIG_FUS_FEATURES2),)
+KBUILD_CFLAGS	+= -DFUS_CONFIG_FEAT2=$(CONFIG_FUS_FEATURES2)
+endif
+
+
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os
 endif
@@ -973,6 +987,11 @@ endif
 # Always append INPUTS so that arch config.mk's can add custom ones
 INPUTS-y += u-boot.srec u-boot.bin u-boot.sym System.map binary_size_check
 
+# Add uboot.nb0 for F&S boards on all i.MX6 and Vybrid variants
+INPUTS-$(CONFIG_TARGET_FSVYBRID) += uboot.nb0
+INPUTS-$(CONFIG_ARCH_MX6) += uboot.nb0
+
+INPUTS-$(CONFIG_ADDFSHEADER) += uboot.fs
 ifeq ($(CONFIG_SPL_FSL_PBL),y)
 INPUTS-$(CONFIG_RAMBOOT_PBL) += u-boot-with-spl-pbl.bin
 else
@@ -982,7 +1001,14 @@ ifneq ($(CONFIG_NXP_ESBC), y)
 INPUTS-$(CONFIG_RAMBOOT_PBL) += u-boot.pbl
 endif
 endif
+
+ifdef CONFIG_SPL_AUTOBUILD
 INPUTS-$(CONFIG_SPL) += spl/u-boot-spl.bin
+endif
+
+PHONY += spl
+spl: spl/u-boot-spl.bin
+
 ifeq ($(CONFIG_MX6)$(CONFIG_IMX_HAB), yy)
 INPUTS-$(CONFIG_SPL_FRAMEWORK) += u-boot-ivt.img
 else
@@ -992,8 +1018,14 @@ else
 INPUTS-$(CONFIG_SPL_FRAMEWORK) += u-boot.img
 endif
 endif
+
+ifdef CONFIG_TPL_AUTOBUILD
 INPUTS-$(CONFIG_TPL) += tpl/u-boot-tpl.bin
+endif
+
+ifdef CONFIG_VPL_AUTOBUILD
 INPUTS-$(CONFIG_VPL) += vpl/u-boot-vpl.bin
+endif
 
 # Allow omitting the .dtb output if it is not normally used
 INPUTS-$(CONFIG_OF_SEPARATE) += $(if $(CONFIG_OF_OMIT_DTB),dts/dt.dtb,u-boot.dtb)
@@ -1024,10 +1056,6 @@ endif
 
 ifeq ($(CONFIG_ARCH_ROCKCHIP)_$(CONFIG_SPL_FRAMEWORK),y_)
 INPUTS-y += u-boot.img
-endif
-
-ifeq ($(CONFIG_FSIMX_BOARDS)_$(CONFIG_FS_CNTR_COMMON), y_y)
-INPUTS-y += uboot-info.fs
 endif
 
 INPUTS-$(CONFIG_X86) += u-boot-x86-start16.bin u-boot-x86-reset16.bin \
@@ -1203,7 +1231,7 @@ MKIMAGEFLAGS_fit-dtb.blob += -B 0x8
 
 ifneq ($(EXT_DTB),)
 u-boot-fit-dtb.bin: u-boot-nodtb.bin $(EXT_DTB)
-		$(call if_changed,cat)
+	$(call if_changed,cat)
 else
 u-boot-fit-dtb.bin: u-boot-nodtb.bin $(FINAL_DTB_CONTAINER)
 	$(call if_changed,cat)
@@ -1470,8 +1498,16 @@ u-boot-with-spl.kwb: u-boot.bin spl/u-boot-spl.bin FORCE
 	$(call if_changed,mkimage)
 	$(BOARD_SIZE_CHECK)
 
-u-boot.dis:	u-boot
-		$(OBJDUMP) -d $< > $@
+# Create disassembler listings if requested
+quiet_cmd_disasm = DISASM  $(2).dis
+cmd_disasm = $(OBJDUMP) -d $(2) > $(2).dis
+
+OBJCOPYFLAGS_uboot.nb0 = --pad-to $(CONFIG_BOARD_SIZE_LIMIT) -I binary -O binary
+uboot.nb0:	u-boot.bin
+		$(call if_changed,objcopy)
+#		dd if=/dev/zero bs=1K count=$(CONFIG_BOARD_SIZE_LIMIT) \
+#			 | tr '\000' '\377' >$@
+#		dd if=$< of=$@ conv=notrunc bs=1K
 
 quiet_cmd_addfsheader = FSIMG   $@
 cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 $< > $@
@@ -1489,14 +1525,18 @@ addfsheader_target = u-boot-dtb.img
 else
 addfsheader_target = u-boot.bin
 endif
+ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
+uboot.fs: u-boot.bin FORCE
+	$(Q)$(MAKE) $(build)=board/${BOARDDIR} $@
+else
 uboot.fs:	$(addfsheader_target)
 	$(call cmd,addfsheader,$(FSIMG_OPT))
+endif
 
 PHONY += nboot
-NBOOT_PATH = $(srctree)/board/$(BOARDDIR)/nboot
-nboot: SPL prepare_fus
+NBOOT_PATH = board/$(BOARDDIR)/nboot
+nboot: spl
 	$(Q)$(MAKE) $(build)=$(NBOOT_PATH) $@
-
 
 ifneq ($(CONFIG_SPL_PAYLOAD),)
 SPL_PAYLOAD := $(CONFIG_SPL_PAYLOAD:"%"=%)
@@ -1559,11 +1599,8 @@ endif
 #endif
 
 ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
-uboot-info.fs: prepare_fus u-boot.bin FORCE
-	$(Q)$(MAKE) $(build)=board/${BOARDDIR} $@
-
-flash.fs: uboot-info.fs nboot
-	$(Q)cat nboot.fs uboot-info.fs > $@
+flash.fs: uboot.fs nboot
+	$(Q)cat nboot.fs uboot.fs > $@
 endif
 
 u-boot.uim: u-boot.bin FORCE
@@ -1806,6 +1843,7 @@ ifeq ($(CONFIG_KALLSYMS),y)
 	$(call cmd,smap)
 	$(call cmd,u-boot__) common/system_map.o
 endif
+	$(if $(CONFIG_DISASM),$(call cmd,disasm,$@))
 
 ifeq ($(CONFIG_RISCV),y)
 	@tools/prelink-riscv $@
@@ -1919,18 +1957,7 @@ include/config/uboot.release: include/config/auto.conf FORCE
 # version.h and scripts_basic is processed / created.
 
 # Listed in dependency order
-PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3 prepare_fus
-
-# prepare_fus is used to check if we are building in a seperate output directory,
-# and if so do:
-# 1) copy NXP-Firmware directory
-# 2) copy board specific nboot directory
-prepare_fus:
-ifneq ($(KBUILD_SRC),)
-	$(Q)mkdir -p board/F+S/NXP-Firmware
-	$(Q)mkdir -p board/F+S/${BOARD}/nboot
-	$(Q)cp -a ${KBUILD_SRC}/board/F+S/NXP-Firmware/* board/F+S/NXP-Firmware/
-endif
+PHONY += prepare archprepare prepare0 prepare1 prepare2 prepare3
 
 # prepare3 is used to check if we are building in a separate output directory,
 # and if so do:
@@ -2102,6 +2129,7 @@ spl/u-boot-spl-dtb.hex: spl/u-boot-spl
 
 spl/u-boot-spl: tools prepare $(if $(CONFIG_SPL_OF_CONTROL),dts/dt.dtb)
 	$(Q)$(MAKE) obj=spl -f $(srctree)/scripts/Makefile.spl all
+	$(if $(CONFIG_SPL_DISASM),$(call cmd,disasm,$@))
 
 spl/sunxi-spl.bin: spl/u-boot-spl
 	@:
@@ -2117,6 +2145,7 @@ spl/boot.bin: spl/u-boot-spl
 
 tpl/u-boot-tpl.bin: tpl/u-boot-tpl
 	@:
+	$(if $(CONFIG_TPL_DISASM),$(call cmd,disasm,$(basename $@)))
 	$(TPL_SIZE_CHECK)
 
 tpl/u-boot-tpl: tools prepare $(if $(CONFIG_TPL_OF_CONTROL),dts/dt.dtb)
@@ -2139,8 +2168,8 @@ tags ctags:
 						-name '*.[chS]' -print`
 		ln -s ctags tags
 
-etags:
-		etags -a -o etags `$(FIND) $(FINDFLAGS) $(TAG_SUBDIRS) \
+TAGS etags:
+		etags -a -o TAGS `$(FIND) $(FINDFLAGS) $(TAG_SUBDIRS) \
 						-name '*.[chS]' -print`
 cscope:
 		$(FIND) $(FINDFLAGS) $(TAG_SUBDIRS) -name '*.[chS]' -print > \
@@ -2207,6 +2236,7 @@ CLEAN_DIRS  += $(MODVERDIR) \
 			$(filter-out include, $(shell ls -1 $d 2>/dev/null))))
 
 CLEAN_FILES += include/autoconf.mk* include/bmp_logo.h include/bmp_logo_data.h \
+	       uboot.nb0 uboot.fs			  \
 	       include/config.h include/generated/env.* drivers/video/u_boot_logo.S \
 	       tools/version.h u-boot* MLO* SPL System.map fit-dtb.blob* \
 	       u-boot-ivt.img.log u-boot-dtb.imx.log SPL.log u-boot.imx.log \
@@ -2215,7 +2245,7 @@ CLEAN_FILES += include/autoconf.mk* include/bmp_logo.h include/bmp_logo_data.h \
 	       mkimage-out.spl.mkimage mkimage.spl.mkimage imx-boot.map \
 	       itb.fit.fit itb.fit.itb itb.map spl.map mkimage-out.rom.mkimage \
 	       mkimage.rom.mkimage mkimage-in-simple-bin* rom.map simple-bin* \
-	       idbloader-spi.img lib/efi_loader/helloworld_efi.S *.itb
+	       idbloader-spi.img lib/efi_loader/helloworld_efi.S *.itb \
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated spl tpl vpl \
@@ -2251,6 +2281,7 @@ clean: $(clean-dirs)
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.asn1.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
+		-o -name '*.fs' -o -name '*.fsh' -o -name '*.fsi' \
 		-o -name modules.builtin -o -name '.tmp_*.o.*' \
 		-o -name 'dsdt_generated.aml' -o -name 'dsdt_generated.asl.tmp' \
 		-o -name 'dsdt_generated.c' \

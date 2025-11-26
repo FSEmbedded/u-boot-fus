@@ -26,8 +26,6 @@ DECLARE_GLOBAL_DATA_PTR;
 #define WELL_KNOWN_PORT	69
 /* Millisecs to timeout for lost pkt */
 #define TIMEOUT		5000UL
-/* Number of "loading" hashes per line (for checking the image size) */
-#define HASHES_PER_LINE	65
 
 /*
  *	TFTP operations.
@@ -212,7 +210,7 @@ static int load_block(unsigned block, uchar *dst, unsigned len)
 	ulong tosend = len;
 
 	tosend = min(net_boot_file_size - offset, tosend);
-	(void)memcpy(dst, (void *)(image_save_addr + offset), tosend);
+	(void)memcpy(dst, (void *)(get_fileaddr() + offset), tosend);
 	debug("%s: block=%u, offset=%lu, len=%u, tosend=%lu\n", __func__,
 	      block, offset, len, tosend);
 	return tosend;
@@ -226,11 +224,9 @@ static void tftp_timeout_handler(void);
 
 static void show_block_marker(void)
 {
-	ulong pos;
-
 #ifdef CONFIG_TFTP_TSIZE
 	if (tftp_tsize) {
-		pos = tftp_cur_block * tftp_block_size +
+		ulong pos = tftp_cur_block * tftp_block_size +
 			tftp_block_wrap_offset;
 		if (pos > tftp_tsize)
 			pos = tftp_tsize;
@@ -242,12 +238,12 @@ static void show_block_marker(void)
 	} else
 #endif
 	{
-		pos = (tftp_cur_block - 1) +
-			(tftp_block_wrap * TFTP_SEQUENCE_SIZE);
-		if ((pos % 10) == 0)
+		if ((tftp_cur_block & 0xf) == 0) {
 			putc('#');
-		else if (((pos + 1) % (10 * HASHES_PER_LINE)) == 0)
-			puts("\n\t ");
+			if ((tftp_cur_block & 0x3ff) == 0)
+				printf("  %u KiB\n  ",
+				       net_boot_file_size >> 10);
+		}
 	}
 }
 
@@ -297,7 +293,7 @@ static void tftp_complete(void)
 #endif
 	time_start = get_timer(time_start);
 	if (time_start > 0) {
-		puts("\n\t ");	/* Line up with "Loading: " */
+		puts("\n  ");
 		print_size(net_boot_file_size /
 			time_start * 1000, "/s");
 	}
@@ -470,6 +466,10 @@ static void tftp_handler(uchar *pkt, unsigned dest, struct in_addr sip,
 	if (len < 2)
 		return;
 	len -= 2;
+
+	/* We have received something useful; restart timeout count */
+	timeout_count = 0;
+
 	/* warning: don't use increment (++) in ntohs() macros!! */
 	s = (__be16 *)pkt;
 	proto = *s++;
@@ -717,13 +717,13 @@ static int tftp_init_load_addr(void)
 
 	lmb_init_and_reserve(&lmb, gd->bd, (void *)gd->fdt_blob);
 
-	max_size = lmb_get_free_size(&lmb, image_load_addr);
+	max_size = lmb_get_free_size(&lmb, get_fileaddr());
 	if (!max_size)
 		return -1;
 
 	tftp_load_size = max_size;
 #endif
-	tftp_load_addr = image_load_addr;
+	tftp_load_addr = get_fileaddr();
 	return 0;
 }
 
@@ -899,10 +899,9 @@ void tftp_start(enum proto_t protocol)
 #ifdef CONFIG_CMD_TFTPPUT
 	tftp_put_active = (protocol == TFTPPUT);
 	if (tftp_put_active) {
-		printf("Save address: 0x%lx\n", image_save_addr);
-		printf("Save size:    0x%lx\n", image_save_size);
-		net_boot_file_size = image_save_size;
-		puts("Saving: *\b");
+		printf("Save address: 0x%lx\n", get_fileaddr());
+		printf("Save size:    0x%lx\n", net_boot_file_size);
+		puts("Saving:\n  *\b");
 		tftp_state = STATE_SEND_WRQ;
 		new_transfer();
 	} else
@@ -916,7 +915,7 @@ void tftp_start(enum proto_t protocol)
 			return;
 		}
 		printf("Load address: 0x%lx\n", tftp_load_addr);
-		puts("Loading: *\b");
+		puts("Loading:\n  *\b");
 		tftp_state = STATE_SEND_RRQ;
 	}
 
@@ -971,7 +970,7 @@ void tftp_start_server(void)
 	printf("Listening for TFTP transfer on %pI4\n", &net_ip);
 	printf("Load address: 0x%lx\n", tftp_load_addr);
 
-	puts("Loading: *\b");
+	puts("Loading:\n  *\b");
 
 	timeout_count_max = tftp_timeout_count_max;
 	timeout_count = 0;

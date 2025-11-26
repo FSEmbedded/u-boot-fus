@@ -30,7 +30,7 @@
 static int
 do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
-	ulong		addr = image_load_addr;
+	ulong		addr;
 	ulong		dest = 0;
 	ulong		data, len;
 	int		verify;
@@ -53,9 +53,7 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	verify = env_get_yesno("verify");
 
-	if (argc > 1) {
-		addr = hextoul(argv[1], NULL);
-	}
+	addr = (argc > 1) ? parse_loadaddr(argv[1], NULL) : get_loadaddr();
 	if (argc > 2) {
 		part = hextoul(argv[2], NULL);
 #if defined(CONFIG_FIT)
@@ -63,7 +61,7 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 #endif
 	}
 	if (argc > 3) {
-		dest = hextoul(argv[3], NULL);
+		dest = parse_loadaddr(argv[3], NULL);
 	}
 
 	switch (genimg_get_format((void *)addr)) {
@@ -247,8 +245,8 @@ do_imgextract(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	flush_cache(dest, ALIGN(len, ARCH_DMA_MINALIGN));
 
-	env_set_hex("fileaddr", data);
-	env_set_hex("filesize", len);
+	set_fileaddr(data);
+	env_set_fileinfo(len);
 
 	return 0;
 }

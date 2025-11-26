@@ -17,6 +17,10 @@
 #include <linux/libfdt_env.h>
 #include <fdt.h>
 
+#ifdef CONFIG_FS_BOARD_CFG
+#include "../../board/F+S/common/fs_image_common.h"
+#endif
+
 uint32_t __weak spl_nand_get_uboot_raw_page(void)
 {
 	return CONFIG_SYS_NAND_U_BOOT_OFFS;
@@ -26,14 +30,15 @@ uint32_t __weak spl_nand_get_uboot_raw_page(void)
 static int spl_nand_load_image(struct spl_image_info *spl_image,
 			struct spl_boot_device *bootdev)
 {
+	u32 from;
+	
 	nand_init();
 
+	from = spl_nand_get_uboot_raw_page();
 	printf("Loading U-Boot from 0x%08x (size 0x%08x) to 0x%08x\n",
-	       CONFIG_SYS_NAND_U_BOOT_OFFS, CFG_SYS_NAND_U_BOOT_SIZE,
-	       CFG_SYS_NAND_U_BOOT_DST);
+	       from, CFG_SYS_NAND_U_BOOT_SIZE, CFG_SYS_NAND_U_BOOT_DST);
 
-	nand_spl_load_image(spl_nand_get_uboot_raw_page(),
-			    CFG_SYS_NAND_U_BOOT_SIZE,
+	nand_spl_load_image(from, CFG_SYS_NAND_U_BOOT_SIZE,
 			    map_sysmem(CFG_SYS_NAND_U_BOOT_DST,
 				       CFG_SYS_NAND_U_BOOT_SIZE));
 	spl_set_header_raw_uboot(spl_image);

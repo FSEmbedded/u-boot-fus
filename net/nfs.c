@@ -45,7 +45,6 @@
 #include "bootp.h"
 #include <time.h>
 
-#define HASHES_PER_LINE 65	/* Number of "loading" hashes per line	*/
 #define NFS_RETRY_COUNT 30
 
 #define NFS_RPC_ERR	1
@@ -57,7 +56,8 @@ static int nfs_offset = -1;
 static int nfs_len;
 static const ulong nfs_timeout = CONFIG_NFS_TIMEOUT;
 
-static char dirfh[NFS_FHSIZE];	/* NFSv2 / NFSv3 file handle of directory */
+static char dirfh[NFS3_FHSIZE]; /* NFSv2 / NFSv3 file handle of directory */
+static unsigned int dirfh3_length; /* (variable) length of dirfh when NFSv3 */
 static char filefh[NFS3_FHSIZE]; /* NFSv2 / NFSv3 file handle */
 static unsigned int filefh3_length;	/* (variable) length of filefh when NFSv3 */
 
@@ -91,20 +91,21 @@ static enum nfs_version choosen_nfs_version = NFS_V3;
 static inline int store_block(uchar *src, unsigned offset, unsigned len)
 {
 	ulong newsize = offset + len;
+	ulong startaddr = get_fileaddr() + offset;
+
 #ifdef CONFIG_SYS_DIRECT_FLASH_NFS
 	int i, rc = 0;
 
 	for (i = 0; i < CONFIG_SYS_MAX_FLASH_BANKS; i++) {
 		/* start address in flash? */
-		if (image_load_addr + offset >= flash_info[i].start[0]) {
+		if (startaddr >= flash_info[i].start[0]) {
 			rc = 1;
 			break;
 		}
 	}
 
 	if (rc) { /* Flash is destination for this packet */
-		rc = flash_write((uchar *)src, (ulong)image_load_addr + offset,
-				 len);
+		rc = flash_write((uchar *)src, startaddr, len);
 		if (rc) {
 			flash_perror(rc);
 			return -1;
@@ -112,9 +113,9 @@ static inline int store_block(uchar *src, unsigned offset, unsigned len)
 	} else
 #endif /* CONFIG_SYS_DIRECT_FLASH_NFS */
 	{
-		void *ptr = map_sysmem(image_load_addr + offset, len);
+		void *ptr = map_sysmem(startaddr, len);
 
-		memcpy(ptr, src, len);
+		(void)memcpy(ptr, src, len);
 		unmap_sysmem(ptr);
 	}
 
@@ -377,9 +378,9 @@ static void nfs_lookup_req(char *fname)
 
 		rpc_req(PROG_NFS, NFS_LOOKUP, data, len);
 	} else {  /* NFS_V3 */
-		*p++ = htonl(NFS_FHSIZE);	/* Dir handle length */
-		memcpy(p, dirfh, NFS_FHSIZE);
-		p += (NFS_FHSIZE / 4);
+		*p++ = htonl(dirfh3_length);	/* Dir handle length */
+		memcpy(p, dirfh, dirfh3_length);
+		p += (dirfh3_length / 4);
 		*p++ = htonl(fnamelen);
 		if (fnamelen & 3)
 			*(p + fnamelen / 4) = 0;
@@ -565,7 +566,14 @@ static int nfs_mount_reply(uchar *pkt, unsigned len)
 
 	fs_mounted = 1;
 	/*  NFSv2 and NFSv3 use same structure */
-	memcpy(dirfh, rpc_pkt.u.reply.data + 1, NFS_FHSIZE);
+	if (choosen_nfs_version != NFS_V3) {
+		memcpy(dirfh, rpc_pkt.u.reply.data + 1, NFS_FHSIZE);
+	} else {
+		dirfh3_length = ntohl(rpc_pkt.u.reply.data[1]);
+		if (dirfh3_length > NFS3_FHSIZE)
+			dirfh3_length  = NFS3_FHSIZE;
+		memcpy(dirfh, rpc_pkt.u.reply.data + 2, dirfh3_length);
+	}
 
 	return 0;
 }
@@ -731,9 +739,9 @@ static int nfs_read_reply(uchar *pkt, unsigned len)
 	}
 
 	if ((nfs_offset != 0) && !((nfs_offset) %
-			(NFS_READ_SIZE / 2 * 10 * HASHES_PER_LINE)))
-		puts("\n\t ");
-	if (!(nfs_offset % ((NFS_READ_SIZE / 2) * 10)))
+			(NFS_READ_SIZE * 16 * 64)))
+		printf("  %u KiB\n  ", net_boot_file_size >> 10);
+	if (!(nfs_offset % (NFS_READ_SIZE * 16)))
 		putc('#');
 
 	if (choosen_nfs_version != NFS_V3) {
@@ -785,13 +793,16 @@ static void nfs_handler(uchar *pkt, unsigned dest, struct in_addr sip,
 	int rlen;
 	int reply;
 
-	debug("%s\n", __func__);
+	debug("%s NFSv%d\n", __func__, choosen_nfs_version);
 
 	if (len > sizeof(struct rpc_t))
 		return;
 
 	if (dest != nfs_our_port)
 		return;
+
+	/* We have received something useful; restart timeout count */
+	nfs_timeout_count = 0;
 
 	switch (nfs_state) {
 	case STATE_PRCLOOKUP_PROG_MOUNT_REQ:
@@ -949,17 +960,18 @@ void nfs_start(void)
 		our_net.s_addr = net_ip.s_addr & net_netmask.s_addr;
 		server_net.s_addr = nfs_server_ip.s_addr & net_netmask.s_addr;
 		if (our_net.s_addr != server_net.s_addr)
-			printf("; sending through gateway %pI4",
-			       &net_gateway);
+			debug("; sending through gateway %pI4",
+			      &net_gateway);
 	}
-	printf("\nFilename '%s/%s'.", nfs_path, nfs_filename);
+	debug("\nFilename '%s/%s'.", nfs_path, nfs_filename);
 
 	if (net_boot_file_expected_size_in_blocks) {
 		printf(" Size is 0x%x Bytes = ",
 		       net_boot_file_expected_size_in_blocks << 9);
 		print_size(net_boot_file_expected_size_in_blocks << 9, "");
 	}
-	printf("\nLoad address: 0x%lx\nLoading: *\b", image_load_addr);
+	printf ("\nLoad address: 0x%lx\n"
+		"Loading:\n  *\b", get_fileaddr());
 
 	net_set_timeout_handler(nfs_timeout, nfs_timeout_handler);
 	net_set_udp_handler(nfs_handler);

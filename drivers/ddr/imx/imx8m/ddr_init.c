@@ -2,7 +2,6 @@
 /*
  * Copyright 2018-2019 NXP
  */
-
 #include <common.h>
 #include <errno.h>
 #include <log.h>
@@ -314,9 +313,9 @@ void update_umctl2_rank_space_setting(unsigned int pstat_num)
 int ddr_init(struct dram_timing_info *dram_timing)
 {
 	unsigned int tmp, initial_drate, target_freq;
-	int ret;
+	int ret = 0;
 
-	printf("DDRINFO: start DRAM init\n");
+	debug("DDRINFO: start DRAM init\n");
 
 	/* Step1: Follow the power up procedure */
 	if (is_imx8mq()) {
@@ -339,7 +338,7 @@ int ddr_init(struct dram_timing_info *dram_timing)
 
 	initial_drate = dram_timing->fsp_msg[0].drate;
 	/* default to the frequency point 0 clock */
-	printf("DDRINFO: DRAM rate %dMTS\n", initial_drate);
+	debug("DDRINFO: DRAM rate %dMTS\n", initial_drate);
 	ddrphy_init_set_dfi_clk(initial_drate);
 
 	/* D-aasert the presetn */
@@ -409,7 +408,7 @@ int ddr_init(struct dram_timing_info *dram_timing)
 		tmp = reg32_read(DDRPHY_CalBusy(0));
 	} while ((tmp & 0x1));
 
-	printf("DDRINFO:ddrphy calibration done\n");
+	debug("DDRINFO:ddrphy calibration done\n");
 
 	/* Step15: Set SWCTL.sw_done to 0 */
 	reg32_write(DDRC_SWCTL(0), 0x00000000);
@@ -462,7 +461,7 @@ int ddr_init(struct dram_timing_info *dram_timing)
 
 	/* enable port 0 */
 	reg32_write(DDRC_PCTRL_0(0), 0x00000001);
-	printf("DDRINFO: ddrmix config done\n");
+	debug("DDRINFO: ddrmix config done\n");
 
 	board_dram_ecc_scrub();
 

@@ -22,6 +22,10 @@
 #include <u-boot/zlib.h>
 #include <mapmem.h>
 
+#ifdef CONFIG_FS_SECURE_BOOT
+#include <asm/mach-imx/checkboot.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #if defined(CONFIG_CMD_IMI)
@@ -143,7 +147,7 @@ int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	if (argc > 0) {
 		char *endp;
 
-		hextoul(argv[0], &endp);
+		parse_loadaddr(argv[0], &endp);
 		/* endp pointing to NULL means that argv[0] was just a
 		 * valid number, pass it along to the normal bootm processing
 		 *
@@ -156,11 +160,12 @@ int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			return do_bootm_subcommand(cmdtp, flag, argc, argv);
 	}
 
-#ifdef CONFIG_IMX_HAB
+#if defined(CONFIG_IMX_HAB) && !defined(CONFIG_FS_SECURE_BOOT)
 	extern int authenticate_image(
 			uint32_t ddr_start, uint32_t raw_image_size);
 
-#ifdef CONFIG_IMX_OPTEE
+	ulong addr = get_loadaddr();
+#if defined(CONFIG_IMX_OPTEE) && !defined(CONFIG_FS_SECURE_BOOT)
 	ulong tee_addr = 0;
 	ulong zi_start, zi_end;
 
@@ -183,22 +188,22 @@ int do_bootm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		return 1;
 	};
 
-	ret = bootz_setup(image_load_addr, &zi_start, &zi_end);
+	ret = bootz_setup(addr, &zi_start, &zi_end);
 	if (ret != 0)
 		return 1;
 
-	if (authenticate_image(image_load_addr, zi_end - zi_start) != 0) {
+	if (authenticate_image(addr, zi_end - zi_start) != 0) {
 		printf("Authenticate zImage Fail, Please check\n");
 		return 1;
 	}
 
 #else
 
-	switch (genimg_get_format((const void *)image_load_addr)) {
+	switch (genimg_get_format((const void *)addr)) {
 #if defined(CONFIG_LEGACY_IMAGE_FORMAT)
 	case IMAGE_FORMAT_LEGACY:
-		if (authenticate_image(image_load_addr,
-			image_get_image_size((struct legacy_img_hdr *)image_load_addr)) != 0) {
+		if (authenticate_image(addr,
+			image_get_image_size((struct legacy_img_hdr *)addr)) != 0) {
 			printf("Authenticate uImage Fail, Please check\n");
 			return 1;
 		}
@@ -240,7 +245,7 @@ int bootm_maybe_autostart(struct cmd_tbl *cmdtp, const char *cmd)
 		local_args[0] = (char *)cmd;
 		local_args[1] = NULL;
 		printf("Automatic boot of image at addr 0x%08lX ...\n",
-		       image_load_addr);
+		       get_loadaddr());
 		return do_bootm(cmdtp, 0, 1, local_args);
 	}
 
@@ -256,7 +261,7 @@ U_BOOT_LONGHELP(bootm,
 	"\ta third argument is required which is the address of the\n"
 	"\tdevice-tree blob. To boot that kernel without an initrd image,\n"
 	"\tuse a '-' for the second argument. If you do not pass a third\n"
-	"\ta bd_info struct will be passed instead\n"
+	"\targument, a bd_info struct will be passed instead\n"
 #endif
 #if defined(CONFIG_FIT)
 	"\t\nFor the new multi component uImage format (FIT) addresses\n"
@@ -330,13 +335,21 @@ static int do_iminfo(struct cmd_tbl *cmdtp, int flag, int argc,
 	int	rcode = 0;
 
 	if (argc < 2) {
-		return image_info(image_load_addr);
+		return image_info(get_loadaddr());
 	}
 
 	for (arg = 1; arg < argc; ++arg) {
-		addr = hextoul(argv[arg], NULL);
-		if (image_info(addr) != 0)
+		addr = parse_loadaddr(argv[arg], NULL);
+		if (image_info(addr) != 0){
+#ifdef CONFIG_FS_SECURE_BOOT
+			printf("trying again, in case of signed RAM disk\n");
+			if (image_info(addr + HAB_HEADER) != 0){
+				rcode = 1;
+			}
+#else
 			rcode = 1;
+#endif
+		}
 	}
 	return rcode;
 }

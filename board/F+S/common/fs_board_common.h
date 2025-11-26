@@ -120,9 +120,15 @@ void fs_board_init_common(const struct fs_board_info *board_info);
 /* Set up all board specific variables */
 void fs_board_late_init_common(const char *serial_name);
 
+#ifdef CONFIG_FS_SELFTEST
+/* Get dram_result for bdinfo */
+char * get_dram_result(void);
+#endif
+
 /* Check if Board is closed */
 bool fs_board_is_closed(void);
 
-const char *get_board_name(void);
+/* set cma size in the device tree according to env cma_size or dram_size */
+int fs_board_cma_fdt_fixup(void *fdt);
 
 #endif /* !__FS_BOARD_COMMON_H__ */

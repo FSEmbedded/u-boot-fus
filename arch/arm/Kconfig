@@ -156,7 +156,7 @@ config SYS_ICACHE_OFF
 
 config SPL_SYS_ICACHE_OFF
 	bool "Do not enable icache in SPL"
-	depends on SPL
+	depends on SPL && !FS_SPL_MEMTEST_COMMON
 	default SYS_ICACHE_OFF
 	help
 	  Do not enable instruction cache in SPL.
@@ -168,7 +168,7 @@ config SYS_DCACHE_OFF
 
 config SPL_SYS_DCACHE_OFF
 	bool "Do not enable dcache in SPL"
-	depends on SPL
+	depends on SPL && !FS_SPL_MEMTEST_COMMON
 	default SYS_DCACHE_OFF
 	help
 	  Do not enable data cache in SPL.
@@ -554,6 +554,15 @@ config TPL_USE_ARCH_MEMSET
 	help
 	  Enable the generation of an optimized version of memset.
 	  Such an implementation may be faster under some conditions
+	  but may increase the binary size.
+
+config USE_ARCH_MEMSET32
+	bool "Use an assembly optimized implementation of memset32"
+	default y if USE_ARCH_MEMSET
+	depends on !ARM64
+	help
+	  Enable the generation of an optimized version of memset32.
+	  Such implementation may be faster under some conditions
 	  but may increase the binary size.
 
 config ARM64_SUPPORT_AARCH32
@@ -991,6 +1000,18 @@ config ARCH_MX5
 	select GPIO_EXTRA_HEADER
 	select MACH_IMX
 	imply MXC_GPIO
+
+config TARGET_FSVYBRID
+	bool "F&S fsvybrid boards & modules"
+	select CPU_V7A
+	select FSIMX_BOARDS
+	select BOARD_EARLY_INIT_F
+	select BOARD_LATE_INIT
+###	select USB_EHCI_HCD
+	select SYS_FSL_ERRATUM_ESDHC111
+	select SYS_FSL_ERRATUM_ESDHC135
+	select SYS_FSL_ERRATUM_ESDHC_A001
+	select FS_NBOOT_ARGS
 
 config ARCH_NEXELL
 	bool "Nexell S5P4418/S5P6818 SoC"
@@ -2329,6 +2350,7 @@ source "board/armltd/total_compute/Kconfig"
 source "board/armltd/corstone1000/Kconfig"
 source "board/bosch/shc/Kconfig"
 source "board/bosch/guardian/Kconfig"
+source "board/F+S/fsvybrid/Kconfig"
 source "board/F+S/common/Kconfig"
 source "board/Marvell/octeontx/Kconfig"
 source "board/Marvell/octeontx2/Kconfig"

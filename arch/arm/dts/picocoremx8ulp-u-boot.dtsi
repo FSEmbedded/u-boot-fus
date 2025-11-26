@@ -12,26 +12,65 @@
 * GNU General Public License for more details.
 */
 
-/ {
-    mu@27020000 {
-		compatible = "fsl,imx8ulp-mu";
-		reg = <0 0x27020000 0 0x10000>;
-		status = "okay";
-		bootph-all;
-	};
+&{/aliases}{
+	/delete-property/ serial2;
+	/delete-property/ isi0;
+	/delete-property/ csi0;
+	/delete-property/ pwm0;
 
-    aliases {
+	/delete-property/ i2c3;
+	/delete-property/ i2c4;
+	/delete-property/ gpio0;
+	/delete-property/ gpio1;
+	/delete-property/ gpio2;
+};
+
+#if CONFIG_PICOCOREMX8ULP_REV >= 120
+&reg_usb1 {
+	/delete-property/ gpio;
+};
+
+&reg_usb2 {
+	/delete-property/ gpio;
+};
+
+&reg_vlcd_en {
+	/delete-property/ gpio;
+};
+
+&reg_bl_en {
+	/delete-property/ gpio;
+};
+
+&fs_eth_phy {
+	/delete-property/ reset-gpios;
+	/delete-property/ interrupt-parent;
+	/delete-property/ interrupts;
+};
+#endif
+
+&mu {
+	status = "disabled";
+};
+
+&s4muap {
+		compatible = "fsl,imx8ulp-mu";
+		bootph-all;
+};
+
+/ {
+	aliases {
 		usbgadget0 = &usbg1;
 	};
 
-    usbg1: usbg1 {
+	usbg1: usbg1 {
 		compatible = "fsl,imx27-usb-gadget";
 		dr_mode = "peripheral";
-		chipidea,usb = <&usbotg1>;
+		chipidea,usb = <&fs_usb_1>;
 		status = "okay";
 	};
 
-    dsi_host: dsi-host {
+	dsi_host: dsi-host {
 		compatible = "northwest,mipi-dsi";
 		status = "disabled";
 	};
@@ -70,18 +109,37 @@
 	fsl,mux_mask = <0xf00>;
 };
 
+#if CONFIG_PICOCOREMX8ULP_REV >= 120
+&pinctrl_lpuart6 {
+	bootph-all;
+	bootph-pre-ram;
+};
+#else
 &pinctrl_lpuart5 {
 	bootph-all;
 	bootph-pre-ram;
 };
+#endif
 
-&pc_uart_a {
+&fs_uart_a {
 	bootph-all;
 	bootph-pre-ram;
 };
 
 &emmc {
 	bootph-pre-ram;
+	/delete-property/ vmmc-supply;
+	/delete-property/ vqmmc-supply;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+};
+
+&fs_sdio_a {
+	/delete-property/ vmmc-supply;
+	/delete-property/ vqmmc-supply;
+	status = "disabled";
 };
 
 &pinctrl_usdhc0 {
@@ -116,10 +174,10 @@
 	data-lanes-num = <4>;
 };
 
-&pc_usb_1 {
+&fs_usb_1 {
 	compatible = "fsl,imx8ulp-usb", "fsl,imx7ulp-usb", "fsl,imx27-usb";
 };
 
-&pc_usb_2 {
+&fs_usb_2 {
 	compatible = "fsl,imx8ulp-usb", "fsl,imx7ulp-usb", "fsl,imx27-usb";
 };

@@ -622,9 +622,13 @@ static int boot_from_devices(struct spl_image_info *spl_image,
 		for (loader = drv; loader != drv + n_ents; loader++) {
 			if (bootdev != loader->boot_device)
 				continue;
+			if (loader && !spl_load_image(spl_image, loader)) {
+				spl_image->boot_device = bootdev;
+				return 0;
+			}
 			if (!CONFIG_IS_ENABLED(SILENT_CONSOLE)) {
 				if (loader)
-					printf("Trying to boot from %s\n",
+					printf("Booting from %s failed\n",
 					       spl_loader_name(loader));
 				else if (CONFIG_IS_ENABLED(SHOW_ERRORS)) {
 					printf(SPL_TPL_PROMPT
@@ -635,11 +639,7 @@ static int boot_from_devices(struct spl_image_info *spl_image,
 					     "Unsupported Boot Device!\n");
 				}
 			}
-			if (loader &&
-				!spl_load_image(spl_image, loader)) {
-				spl_image->boot_device = bootdev;
-				return 0;
-			}
+		
 		}
 	}
 

@@ -16,7 +16,7 @@
  */
 struct sdp_stream_ops {
 	/* A new file with size should be downloaded to dnl_address */
-	void (*new_file)(void *dnl_address, int size);
+	void (*new_file)(void *dnl_address, uint size);
 
 	/* The next data_len bytes have been received in data_buf */
 	void (*rx_data)(u8 *data_buf, int data_len);
@@ -24,13 +24,10 @@ struct sdp_stream_ops {
 
 int sdp_init(struct udevice *udc);
 
-#ifdef CONFIG_SPL_BUILD
-#include <spl.h>
-
-int spl_sdp_handle(struct udevice *udc, struct spl_image_info *spl_image,
-		   struct spl_boot_device *bootdev);
-#else
-int sdp_handle(struct udevice *udc);
-#endif
+void sdp_handle(struct udevice *udc,
+		    const struct sdp_stream_ops *ops, bool single);
+int spl_sdp_stream_image(const struct sdp_stream_ops *ops, bool single);
+int spl_sdp_stream_continue(const struct sdp_stream_ops *ops, bool single);
+void spl_sdp_stream_done(void);
 
 #endif /* __SDP_H_ */

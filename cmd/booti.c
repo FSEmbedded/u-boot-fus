@@ -15,6 +15,7 @@
 #include <asm/global_data.h>
 #include <linux/kernel.h>
 #include <linux/sizes.h>
+#include <hang.h>
 
 #ifdef CONFIG_IMX_MATTER_TRUSTY
 #include <trusty/libtipc.h>
@@ -40,13 +41,17 @@ static int booti_start(struct bootm_info *bmi)
 
 	ret = bootm_run_states(bmi, BOOTM_STATE_START);
 
+	if(ret){
+		printf("Unsigned Image!\n");
+		hang();
+	}
+
 	/* Setup Linux kernel Image entry point */
 	if (!bmi->addr_img) {
-		ld = image_load_addr;
-		debug("*  kernel: default image load address = 0x%08lx\n",
-				image_load_addr);
+		ld = images->ep = get_loadaddr();
+		debug("*  kernel: default image load address = 0x%08lx\n", ld);
 	} else {
-		ld = hextoul(bmi->addr_img, NULL);
+		ld = parse_loadaddr(bmi->addr_img, NULL);
 		debug("*  kernel: cmdline image address = 0x%08lx\n", ld);
 	}
 
@@ -81,7 +86,8 @@ static int booti_start(struct bootm_info *bmi)
 	if (ret || IS_ENABLED(CONFIG_SANDBOX))
 		return 1;
 
-#if defined(CONFIG_IMX_HAB) && !defined(CONFIG_AVB_SUPPORT)
+#if defined(CONFIG_IMX_HAB) && !defined(CONFIG_AVB_SUPPORT) && \
+                               !defined(CONFIG_FS_SECURE_BOOT)
 	extern int authenticate_image(
 		uint32_t ddr_start, uint32_t raw_image_size);
 	if (authenticate_image(ld, image_size) != 0) {
@@ -108,7 +114,7 @@ static int booti_start(struct bootm_info *bmi)
 	 * Handle the BOOTM_STATE_FINDOTHER state ourselves as we do not
 	 * have a header that provide this informaiton.
 	 */
-	if (bootm_find_images(image_load_addr, bmi->conf_ramdisk, bmi->conf_fdt,
+	if (bootm_find_images(get_loadaddr(), bmi->conf_ramdisk, bmi->conf_fdt,
 			      relocated_addr, image_size))
 		return 1;
 

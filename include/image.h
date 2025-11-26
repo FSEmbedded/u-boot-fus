@@ -45,9 +45,9 @@ struct fdt_region;
 #include <fdt_support.h>
 #include <u-boot/hash-checksum.h>
 
-extern ulong image_load_addr;		/* Default Load Address */
-extern ulong image_save_addr;		/* Default Save Address */
-extern ulong image_save_size;		/* Default Save Size */
+//###extern ulong image_load_addr;		/* Default Load Address */
+//###extern ulong image_save_addr;		/* Default Save Address */
+//###extern ulong image_save_size;		/* Default Save Size */
 extern ulong image_load_offset;	/* Default Load Address Offset */
 
 /* An invalid size, meaning that the image size is not known */
@@ -310,6 +310,7 @@ static inline int image_ph_type(int image_ph_type)
 
 #define LZ4F_MAGIC	0x184D2204	/* LZ4 Magic Number		*/
 #define IH_MAGIC	0x27051956	/* Image Magic Number		*/
+#define IH_ZMAGIC	0x016f2818	/* Magic number for zImages	*/
 #define IH_NMLEN		32	/* Image Name Length		*/
 
 /* Reused from common.h */
@@ -611,6 +612,7 @@ int boot_get_setup(struct bootm_headers *images, uint8_t arch, ulong *setup_star
 #define IMAGE_FORMAT_LEGACY	0x01	/* legacy image_header based format */
 #define IMAGE_FORMAT_FIT	0x02	/* new, libfdt based format */
 #define IMAGE_FORMAT_ANDROID	0x03	/* Android boot image */
+#define IMAGE_FORMAT_ZIMAGE	0x04    /* Linux zImage format */
 
 /**
  * genimg_get_kernel_addr_fit() - Parse FIT specifier
@@ -1811,6 +1813,7 @@ int fit_image_cipher_get_algo(const void *fit, int noffset, char **algo);
 
 struct cipher_algo *image_get_cipher_algo(const char *full_name);
 
+/* Get the load address; should be the same as environment variable loadaddr */
 ulong get_loadaddr(void);
 
 /* Parse address, in case of "." return current get_loadaddr() */
@@ -1819,6 +1822,14 @@ ulong parse_loadaddr(const char *buffer, char **endp);
 /* Like simple_loadaddr(), but return error in case of trailing garbage */
 int strict_parse_loadaddr(const char *buffer, ulong *loadaddr);
 
+/* Set address where to load next file */
+void set_fileaddr(ulong addr);
+
+/* Get address where to load next file */
+ulong get_fileaddr(void);
+
+/* Set environment variables fileaddr and filesize */
+void env_set_fileinfo(ulong size);
 struct andr_image_data;
 struct boot_img_hdr_v3;
 struct vendor_boot_img_hdr_v3;

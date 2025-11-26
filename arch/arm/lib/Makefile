@@ -46,7 +46,9 @@ obj-$(CONFIG_$(SPL_TPL_)USE_ARCH_MEMSET) += memset-arm64.o
 obj-$(CONFIG_$(SPL_TPL_)USE_ARCH_MEMCPY) += memcpy-arm64.o
 else
 obj-$(CONFIG_$(SPL_TPL_)USE_ARCH_MEMSET) += memset.o
+obj-$(CONFIG_$(SPL_TPL_)USE_ARCH_MEMSET32) += memset32.o
 obj-$(CONFIG_$(SPL_TPL_)USE_ARCH_MEMCPY) += memcpy.o
+obj-$(CONFIG_$(SPL_TPL_)USE_ARCH_MEMMOVE) += memmove.o
 endif
 obj-$(CONFIG_$(SPL_TPL_)SYS_L2_PL310) += cache-pl310.o
 obj-$(CONFIG_$(SPL_TPL_)SEMIHOSTING) += semihosting.o

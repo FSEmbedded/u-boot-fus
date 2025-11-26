@@ -257,6 +257,31 @@ config TARGET_EMBESTMX6BOARDS
 	select BOARD_LATE_INIT
 	select SUPPORT_SPL
 
+config TARGET_FSIMX6
+	bool "F&S fsimx6 boards & modules"
+	depends on MX6QDL
+	select FSIMX_BOARDS
+	select BOARD_EARLY_INIT_F
+	select BOARD_LATE_INIT
+	select FS_NBOOT_ARGS
+
+config TARGET_FSIMX6SX
+	bool "F&S fsimx6sx boards & modules"
+	depends on MX6SX
+	select FSIMX_BOARDS
+	select BOARD_EARLY_INIT_F
+	select BOARD_LATE_INIT
+	select FS_NBOOT_ARGS
+
+config TARGET_FSIMX6UL
+	bool "F&S fsimx6ul boards & modules"
+	depends on MX6ULL
+	select FSIMX_BOARDS
+	select IOMUX_LPSR
+	select BOARD_EARLY_INIT_F
+	select BOARD_LATE_INIT
+	select FS_NBOOT_ARGS
+
 config TARGET_GE_BX50V3
 	bool "General Electric Bx50v3"
 	depends on MX6Q
@@ -814,6 +839,9 @@ source "board/freescale/mx6sxsabresd/Kconfig"
 source "board/freescale/mx6sxsabreauto/Kconfig"
 source "board/freescale/mx6ul_14x14_evk/Kconfig"
 source "board/freescale/mx6ullevk/Kconfig"
+source "board/F+S/fsimx6/Kconfig"
+source "board/F+S/fsimx6sx/Kconfig"
+source "board/F+S/fsimx6ul/Kconfig"
 source "board/bosch/acc/Kconfig"
 source "board/grinn/liteboard/Kconfig"
 source "board/phytec/pcm058/Kconfig"

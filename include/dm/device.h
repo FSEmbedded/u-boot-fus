@@ -75,14 +75,14 @@ struct driver_info;
  * Device is removed without switching off its power domain. This might
  * be required, i. e. for serial console (debug) output when booting OS.
  */
-#define DM_FLAG_LEAVE_PD_ON		(1 << 13)
+#define DM_FLAG_LEAVE_PD_ON		(1 << 14)
 
 /*
  * Device is vital to the operation of other devices. It is possible to remove
  * removed this device after all regular devices are removed. This is useful
  * e.g. for clock, which need to be active during the device-removal phase.
  */
-#define DM_FLAG_VITAL			(1 << 14)
+#define DM_FLAG_VITAL			(1 << 15)
 
 /* Device must be probed after it was bound */
 #define DM_FLAG_PROBE_AFTER_BIND	(1 << 15)

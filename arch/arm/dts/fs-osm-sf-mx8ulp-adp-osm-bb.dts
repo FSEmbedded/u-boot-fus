@@ -12,42 +12,252 @@
 * GNU General Public License for more details.
 */
 
+#define OSM8ULP_REV 110
+
+/dts-v1/;
+#include <dt-bindings/usb/pd.h>
 #include "fs-osm-sf-mx8ulp.dtsi"
 
+/ {
+	carrier_regulators{
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		reg_adp_osm_3v3: regulator_adp_osm_3v3@0 {
+			compatible = "regulator-fixed";
+			reg = <0>;
+			regulator-name = "ADP-OSM-3V3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&reg_carrier_pwr>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		reg_adp_osm_1v8: regulator_adp_osm_1v8@1 {
+			compatible = "regulator-fixed";
+			reg = <1>;
+			regulator-name = "ADP-OSM-1V8";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&reg_adp_osm_3v3>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		/* SGTL5000 analog voltage */
+		reg_sgtl5000_vdda: sgtl5000_vdda {
+			compatible = "regulator-fixed";
+			regulator-name = "SGTL5000-VDDA-supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&reg_adp_osm_3v3>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		/* SGTL5000 I/O voltage */
+		reg_sgtl5000_vddio: sgtl5000_vddio {
+			compatible = "regulator-fixed";
+			regulator-name = "VDDIO-supply";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			vin-supply = <&reg_adp_osm_1v8>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+
+		/* SGTL5000 internal digital voltage */
+		reg_sgtl5000_vddd: sgtl5000_vddd {
+			compatible = "regulator-fixed";
+			regulator-name = "VDDD-supply";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			vin-supply = <&reg_adp_osm_1v8>;
+			regulator-always-on;
+			regulator-boot-on;
+		};
+	};
+};
+
+/* osm_eth_a example */
+&osm_eth_a {
+	phy-mode = "rmii";
+	phy-handle = <&ethphy1>;
+	status = "okay";
+	mdio {
+		status = "okay";
+		ethphy1: ethphy1@0 {
+			reg = <0>;
+			interrupt-parent = <&gpioe>;
+			interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
+			reset-assert-us = <15000>;
+			reset-deassert-us = <100000>;
+			reset-gpios = <&gpiof 29 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
+
 &osm_uart_con {
-    status = "okay";
+	status = "okay";
+};
+
+&osm_uart_a {
+	status = "okay";
+};
+
+&osm_uart_c {
+	status = "okay";
+};
+
+&osm_uart_d {
+	status = "okay";
+};
+
+&osm_dsi_pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_tpm7>;
+	status = "okay";
+};
+
+&tpm0_rpchip {
+	#pwm-cells = <3>;
+	status = "okay";
+};
+
+&tpm1_rpchip {
+	#pwm-cells = <3>;
+	status = "okay";
+};
+
+&tpm2_rpchip {
+	#pwm-cells = <3>;
+	status = "okay";
 };
 
 &osm_sdio_a {
-    status = "okay";
-};
-
-&usbmisc1 {
 	status = "okay";
 };
 
-&usbphy1 {
-	status = "okay";
+/ {
+	rpmsg_audio: rpmsg-audio {
+			compatible = "fsl,imx8ulp-rpmsg-audio";
+			model = "sgtl5000-audio";
+			fsl,rpmsg-out;
+			fsl,rpmsg-in;
+			audio-codec = <&sgtl5000>;
+			memory-region = <&audio_reserved>;
+			audio-routing =
+				"Capture Mux", "LINE_IN",
+				"Capture Mux", "MIC_IN",
+				"ADC", "Capture Mux",
+				"DAP", "ADC",
+				"Digital Input Mux", "DAP",
+				"DAC", "Digital Input Mux",
+				"Headphone Mux", "DAC",
+				"HP_OUT", "Headphone Mux",
+				"LO", "DAC",
+				"LINE_OUT", "LO";
+
+			status = "okay";
+	};
 };
 
 &osm_usb_a {
-    dr_mode = "otg";
+	dr_mode = "otg";
 	hnp-disable;
 	srp-disable;
 	adp-disable;
-	over-current-active-low;
-    status = "okay";
-};
-
-&usbphy2 {
+	disable-over-current;
+	usb-role-switch;
 	status = "okay";
-};
 
-&usbmisc2 {
-	status = "okay";
+	port {
+		usb1_drd_sw: endpoint {
+			remote-endpoint = <&typec_dr_sw>;
+		};
+	};
 };
 
 &osm_usb_b {
-    dr_mode = "host";
-    status = "okay";
+	dr_mode = "host";
+	power-active-high;
+	disable-over-current;
+	status = "okay";
+};
+
+&osm_i2c_b {
+	ptn5110: tcpc@52 {
+		compatible = "nxp,ptn5110";
+		reg = <0x52>;
+
+		port {
+			typec_dr_sw: endpoint {
+				remote-endpoint = <&usb1_drd_sw>;
+			};
+		};
+
+		usb_con: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			power-role = "dual";
+			data-role = "dual";
+			try-power-role = "sink";
+			source-pdos = <PDO_FIXED(5000, 3000,
+			PDO_FIXED_USB_COMM)>;
+			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)
+				     PDO_VAR(5000, 20000, 3000)>;
+			op-sink-microwatt = <15000000>;
+			self-powered;
+		};
+	};
+
+	sgtl5000: sgtl5000@a {
+ 		compatible = "fsl,sgtl5000";
+ 		reg = <0x0a>;
+ 		mono2both;
+		clocks = <&sgtl5000_mclk>;
+		VDDA-supply = <&reg_sgtl5000_vdda>;
+ 		VDDIO-supply = <&reg_sgtl5000_vddio>;
+ 		VDDD-supply = <&reg_sgtl5000_vddd>;
+		status = "okay";
+ 	};
+};
+
+&pinctrl_enet {
+	fsl,pins = <
+			MX8ULP_PAD_PTE3__ENET0_TXCLK	0x43
+			MX8ULP_PAD_PTE14__ENET0_MDIO	0x43
+			MX8ULP_PAD_PTE15__ENET0_MDC	0x43
+			MX8ULP_PAD_PTE16__ENET0_TXEN	0x43
+			MX8ULP_PAD_PTE17__ENET0_RXER	0x43
+			MX8ULP_PAD_PTE18__ENET0_CRS_DV	0x42 //PHYAD[1:0]
+			MX8ULP_PAD_PTE19__ENET0_REFCLK	0x42 //PHYAD[2]
+			MX8ULP_PAD_PTE20__ENET0_RXD1	0x43
+			MX8ULP_PAD_PTE21__ENET0_RXD0	0x43
+			MX8ULP_PAD_PTE22__ENET0_TXD1	0x43
+			MX8ULP_PAD_PTE23__ENET0_TXD0	0x43
+		>;
+};
+
+&pinctrl_gpioe {
+	fsl,pins = <
+			MX8ULP_PAD_PTE0__PTE0		0x2
+			MX8ULP_PAD_PTE1__PTE1		0x3 // INT-ethphy1
+			MX8ULP_PAD_PTE2__PTE2		0x2
+			MX8ULP_PAD_PTE4__PTE4		0x2
+			MX8ULP_PAD_PTE5__PTE5		0x2
+		>;
+};
+
+&pinctrl_gpiof {
+	fsl,pins = <
+			MX8ULP_PAD_PTF2__PTF2		0x2
+			MX8ULP_PAD_PTF3__PTF3		0x3
+			MX8ULP_PAD_PTF4__PTF4		0x2
+			MX8ULP_PAD_PTF29__PTF29		0x3 // reset-ethphy1
+			MX8ULP_PAD_PTF30__PTF30		0x2
+			MX8ULP_PAD_PTF31__PTF31		0x2
+		>;
 };

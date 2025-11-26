@@ -1,0 +1,59 @@
+/*
+ * Copyright (C) 2024 F&S Elektronik Systeme GmbH
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "nboot-info.dtsi"
+
+/ {
+	board-cfg {
+		board-name = "PicoCoreMX8ULP";
+		board-fdt = "picocoremx8ulp";
+
+		/* DRAM: B.ICDRAM.51 */
+		dram-type = "lpddr4";
+		dram-timing = "lpddr4_osm_v110_2g1056m2ch1cs";
+		dram-size = <0x800>;		/* In MiB */
+		dram-chips = <1>;
+
+		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
+		boot-dev = "MMC1";
+
+		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
+		/* 1: MMC Bus widht | 2. Boot from Fuses */
+		fuse-bankword = <0x00040001 0x00030007>;
+		fuse-mask =     <0x00c00000 0x00008000>;
+		fuse-value =    <0x00c00000 0x00008000>;
+
+		/* I2C-Configs */
+		// have-i2c-int-rtd;
+		have-i2c-int-apd;
+		have-i2c-d-rtd;
+		// have-i2c-d-apd;
+		/* Common board features */
+		// have-mipi-csi;
+		have-emmc;
+		have-ext-rtc;
+		// have-eeprom;
+		// have-qspi-psram;
+		// have-qspi-flash;
+		// have-eth;
+		// have-eth-phy;
+		// have-audio-rtd;
+		have-wlan;
+		have-bluetooth;
+		// have-sd-a;
+		have-rgb;
+		// have-mipi-dsi;
+		// have-lvds;
+
+		PCoreMX8ULP-FERT11.120 {
+			board-rev = <120>;
+		};
+	};
+};

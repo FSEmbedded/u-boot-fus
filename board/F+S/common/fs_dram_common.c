@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
+/*
+ * fs_dram_common.c - Handle common dram stuff
+ */
+#include <errno.h>
 #include "fs_dram_common.h"
 
 #if defined(CONFIG_IMX8)
@@ -34,5 +39,5 @@ int fs_dram_init_common(unsigned long * p) {
 __weak int fs_board_init_dram_data(unsigned long *ptr)
 {
 	debug("%s: not defined\n", __func__);
-	return -ENODEF;
+	return -ENODEV;
 }

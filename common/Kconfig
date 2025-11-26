@@ -952,6 +952,11 @@ config UPDATE_LOAD_ADDR
 	  This option defines the location in memory to be used to load the
 	  update to, if 'loadaddr' is not set in the environment.
 
+config FS_UPDATE_SUPPORT
+	bool "U-Boot support for F&S Updater"
+	help
+		Provides the U-Boot support for the buildroot packge
+
 config UPDATE_FIT
 	bool "Firmware update using fitImage"
 	depends on FIT && OF_LIBFDT

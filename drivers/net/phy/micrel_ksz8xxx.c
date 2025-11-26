@@ -97,22 +97,29 @@ U_BOOT_PHY_DRIVER(ksz8061) = {
 	.shutdown = &genphy_shutdown,
 };
 
+#define	MII_KSZPHY_CTRL			0x1F
+#define KSZPHY_RMII_50MHZ_CLK		(1 << 7)
+
 static int ksz8081_config(struct phy_device *phydev)
 {
-	int ret;
+	u16 reg;
+	struct mii_dev *bus = phydev->bus;
+	ofnode node;
 
-	ret = phy_read(phydev, MDIO_DEVAD_NONE, MII_KSZPHY_OMSO);
-	if (ret < 0)
-		return ret;
+	node = phy_get_ofnode(phydev);
 
-	ret &= ~KSZPHY_OMSO_FACTORY_TEST;
+	if (ofnode_valid(node)) {
+		bool rmii_50mhz = ofnode_read_bool(node, "microchip,rmii-50mhz");
 
-	ret = phy_write(phydev, MDIO_DEVAD_NONE, MII_KSZPHY_OMSO,
-			ret | KSZPHY_OMSO_B_CAST_OFF);
-	if (ret < 0)
-		return ret;
+		/* Switch to 50 MHz RMII mode */
+		if (rmii_50mhz) {
+			reg = bus->read(bus, phydev->addr, MDIO_DEVAD_NONE, MII_KSZPHY_CTRL);
+			reg |= KSZPHY_RMII_50MHZ_CLK;
+			bus->write(bus, phydev->addr, MDIO_DEVAD_NONE, MII_KSZPHY_CTRL, reg);
+		}
+	}
 
-	return genphy_config(phydev);
+	return ksz_genconfig_bcastoff(phydev);
 }
 
 U_BOOT_PHY_DRIVER(ksz8081) = {

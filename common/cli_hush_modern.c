@@ -300,7 +300,7 @@ static int u_boot_cli_readline(struct in_str *i)
 	char __maybe_unused *ps_prompt = NULL;
 
 	if (!G.promptmode)
-		prompt = CONFIG_SYS_PROMPT;
+		prompt = get_sys_prompt();
 #ifdef CONFIG_SYS_PROMPT_HUSH_PS2
 	else
 		prompt = CONFIG_SYS_PROMPT_HUSH_PS2;

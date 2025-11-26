@@ -59,7 +59,7 @@ static struct splash_location default_splash_locations[] = {
 	},
 };
 
-#ifdef CONFIG_VIDEO_LOGO
+#if defined(CONFIG_VIDEO) && defined(CONFIG_VIDEO_LOGO)
 
 #include <bmp_logo_data.h>
 
@@ -165,13 +165,14 @@ int splash_display(void)
 	if (!CONFIG_IS_ENABLED(SPLASH_SCREEN))
 		return -ENOSYS;
 	s = env_get("splashimage");
-	if (!s)
-		return -EINVAL;
-
-	addr = hextoul(s, NULL);
-	ret = splash_screen_prepare();
-	if (ret)
-		return ret;
+	if (!s) {
+		addr = (ulong)bmp_logo_bitmap;
+	} else {
+		addr = hextoul(s, NULL);
+		ret = splash_screen_prepare();
+		if (ret)
+			return ret;
+	}
 
 	splash_get_pos(&x, &y);
 
@@ -181,7 +182,7 @@ int splash_display(void)
 		return -ENOSYS;
 
 	/* Skip banner output on video console if the logo is not at 0,0 */
-	if (x || y)
+	if (s || x || y)
 		goto end;
 
 #if CONFIG_IS_ENABLED(VIDEO) && !CONFIG_IS_ENABLED(HIDE_LOGO_VERSION)

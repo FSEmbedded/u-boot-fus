@@ -213,6 +213,14 @@ config TARGET_IMX8DXL_ORANGEBOX
 	select ARCH_MISC_INIT
 	select SPL_CRYPTO if SPL
 
+config TARGET_FSIMX8X
+	bool "Support fsimx8x boards from F&S"
+	select FSIMX_BOARDS
+	select BOARD_LATE_INIT
+	select SUPPORT_SPL
+	select IMX8QXP
+	select FS_BOARD_CFG
+
 endchoice
 
 source "board/freescale/imx8qm_mek/Kconfig"
@@ -227,6 +235,7 @@ source "board/advantech/imx8qm_rom7720_a1/Kconfig"
 source "board/toradex/apalis-imx8/Kconfig"
 source "board/toradex/colibri-imx8x/Kconfig"
 source "board/siemens/capricorn/Kconfig"
+source "board/F+S/fsimx8x/Kconfig"
 
 config SKIP_RESOURCE_CHECKING
 	bool "Skip resource owner checking to kernel FDT nodes"

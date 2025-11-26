@@ -596,30 +596,54 @@ __used void * memcpy(void *dest, const void *src, size_t count)
  */
 __used void * memmove(void * dest,const void *src,size_t count)
 {
-	char *tmp, *s;
+	char *d;
+	char *s;
 
 	if (dest <= src || (src + count) <= dest) {
-	/*
-	 * Use the fast memcpy implementation (ARCH optimized or lib/string.c) when it is possible:
-	 * - when dest is before src (assuming that memcpy is doing forward-copying)
-	 * - when destination don't overlap the source buffer (src + count <= dest)
-	 *
-	 * WARNING: the first optimisation cause an issue, when __HAVE_ARCH_MEMCPY is defined,
-	 *          __HAVE_ARCH_MEMMOVE is not defined and if the memcpy ARCH-specific
-	 *          implementation is not doing a forward-copying.
-	 *
-	 * No issue today because memcpy is doing a forward-copying in lib/string.c and for ARM32
-	 * architecture; no other arches use __HAVE_ARCH_MEMCPY without __HAVE_ARCH_MEMMOVE.
-	 */
-		memcpy(dest, src, count);
-	} else {
-		tmp = (char *) dest + count;
-		s = (char *) src + count;
-		while (count--)
-			*--tmp = *--s;
-		}
+		/*
+		 * Use the fast memcpy implementation (ARCH optimized or
+		 * lib/string.c) when it is possible:
+		 * - when dest is before src (assuming that memcpy is doing
+		 *   forward-copying)
+		 * - when destination don't overlap the source buffer (src +
+		 *   count <= dest)
+		 *
+		 * WARNING: the first optimisation cause an issue, when
+		 * __HAVE_ARCH_MEMCPY is defined, __HAVE_ARCH_MEMMOVE is not
+		 * defined and if the memcpy ARCH-specific implementation is
+		 * not doing a forward-copying.
+		 *
+		 * No issue today because memcpy is doing a forward-copying in
+		 * lib/string.c and for ARM32 architecture; no other arches
+		 * use __HAVE_ARCH_MEMCPY without __HAVE_ARCH_MEMMOVE.
+		 */
+		return memcpy(dest, src, count);
+	}
 
-	return dest;
+	d = (char *)dest;
+	s = (char *)src;
+
+	/* while all data is aligned (common case), copy a word at a
+	   time */
+	if ((count >= sizeof(ulong))
+	    && ((((ulong)d | (ulong)s) & (sizeof(ulong) - 1)) == 0)) {
+		while (count & (sizeof(ulong) - 1)) {
+			--count;
+			d[count] = s[count];
+		}
+		while (count) {
+			count -= sizeof(ulong);
+			*(ulong *)&d[count] = *(ulong *)&s[count];
+		}
+		return (void *)d;
+	}
+
+        /* copy the rest one byte at a time */
+	while (count) {
+		--count;
+		d[count] = s[count];
+	}
+	return (void *)d;
 }
 #endif
 

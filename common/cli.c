@@ -34,6 +34,40 @@ static inline bool use_hush_old(void)
 }
 
 /*
+ * You can either define CONFIG_SYS_BOARDNAME in your config or provide your
+ * own function get_board_name(). If neither is given, assume "u-boot" as
+ * board name.
+ */
+#ifndef CONFIG_SYS_BOARDNAME
+#define CONFIG_SYS_BOARDNAME "u-boot"
+#endif
+
+__weak char *get_board_name(void)
+{
+	return CONFIG_SYS_BOARDNAME;
+}
+
+
+/*
+ * You can either define CONFIG_SYS_PROMPT in your config or provide your own
+ * function get_sys_prompt(). If neither is given, assume board name followed
+ * by " # " as system prompt.
+ */
+#ifndef CONFIG_SYS_PROMPT
+#define CONFIG_SYS_PROMPT CONFIG_SYS_BOARDNAME " # "
+#endif
+
+__weak char *get_sys_prompt(void)
+{
+#ifdef CONFIG_CMDLINE_PS_SUPPORT
+	return env_get("PS1");
+#else
+	return CONFIG_SYS_PROMPT;
+#endif
+}
+
+
+/*
  * Run a command using the selected parser.
  *
  * @param cmd	Command to run

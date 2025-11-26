@@ -9,6 +9,9 @@
 #include <imx_container.h>
 #include <mapmem.h>
 #include <spl.h>
+#ifdef CONFIG_FS_BOARD_CFG
+#include "../../board/F+S/common/fs_image_common.h"
+#endif
 
 static inline int _spl_load(struct spl_image_info *spl_image,
 			    const struct spl_boot_device *bootdev,
@@ -24,6 +27,37 @@ static inline int _spl_load(struct spl_image_info *spl_image,
 					      spl_get_bl_len(info)), header);
 	if (read < sizeof(*header))
 		return -EIO;
+
+#ifdef CONFIG_FS_BOARD_CFG
+	/* Allow U-Boot image to be prepended with F&S header */
+	ret = spl_check_fs_header(header);
+	if (ret < 0)
+		return ret;
+
+	/* In case of signed U-Boot, load U-Boot image completely */
+	if ((ret > 0) && fs_image_is_signed((void *)header)) {
+		u32 size;
+		void *addr = fs_image_get_ivt_info((void *)header, &size);
+
+		if (addr && size) {
+			size = ALIGN(size, spl_get_bl_len(info));
+			read = info->read(info, offset, size, addr);
+			if (read < size)
+				return -EIO;
+		}
+		return secure_spl_load_simple_fit(spl_image, addr, size);
+	}
+
+	/* Skip F&S Header */
+	header = (void *)header + ret;
+	info->extra_offset = ret;
+
+	/* Load next header, if not already read */
+	if (read < (ret + sizeof(*header))) {
+		read = info->read(info, offset + ret, ALIGN(sizeof(*header),
+							  spl_get_bl_len(info)), header);
+	}
+#endif
 
 	if (image_get_magic(header) == FDT_MAGIC) {
 		if (IS_ENABLED(CONFIG_SPL_LOAD_FIT_FULL)) {

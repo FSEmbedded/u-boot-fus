@@ -42,9 +42,35 @@ int eepro100_initialize(struct bd_info *bis);
 int ep93xx_eth_initialize(u8 dev_num, int base_addr);
 int eth_3com_initialize (struct bd_info * bis);
 int ethoc_initialize(u8 dev_num, int base_addr);
+
+#ifdef CONFIG_FEC_MXC
+#include <phy.h>
+/**
+ * Supported phy types on this platform
+ */
+enum xceiver_type {
+	SEVENWIRE,	/* 7-wire       */
+	MII10,		/* MII 10Mbps   */
+	MII100,		/* MII 100Mbps  */
+	RMII,		/* RMII */
+	RGMII,		/* RGMII */
+};
+
 int fecmxc_initialize(struct bd_info *bis);
 int fecmxc_initialize_multi(struct bd_info *bis, int dev_id, int phy_id,
 			    uint32_t addr);
+int fecmxc_initialize_multi_type(struct bd_info *bis, int dev_id, int phy_id,
+				 uint32_t addr, enum xceiver_type xcv_type);
+int fecmxc_initialize_multi_type_if_mode(struct bd_info *bis, int dev_id,
+					 int phy_id, uint32_t addr,
+					 enum xceiver_type xcv_type,
+					 phy_interface_t if_mode);
+#endif
+
+#define AX88796_MODE_BUS8_DP8	0	/* Buswidth 8, data port width 8 */
+#define AX88796_MODE_BUS16_DP8	1	/* Buswidth 16, data port width 8 */
+#define AX88796_MODE_BUS16_DP16	2	/* Buswidth 16, data port width 16 */
+int ax88796_initialize(int dev_id, uint32_t base_addr, int mode);
 int ftmac100_initialize(struct bd_info *bits);
 int ftmac110_initialize(struct bd_info *bits);
 void gt6426x_eth_initialize(struct bd_info *bis);

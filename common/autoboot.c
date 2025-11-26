@@ -25,11 +25,18 @@
 #include <bootcount.h>
 #include <crypt.h>
 #include <dm/ofnode.h>
+#include <update.h>			/* enum update_action */
 #ifdef is_boot_from_usb
 #include <env.h>
+#ifdef CONFIG_FSL_FASTBOOT
+#include <fb_fsl.h>
+#endif
 #endif
 
 DECLARE_GLOBAL_DATA_PTR;
+
+#define XMK_STR(x)	#x
+#define MK_STR(x)	XMK_STR(x)
 
 #define DELAY_STOP_STR_MAX_LENGTH 64
 
@@ -454,7 +461,8 @@ const char *bootdelay_process(void)
 	bootcount_inc();
 
 	s = env_get("bootdelay");
-	bootdelay = s ? (int)simple_strtol(s, NULL, 10) : CONFIG_BOOTDELAY;
+	bootdelay = (int)simple_strtol(s ? s : MK_STR(CONFIG_BOOTDELAY),
+				       NULL, 10);
 
 	/*
 	 * Does it really make sense that the devicetree overrides the user
@@ -471,9 +479,15 @@ const char *bootdelay_process(void)
 		bootdelay = 0;
 		env_set_default("Use default environment for \
 				 mfgtools\n", 0);
+#ifdef CONFIG_FSL_FASTBOOT
 	} else if (is_boot_from_usb()) {
 		printf("Boot from USB for uuu\n");
-		env_set("bootcmd", "fastboot 0");
+		bootdelay = 0;
+		/* bootcmd needs to be cleared for fastboot_setup */
+		env_set("bootcmd","");
+		/* will determine usb from get_boot_device() */
+		fastboot_setup();
+#endif
 	} else {
 		printf("Normal Boot\n");
 	}
@@ -509,24 +523,53 @@ const char *bootdelay_process(void)
 	return s;
 }
 
+#ifdef CONFIG_CMD_UPDATE
+/*
+ * Board-specific code can reimplement board_check_for_recover() if needed
+ */
+enum update_action __board_check_for_recover(void) {
+	return UPDATE_ACTION_UPDATE;
+}
+enum update_action board_check_for_recover(void)
+	__attribute__((weak, alias("__board_check_for_recover")));
+#endif
+
 void autoboot_command(const char *s)
 {
 	debug("### main_loop: bootcmd=\"%s\"\n", s ? s : "<UNDEFINED>");
 
 	if (s && (stored_bootdelay == -2 ||
 		 (stored_bootdelay != -1 && !abortboot(stored_bootdelay)))) {
-		bool lock;
-		int prev;
+#ifdef CONFIG_CMD_UPDATE
+		/* Before the boot command is executed, check if we should
+		   load a system recovery or update script; which of these
+		   should be tested is platform dependend. For example a
+		   special button must be pressed at boot time to start a
+		   recovery. So you have to override board_check_recovery() in
+		   this case. By default we only check for updates. */
+		if (update_script(board_check_for_recover(), NULL, NULL, 0))
+#endif
+		{
+			bool lock;
+			int prev;
 
-		lock = autoboot_keyed() &&
-			!IS_ENABLED(CONFIG_AUTOBOOT_KEYED_CTRLC);
-		if (lock)
-			prev = disable_ctrlc(1); /* disable Ctrl-C checking */
+			lock = autoboot_keyed() &&
+				!IS_ENABLED(CONFIG_AUTOBOOT_KEYED_CTRLC);
+			if (lock)
+				prev = disable_ctrlc(1); /* disable Ctrl-C checking */
 
-		run_command_list(s, -1, 0);
+			run_command_list(s, -1, 0);
 
-		if (lock)
-			disable_ctrlc(prev);	/* restore Ctrl-C checking */
+			if (lock)
+				disable_ctrlc(prev);	/* restore Ctrl-C checking */
+
+#ifdef CONFIG_CMD_UPDATE
+			/* The bootcmd usually only returns if booting failed.
+			   Then we assume that the system is not correctly
+			   installed and try to load an install script */
+			update_script(UPDATE_ACTION_INSTALL, NULL, NULL, 0);
+#endif
+		}
 	}
 
 	if (IS_ENABLED(CONFIG_AUTOBOOT_USE_MENUKEY) &&

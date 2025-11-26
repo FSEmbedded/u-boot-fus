@@ -14,6 +14,7 @@
 #include <common.h>
 #include <command.h>
 #include <env.h>
+#include <image.h>			/* parse_loadaddr() */
 #include <linux/ctype.h>
 #include <linux/string.h>
 
@@ -236,8 +237,10 @@ static int do_ini(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		return CMD_RET_USAGE;
 
 	section = argv[1];
-	file_address = (char *)hextoul(argc < 3 ? env_get("loadaddr") : argv[2],
-					NULL);
+	if (argc < 3)
+		file_address = (char *)get_loadaddr();
+	else
+		file_address = (char *)parse_loadaddr(argv[2], NULL);
 	file_size = (size_t)hextoul(argc < 4 ? env_get("filesize") : argv[3],
 				     NULL);
 

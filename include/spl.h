@@ -291,6 +291,7 @@ static inline void *spl_image_fdt_addr(struct spl_image_info *info)
  * @priv: Private data for the device
  * @bl_len: Block length for reading in bytes
  * @read: Function to call to read from the device
+ * @extra_offset: Image has additional header prepended with this size
  */
 struct spl_load_info {
 	void *priv;
@@ -307,6 +308,7 @@ struct spl_load_info {
 	 */
 	ulong (*read)(struct spl_load_info *load, ulong sector, ulong count,
 		      void *buf);
+	ulong extra_offset;
 #if IS_ENABLED(CONFIG_SPL_LOAD_BLOCK)
 	int bl_len;
 };
@@ -406,6 +408,13 @@ void *spl_load_simple_fit_fix_load(const void *fit);
  */
 int spl_load_simple_fit(struct spl_image_info *spl_image,
 			struct spl_load_info *info, ulong offset, void *fdt);
+
+#ifdef CONFIG_FS_BOARD_CFG
+int spl_check_fs_header(void *header);
+
+int secure_spl_load_simple_fit(struct spl_image_info *spl_image, void *uboot,
+			       u32 size);
+#endif
 
 #define SPL_COPY_PAYLOAD_ONLY	1
 #define SPL_FIT_FOUND		2
@@ -524,14 +533,26 @@ struct mmc;
 int default_spl_mmc_emmc_boot_partition(struct mmc *mmc);
 
 /**
+ * arch_spl_mmc_emmc_boot_partition() - eMMC boot partition to load U-Boot from.
+ * mmc:			Pointer for the mmc device structure
+ *
+ * This function should return the architecture specific eMMC boot partition
+ * number which the SPL should load U-Boot from (on the given boot_device).
+ *
+ * If not overridden by an architecture, it is weakly defined in
+ * common/spl/spl_mmc.c and calls default_spl_mmc_emmc_boot_partition().
+ */
+int arch_spl_mmc_emmc_boot_partition(struct mmc *mmc);
+
+/**
  * spl_mmc_emmc_boot_partition() - eMMC boot partition to load U-Boot from.
  * mmc:			Pointer for the mmc device structure
  *
  * This function should return the eMMC boot partition number which
  * the SPL should load U-Boot from (on the given boot_device).
  *
- * If not overridden, it is weakly defined in common/spl/spl_mmc.c
- * and calls default_spl_mmc_emmc_boot_partition();
+ * If not overridden by a board, it is weakly defined in common/spl/spl_mmc.c
+ * and calls arch_spl_mmc_emmc_boot_partition().
  */
 int spl_mmc_emmc_boot_partition(struct mmc *mmc);
 

@@ -19,6 +19,11 @@
 #include <linux/libfdt.h>
 #include <linux/printk.h>
 
+#ifdef CONFIG_FS_BOARD_CFG
+#include "../../board/F+S/common/fs_image_common.h"
+#include <asm/mach-imx/checkboot.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 struct spl_fit_info {
@@ -690,7 +695,7 @@ static int spl_simple_fit_read(struct spl_fit_info *ctx,
 	 * start. This is the base for the data-offset properties in each
 	 * image.
 	 */
-	size = ALIGN(fdt_totalsize(fit_header), 4);
+	size = ALIGN(fdt_totalsize(fit_header) + info->extra_offset, 4);
 	size = board_spl_fit_size_align(size);
 	ctx->ext_data_offset = ALIGN(size, 4);
 
@@ -705,7 +710,7 @@ static int spl_simple_fit_read(struct spl_fit_info *ctx,
 	buf = board_spl_fit_buffer_addr(size, size, 1);
 
 	count = info->read(info, offset, size, buf);
-	ctx->fit = buf;
+	ctx->fit = buf + info->extra_offset;;
 	debug("fit read offset %lx, size=%lu, dst=%p, count=%lu\n",
 	      offset, size, buf, count);
 
@@ -888,6 +893,10 @@ int spl_load_simple_fit(struct spl_image_info *spl_image,
 	if (spl_image->entry_point == FDT_ERROR || spl_image->entry_point == 0)
 		spl_image->entry_point = spl_image->load_addr;
 
+#ifdef CONFIG_SPL_USE_ATF_ENTRYPOINT
+	spl_image->entry_point = CONFIG_SPL_ATF_ADDR;
+#endif
+
 	spl_image->flags |= SPL_FIT_FOUND;
 
 	return board_spl_fit_post_load(ctx.fit, spl_image);
@@ -986,3 +995,70 @@ int spl_load_fit_image(struct spl_image_info *spl_image,
 
 	return 0;
 }
+
+#ifdef CONFIG_FS_BOARD_CFG
+/* Return: -1: No U-Boot image, 0: No F&S Header, >0: size of F&S header */
+int spl_check_fs_header(void *header)
+{
+	struct fs_header_v1_0 *fsh = header;
+	bool is_signed;
+
+	if (!fs_image_is_fs_image(fsh))
+		return 0;
+
+	if (!fs_image_match(fsh, "U-BOOT", fs_image_get_arch())) {
+		puts("Not a valid F&S U-Boot image\n");
+		return -ENOENT;
+	}
+
+	is_signed = fs_image_is_signed(fsh);
+#ifdef CONFIG_FS_SECURE_BOOT
+	if (!is_signed && imx_hab_is_enabled()) {
+		printf("Error: Unsigned U-Boot on closed board!!\n");
+		return -EACCES;
+	}
+#endif
+
+	debug("Loading %ssigned F&S U-Boot...\n", is_signed ? "" : "un");
+
+	return FSH_SIZE;
+}
+
+static ulong secure_load_read(struct spl_load_info *load, ulong sector,
+			      ulong count, void *buf)
+{
+	memcpy(buf, (void *)sector, count);
+
+	return count;
+}
+
+int secure_spl_load_simple_fit(struct spl_image_info *spl_image, void *uboot,
+			       u32 size)
+{
+	struct spl_load_info load;
+
+	if (!uboot || !size || !fs_image_is_valid_signature(uboot)) {
+		printf("Error: Invalid signature\n");
+		return -EACCES;
+	}
+
+	/*
+	 * ### 10.08.23 HK: This is not tested, but should work. U-Boot is
+	 * already loaded to CONFIG_SYS_TEXT_BASE, spl_load_simple_fit() will
+	 * copy the FIT header to a malloc'ed area, so it is save, U-Boot and
+	 * FDT will be copied from somewhere at the end of the FIT image to
+	 * the front of the buffer. This would only fail if FDT images are
+	 * before the U-Boot image in the FIT file. Then copying U-Boot would
+	 * most probably overwrite the FDT images before they are moved away.
+	 * However current U-Boot images have the FDT images behind the U-Boot
+	 * image, so this should work.
+	 */
+	memset(&load, 0, sizeof(load));
+	load.bl_len = 1;
+	load.read = secure_load_read;
+	load.extra_offset = FSH_SIZE + HAB_HEADER;
+
+	return spl_load_simple_fit(spl_image, &load, (ulong)uboot,
+				   uboot + load.extra_offset);
+}
+#endif

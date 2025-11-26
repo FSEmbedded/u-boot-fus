@@ -7,17 +7,21 @@ struct serial_device {
 	/* enough bytes to match alignment of following func pointer */
 	char	name[16];
 
-	int	(*start)(void);
-	int	(*stop)(void);
-	void	(*setbrg)(void);
-	int	(*getc)(void);
-	int	(*tstc)(void);
-	void	(*putc)(const char c);
-	void	(*puts)(const char *s);
-#if CFG_POST & CFG_SYS_POST_UART
-	void	(*loop)(int);
+	int	(*start)(const struct serial_device *sdev);
+	int	(*stop)(const struct serial_device *sdev);
+	void	(*setbrg)(const struct serial_device *sdev);
+	int	(*getc)(const struct serial_device *sdev);
+	int	(*tstc)(const struct serial_device *sdev);
+	void	(*putc)(const struct serial_device *sdev, const char c);
+	void	(*puts)(const struct serial_device *sdev, const char *s);
+#ifdef CONFIG_CONSOLE_FLUSH_SUPPORT
+	void	(*flush)(const struct serial_device *sdev);
 #endif
-	struct serial_device	*next;
+#if CFG_POST & CFG_SYS_POST_UART
+	void	(*loop)(const struct serial_device *sdev, int);
+#endif
+	void	*priv;
+	struct serial_device *next;
 };
 
 void default_serial_puts(const char *s);
@@ -34,13 +38,6 @@ extern struct serial_device *default_serial_console(void);
 extern struct serial_device serial0_device;
 extern struct serial_device serial1_device;
 #endif
-
-extern struct serial_device eserial1_device;
-extern struct serial_device eserial2_device;
-extern struct serial_device eserial3_device;
-extern struct serial_device eserial4_device;
-extern struct serial_device eserial5_device;
-extern struct serial_device eserial6_device;
 
 extern void serial_register(struct serial_device *);
 extern void serial_stdio_init(void);
@@ -378,5 +375,7 @@ static inline void serial_flush(void) {}
 #endif
 int serial_getc(void);
 int serial_tstc(void);
-
+#ifdef CONFIG_DM_SERIAL
+int	serial_get_alias_seq(void);
 #endif
+#endif /* __SERIAL_H__ */

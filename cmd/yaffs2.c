@@ -188,7 +188,7 @@ int do_yrdm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	}
 
 	filename = argv[1];
-	addr = hextoul(argv[2], NULL);
+	addr = parse_loadaddr(argv[2], NULL);
 
 	cmd_yaffs_mread_file(filename, (char *)addr);
 
@@ -207,7 +207,7 @@ int do_ywrm(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	}
 
 	filename = argv[1];
-	addr = hextoul(argv[2], NULL);
+	addr = parse_loadaddr(argv[2], NULL);
 	size = hextoul(argv[3], NULL);
 
 	cmd_yaffs_mwrite_file(filename, (char *)addr, size);

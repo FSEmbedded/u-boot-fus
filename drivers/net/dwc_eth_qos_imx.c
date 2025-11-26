@@ -208,9 +208,11 @@ static int eqos_set_tx_clk_speed_imx(struct udevice *dev)
 
 static int eqos_get_enetaddr_imx(struct udevice *dev)
 {
+#ifdef CONFIG_FEC_GET_MAC_FROM_FUSES
 	struct eth_pdata *pdata = dev_get_plat(dev);
 
 	imx_get_mac_from_fuse(dev_seq(dev), pdata->enetaddr);
+#endif
 
 	return 0;
 }

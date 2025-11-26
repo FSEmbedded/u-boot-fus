@@ -177,19 +177,29 @@ void dev_print(struct blk_desc *desc)
 	lba512_t lba512; /* number of blocks if 512bytes block size */
 
 	if (desc->type == DEV_TYPE_UNKNOWN) {
-		puts ("not available\n");
+		puts("  --> not available\n");
 		return;
 	}
 
 	switch (desc->uclass_id) {
 	case UCLASS_SCSI:
-		printf("(%d:%d) Vendor: %s Prod.: %s Rev: %s\n", desc->target,
-		       desc->lun, desc->vendor, desc->product, desc->revision);
+		printf("  Target/LUN: (%d:%d)\n"
+		       "  Vendor: %s\n"
+		       "  Product: %s\n"
+		       "  Rev: %s\n",
+		       desc->target, desc->lun,
+		       desc->vendor,
+		       desc->product,
+		       desc->revision);
 		break;
 	case UCLASS_IDE:
 	case UCLASS_AHCI:
-		printf("Model: %s Firm: %s Ser#: %s\n", desc->vendor,
-		       desc->revision, desc->product);
+		printf("  Model: %s\n"
+		       "  Serial number: %s\n"
+		       "  Firm: %s\n",
+		       desc->vendor,
+		       desc->product,
+		       desc->revision);
 		break;
 	case UCLASS_MMC:
 	case UCLASS_USB:
@@ -198,45 +208,47 @@ void dev_print(struct blk_desc *desc)
 	case UCLASS_HOST:
 	case UCLASS_BLKMAP:
 	case UCLASS_RKMTD:
-		printf ("Vendor: %s Rev: %s Prod: %s\n",
-			desc->vendor,
-			desc->revision,
-			desc->product);
+		printf("  Vendor: %s\n"
+		       "  Product: %s\n"
+		       "  Revision: %s\n",
+		       desc->vendor,
+		       desc->product,
+		       desc->revision);
 		break;
 	case UCLASS_VIRTIO:
-		printf("%s VirtIO Block Device\n", desc->vendor);
+		printf("  %s VirtIO Block Device\n", desc->vendor);
 		break;
 	case UCLASS_EFI_MEDIA:
-		printf("EFI media Block Device %d\n", desc->devnum);
+		printf("  EFI media Block Device %d\n", desc->devnum);
 		break;
 	case UCLASS_INVALID:
-		puts("device type unknown\n");
+		puts("  Device type unknown\n");
 		return;
 	default:
-		printf("Unhandled device type: %i\n", desc->uclass_id);
+		printf("  Unhandled device type: %i\n", desc->uclass_id);
 		return;
 	}
-	puts ("            Type: ");
+	puts("  Type: ");
 	if (desc->removable)
-		puts ("Removable ");
+		puts("Removable ");
 	switch (desc->type & 0x1F) {
 	case DEV_TYPE_HARDDISK:
-		puts ("Hard Disk");
+		puts("Hard Disk");
 		break;
 	case DEV_TYPE_CDROM:
-		puts ("CD ROM");
+		puts("CD ROM");
 		break;
 	case DEV_TYPE_OPDISK:
-		puts ("Optical Device");
+		puts("Optical Device");
 		break;
 	case DEV_TYPE_TAPE:
-		puts ("Tape");
+		puts("Tape");
 		break;
 	default:
 		printf("# %02X #", desc->type & 0x1F);
 		break;
 	}
-	puts ("\n");
+	puts("\n  Capacity: ");
 	if (desc->lba > 0L && desc->blksz > 0L) {
 		ulong mb, mb_quot, mb_rem, gb, gb_quot, gb_rem;
 		lbaint_t lba;
@@ -254,25 +266,25 @@ void dev_print(struct blk_desc *desc)
 		gb = mb / 1024;
 		gb_quot	= gb / 10;
 		gb_rem	= gb - (10 * gb_quot);
-#ifdef CONFIG_LBA48
-		if (desc->lba48)
-			printf ("            Supports 48-bit addressing\n");
-#endif
 #if defined(CONFIG_SYS_64BIT_LBA)
-		printf ("            Capacity: %lu.%lu MB = %lu.%lu GB (%llu x %lu)\n",
-			mb_quot, mb_rem,
-			gb_quot, gb_rem,
-			lba,
-			desc->blksz);
+		printf("%lu.%lu MB = %lu.%lu GB (%llu x %lu)\n",
+		       mb_quot, mb_rem,
+		       gb_quot, gb_rem,
+		       lba,
+		       desc->blksz);
 #else
-		printf ("            Capacity: %lu.%lu MB = %lu.%lu GB (%lu x %lu)\n",
-			mb_quot, mb_rem,
-			gb_quot, gb_rem,
-			(ulong)lba,
-			desc->blksz);
+		printf("%lu.%lu MB = %lu.%lu GB (%lu x %lu)\n",
+		       mb_quot, mb_rem,
+		       gb_quot, gb_rem,
+		       (ulong)lba,
+		       desc->blksz);
+#endif
+#ifdef CONFIG_LBA48
+		printf("  48-bit addressing: %s\n",
+		       desc->lba48 ? "yes" : "no");
 #endif
 	} else {
-		puts ("            Capacity: not available\n");
+		puts("not available\n");
 	}
 }
 

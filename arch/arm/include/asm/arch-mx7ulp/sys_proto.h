@@ -8,4 +8,5 @@
 
 #include <asm/mach-imx/sys_proto.h>
 
+enum bt_mode get_boot_mode(void);
 #endif

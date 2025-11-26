@@ -1,4 +1,4 @@
-To be able to boot i.MX8 boards, some firmware files from NXP are
+To be able to boot i.MX8/9 boards, some firmware files from NXP are
 required.
 
 - ATF (ARM Trusted Firmware)
@@ -7,6 +7,8 @@ required.
 - HDMI Firmware (i.MX8M)
 - SECO (Firmware for SECO chip on i.MX8X)
 - SCFW (System Control Firmware for i.MX8X)
+- ELE (Firmware for Secure Enclave on i.MX9 and i.MX8ULP)
+- UPOWER (Power Management Software for Cortex-M on i.MX8ULP)
 
 Not all files are required for all boards and some boards may need
 different files.
@@ -18,8 +20,12 @@ them in the NBoot image.
 
 Some sources for these firmware files:
 
-- ATF: git clone https://source.codeaurora.org/external/imx/imx-atf/
+- ATF: Binaries included in F&S Releases. Sources:
+  F&S Version: git clone https://github.com/FSEmbedded/atf-fus.git
+  Original NXP Version: git clone https://github.com/nxp-imx/imx-atf.git
 - DDR and HDMI Firmware:
   wget http://www.freescale.com/lgfiles/NMG/MAD/YOCTO/firmware-imx-x.y.z.bin
+- ELE Firmware:
+  wget http://www.freescale.com/lgfiles/NMG/MAD/YOCTO/firmware-ele-imx-x.y.bin
 - SCFW and SECO:
   https://www.nxp.com/design/i-mx-developer-resources/i-mx-software-and-development-tools:IMX-SW

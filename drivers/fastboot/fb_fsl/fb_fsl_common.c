@@ -144,9 +144,14 @@ void board_fastboot_setup(void)
 			env_set("bootcmd", boot_dev_part);
 		break;
 	case USB_BOOT:
-		printf("Detect USB boot. Will enter fastboot mode!\n");
+		printf("Fastb: Detect USB boot. Will enter fastboot mode!\n");
 		if (!env_get("bootcmd"))
 			env_set("bootcmd", "fastboot 0");
+		break;
+	case USB2_BOOT:
+		printf("Fastb: Detect USB boot. Will enter fastboot mode!\n");
+		if (!env_get("bootcmd"))
+			env_set("bootcmd", "fastboot 1");
 		break;
 	default:
 		if (!env_get("bootcmd"))
@@ -402,7 +407,7 @@ void fastboot_setup(void)
 #endif
 }
 
-static void fastboot_putc(struct stdio_dev *dev, const char c)
+static void fastboot_putc(const struct stdio_dev *dev, const char c)
 {
 	char buff[6] = "INFO";
 	buff[4] = c;
@@ -412,7 +417,7 @@ static void fastboot_putc(struct stdio_dev *dev, const char c)
 
 #define FASTBOOT_MAX_LEN 64
 
-static void fastboot_puts(struct stdio_dev *dev, const char *s)
+static void fastboot_puts(const struct stdio_dev *dev, const char *s)
 {
 	char buff[FASTBOOT_MAX_LEN + 1] = "INFO";
 	int len = strlen(s);

@@ -9,6 +9,7 @@
 #include <command.h>
 #include <console.h>
 #include <display_options.h>
+#include <image.h>			/* parse_loadaddr(), ... */
 #include <memalign.h>
 #include <mmc.h>
 #include <part.h>
@@ -354,7 +355,7 @@ static int do_mmc_read(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 4)
 		return CMD_RET_USAGE;
 
-	addr = (void *)hextoul(argv[1], NULL);
+	addr = (void *)parse_loadaddr(argv[1], NULL);
 	blk = hextoul(argv[2], NULL);
 	cnt = hextoul(argv[3], NULL);
 
@@ -447,7 +448,7 @@ static int do_mmc_write(struct cmd_tbl *cmdtp, int flag,
 	if (argc != 4)
 		return CMD_RET_USAGE;
 
-	addr = (void *)hextoul(argv[1], NULL);
+	addr = (void *)parse_loadaddr(argv[1], NULL);
 	blk = hextoul(argv[2], NULL);
 	cnt = hextoul(argv[3], NULL);
 
@@ -604,48 +605,25 @@ static int do_mmc_list(struct cmd_tbl *cmdtp, int flag,
 }
 
 #if CONFIG_IS_ENABLED(MMC_HW_PARTITIONING)
-static void parse_hwpart_user_enh_size(struct mmc *mmc,
-				       struct mmc_hwpart_conf *pconf,
-				       char *argv)
+static unsigned int parse_value(struct mmc *mmc, char *arg)
 {
-	int i, ret;
+	unsigned int value;
+	char *end;
 
-	pconf->user.enh_size = 0;
-
-	if (!strcmp(argv, "-"))	{ /* The rest of eMMC */
-		ALLOC_CACHE_ALIGN_BUFFER(u8, ext_csd, MMC_MAX_BLOCK_LEN);
-		ret = mmc_send_ext_csd(mmc, ext_csd);
-		if (ret)
-			return;
-		/* The enh_size value is in 512B block units */
-		pconf->user.enh_size =
-			((ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT + 2] << 16) +
-			(ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT + 1] << 8) +
-			ext_csd[EXT_CSD_MAX_ENH_SIZE_MULT]) * 1024 *
-			ext_csd[EXT_CSD_HC_ERASE_GRP_SIZE] *
-			ext_csd[EXT_CSD_HC_WP_GRP_SIZE];
-		pconf->user.enh_size -= pconf->user.enh_start;
-		for (i = 0; i < ARRAY_SIZE(mmc->capacity_gp); i++) {
-			/*
-			 * If the eMMC already has GP partitions set,
-			 * subtract their size from the maximum USER
-			 * partition size.
-			 *
-			 * Else, if the command was used to configure new
-			 * GP partitions, subtract their size from maximum
-			 * USER partition size.
-			 */
-			if (mmc->capacity_gp[i]) {
-				/* The capacity_gp is in 1B units */
-				pconf->user.enh_size -= mmc->capacity_gp[i] >> 9;
-			} else if (pconf->gp_part[i].size) {
-				/* The gp_part[].size is in 512B units */
-				pconf->user.enh_size -= pconf->gp_part[i].size;
-			}
-		}
-	} else {
-		pconf->user.enh_size = dectoul(argv, NULL);
+	/*
+	 * Normally U-Boot only uses hex numbers for offsets and sizes, but to
+	 * be compatible with the mainline version, accept decimal by default.
+	 */
+	value = simple_strtoul(arg, &end, 0);
+	if (end && (*end == '\%')) {
+		if (value > 100)
+			value = 100;
+		value *= mmc->max_enh_size_mult;
+		value /= 100;
+		value *= mmc->hc_wp_grp_size;
 	}
+
+	return value;
 }
 
 static int parse_hwpart_user(struct mmc *mmc, struct mmc_hwpart_conf *pconf,
@@ -659,9 +637,8 @@ static int parse_hwpart_user(struct mmc *mmc, struct mmc_hwpart_conf *pconf,
 		if (!strcmp(argv[i], "enh")) {
 			if (i + 2 >= argc)
 				return -1;
-			pconf->user.enh_start =
-				dectoul(argv[i + 1], NULL);
-			parse_hwpart_user_enh_size(mmc, pconf, argv[i + 2]);
+			pconf->user.enh_start = parse_value(mmc, argv[i+1]);
+			pconf->user.enh_size = parse_value(mmc, argv[i+2]);
 			i += 3;
 		} else if (!strcmp(argv[i], "wrrel")) {
 			if (i + 1 >= argc)
@@ -681,8 +658,8 @@ static int parse_hwpart_user(struct mmc *mmc, struct mmc_hwpart_conf *pconf,
 	return i;
 }
 
-static int parse_hwpart_gp(struct mmc_hwpart_conf *pconf, int pidx,
-			   int argc, char *const argv[])
+static int parse_hwpart_gp(struct mmc *mmc, struct mmc_hwpart_conf *pconf,
+			   int pidx, int argc, char *const argv[])
 {
 	int i;
 
@@ -690,7 +667,7 @@ static int parse_hwpart_gp(struct mmc_hwpart_conf *pconf, int pidx,
 
 	if (1 >= argc)
 		return -1;
-	pconf->gp_part[pidx].size = dectoul(argv[0], NULL);
+	pconf->gp_part[pidx].size = parse_value(mmc, argv[0]);
 
 	i = 1;
 	while (i < argc) {
@@ -738,7 +715,7 @@ static int do_mmc_hwpartition(struct cmd_tbl *cmdtp, int flag,
 	while (i < argc) {
 		if (!strcmp(argv[i], "user")) {
 			i++;
-			r = parse_hwpart_user(mmc, &pconf, argc - i, &argv[i]);
+			r = parse_hwpart_user(mmc, &pconf, argc-i, &argv[i]);
 			if (r < 0)
 				return CMD_RET_USAGE;
 			i += r;
@@ -747,7 +724,7 @@ static int do_mmc_hwpartition(struct cmd_tbl *cmdtp, int flag,
 			   argv[i][2] >= '1' && argv[i][2] <= '4') {
 			pidx = argv[i][2] - '1';
 			i++;
-			r = parse_hwpart_gp(&pconf, pidx, argc-i, &argv[i]);
+			r = parse_hwpart_gp(mmc, &pconf, pidx, argc-i, &argv[i]);
 			if (r < 0)
 				return CMD_RET_USAGE;
 			i += r;
@@ -1285,13 +1262,10 @@ U_BOOT_CMD(
 	"         if not assigned, write protect all boot partitions\n"
 #if CONFIG_IS_ENABLED(MMC_HW_PARTITIONING)
 	"mmc hwpartition <USER> <GP> <MODE> - does hardware partitioning\n"
-	"  arguments (sizes in 512-byte blocks):\n"
-	"   USER - <user> <enh> <start> <cnt> <wrrel> <{on|off}>\n"
-	"	: sets user data area attributes\n"
-	"   GP - <{gp1|gp2|gp3|gp4}> <cnt> <enh> <wrrel> <{on|off}>\n"
-	"	: general purpose partition\n"
-	"   MODE - <{check|set|complete}>\n"
-	"	: mode, complete set partitioning completed\n"
+	"  arguments (sizes in 512-byte blocks or in percent by adding \%):\n"
+	"    [user [enh start cnt] [wrrel {on|off}]] - sets user data area attributes\n"
+	"    [gp1|gp2|gp3|gp4 cnt [enh] [wrrel {on|off}]] - general purpose partition\n"
+	"    [check|set|complete] - mode, complete set partitioning completed\n"
 	"  WARNING: Partitioning is a write-once setting once it is set to complete.\n"
 	"  Power cycling is required to initialize partitions after set to complete.\n"
 #endif

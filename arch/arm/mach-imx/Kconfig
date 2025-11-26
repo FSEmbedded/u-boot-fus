@@ -36,7 +36,7 @@ config IMX_RDC
 
 config IMX_BOOTAUX
 	bool "Support boot auxiliary core"
-	depends on ARCH_MX7 || ARCH_MX6 || ARCH_VF610 || ARCH_IMX8 || ARCH_IMX8M
+	depends on ARCH_MX7 || ARCH_MX7ULP || ARCH_MX6 || ARCH_VF610 || ARCH_IMX8 || ARCH_IMX8M
 	select LIB_ELF
 	help
 	  bootaux [addr] to boot auxiliary core.
@@ -102,6 +102,19 @@ config CSF_SIZE
 	help
 	  Define the maximum size for Command Sequence File (CSF) binary
 	  this information is used to define the image boot data.
+
+config FS_SECURE_BOOT
+	bool "Support FS variant of Secure Boot"
+	select IMX_HAB
+	select CMD_HAB_FUSE if ARCH_IMX8M
+	help
+	  This option enables the support for F&S secure boot (HAB).
+
+config FS_SECURE_BOOT_DEBUG
+	bool "Additional information during Secure Boot process"
+	depends on FS_SECURE_BOOT
+	help
+	  This options activates F&S Secure Boot specific debug messages.
 
 config CMD_BMODE
 	bool "Support the 'bmode' command"

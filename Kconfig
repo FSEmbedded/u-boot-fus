@@ -567,6 +567,26 @@ config PLATFORM_ELFENTRY
 	default "__start" if MIPS
 	default "_start"
 
+config DISASM
+	bool "Create a disassembler listing of U-Boot"
+	help
+	  Create a disassembler listing u-boot.dis after building.
+	  This can be used to find code or compiler problems.
+
+config SPL_DISASM
+	bool "Create a disassembler listing of SPL"
+	depends on DISASM
+	depends on SPL
+	help
+	  Create a disassembler listing spl.dis after building.
+
+config TPL_DISASM
+	bool "Create a disassembler listing of TPL"
+	depends on DISASM
+	depends on TPL
+	help
+	  Create a disassembler listing tpl.dis after building.
+
 config STACK_SIZE
 	hex "Define max stack size that can be used by U-Boot"
 	default 0x4000000 if ARCH_VERSAL_NET || ARCH_VERSAL || ARCH_ZYNQMP

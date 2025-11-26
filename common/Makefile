@@ -30,13 +30,22 @@ obj-$(CONFIG_USB_GADGET) += usb.o
 obj-$(CONFIG_USB_STORAGE) += usb_storage.o
 obj-$(CONFIG_USB_ONBOARD_HUB) += usb_onboard_hub.o
 
+# Extended LCD support
+obj-$(CONFIG_CMD_LCD) += xlcd_panels.o
+obj-$(CONFIG_CMD_DRAW) += xlcd_draw_ll.o xlcd_drawtext_ll.o
+obj-$(CONFIG_CMD_ADRAW) += xlcd_adraw_ll.o
+obj-$(CONFIG_XLCD_CONSOLE) += xlcd_drawtext_ll.o
+obj-$(CONFIG_XLCD_PNG) += xlcd_png.o
+obj-$(CONFIG_XLCD_BMP) += xlcd_bmp.o
+obj-$(CONFIG_XLCD_JPG) += xlcd_jpg.o
+
 # others
 obj-$(CONFIG_CONSOLE_MUX) += iomux.o
 obj-$(CONFIG_MTD_NOR_FLASH) += flash.o
 obj-$(CONFIG_CMD_KGDB) += kgdb.o kgdb_stubs.o
 obj-$(CONFIG_I2C_EDID) += edid.o
 obj-$(CONFIG_KALLSYMS) += kallsyms.o
-obj-y += splash.o
+obj-$(CONFIG_SPLASH_SCREEN) += splash.o
 obj-$(CONFIG_SPLASH_SOURCE) += splash_source.o
 obj-$(CONFIG_MENU) += menu.o
 obj-$(CONFIG_UPDATE_COMMON) += update.o
@@ -99,7 +108,7 @@ obj-y += command.o
 obj-$(CONFIG_$(SPL_TPL_)LOG) += log.o
 obj-$(CONFIG_$(SPL_TPL_)LOG_CONSOLE) += log_console.o
 obj-$(CONFIG_$(SPL_TPL_)LOG_SYSLOG) += log_syslog.o
-obj-y += s_record.o
+obj-$(CONFIG_CMD_LOADS) += s_record.o
 obj-$(CONFIG_CMD_LOADB) += xyzModem.o
 obj-$(CONFIG_$(SPL_TPL_)YMODEM_SUPPORT) += xyzModem.o
 

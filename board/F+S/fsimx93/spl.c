@@ -65,7 +65,7 @@ int fs_board_init_dram_data(unsigned long *ptr){
 	if(!ptr)
 		return -ENODATA;
 
-	_dram_timing = (struct dram_timing_info *)*ptr;
+	_dram_timing = (struct dram_timing_info *)ptr;
 
 	return 0;
 }
@@ -118,6 +118,7 @@ static int set_gd_board_type(void)
 	SET_BOARD_TYPE("PCore93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
 	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
+	SET_BOARD_TYPE("NDCU93", BT_NDCU93, board_id, len);
 #elif defined(CONFIG_TARGET_FSIMX91)
 	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
 	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
@@ -137,6 +138,7 @@ int board_early_init_f(void)
 			imx_iomux_v3_setup_multiple_pads(lpuart7_pads, ARRAY_SIZE(lpuart7_pads));
 			init_uart_clk(LPUART7_CLK_ROOT);
 			break;
+		case BT_NDCU93:
 		case BT_EFUSMX93:
 		case BT_OSMSFMX93:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
@@ -163,7 +165,8 @@ int board_fit_config_name_match(const char *name)
 #if defined(CONFIG_TARGET_FSIMX93)
 	CHECK_BOARD_TYPE_AND_NAME("picocoremx93", BT_PICOCOREMX93, name);
 	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX93, name);
-	CHECK_BOARD_TYPE_AND_NAME("efusmx93", BT_EFUSMX93, name);
+	CHECK_BOARD_TYPE_AND_NAME("efusmx93-SINTF", BT_EFUSMX93, name);
+	CHECK_BOARD_TYPE_AND_NAME("netdcumx93", BT_NDCU93, name);
 #elif defined(CONFIG_TARGET_FSIMX91)
 	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX91, name);
 	CHECK_BOARD_TYPE_AND_NAME("efusmx91", BT_EFUSMX91, name);

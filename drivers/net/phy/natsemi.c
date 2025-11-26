@@ -114,6 +114,32 @@ U_BOOT_PHY_DRIVER(dp83865) = {
 };
 
 /* NatSemi DP83848 */
+#define MIIM_DP83848_RBR 0x17
+#define MIIM_DP83848_PHYCR 0x19
+
+static int dp83848_config(struct phy_device *phydev)
+{
+	int reg;
+
+#if 0
+	/* Switch to RMII rev. 1.0 (instead of rev. 1.2) */
+	reg = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_DP83848_RBR);
+	reg |= 0x10;
+	phy_write(phydev, MDIO_DEVAD_NONE, MIIM_DP83848_RBR, reg);
+#endif
+
+	reg = phy_read(phydev, MDIO_DEVAD_NONE, MIIM_DP83848_PHYCR);
+	/* LED Mode 2: Show ethernet activity on LINK LED */
+	reg &= ~0x20;
+	/* Auto-MDIX: Enable automatic crossover detection */
+	reg |= 0x8000;
+	phy_write(phydev, MDIO_DEVAD_NONE, MIIM_DP83848_PHYCR, reg);
+
+	genphy_config(phydev);
+
+	return 0;
+}
+
 static int dp83848_parse_status(struct phy_device *phydev)
 {
 	int mii_reg;
@@ -149,9 +175,10 @@ static int dp83848_startup(struct phy_device *phydev)
 U_BOOT_PHY_DRIVER(dp83848) = {
 	.name = "NatSemi DP83848",
 	.uid = 0x20005c90,
-	.mask = 0x2000ff90,
+	.mask = 0xfffffff0,
+//###??	.mask = 0x2000ff90,
 	.features = PHY_BASIC_FEATURES,
-	.config = &dp838xx_config,
+	.config = &dp83848_config,
 	.startup = &dp83848_startup,
 	.shutdown = &genphy_shutdown,
 };

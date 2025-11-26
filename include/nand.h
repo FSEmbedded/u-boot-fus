@@ -84,6 +84,9 @@ struct nand_erase_options {
 
 typedef struct nand_erase_options nand_erase_options_t;
 
+int nand_convert_skip_bad(struct mtd_info *mtd, loff_t offset, size_t *length,
+			  loff_t lim, u_char *buffer);
+
 int nand_read_skip_bad(struct mtd_info *mtd, loff_t offset, size_t *length,
 		       size_t *actual, loff_t lim, u_char *buffer);
 
@@ -139,5 +142,11 @@ void sunxi_nand_init(void);
  * returns pointer to the nand device info structure or NULL on failure.
  */
 struct mtd_info *get_nand_dev_by_index(int dev);
+
+/* Get offset where the given copy of the environment starts */
+loff_t board_nand_get_env_offset(struct mtd_info *mtd, int copy);
+
+/* Get the range of the environment in NAND, typically erase block aligned */
+loff_t board_nand_get_env_range(struct mtd_info *mtd);
 
 #endif /* _NAND_H_ */
