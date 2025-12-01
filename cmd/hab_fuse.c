@@ -132,5 +132,5 @@ static int do_hab_close(struct cmd_tbl *cmdtp, int flag, int argc, char *const a
 	return 0;
 }
 
-U_BOOT_CMD(hab_fuse, 3, 0, do_hab_fuse, "usage", "[addr] [-f]")
-U_BOOT_CMD(hab_close, 2, 0, do_hab_close, "usage", "[-f]")
+U_BOOT_CMD(hab_fuse, 3, 0, do_hab_fuse, "usage", "[addr] [-f]");
+U_BOOT_CMD(hab_close, 2, 0, do_hab_close, "usage", "[-f]");
