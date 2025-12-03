@@ -448,6 +448,24 @@ static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent, struct fs_head
 	puts("\n");
 }
 
+#ifdef CONFIG_FS_SECURE_BOOT
+/**
+ *  A signed NBoot has an additional ivt header in between two fs-headers.
+ *  We need to skip it if detected. This also causes the list command to
+ *  show [padding/unknown data] for the CSF which is fine for now.
+ */ 
+static struct fs_header_v1_0 * fs_image_check_for_ivt(struct fs_header_v1_0 *fsh,
+						      uintptr_t *offs)
+{
+	if (fs_image_is_fs_image(fsh) || *(uint8_t*)fsh != 0xD1)
+		return fsh;
+
+	fsh += 1;
+	*offs += FSH_SIZE;
+	return fsh;
+}
+#endif
+
 enum parse_type {
 	PARSE_CONTENT,
 	PARSE_CHECKSUM,
@@ -569,6 +587,11 @@ static void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs, i
 	level++;
 
 	fsh_sub = (struct fs_header_v1_0 *)(addr + offs);
+
+#ifdef CONFIG_FS_SECURE_BOOT
+	fsh_sub = fs_image_check_for_ivt(fsh_sub, &offs);
+#endif
+
 	if(!fs_image_is_fs_image(fsh_sub))
 		return;
 
