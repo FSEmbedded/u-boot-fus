@@ -1262,7 +1262,7 @@ static struct fs_header_v1_0 *find_board_info_in_imx8_img(
 #if CONFIG_IS_ENABLED(IMX_HAB)
 	else {
 		if(fs_image_is_signed(fsh)){
-			memcpy((void *)(fsh + 0x40), (void *)(fsh + 0x80), fsh->info.file_size_low + 0x2000);
+			memcpy((void *)((uintptr_t)fsh + 0x40), (void *)((uintptr_t)fsh + 0x80), fsh->info.file_size_low + 0x2000);
 		}
 	}
 #endif
