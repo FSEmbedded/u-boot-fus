@@ -192,7 +192,7 @@ bool fs_image_is_fs_image(const struct fs_header_v1_0 *fsh)
 /* Return the intended address of the board configuration in OCRAM */
 void *fs_image_get_regular_cfg_addr(void)
 {
-	return (void*)CFG_FUS_BOARDCFG_ADDR;
+	return (void*)CONFIG_FUS_BOARDCFG_ADDR;
 }
 
 /* Return the real address of the board configuration in OCRAM */
