@@ -5,7 +5,136 @@
  * Hartmut Keller, F&S Elektronik Systeme GmbH, keller@fs-net.de
  *
  *
- * F&S image processing
+ * F&S image processing for fsimx8m architectures in SPL
+ *
+ * When the SPL starts it needs to know what board it is running on. Usually
+ * this information is read from NAND or eMMC. It then selects the correct DDR
+ * RAM settings, initializes DRAM and then loads the ATF (and probably other
+ * images like opTEE).
+ *
+ * Originally all these parts are all separate files: DRAM timings, DRAM
+ * training firmware, the SPL code itself, the ATF code, board configurations,
+ * etc. By using F&S headers, these files are all combined in one image that
+ * is called NBoot.
+ *
+ * However if the board is empty (after having been assembled), or if the
+ * configuration does not work for some reason, it is necessary to use the SDP
+ * Serial Download Protocol to provide the configuration information.
+ * Unfortunately the NBoot file is too big to fit in any available OCRAM and
+ * TCM memory. But splitting NBoot in smaller parts and downloading separately
+ * one after the other is also very uncomfortable and error prone. So the idea
+ * was to interpret the data *while* it is downloaded. We call this
+ * "streaming" the NBoot configuration file. Every time a meaningful part is
+ * fully received, it is used to do the next part of the initialization.
+ *
+ * This detection is done by looking at the F&S headers. Each header gives
+ * information for the next part of data. The following is a general view of
+ * the NBoot structure.
+ *
+ *   +------------------------------------------+
+ *   | BOARD-ID (id) (optional)                 | CRC32 header
+ *   |   +--------------------------------------+
+ *   |   | NBOOT (arch)                         | Signed / CRC32 header+image
+ *   |   |   +----------------------------------+
+ *   |   |   | SPL (arch)                       | Signed / CRC32 header+image
+ *   |   |   +----------------------------------+
+ *   |   |   | BOARD-INFO (arch)                | CRC32 header
+ *   |   |   |   +------------------------------+
+ *   |   |   |   | BOARD-CFG (id)               | Signed / CRC32 header+image
+ *   |   |   |   +------------------------------+
+ *   |   |   |   | BOARD-CFG (id)               | Signed / CRC32 header+image
+ *   |   |   |   +------------------------------+
+ *   |   |   |   | ...                          |
+ *   |   |   |---+------------------------------+
+ *   |   |   | DRAM-INFO (arch)                 | CRC32 header
+ *   |   |   |   +------------------------------+
+ *   |   |   |   | DRAM-TYPE (ddr3l)            | CRC32 header
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-FW (ddr3l)          | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-TIMING (ram-chip)   | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-TIMING (ram-chip)   | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | ...                      |
+ *   |   |   |   +---+--------------------------+
+ *   |   |   |   | DRAM-TYPE (ddr4)             | CRC32 header
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-FW (ddr4)           | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-TIMING (ram-chip)   | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-TIMING (ram-chip)   | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | ...                      |
+ *   |   |   |   +---+--------------------------+
+ *   |   |   |   | DRAM-TYPE (lpddr4)           | CRC32 header
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-FW (lpddr4)         | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-TIMING (ram-chip)   | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | DRAM-TIMING (ram-chip)   | Signed / CRC32 header+image
+ *   |   |   |   |   +--------------------------+
+ *   |   |   |   |   | ...                      |
+ *   |   |   +---+---+--------------------------+
+ *   |   |   | ATF (arch)                       | Signed / CRC32 header+image
+ *   |   |   +----------------------------------+
+ *   |   |   | TEE (arch) (optional)            | Signed / CRC32 header+image
+ *   |   |   +---+------------------------------+
+ *   |   |   | EXTRAS                           |
+ *   |   |   |   +------------------------------+
+ *   |   |   |   | BASH-SCRIPT (addfsheader.sh) |
+ *   |   |   |   +------------------------------+
+ *   |   |   |   | BASH-SCRIPT (fsimage.sh)     |
+ *   +---+---+---+------------------------------+
+ *
+ * Comments
+ *
+ * - The BOARD-ID is only present when the board is empty; from a customers
+ *   view, NBoot has no such BOARD-ID prepended.
+ * - The BASH-SCRIPT fsimage.sh can be used to extract the individual parts
+ *   from an NBOOT image. It should be the last part in NBoot, so that it can
+ *   easily be found and extracted with some grep/tail commands.
+ *
+ * Only a subset from such an NBoot image needs to be stored on the board:
+ *
+ * - Exactly one BOARD-CFG is stored; it identifies the board.
+ * - SPL is stored in a special way so that the ROM loader can execute it.
+ * - The FIRMWARE section is stored for DRAM settings, ATF and TEE. In fact
+ *   from the DRAM settings only the specific setting for the specific board
+ *   would be needed, but it may be too complicated to extract this part only
+ *   when saving the data.
+ *
+ * When NBoot is downloaded via USB, then data is coming in automatically. We
+ * have no way of triggering the next part of data. So we need a state machine
+ * to interpret the stream data and do the necessary initializations at the
+ * time when the data is available.
+ *
+ * When loading the data from NAND or eMMC, this could theoretically be done
+ * differently, because here we can actively read the necessary parts. But
+ * as we do not want to implement two versions of the interpreter, we try to
+ * imitate the USB data flow for NAND and eMMC, too. So in the end we can use
+ * the same state machine for all configuration scenarios.
+ *
+ * When the "download" is started, we get a list of jobs that have to be done.
+ * For example:
+ *
+ * 1. Load board configuration
+ * 2. Initialize DRAM
+ * 3. Load ATF
+ *
+ * The state machine then always loads the next F&S header and decides from its
+ * type what to do next. If a specific kind of initialization is in the job
+ * list, it loads the image part and performs the necessary initialization
+ * steps. Otherwise this image part is skipped.
+ *
+ * Not all parts of an NBoot image must be present. For example as only the
+ * FIRMWARE part is stored on the board, the state machine can only perform the
+ * last two steps. This has to be taken care of by the caller. If a previous
+ * step is missing for some specific job, the job can also not be done. For
+ * example a TEE file can only be loaded to DRAM, so DRAM initialization must
+ * be done before that.
  */
 
 #include <common.h>
@@ -57,7 +186,6 @@ enum fsimg_mode {
 static enum fsimg_state {
 	FSIMG_STATE_ANY,
 	FSIMG_STATE_BOARD_CFG,
-	FSIMG_STATE_DRAM,
 	FSIMG_STATE_DRAM_TYPE,
 	FSIMG_STATE_DRAM_FW,
 	FSIMG_STATE_DRAM_TIMING,
@@ -72,7 +200,7 @@ static unsigned int jobs;
 static int nest_level;
 static const char *ram_type;
 static const char *ram_timing;
-static basic_init_t basic_init_callback;
+static basic_init_t basic_init_cb;
 static const char *layout_name;
 static struct fs_header_v1_0 one_fsh;	/* Buffer for one F&S header */
 static void *validate_addr = NULL;
@@ -132,12 +260,12 @@ void fs_image_mark_secondary_uboot(void)
 }
 
 /* Relocate dram_timing_info structure and initialize DRAM */
-static int fs_image_init_dram(void)
+static int fs_image_init_dram(const char *layout, basic_init_t basic_init)
 {
 	unsigned long *p;
 
 	/* Before we can init DRAM, we have to init the board config */
-	basic_init_callback(layout_name);
+	basic_init(layout);
 
 	/* The image starts with a pointer to the dram_timing variable */
 	p = (unsigned long *)CONFIG_SPL_DRAM_TIMING_ADDR;
@@ -220,32 +348,6 @@ static void fs_image_skip(unsigned int size)
 	fsimg_stack[nest_level].remaining -= size;
 	count = size;
 	mode = FSIMG_MODE_SKIP;
-}
-
-/* State machine: Get the next FIRMWARE job */
-static enum fsimg_state fs_image_get_fw_state(void)
-{
-	if (jobs & FSIMG_JOB_DRAM)
-		return FSIMG_STATE_DRAM;
-	if (jobs & FSIMG_JOB_ATF)
-		return FSIMG_STATE_ATF;
-	if (jobs & FSIMG_JOB_TEE)
-		return FSIMG_STATE_TEE;
-
-	return FSIMG_STATE_ANY;
-}
-
-/* State machine: Switch to next FIRMWARE state or skip remaining images */
-static void fs_image_next_fw(void)
-{
-	enum fsimg_state next = fs_image_get_fw_state();
-
-	if (next != FSIMG_STATE_ANY)
-		fs_image_next_header(next);
-	else {
-		state = next;
-		fs_image_skip(fsimg_stack[nest_level].remaining);
-	}
 }
 
 /* Return if header matches and CRC32 over header is OK */
@@ -387,27 +489,10 @@ static void fs_image_handle_header(void)
 		} else if (fs_image_match_check(&one_fsh, "BOARD-INFO", arch)) {
 			fs_image_enter(size, FSIMG_STATE_BOARD_CFG);
 			handled = true;
-		} else if (!(jobs & FSIMG_JOB_CFG)
-			   && fs_image_match_check(&one_fsh, "FIRMWARE", arch)) {
-			enum fsimg_state next = fs_image_get_fw_state();
-
-			if (next != FSIMG_STATE_ANY) {
-				fs_image_enter(size, next);
-				handled = true;
-			}
-		}
-		break;
-
-	case FSIMG_STATE_BOARD_CFG:
-		if (fs_image_match_board_id(&one_fsh)) {
-			fs_image_copy(fs_image_get_cfg_addr(), NULL, size, true);
-			handled = true;
-		}
-		break;
-
-	case FSIMG_STATE_DRAM:
-		/* Get DRAM type and DRAM timing from BOARD-CFG */
-		if (fs_image_match_check(&one_fsh, "DRAM-INFO", arch)) {
+		} else if (jobs & FSIMG_JOB_CFG) {
+			/* Cannot handle remaining images without BOARD-CFG */
+			break;
+		} else if (fs_image_match_check(&one_fsh, "DRAM-INFO", arch)) {
 			void *fdt = fs_image_get_cfg_fdt();
 			int offs = fs_image_get_board_cfg_offs(fdt);
 			int rev_offs;
@@ -422,6 +507,13 @@ static void fs_image_handle_header(void)
 			debug("Looking for: %s, %s\n", ram_type, ram_timing);
 
 			fs_image_enter(size, FSIMG_STATE_DRAM_TYPE);
+			handled = true;
+		}
+		break;
+
+	case FSIMG_STATE_BOARD_CFG:
+		if (fs_image_match_board_id(&one_fsh)) {
+			fs_image_copy(fs_image_get_cfg_addr(), NULL, size, true);
 			handled = true;
 		}
 		break;
@@ -483,7 +575,6 @@ static void fs_image_handle_image(void)
 
 	switch (state) {
 	case FSIMG_STATE_ANY:
-	case FSIMG_STATE_DRAM:
 	case FSIMG_STATE_DRAM_TYPE:
 		/* Should not happen, we do not load these images */
 		break;
@@ -511,7 +602,7 @@ static void fs_image_handle_image(void)
 	case FSIMG_STATE_DRAM_TIMING:
 		/* If DRAM timing is OK, start DRAM and mark job as done */
 		if (fs_image_validate_spl("DRAM-TIMING", ram_timing)) {
-			if (fs_image_init_dram()) {
+			if (fs_image_init_dram(layout_name, basic_init_cb)) {
 				debug("Init DDR succeeded\n");
 				jobs &= ~FSIMG_JOB_DRAM;
 			} else
@@ -526,14 +617,14 @@ static void fs_image_handle_image(void)
 		/* If ATF is OK, marks job as done */
 		if (fs_image_validate_spl("ATF", fs_image_get_arch()))
 			jobs &= ~FSIMG_JOB_ATF;
-		fs_image_next_fw();
+		fs_image_next_header(FSIMG_STATE_TEE);
 		break;
 
 	case FSIMG_STATE_TEE:
 		/* If TEE is OK, mark job as done */
 		if (fs_image_validate_spl("TEE", fs_image_get_arch()))
 			jobs &= ~FSIMG_JOB_TEE;
-		fs_image_next_fw();
+		fs_image_next_header(FSIMG_STATE_ANY);
 		break;
 	}
 }
@@ -568,7 +659,7 @@ static void fs_image_handle_skip(void)
 		break;
 
 	case FSIMG_STATE_DRAM_TYPE:
-		fs_image_next_fw();
+		fs_image_next_header(FSIMG_STATE_ATF);
 		break;
 
 	case FSIMG_STATE_DRAM_FW:
@@ -577,8 +668,13 @@ static void fs_image_handle_skip(void)
 		fs_image_skip(fsimg->remaining);
 		break;
 
-	case FSIMG_STATE_DRAM:
 	case FSIMG_STATE_ATF:
+		if (jobs & FSIMG_JOB_TEE)
+			fs_image_next_header(FSIMG_STATE_TEE);
+		else
+			fs_image_next_header(FSIMG_STATE_ANY);
+		break;
+
 	case FSIMG_STATE_TEE:
 		fs_image_next_header(FSIMG_STATE_ANY);
 		break;
@@ -613,7 +709,7 @@ static void fs_image_start(unsigned int size, unsigned int jobs_todo,
 			   basic_init_t basic_init, const char *layout)
 {
 	jobs = jobs_todo;
-	basic_init_callback = basic_init;
+	basic_init_cb = basic_init;
 	layout_name = layout;
 	nest_level = -1;
 	fs_image_enter(size, FSIMG_STATE_ANY);
@@ -644,7 +740,7 @@ static void fs_image_sdp_rx_data(u8 *data_buf, int data_len)
 /* This is called when the SDP protocol starts a new file */
 static void fs_image_sdp_new_file(void *dnl_address, uint size)
 {
-	fs_image_start(size, jobs, basic_init_callback, NULL);
+	fs_image_start(size, jobs, basic_init_cb, NULL);
 }
 
 static const struct sdp_stream_ops fs_image_sdp_stream_ops = {
@@ -661,7 +757,7 @@ void fs_image_all_sdp(bool need_cfg, basic_init_t basic_init)
 		jobs |= FSIMG_JOB_CFG;
 
 	jobs = jobs_todo;
-	basic_init_callback = basic_init;
+	basic_init_cb = basic_init;
 
 	/* Stream the file and load appropriate parts */
 	spl_sdp_stream_image(&fs_image_sdp_stream_ops, true);
@@ -856,6 +952,7 @@ static int fs_image_get_flash_info_spl_mmc(struct flash_info_spl *fi)
 }
 #endif /* CONFIG_MMC */
 
+#if 0 //###
 /* Load FIRMWARE from MMC/NAND using state machine */
 static int fs_image_loop(struct flash_info_spl *fi, struct fs_header_v1_0 *cfg,
 			 unsigned int start)
@@ -917,6 +1014,155 @@ static int fs_image_loop(struct flash_info_spl *fi, struct fs_header_v1_0 *cfg,
 
 	return 0;
 }
+#endif //### 0
+
+/* Load F&S sub-image with given type/descr from flash to validation address,
+   validate image, copy to dest address and return size */
+int fs_image_load_system_sub(struct flash_info_spl *fi, unsigned int start,
+			     const char *type, const char *descr, void *dest,
+			     void *validate, unsigned int *size)
+{
+	int err;
+
+	err = fi->load(start, FSH_SIZE, &one_fsh);
+	if (err)
+		return err;
+
+	if (!fs_image_match(&one_fsh, type, descr))
+		return -ENOENT;
+
+	*size = fs_image_get_size(&one_fsh, true);
+
+	if (!validate)
+		validate = dest;
+
+#ifndef CONFIG_FS_SECURE_BOOT
+	if (!(one_fsh.info.flags & (FSH_FLAGS_SECURE | FSH_FLAGS_CRC32))) {
+		/* If no CRC32 is active, load directly to final address */
+		err = fi->load(start + FSH_SIZE, *size - FSH_SIZE, dest);
+		validate = NULL;
+	} else
+#endif
+	{
+		/* Load image to validation address first */
+		err = fi->load(start, *size, validate);
+	}
+	if (err)
+		return err;
+
+	/* Validate image and copy to final address */
+	validate_addr = validate;
+	final_addr = dest;
+	keep_fs_header = false;
+	if (!fs_image_validate_spl(type, descr))
+		return -EBADMSG;
+
+	return 0;
+}
+
+int fs_image_load_system_copy(struct flash_info_spl *fi, basic_init_t basic_init,
+			      int copy)
+{
+	void *cfg;
+	unsigned int start, atf_start;
+	unsigned int size;
+	void *fdt;
+	int offs, rev_offs;
+	int err;
+	void *atf_addr = (void *)CONFIG_SPL_ATF_ADDR;
+	const char *arch = fs_image_get_arch();
+
+	/* Load BOARD-CFG to OCRAM and validate */
+	err = fi->set_hwpart(fi, copy);
+	if (err)
+		return err;
+
+	start = fi->offs[copy];
+	err = fi->load(start, FSH_SIZE, &one_fsh);
+	if (err)
+		return err;
+	if (!fs_image_match(&one_fsh, "BOARD-CFG", NULL))
+		return -ENOENT;
+	size = fs_image_get_size(&one_fsh, true);
+	cfg = fs_image_get_cfg_addr();
+	err = fi->load(start, size, cfg);
+	if (err)
+		return err;
+	if (!fs_image_is_ocram_cfg_valid())
+		return -EBADMSG;
+
+	/* BOARD-CFG successfully loaded */
+	fs_image_set_board_id_from_cfg();
+	debug("Got valid BOARD-CFG from flash\n");
+
+	/* basic_init == NULL means only load BOARD-CFG */
+	if (!basic_init)
+		return 0;
+
+	/* Load necessary data from BOARD-CFG */
+	fdt = fs_image_find_cfg_fdt(cfg);
+	if (!fdt)
+		return -EINVAL;
+
+	/* Get atf-start offset from layout subnode in nboot-info */
+	offs = fs_image_get_nboot_info_offs(fdt);
+	if (offs < 0)
+		return -EINVAL;
+
+	offs = fdt_subnode_offset(fdt, offs, fi->layout);
+	if (offs < 0)
+		return -EINVAL;
+
+	atf_start = fdt_getprop_u32_default_node(fdt, offs, 0, "atf-start", 0);
+	if (!atf_start)
+		return -EINVAL;
+
+	/* Get dram_type and dram_timing from board-cfg */
+	offs = fs_image_get_board_cfg_offs(fdt);
+	rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
+	ram_type = fs_image_getprop(fdt, offs, rev_offs, "dram-type", NULL);
+	ram_timing = fs_image_getprop(fdt, offs, rev_offs, "dram-timing", NULL);
+
+	/* Load DRAM-FW behind SPL, using ATF address for validation */
+	start += size;
+	err = fs_image_load_system_sub(fi, start, "DRAM-FW", ram_type,
+				       &_end, atf_addr, &size);
+	if (err)
+		return err;
+
+	/* Load DRAM-TIMING to DRAM-TIMING addr, using ATF addr for validation */
+	start += size;
+	err = fs_image_load_system_sub(fi, start, "DRAM-TIMING", ram_timing,
+				       (void *)CONFIG_SPL_DRAM_TIMING_ADDR,
+				       atf_addr, &size);
+	if (err)
+		return err;
+
+	if (!fs_image_init_dram(fi->layout, basic_init)) {
+		debug("Init DDR failed\n");
+		return -EINVAL;
+	}
+	debug("Init DDR succeeded\n");
+
+	/* Load ATF to ATF address, validate in place */
+	start = atf_start;
+	err = fs_image_load_system_sub(fi, start, "ATF", arch,
+				       atf_addr, NULL, &size);
+	if (err)
+		return err;
+
+
+#ifdef CONFIG_OPTEE
+	/* Load TEE to TEE address, validate in place */
+	start += size;
+	err = fs_image_load_system_sub(fi, start, "TEE", arch,
+				       (void *)CONFIG_SPL_TEE_ADDR, NULL, &size);
+	if (err)
+		return err;
+#endif
+
+	return 0;
+}
 
 /* Load the BOARD-CFG and (if basic_init is not NULL) the FIRMWARE */
 int fs_image_load_system(enum boot_device boot_dev, bool secondary,
@@ -924,9 +1170,6 @@ int fs_image_load_system(enum boot_device boot_dev, bool secondary,
 {
 	int copy, start_copy;
 	struct flash_info_spl fi;
-
-	unsigned int start;
-	void *cfg = fs_image_get_cfg_addr();
 	int err;
 
 	switch (boot_dev) {
@@ -951,34 +1194,16 @@ int fs_image_load_system(enum boot_device boot_dev, bool secondary,
 	start_copy = secondary ? 1 : 0;
 	copy = start_copy;
 	do {
-		start = fi.offs[copy];
+		err = fs_image_load_system_copy(&fi, basic_init, copy);
+		if (!err)
+			return 0;
 
-		/* Load BOARD-CFG to OCRAM (normal load) and validate */
-		if (!fi.set_hwpart(&fi, copy)
-		    && !fi.load(start, FSH_SIZE, &one_fsh)
-		    && fs_image_match(&one_fsh, "BOARD-CFG", NULL)
-		    && !fi.load(start, fs_image_get_size(&one_fsh, true), cfg)
-		    && fs_image_is_ocram_cfg_valid())
- 		{
-			/* BOARD-CFG successfully loaded */
-			fs_image_set_board_id_from_cfg();
-			debug("Got valid BOARD-CFG from flash\n");
-
-			/* basic_init == NULL means only load BOARD-CFG */
-			if (!basic_init)
-				return 0;
-
-			/* Try to load FIRMWARE (with state machine) */
-			fs_image_start(FSH_SIZE, FSIMG_FW_JOBS, basic_init,
-				       fi.layout);
-			if (!fs_image_loop(&fi, cfg, start) && !jobs)
-				return 0;
-		}
+		debug("System copy %d failed to load\n", copy);
 
 		/* No, did not work, try other copy. */
 		copy = 1 - copy;
 	} while (copy != start_copy);
 
-	return -ENOENT;
+	return err;
 }
 #endif /* !defined(CONFIG_FS_CNTR_COMMON) */

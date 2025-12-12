@@ -8,7 +8,7 @@ include spl/include/autoconf.mk
 # NBoot version with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_VERSION = 2025.07
+NBOOT_VERSION = 2025.12
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
 # names given in the Selectsoft WaWi for the board, without the PCB revision.
@@ -93,19 +93,13 @@ endif
 RT_LPDDR4 := lpddr4_fw.fs $(RT_LPDDR4)
 RT_DDR4 := ddr4_fw.fs $(RT_DDR4)
 
-# List of files to add to FIRMWARE image
-ifeq ($(CONFIG_OPTEE),y)
-FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs $(BOARD)_optee.fs
-else
-FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs
-endif
-
 # List of files to add to EXTRA image
 EXTRA_FILES = addfsheader.sh.fs fsimage.sh.fs
 
 # List of files to add to NBOOT image
 NBOOT_FILES = $(BOARD)_spl.fs $(BOARD)_board_info.fs \
-	$(BOARD)_firmware.fs $(BOARD)_extra.fs
+	$(BOARD)_dram_info.fs $(BOARD)_atf.fs \
+	$(if $(CONFIG_OPTEE),$(BOARD)_optee.fs) $(BOARD)_extra.fs
 
 # Final NBOOT image
 NBOOT = $(BOARD)_nboot.fs
@@ -119,7 +113,6 @@ OBJ_BOARD_CONFIGS = $(addprefix $(obj)/, $(BOARD_CONFIGS))
 OBJ_RT_LPDDR4 = $(addprefix $(obj)/, $(RT_LPDDR4))
 OBJ_RT_DDR4 = $(addprefix $(obj)/, $(RT_DDR4))
 OBJ_DRAM_TYPES = $(addprefix $(obj)/, $(DRAM_TYPES))
-OBJ_FIRMWARE_FILES = $(addprefix $(obj)/, $(FIRMWARE_FILES))
 OBJ_EXTRA_FILES = $(addprefix $(obj)/, $(EXTRA_FILES))
 OBJ_NBOOT_FILES = $(addprefix $(obj)/, $(NBOOT_FILES))
 OBJ_NBOOT = $(addprefix $(obj)/, $(NBOOT))
@@ -212,8 +205,6 @@ $(obj)/ddr4_type.fs: $(OBJ_RT_DDR4)
 %_optee.fs: $(NXP_PATH_TEE)
 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_TEE_ADDR) -t TEE -d $(*F))
 
-%_firmware.fs: $(OBJ_FIRMWARE_FILES)
-	$(call cmd,fsimg,-s -t FIRMWARE -d $(*F))
 
 %_spl.fs: spl/u-boot-spl.bin
 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_ATF_ADDR) -t SPL -d $(*F))

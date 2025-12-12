@@ -493,6 +493,8 @@ struct storage_info {
 #define NI_EMMC_BOTH_BOOTPARTS BIT(4)	/* On eMMC when booting from boot part,
 					   use both boot partitions, one for
 					   each copy */
+#define NI_SUPPORT_U_ATF       BIT(5)	/* Support for user defined U_ATF/U_TEE
+					   in addition to system ATF/TEE */
 
 #define MAX_SUB_IMGS	8 		/* Max Array-Size for Sub-Images */
 
@@ -501,6 +503,7 @@ struct nboot_info {
 	uint board_cfg_size;
 	struct storage_info spl;
 	struct storage_info nboot;
+	struct storage_info atf;
 	struct storage_info uboot;
 	struct storage_info env;
 };
@@ -553,6 +556,7 @@ struct flash_ops {
 	int (*prepare_region)(struct flash_info *fi, int copy,
 			      struct storage_info *si);
 	int (*save_nboot)(struct flash_info *fi, struct region_info *nboot_ri,
+			  struct region_info *atf_ri,
 			  struct region_info *spl_ri);
 	int (*set_boot_hwpart)(struct flash_info *fi, int boot_hwpart);
 	void (*get_flash)(struct flash_info *fi);
@@ -678,6 +682,8 @@ static int fs_image_get_nboot_info(struct flash_info *fi, void *fdt,
 		ni->flags |= NI_UBOOT_WITH_FSH;
 	if (fdt_getprop(fdt, offs, "uboot-emmc-bootpart", NULL))
 		ni->flags |= NI_UBOOT_EMMC_BOOTPART;
+	if (fdt_getprop(fdt, offs, "support-u-atf", NULL))
+		ni->flags |= NI_SUPPORT_U_ATF;
 #ifdef CONFIG_IMX8MM
 	/* Have a flag that not everything is in one boot partition */
 	if (fdt_getprop(fdt, offs, "emmc-both-bootparts", NULL))
@@ -2317,6 +2323,12 @@ static int fs_image_get_nboot_info_nand(struct flash_info *fi, void *fdt,
 	if (err)
 		return err;
 
+	if (ni->flags & NI_SUPPORT_U_ATF) {
+		err = fs_image_get_si(fdt, layout, align, "ATF", &ni->atf);
+		if (err)
+			return err;
+	}
+
 	err = fs_image_get_si(fdt, layout, align, "U-BOOT", &ni->uboot);
 	if (err)
 		return err;
@@ -2362,6 +2374,10 @@ static int fs_image_get_nboot_info_nand(struct flash_info *fi, void *fdt,
 	       ni->spl.start[0], ni->spl.start[1], ni->spl.size);
 	printf("- nboot: start=0x%08x/0x%08x size=0x%08x\n",
 	       ni->nboot.start[0], ni->nboot.start[1], ni->nboot.size);
+	if (ni->flags & NI_SUPPORT_U_ATF) {
+		printf("- atf:   start=0x%08x/0x%08x size=0x%08x\n",
+		       ni->atf.start[0], ni->atf.start[1], ni->atf.size);
+	}
 	printf("- uboot: start=0x%08x/0x%08x size=0x%08x\n",
 	       ni->uboot.start[0], ni->uboot.start[1], ni->uboot.size);
 	printf("- env:   start=0x%08x/0x%08x size=0x%08x env_used=0x%08x\n",
@@ -2776,6 +2792,7 @@ static int fs_image_prepare_region_nand(struct flash_info *fi, int copy,
 #define DBBT_DATA_ENTRIES (DBBT_DATA_BLOCKS - 8)
 static int fs_image_save_nboot_nand(struct flash_info *fi,
 				    struct region_info *nboot_ri,
+				    struct region_info *atf_ri,
 				    struct region_info *spl_ri)
 {
 	int failed;
@@ -3001,6 +3018,9 @@ static int fs_image_save_nboot_nand(struct flash_info *fi,
 		if (fs_image_save_region(fi, copy, nboot_ri))
 			failed |= BIT(copy);
 
+		if (atf_ri && fs_image_save_region(fi, copy, atf_ri))
+			failed |= BIT(copy);
+
 		if (fs_image_save_region(fi, copy, spl_ri))
 			failed |= BIT(copy);
 
@@ -3156,6 +3176,14 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, void *fdt,
 	ni->nboot.hwpart[0] = first;
 	ni->nboot.hwpart[1] = second;
 
+	if (ni->flags & NI_SUPPORT_U_ATF) {
+		err = fs_image_get_si(fdt, layout, align, "ATF", &ni->atf);
+		if (err)
+			return err;
+		ni->atf.hwpart[0] = first;
+		ni->atf.hwpart[1] = second;
+	}
+
 	/* Get U-Boot storage info */
 	err = fs_image_get_si(fdt, layout, align, "U-BOOT", &ni->uboot);
 	if (err)
@@ -3228,6 +3256,11 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, void *fdt,
 	printf("- nboot: start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
 	       ni->nboot.hwpart[0], ni->nboot.start[0],
 	       ni->nboot.hwpart[1], ni->nboot.start[1], ni->nboot.size);
+	if (ni->flags & NI_SUPPORT_U_ATF) {
+		printf("- atf:   start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
+		       ni->atf.hwpart[0], ni->atf.start[0],
+		       ni->atf.hwpart[1], ni->atf.start[1], ni->atf.size);
+	}
 	printf("- uboot: start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
 	       ni->uboot.hwpart[0], ni->uboot.start[0],
 	       ni->uboot.hwpart[1], ni->uboot.start[1], ni->uboot.size);
@@ -3583,6 +3616,7 @@ static void fs_image_set_spl_secondary_bit(struct region_info *spl_ri, int copy)
 /* Save NBOOT and SPL region to MMC */
 static int fs_image_save_nboot_mmc(struct flash_info *fi,
 				   struct region_info *nboot_ri,
+				   struct region_info *atf_ri,
 				   struct region_info *spl_ri)
 {
 	int failed;
@@ -3659,6 +3693,9 @@ static int fs_image_save_nboot_mmc(struct flash_info *fi,
 	do {
 		printf("\nSaving copy %d to %s:\n", copy, fi->devname);
 		if (fs_image_save_region(fi, copy, nboot_ri))
+			failed |= BIT(copy);
+
+		if (atf_ri && fs_image_save_region(fi, copy, atf_ri))
 			failed |= BIT(copy);
 
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
@@ -4019,9 +4056,11 @@ static int fsimage_imx8_load(ulong addr, bool load_uboot)
 {
 	struct sub_info sub;
 	struct fs_header_v1_0 *nboot_fsh, *board_info_fsh, *board_cfg_fsh;
+	struct fs_header_v1_0 *dram_info_fsh;
 	struct flash_info fi;
 	struct nboot_info ni;
 	void *fdt;
+	const char *arch;
 
 	nboot_fsh = (void *)addr;
 
@@ -4046,9 +4085,11 @@ static int fsimage_imx8_load(ulong addr, bool load_uboot)
 	if (fi.ops->load_extra(&fi, &ni.spl, nboot_fsh + 1))
 		return CMD_RET_FAILURE;
 
+	arch = fs_image_get_arch();
+
 	/* Load SPL behind the NBOOT F&S header that is filled later */
 	sub.type = "SPL";
-	sub.descr = fs_image_get_arch();
+	sub.descr = arch;
 	sub.img = nboot_fsh + 1;
 	sub.offset = 0;
 	sub.flags = SUB_IS_SPL;
@@ -4075,18 +4116,64 @@ static int fsimage_imx8_load(ulong addr, bool load_uboot)
 	}
 
 	/* Create BOARD-INFO header */
-	sub.descr = fs_image_get_arch();
+	sub.descr = arch;
 	if (ni.flags & NI_SUPPORT_CRC32)
 		sub.type = "BOARD-INFO";
 	else
 		sub.type = "BOARD-CONFIGS";
 	fs_image_set_header(board_info_fsh, sub.type, sub.descr, sub.size, 0);
 
-	/* Load FIRMWARE */
-	sub.type = "FIRMWARE";
-	sub.offset = ni.board_cfg_size ? ni.board_cfg_size : sub.size;
-	if (fs_image_load_image(&fi, &ni.nboot, &sub))
-		return CMD_RET_FAILURE;
+	if (ni.flags & NI_SUPPORT_U_ATF) {
+		/* Load DRAM-FW behind DRAM-INFO/DRAM-TYPE (filled in later) */
+		dram_info_fsh = sub.img;
+		sub.type = "DRAM-FW";
+		sub.descr = NULL;
+		sub.img = dram_info_fsh + 2;
+		sub.flags = SUB_HAS_FS_HEADER;
+		sub.offset += sub.size;
+		if (fs_image_load_image(&fi, &ni.nboot, &sub))
+			return CMD_RET_FAILURE;
+
+		/* Load DRAM-TIMING */
+		sub.type = "DRAM-TIMING";
+		sub.descr = NULL;
+		sub.flags = SUB_HAS_FS_HEADER;
+		sub.offset += sub.size;
+		if (fs_image_load_image(&fi, &ni.nboot, &sub))
+			return CMD_RET_FAILURE;
+
+		/* Create DRAM-TYPE header, use descr from DRAM-FW */
+		sub.type = "DRAM-TYPE";
+		sub.descr = (dram_info_fsh + 2)->param.descr;
+		fs_image_set_header(dram_info_fsh + 1, sub.type, sub.descr,
+				    sub.img - (void *)(dram_info_fsh + 2), 0);
+
+		/* Create DRAM-INFO header */
+		sub.type = "DRAM-INFO";
+		sub.descr = arch;
+		fs_image_set_header(dram_info_fsh, sub.type, sub.descr,
+				    sub.img - (void *)(dram_info_fsh + 1), 0);
+
+		/* Load ATF */
+		sub.type = "ATF";
+		sub.offset = 0;
+		if (fs_image_load_image(&fi, &ni.atf, &sub))
+			return CMD_RET_FAILURE;
+
+#ifdef CONFIG_IMX_OPTEE
+		/* Load TEE */
+		sub.type = "TEE";
+		sub.offset += sub.size;
+		if (fs_image_load_image(&fi, &ni.atf, &sub))
+			return CMD_RET_FAILURE;
+#endif
+	} else {
+		/* Simply load the whole FIRMWARE sub-image */
+		sub.type = "FIRMWARE";
+		sub.offset = ni.board_cfg_size ? ni.board_cfg_size : sub.size;
+		if (fs_image_load_image(&fi, &ni.nboot, &sub))
+			return CMD_RET_FAILURE;
+	}
 
 	/* Fill overall NBOOT header */
 	debug("  ");
@@ -4480,8 +4567,8 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 	struct fs_header_v1_0 firmware_fsh, dram_info_fsh, dram_type_fsh;
 	struct fs_header_v1_0 cfg_fsh_bak;
 	uint firmware_start, dram_info_start, dram_type_start;
-	struct region_info nboot_ri, spl_ri;
-	struct sub_info nboot_sub[MAX_SUB_IMGS], spl_sub;
+	struct region_info nboot_ri, spl_ri, atf_ri, *p_ri = &nboot_ri;
+	struct sub_info nboot_sub[MAX_SUB_IMGS], spl_sub, atf_sub[2];
 	void *uboot_addr, *env_addr, *envred_addr;
 	struct region_info uboot_ri, env_ri, envred_ri;
 	struct sub_info uboot_sub, env_sub, envred_sub;
@@ -4609,10 +4696,42 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 			return CMD_RET_FAILURE;
 	}
 
+	/*
+	 * NBoot Layout in flash memory
+	 * ----------------------------
+	 *
+	 * without U-ATF support:                         with U-ATF support:
+	 * SPL region:                     nboot-info     SPL region:
+	 * +----------------------------+ <-spl_start---> +--------------------+
+	 * | 0: SPL                     |                 | 0: SPL             |
+	 * +----------------------------+                 +--------------------+
+	 *
+	 * NBOOT region:                                  NBOOT region:
+	 * +----------------------------+ <-nboot_start-> +--------------------+
+	 * | 0: BOARD-CFG (padded)|     |                 | 0: BOARD-CFG       |
+	 * +----------------------------+                 +--------------------+
+	 * | 1: FIRMWARE                |                 | 1: DRAM-FW         |
+	 * |   +------------------------+                 +--------------------+
+	 * |   | 2: DRAM-INFO           |                 | 2. DRAM-TIMING     |
+	 * |   |   +--------------------+                 +--------------------+
+	 * |   |   | 3: DRAM-TYPE       |
+	 * |   |   |   +----------------+
+	 * |   |   |   | 4: DRAM-FW     |
+	 * |   |   |   +----------------+
+	 * |   |   |   | 5: DRAM-TIMING |                 ATF region:
+	 * |   +---+---+----------------+     atf_start-> +--------------------+
+	 * |   | 6: ATF                 |                 | 0: ATF/U-ATF       |
+	 * |   +------------------------+                 +--------------------+
+	 * |   | 7: TEE (opt.)          |                 | 1: TEE/U-TEE (opt.)|
+         * +---+------------------------+                 +--------------------+
+	 *
+	 * The numbers indicate the index of the sub-image within the region.
+	 */
+
 	/* Prepare subimages for NBOOT region */
 	fs_image_region_create(&nboot_ri, &ni.nboot, nboot_sub);
 
-	/* Sub 0: BOARD-CFG */
+	/* Start with BOARD-CFG */
 	flags = SUB_HAS_FS_HEADER;
 	if (ni.board_cfg_size)
 		flags |= SUB_SYNC;
@@ -4621,76 +4740,103 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 	if (!woffset)
 		return CMD_RET_FAILURE;
 
-	/* Sub 1: FIRMWARE header */
+	/* Very old NBoots need BOARD-CFG padded to 8KB (board_cfg_size) */
 	if (ni.board_cfg_size)
 		woffset = ni.board_cfg_size;
-	woffset = fs_image_region_add_fsh(&nboot_ri, &firmware_fsh, "FIRMWARE",
-					  arch, woffset);
-	if (!woffset)
-		return CMD_RET_FAILURE;
-	firmware_start = woffset;
 
-	/* Sub 2: DRAM-INFO/SETTINGS header */
-	if (ni.flags & NI_SUPPORT_CRC32)
-		type = "DRAM-INFO";
-	else
-		type = "DRAM-SETTINGS";
-	woffset = fs_image_region_add_fsh(&nboot_ri, &dram_info_fsh, type,
-					  arch, woffset);
-	if (!woffset)
-		return CMD_RET_FAILURE;
-	dram_info_start = woffset;
+	/* FIRMWARE/DRAM-INFO/DRAM-TYPE only needed for old NBoots */
+	if (!(ni.flags & NI_SUPPORT_U_ATF)) {
+		/* Add a FIRMWARE header */
+		woffset = fs_image_region_add_fsh(&nboot_ri, &firmware_fsh,
+						  "FIRMWARE", arch, woffset);
+		if (!woffset)
+			return CMD_RET_FAILURE;
+		firmware_start = woffset;
 
-	/* Sub 3: DRAM-TYPE header */
-	woffset = fs_image_region_add_fsh(&nboot_ri, &dram_type_fsh,
-					  "DRAM-TYPE", dram_type, woffset);
-	if (!woffset)
-		return CMD_RET_FAILURE;
-	dram_type_start = woffset;
+		/* Add a DRAM-INFO/SETTINGS header */
+		if (ni.flags & NI_SUPPORT_CRC32)
+			type = "DRAM-INFO";
+		else
+			type = "DRAM-SETTINGS";
+		woffset = fs_image_region_add_fsh(&nboot_ri, &dram_info_fsh,
+						  type, arch, woffset);
+		if (!woffset)
+			return CMD_RET_FAILURE;
+		dram_info_start = woffset;
 
+		/* Add a DRAM-TYPE header */
+		woffset = fs_image_region_add_fsh(&nboot_ri, &dram_type_fsh,
+						  "DRAM-TYPE", dram_type,
+						  woffset);
+		if (!woffset)
+			return CMD_RET_FAILURE;
+		dram_type_start = woffset;
+	}
 
-	/* Sub 4: DRAM-FW image */
+	/* Add the DRAM-FW image needed on this board */
 	flags = SUB_HAS_FS_HEADER;
 	woffset = fs_image_region_find_add(&nboot_ri, nboot_fsh, "DRAM-FW",
 					   dram_type, woffset, flags);
 	if (!woffset)
 		return CMD_RET_FAILURE;
 
-	/* Sub 5: DRAM-TIMING image */
+	/*
+	 * Add the DRAM-TIMING image needed on this board; in case of U-ATF
+	 * support, this is the last image of the NBOOT region and ATF/TEE go
+	 * to the separate ATF region.
+	 */
+	if (ni.flags & NI_SUPPORT_U_ATF)
+		flags |= SUB_SYNC;
 	woffset = fs_image_region_find_add(&nboot_ri, nboot_fsh, "DRAM-TIMING",
 					   dram_timing, woffset, flags);
 	if (!woffset)
 		return CMD_RET_FAILURE;
 
-	/* Update size and CRC32 (header only) for DRAM-TYPE and DRAM-INFO */
-	fs_image_update_header(&dram_type_fsh, woffset - dram_type_start,
-			       FSH_FLAGS_SECURE);
-	/* "DRAM-SETTINGS" is too long, cannot write CRC32 in this case */
-	fs_image_update_header(&dram_info_fsh, woffset - dram_info_start,
-			 (ni.flags & NI_SUPPORT_CRC32) ? FSH_FLAGS_SECURE : 0);
+	if (ni.flags & NI_SUPPORT_U_ATF) {
+		/* In case of U-ATF support, start ATF region */
+		fs_image_region_create(&atf_ri, &ni.atf, atf_sub);
+		p_ri = &atf_ri;
+		woffset = 0;
+	} else {
+		/* Update size and CRC32 (header only) for DRAM-TYPE header */
+		fs_image_update_header(&dram_type_fsh, woffset - dram_type_start,
+				       FSH_FLAGS_SECURE);
 
-	/* Sub 6: ATF image */
+		/*
+		 * Update size and CRC32 (header only) for DRAM-INFO header;
+		 * in case of "DRAM-SETTINGS", the type string is too long and
+		 * there is no room for the CRC32.
+		 */
+		fs_image_update_header(&dram_info_fsh, woffset - dram_info_start,
+			   (ni.flags & NI_SUPPORT_CRC32) ? FSH_FLAGS_SECURE : 0);
+	}
+
+	/* Add ATF image */
 	type = "ATF";
+	flags = SUB_HAS_FS_HEADER;
 #ifdef CONFIG_IMX_OPTEE
-	woffset = fs_image_region_find_add(&nboot_ri, nboot_fsh, type, arch,
+	woffset = fs_image_region_find_add(p_ri, nboot_fsh, type, arch,
 					   woffset, flags);
 	if (!woffset)
 		return CMD_RET_FAILURE;
 
-	/* Sub 7: TEE image */
+	/* Add TEE image */
 	type = "TEE";
 #endif
 	/* Last image, set SUB_SYNC */
-	woffset = fs_image_region_find_add(&nboot_ri, nboot_fsh, type, arch,
+	woffset = fs_image_region_find_add(p_ri, nboot_fsh, type, arch,
 					   woffset, flags | SUB_SYNC);
 	if (!woffset)
 		return CMD_RET_FAILURE;
 
-	/* Update size and CRC32 (header only) for FIRMWARE */
-	fs_image_update_header(&firmware_fsh, woffset - firmware_start,
-			       FSH_FLAGS_SECURE);
+	if (!(ni.flags & NI_SUPPORT_U_ATF)) {
+		/* Update size and CRC32 (header only) for FIRMWARE */
+		fs_image_update_header(&firmware_fsh, woffset - firmware_start,
+				       FSH_FLAGS_SECURE);
+		p_ri = NULL;
+	}
 
-	/* Prepare SPL region: sub 0: SPL */
+	/* Prepare SPL region: SPL */
 	fs_image_region_create(&spl_ri, &ni.spl, &spl_sub);
 	woffset = fs_image_region_find_add(&spl_ri, nboot_fsh, "SPL",
 					   arch, 0, SUB_IS_SPL | SUB_SYNC);
@@ -4739,8 +4885,9 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 
 	/* Finally save NBOOT */
 	if (failed != 3) {
-		int nboot_failed = fi.ops->save_nboot(&fi, &nboot_ri, &spl_ri);
+		int nboot_failed;
 
+		nboot_failed = fi.ops->save_nboot(&fi, &nboot_ri, p_ri, &spl_ri);
 		if (!failed || (nboot_failed == 3))
 			failed = nboot_failed;
 	}
