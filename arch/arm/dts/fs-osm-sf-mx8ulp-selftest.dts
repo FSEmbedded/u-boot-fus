@@ -1,0 +1,437 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+* Copyright 2025 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
+
+#include "fs-osm-sf-mx8ulp.dtsi"
+
+&reg_usb1_vbus {
+	/delete-property/ gpio;
+};
+
+&reg_usb2_vbus {
+	/delete-property/ gpio;
+};
+
+&reg_sdio_a_pwr {
+	/delete-property/ gpio;
+};
+
+&reg_disp_vdd_en {
+	/delete-property/ gpio;
+};
+
+&reg_disp_bl {
+	/delete-property/ gpio;
+};
+
+&osm_eth_a {
+	status = "disabled";
+};
+
+&osm_uart_a {
+	status = "disabled";
+};
+
+// &osm_uart_b {
+// 	status = "disabled";
+// };
+
+// &osm_uart_c {
+// 	status = "disabled";
+// };
+
+// &osm_uart_d {
+// 	status = "disabled";
+// };
+
+&osm_i2c_b {
+	status = "disabled";
+};
+
+&osm_i2c_cam {
+	status = "disabled";
+};
+
+&emmc {
+	is-emmc;
+};
+
+&osm_sdio_a {
+	status = "disabled";
+};
+
+&osm_dsi_pwm {
+	status = "disabled";
+};
+
+// &osm_pwm_1 {
+// 	status = "disabled";
+// };
+
+// &osm_pwm_2 {
+// 	status = "disabled";
+// };
+
+// &osm_pwm_3_4 {
+// 	status = "disabled";
+// };
+
+/{
+	iomuxc0: pinctrl@280a1000 {
+		compatible = "fsl,imx8ulp-iomuxc0";
+		reg = <0x280a1000 0x10000>;
+	};
+
+	gpioa: gpioa@28800000 {
+		compatible = "fsl,imx8ulp-gpio", "fsl,imx7ulp-gpio";
+		reg = <0x28800080 0x1000>, <0x28800040 0x40>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		clocks = <&sosc>, <&sosc>;
+		clock-names = "gpio", "port";
+		gpio-ranges = <&iomuxc0 0 0 25>;
+	};
+
+	gpiob: gpiob@28810000 {
+		compatible = "fsl,imx8ulp-gpio", "fsl,imx7ulp-gpio";
+		reg = <0x28810080 0x1000>, <0x28810040 0x40>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		clocks = <&sosc>, <&sosc>;
+		clock-names = "gpio", "port";
+		gpio-ranges = <&iomuxc0 0 25 16>;
+	};
+
+	gpioc: gpiob@28820000 {
+		compatible = "fsl,imx8ulp-gpio", "fsl,imx7ulp-gpio";
+		reg = <0x28820080 0x1000>, <0x28820040 0x40>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		clocks = <&sosc>, <&sosc>;
+		clock-names = "gpio", "port";
+		gpio-ranges = <&iomuxc0 0 41 24>;
+	};
+};
+
+#define gCAN_A_TX		<&gpioa 12 0>
+#define gCAN_A_RX		<&gpioa 13 0>
+#define gCAN_B_TX		<0>
+#define gCAN_B_RX		<0>
+
+#define gETH_MDC		<&gpioe 15 0>
+#define gETH_MDIO		<&gpioe 14 0>
+#define gETH_A_MII_TX_CLK	<0>
+#define gETH_A_MII_TX_EN	<&gpioe 16 0>
+#define gETH_A_MII_TXD0		<&gpioe 23 0>
+#define gETH_A_MII_TXD1		<&gpioe 22 0>
+#define gETH_A_MII_TXD2		<0>
+#define gETH_A_MII_TXD3		<0>
+#define gETH_A_MII_RX_CLK	<&gpioe 19 0>
+#define gETH_A_MII_RX_DV	<&gpioe 18 0>
+#define gETH_A_MII_RXD0		<&gpioe 21 0>
+#define gETH_A_MII_RXD1		<&gpioe 20 0>
+#define gETH_A_MII_RXD2		<0>
+#define gETH_A_MII_RXD3		<0>
+
+#define gETH_B_MDC		<0>
+#define gETH_B_MDIO		<0>
+#define gETH_B_MII_TX_CLK	<0>
+#define gETH_B_MII_TX_EN	<0>
+#define gETH_B_MII_TXD0		<0>
+#define gETH_B_MII_TXD1		<0>
+#define gETH_B_MII_TXD2		<0>
+#define gETH_B_MII_TXD3		<0>
+#define gETH_B_MII_RX_CLK	<0>
+#define gETH_B_MII_RX_DV	<0>
+#define gETH_B_MII_RXD0		<0>
+#define gETH_B_MII_RXD1		<0>
+#define gETH_B_MII_RXD2		<0>
+#define gETH_B_MII_RXD3		<0>
+
+#define gGPIO_A_0		<&gpioc 0 0>
+#define gGPIO_A_1		<&gpioc 3 0>
+#define gGPIO_A_2		<&gpioc 11 0>
+#define gGPIO_A_3		<&gpioc 13 0>
+#define gGPIO_A_4		<&gpioc 14 0>
+#define gGPIO_A_5		<&gpioc 15 0>
+
+#define gGPIO_B_0		<&gpioc 16 0>
+#define gGPIO_B_1		<&gpiob 5 0>
+#define gGPIO_B_2		<&gpiob 6 0>
+#define gGPIO_B_3		<&gpioa 0 0>
+#define gGPIO_B_4		<&gpioa 24 0>
+#define gGPIO_B_5		<&gpiof 31 0>
+#define gGPIO_B_6		<&gpiof 30 0>
+#define gGPIO_B_7		<&gpiof 29 0>
+
+#define gGPIO_C_0		<&gpioe 0 0>
+#define gGPIO_C_1		<&gpioe 1 0>
+#define gGPIO_C_2		<0>
+#define gGPIO_C_3		<0>
+
+/* GPIO_C_4 */
+#define gDISP_VDD_EN		<&gpiof 4 0>
+/* GPIO_C_5 */
+#define gDISP_BL_EN		<&gpiof 3 0>
+/* GPIO_C_6 */
+#define gCAM_A_PWR		<&gpiob 13 0>
+/* GPIO_C_7 */
+#define gCAM_A_RST		<&gpiob 14 0>
+
+#define gI2C_B_SCL		<&gpioa 14 0>
+#define gI2C_B_SDA		<&gpioa 15 0>
+
+#define gI2C_CAM_CK		<&gpiob 1 0>
+#define gI2C_CAM_DAT		<&gpiob 0 0>
+
+#define gI2S_MCLK		<&gpioc 10 0>
+#define gI2S_LRCLK		<&gpioc 9 0>
+#define gI2S_BITCLK		<&gpioc 8 0>
+#define gI2S_A_DATA_OUT		<&gpioc 7 0>
+#define gI2S_A_DATA_IN		<&gpioc 4 0>
+#define gI2S_B_DATA_OUT		<&gpioc 6 0>
+#define gI2S_B_DATA_IN		<&gpioc 5 0>
+
+#define gDISP_BL_PWM		<&gpiof 5 0>
+#define gPWM_1			<&gpioa 9 0>
+#define gPWM_2			<&gpioa 18 0>
+#define gPWM_3			<&gpioc 1 0>
+#define gPWM_4			<&gpioc 2 0>
+#define gPWM_5			<&gpioc 12 0>
+
+#define gRGB_R0			<&gpiof 23 0>
+#define gRGB_R1			<&gpiof 22 0>
+#define gRGB_R2			<&gpiof 21 0>
+#define gRGB_R3			<&gpiof 20 0>
+#define gRGB_R4			<&gpiof 19 0>
+#define gRGB_R5			<&gpiof 18 0>
+#define gRGB_B0			<&gpiof 11 0>
+#define gRGB_B1			<&gpiof 10 0>
+#define gRGB_B2			<&gpiof 9 0>
+#define gRGB_B3			<&gpiof 8 0>
+#define gRGB_B4			<&gpiof 7 0>
+#define gRGB_B5			<&gpiof 6 0>
+#define gRGB_G0			<&gpiof 17 0>
+#define gRGB_G1			<&gpiof 16 0>
+#define gRGB_G2			<&gpiof 15 0>
+#define gRGB_G3			<&gpiof 13 0>
+#define gRGB_G4			<&gpiof 12 0>
+#define gRGB_G5			<&gpiof 11 0>
+#define gRGB_CLK		<&gpiof 24 0>
+#define gRGB_DISP		<&gpiof 1 0>
+#define gRGB_DE			<&gpiof 27 0>
+#define gRGB_HSYNC		<&gpiof 26 0>
+#define gRGB_VSYNC		<&gpiof 25 0>
+#define gRGB_RESET		<&gpiof 0 0>
+
+#define gSDIO_A_CLK		<&gpiod 22 0>
+#define gSDIO_A_CMD		<&gpiod 23 0>
+#define gSDIO_A_D0		<&gpiod 21 0>
+#define gSDIO_A_D1		<&gpiod 20 0>
+#define gSDIO_A_D2		<&gpiod 19 0>
+#define gSDIO_A_D3		<&gpiod 18 0>
+#define gSDIO_A_CD		<&gpiod 16 0>
+#define gSDIO_A_WP		<&gpiod 17 0>
+#define gSDIO_A_PWR_EN		<&gpiod 15 0>
+
+#define gSDIO_B_CLK		<0>
+#define gSDIO_B_CMD		<0>
+#define gSDIO_B_D0		<0>
+#define gSDIO_B_D1		<0>
+#define gSDIO_B_D2		<0>
+#define gSDIO_B_D3		<0>
+#define gSDIO_B_D4		<0>
+#define gSDIO_B_D5		<0>
+#define gSDIO_B_D6		<0>
+#define gSDIO_B_D7		<0>
+#define gSDIO_B_CD		<0>
+#define gSDIO_B_WP		<0>
+#define gSDIO_B_PWR_EN		<0>
+
+#define gSPI_A_SCK		<&gpioc 18 0>
+#define gSPI_A_IO0		<&gpioc 22 0>
+#define gSPI_A_IO1		<&gpioc 21 0>
+#define gSPI_A_IO2		<&gpioc 20 0>
+#define gSPI_A_IO3		<&gpioc 19 0>
+#define gSPI_A_CS0		<&gpioc 23 0>
+/* GPIO_A_6 */
+#define gSPI_A_CS1		<&gpioc 17 0>
+
+#define gSPI_B_SCK		<&gpioa 6 0>
+#define gSPI_B_SDO		<&gpioa 5 0>
+#define gSPI_B_SDI		<&gpioa 4 0>
+#define gSPI_B_CS0		<&gpioa 7 0>
+/* GPIO_A_7 */
+#define gSPI_B_CS1		<&gpioa 8 0>
+
+#define gUART_A_TX		<&gpioe 10 0>
+#define gUART_A_RX		<&gpioe 11 0>
+#define gUART_A_RTS		<&gpioe 9 0>
+#define gUART_A_CTS		<&gpioe 8 0>
+
+#define gUART_B_TX		<&gpioa 2 0>
+#define gUART_B_RX		<&gpioa 3 0>
+#define gUART_B_RTS		<&gpioa 17 0>
+#define gUART_B_CTS		<&gpioa 16 0>
+
+#define gUART_C_TX		<&gpiob 2 0>
+#define gUART_C_RX		<&gpiob 3 0>
+
+#define gUART_D_TX		<&gpioa 10 0>
+#define gUART_D_RX		<&gpioa 11 0>
+
+#define gUSB_A_EN		<&gpiod 13 0>
+#define gUSB_A_OC		<&gpiod 14 0>
+
+&ext_rtc {
+	compatible = "nxp,pcf85263";
+};
+
+&osm_i2c_a {
+	status = "okay";
+};
+
+pinctrl_uart_con_mute: &pinctrl_lpuart5 {};
+&iomuxc1 {
+	pinctrl_osm_eth_gpio: ethgpiogrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE3__PTE3		0x2
+			MX8ULP_PAD_PTE14__PTE14		0x2
+			MX8ULP_PAD_PTE15__PTE15		0x2
+			MX8ULP_PAD_PTE16__PTE16		0x2
+			MX8ULP_PAD_PTE17__PTE17		0x2
+			MX8ULP_PAD_PTE18__PTE18		0x2
+			MX8ULP_PAD_PTE19__PTE19		0x2
+			MX8ULP_PAD_PTE20__PTE20		0x2
+			MX8ULP_PAD_PTE21__PTE21		0x2
+			MX8ULP_PAD_PTE22__PTE22		0x2
+			MX8ULP_PAD_PTE23__PTE23		0x2
+		>;
+	};
+
+	pinctrl_osm_uart_gpio: uartgpiogrp {
+		fsl,pins = <
+			/* RTD */
+		>;
+	};
+
+	pinctrl_osm_i2s_gpio: i2sgpiogrp {
+		fsl,pins = <
+			/* RTD */
+		>;
+	};
+
+	pinctrl_osm_i2c_gpio: i2cgpiogrp {
+		fsl,pins = <
+			/* RTD */
+		>;
+	};
+
+	pinctrl_osm_can_gpio: cangpiogrp {
+		fsl,pins = <
+			/* RTD */
+		>;
+	};
+
+	pinctrl_osm_gpio_gpio: gpiogpiogrp {
+		fsl,pins = <
+			/* GPIO_A */
+
+			/* GPIO_B */
+			MX8ULP_PAD_PTF31__PTF31        0x2
+			MX8ULP_PAD_PTF30__PTF30        0x2
+			MX8ULP_PAD_PTF29__PTF29        0x2
+
+			/* GPIO_C */
+			MX8ULP_PAD_PTE0__PTE0          0x2
+			MX8ULP_PAD_PTE1__PTE1          0x2
+		>;
+	};
+
+	pinctrl_osm_pwm_gpio: pwmgpiogrp {
+		fsl,pins = <
+			/* PWM */
+			/* 0 DISP_BL_PWM */	MX8ULP_PAD_PTF5__PTF5	0x2
+			/* 1 */ /* RTD */
+			/* 2 */ /* RTD */
+			/* 3-5 NC */
+		>;
+	};
+
+	pinctrl_osm_rgb_gpio: rgbgpiogrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTF6__PTF6           0x2
+			MX8ULP_PAD_PTF7__PTF7           0x2
+			MX8ULP_PAD_PTF8__PTF8           0x2
+			MX8ULP_PAD_PTF9__PTF9           0x2
+			MX8ULP_PAD_PTF10__PTF10         0x2
+			MX8ULP_PAD_PTF11__PTF11         0x2
+			MX8ULP_PAD_PTF12__PTF12         0x2
+			MX8ULP_PAD_PTF13__PTF13         0x2
+			MX8ULP_PAD_PTF14__PTF14         0x2
+			MX8ULP_PAD_PTF15__PTF15         0x2
+			MX8ULP_PAD_PTF16__PTF16         0x2
+			MX8ULP_PAD_PTF17__PTF17         0x2
+			MX8ULP_PAD_PTF18__PTF18         0x2
+			MX8ULP_PAD_PTF19__PTF19         0x2
+			MX8ULP_PAD_PTF20__PTF20         0x2
+			MX8ULP_PAD_PTF21__PTF21         0x2
+			MX8ULP_PAD_PTF22__PTF22         0x2
+			MX8ULP_PAD_PTF23__PTF23         0x2
+			MX8ULP_PAD_PTF24__PTF24         0x2
+			MX8ULP_PAD_PTF25__PTF25         0x2
+			MX8ULP_PAD_PTF26__PTF26         0x2
+			MX8ULP_PAD_PTF27__PTF27         0x2
+		>;
+	};
+
+	pinctrl_osm_sdio_gpio: sdiogpiogrp {
+		fsl,pins = <
+			/* SDIO_A */
+			MX8ULP_PAD_PTD18__PTD18	0x2
+			MX8ULP_PAD_PTD19__PTD19	0x2
+			MX8ULP_PAD_PTD20__PTD20	0x2
+			MX8ULP_PAD_PTD21__PTD21	0x2
+			MX8ULP_PAD_PTD22__PTD22	0x2
+			MX8ULP_PAD_PTD23__PTD23	0x2
+			MX8ULP_PAD_PTD16__PTD16	0x2
+			MX8ULP_PAD_PTD17__PTD17	0x2
+			/* SDIO_B */
+			/* NC */
+		>;
+	};
+
+	pinctrl_osm_spi_gpio: spigpiogrp {
+		fsl,pins = <
+			/* RTD */
+		>;
+	};
+
+	pinctrl_osm_usb_gpio: usbgpiogrp{
+		fsl,pins = <
+			/* USB_A */
+			MX8ULP_PAD_PTD12__PTD12		0x2
+			MX8ULP_PAD_PTD13__PTD13		0x2
+			MX8ULP_PAD_PTD14__PTD14		0x2
+		>;
+	};
+};

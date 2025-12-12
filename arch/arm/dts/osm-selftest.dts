@@ -24,6 +24,11 @@
 #include "fs-osm-sf-mx91-selftest.dts"
 #include "fs-osm-sf-mx91-selftest-u-boot.dtsi"
 #endif
+#ifdef CONFIG_IMX8ULP
+#include "fs-osm-sf-mx8ulp-selftest.dts"
+#include "fs-osm-sf-mx8ulp-selftest-u-boot.dtsi"
+#endif
+
 
 #if 0
 &osm_can_a { status = "disabled"; };
@@ -170,7 +175,7 @@ in-gpios =
 		gUSB_A_EN,		gETH_B_MII_RXD3,	gRGB_DE,
 		gETH_B_MDIO,		gETH_B_MII_RXD2,	gI2C_CAM_CK,
 		gUART_B_RX,		gETH_A_MII_TXD0,	gCAM_A_RST;
-		
+
 		status = "okay";
 	};
 };

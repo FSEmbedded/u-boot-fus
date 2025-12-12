@@ -155,6 +155,11 @@ int board_fit_config_name_match(const char *name)
 	offs = fs_image_get_board_cfg_offs(fdt);
 	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
 
+#if CONFIG_IS_ENABLED(CMD_SELFTEST)
+	set_gd_board_type();
+	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX8ULP, name);
+#endif
+
 	if(board_fdt && !strncmp(name, board_fdt, 64))
 		return 0;
 

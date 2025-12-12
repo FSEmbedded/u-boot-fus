@@ -69,7 +69,7 @@ void spl_dram_init(void)
 		/* reinit pfd/pfddiv and lpavnic except pll4*/
 		cgc2_pll4_init(false);
 	}
-	
+
 	dram_init();
 }
 
