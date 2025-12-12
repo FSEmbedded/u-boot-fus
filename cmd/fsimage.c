@@ -3358,8 +3358,6 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 		err = fs_image_check_env_crc32(sub->img, size);
 	} else if (sub->flags & SUB_HAS_FS_HEADER) {
 		err = fs_image_check_all_crc32(sub->img);
-		if (err < 0)
-			return err;
 	} else if (fs_image_is_fs_image(sub->img)) {
 		/*
 		 * We found an F&S header on an image that may or may not have
@@ -3371,6 +3369,8 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 		size -= FSH_SIZE;
 		memmove(sub->img, sub->img + FSH_SIZE, size);
 	}
+	if (err < 0)
+		return err;
 
 	sub->size = size;
 
@@ -5158,7 +5158,6 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		goto put_fi;
 
 	/* --- Found all sub-images, everything is prepared, go and save --- */
-	failed = 0;
 
 	/**
 	 *  Save is done in two stages.
@@ -5167,15 +5166,10 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 	 */
 
 	/* Save BOOT-INFO + NBOOT */
-	if (failed != 3) {
-		int nboot_failed = fi.ops->save_nboot(&fi, &nboot_ri, &spl_ri);
-
-		if (!failed || (nboot_failed == 3))
-			failed = nboot_failed;
-	}
+	failed = fi.ops->save_nboot(&fi, &nboot_ri, NULL, &spl_ri);
 
 	/* Save U-Boot if needed */
-	if (uboot_ri.count) {
+	if ((failed != 3) && uboot_ri.count) {
 		int uboot_failed = fs_image_save_uboot(&fi, &uboot_ri);
 
 		if (!failed || (uboot_failed == 3))
