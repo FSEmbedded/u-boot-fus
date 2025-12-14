@@ -2063,6 +2063,12 @@ static int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
 				    FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE);
 	}
 
+	/*
+	 * Clear a word to invalidate any subsequent F&S images that we may
+	 * have loaded there before, e.g. a second copy of an image.
+	 */
+	*(u32 *)sub.img = 0;
+
 	return 0;
 }
 
@@ -4305,6 +4311,12 @@ static int fsimage_imx8_load(ulong addr, bool load_uboot)
 	fs_image_set_header(nboot_fsh, "NBOOT", sub.descr,
 			    sub.img - (void *)(nboot_fsh + 1),
 			    FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE);
+
+	/*
+	 * Clear a word to invalidate any subsequent F&S images that we may
+	 * have loaded there before, e.g. a second copy of an image.
+	 */
+	*(u32 *)sub.img = 0;
 
 	fs_image_put_flash_info(&fi);
 
