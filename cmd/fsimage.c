@@ -558,6 +558,8 @@ struct flash_ops {
 	int (*save_nboot)(struct flash_info *fi, struct region_info *nboot_ri,
 			  struct region_info *atf_ri,
 			  struct region_info *spl_ri);
+	int (*set_hwpart)(struct flash_info *fi, int copy,
+			  const struct storage_info *si);
 	int (*set_boot_hwpart)(struct flash_info *fi, int boot_hwpart);
 	void (*get_flash)(struct flash_info *fi);
 	void (*put_flash)(struct flash_info *fi);
@@ -1907,6 +1909,40 @@ static int fs_image_load_image(struct flash_info *fi,
 	return 0;
 }
 
+/* Load the F&S header of ATF in the ATF region, return 0 if ATF, 1 if U-ATF */
+static bool fs_image_is_u_atf(struct flash_info *fi,
+			      const struct storage_info *atf_si)
+{
+	struct fs_header_v1_0 fsh;
+	const char *arch = fs_image_get_arch();
+	int start_copy = 0;
+	int copy;
+	uint size = atf_si->size;
+	uint start;
+	uint lim;
+
+	/* Clear the temp buffer (read cache) */
+	fs_image_drop_temp(fi);
+
+	/* Find a valid copy of the ATF header */
+	copy = start_copy;
+	do {
+		fi->ops->set_hwpart(fi, copy, atf_si);
+		start = atf_si->start[copy];
+		lim = start + size;
+		if (!fs_image_load_sub(fi, start, FSH_SIZE, lim, 0, (u8 *)&fsh))
+		{
+			if (fs_image_match(&fsh, "ATF", arch))
+				return false;
+			if (fs_image_match(&fsh, "U-ATF", arch))
+				return true;
+		}
+		copy = 1 - copy;
+	} while (copy != start_copy);
+
+	return false;
+}
+
 /* Check CRC32 for an environment of given size */
 static int fs_image_check_env_crc32(void *env, uint size)
 {
@@ -1970,8 +2006,36 @@ static int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
 {
 	struct sub_info sub;
 	struct fs_header_v1_0 *uboot_fsh = addr;
+	struct fs_header_v1_0 *uboot_atf_fsh = addr;
 	uint fsh_flags = 0;
 	int err;
+	bool have_atf = false;
+	const char *arch = fs_image_get_arch();
+
+	if (ni->flags & NI_SUPPORT_U_ATF)
+		have_atf = fs_image_is_u_atf(fi, &ni->atf);
+
+	if (have_atf) {
+		/* Load U-ATF behind U-BOOT-ATF header that is filled in later */
+		sub.type = "U-ATF";
+		sub.descr = arch;
+		sub.img = uboot_atf_fsh + 1;
+		sub.offset = 0;
+		sub.flags = SUB_HAS_FS_HEADER;
+		err = fs_image_load_image(fi, &ni->atf, &sub);
+		if (err)
+			return err;
+
+#ifdef CONFIG_IMX_OPTEE
+		/* Load U-TEE */
+		sub.type = "U-TEE";
+		sub.offset += sub.size;
+		err = fs_image_load_image(fi, &ni->atf, &sub);
+		if (err)
+			return err;
+#endif
+		uboot_fsh = sub.img;
+	}
 
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	sub.type = "U-BOOT-INFO";
@@ -1979,19 +2043,25 @@ static int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
 #else
 	sub.type = "U-BOOT";
 #endif
-	sub.descr = fs_image_get_arch();
-	sub.img = addr;
+	sub.descr = arch;
+	sub.img = uboot_fsh;
 	sub.offset = 0;
 	sub.flags |= sub_flags;
-
 	err = fs_image_load_image(fi, &ni->uboot, &sub);
 	if (err)
 		return err;
 
 	/* Compute CRC32 if it is missing */
-	if(!(uboot_fsh->info.flags & (FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE)))
-		fs_image_update_header((void *)addr, sub.size,
+	if (!(uboot_fsh->info.flags & (FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE)))
+		fs_image_update_header((void *)uboot_fsh, sub.size,
 			       FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE | fsh_flags);
+
+	if (have_atf) {
+		/* Fill in U-BOOT-ATF header */
+		fs_image_set_header(uboot_atf_fsh, "U-BOOT-ATF", arch,
+				    sub.img - (void *)(uboot_atf_fsh + 1),
+				    FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE);
+	}
 
 	return 0;
 }
@@ -2216,7 +2286,8 @@ repeat:
 	return 0;
 }
 
-static int fs_image_save_uboot(struct flash_info *fi, struct region_info *ri)
+static int fs_image_save_uboot(struct flash_info *fi, struct region_info *atf_ri,
+			       struct region_info *uboot_ri)
 {
 	int failed;
 	int copy, start_copy;
@@ -2226,7 +2297,9 @@ static int fs_image_save_uboot(struct flash_info *fi, struct region_info *ri)
 	copy = start_copy;
 	do {
 		printf("\nSaving copy %d to %s:\n", copy, fi->devname);
-		if (fs_image_save_region(fi, copy, ri))
+		if (atf_ri && fs_image_save_region(fi, copy, atf_ri))
+			failed |= BIT(copy);
+		if (fs_image_save_region(fi, copy, uboot_ri))
 			failed |= BIT(copy);
 		copy = 1 - copy;
 	} while (copy != start_copy);
@@ -2295,6 +2368,12 @@ static bool fs_image_check_for_nboot_nand(struct flash_info *fi,
 	/* Nothing to be done in case of NAND */
 
 	return false;
+}
+
+static int fs_image_set_hwpart_nand(struct flash_info *fi, int copy,
+				    const struct storage_info *si)
+{
+	return 0;
 }
 
 /* Parse nboot-info for NAND settings and fill struct */
@@ -3065,6 +3144,7 @@ struct flash_ops flash_ops_nand = {
 	.write = fs_image_write_nand,
 	.prepare_region = fs_image_prepare_region_nand,
 	.save_nboot = fs_image_save_nboot_nand,
+	.set_hwpart = fs_image_set_hwpart_nand,
 	.set_boot_hwpart = fs_image_set_boot_hwpart_nand,
 	.get_flash = fs_image_get_flash_nand,
 	.put_flash = fs_image_put_flash_nand,
@@ -3346,7 +3426,7 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 	/* Clear the temp buffer (read cache) */
 	fs_image_drop_temp(fi);
 
-	err = fs_image_set_hwpart_mmc(fi, copy, si);
+	err = fi->ops->set_hwpart(fi, copy, si);
 	if (err)
 		return err;
 
@@ -3536,7 +3616,7 @@ static int fs_image_prepare_region_mmc(struct flash_info *fi, int copy,
 {
 	int err;
 
-	err = fs_image_set_hwpart_mmc(fi, copy, si);
+	err = fi->ops->set_hwpart(fi, copy, si);
 	if (err)
 		return err;
 
@@ -3803,6 +3883,7 @@ struct flash_ops flash_ops_mmc = {
 	.write = fs_image_write_mmc,
 	.prepare_region = fs_image_prepare_region_mmc,
 	.save_nboot = fs_image_save_nboot_mmc,
+	.set_hwpart = fs_image_set_hwpart_mmc,
 	.set_boot_hwpart = fs_image_set_boot_hwpart_mmc,
 	.get_flash = fs_image_get_flash_mmc,
 	.put_flash = fs_image_put_flash_mmc,
@@ -3884,31 +3965,70 @@ static void fs_image_put_flash_info(struct flash_info *fi)
 
 
 /* Handle fsimage save if loaded image is a U-Boot image */
-static int __maybe_unused do_fsimage_save_uboot(ulong addr, bool force)
+static int __maybe_unused do_fsimage_save_uboot(ulong addr, bool force,
+						bool system_atf, bool have_atf)
 {
 	void *fdt;
-	struct sub_info sub;
-	struct region_info ri;
+	struct sub_info uboot_sub, atf_sub[2];
+	struct region_info uboot_ri, atf_ri, *patf_ri = NULL;
 	struct flash_info fi;
 	struct nboot_info ni;
 	int failed;
 	uint flags;
 	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)addr;
+	const char *arch;
+	const char *type;
+	uint woffset = 0;
 
 	fdt = fs_image_get_cfg_fdt();
 	if (fs_image_get_flash_info(&fi, fdt)
 	    || fs_image_get_nboot_info(&fi, fdt, &ni, -1, false))
 		return CMD_RET_FAILURE;
 
-	fs_image_region_create(&ri, &ni.uboot, &sub);
+	arch = fs_image_get_arch();
+	if (have_atf) {
+		if (!(ni.flags & NI_SUPPORT_U_ATF)) {
+			puts("U-Boot with ATF/TEE not supported."
+			     " Maybe you need to update NBoot first.\n");
+			return CMD_RET_FAILURE;
+		}
+		if (system_atf) {
+			puts("Skipping U-ATF/U-TEE on user request\n");
+		} else {
+			/* Create ATF region */
+			patf_ri = &atf_ri;
+			fs_image_region_create(patf_ri, &ni.atf, atf_sub);
+
+			/* Add ATF image */
+			type = "U-ATF";
+			flags = SUB_HAS_FS_HEADER;
+#ifdef CONFIG_IMX_OPTEE
+			woffset = fs_image_region_find_add(patf_ri, fsh, type,
+							   arch, woffset, flags);
+			if (!woffset)
+				return CMD_RET_FAILURE;
+
+			/* Add TEE image */
+			type = "U-TEE";
+#endif
+			/* Last image, set SUB_SYNC */
+			flags |= SUB_SYNC;
+			woffset = fs_image_region_find_add(patf_ri, fsh, type,
+							   arch, woffset, flags);
+			if (!woffset)
+				return CMD_RET_FAILURE;
+		}
+	}
+
+	fs_image_region_create(&uboot_ri, &ni.uboot, &uboot_sub);
+	type = "U-BOOT";
 	flags = SUB_SYNC;
 	if (ni.flags & NI_UBOOT_WITH_FSH)
 		flags |= SUB_HAS_FS_HEADER; /* Save with F&S header */
-	if (!fs_image_region_add(&ri, fsh, "U-BOOT", fs_image_get_arch(),
-				0, flags))
+	if (!fs_image_region_find_add(&uboot_ri, fsh, type, arch, 0, flags))
 		return CMD_RET_FAILURE;
 
-	if (fs_image_validate(fsh, sub.type, sub.descr, addr))
+	if (fs_image_validate(fsh, have_atf ? "U-BOOT-ATF" : type, arch, addr))
 		return CMD_RET_FAILURE;
 
 	/* Check if all prerequisites for U-Boot are valid */
@@ -3916,11 +4036,12 @@ static int __maybe_unused do_fsimage_save_uboot(ulong addr, bool force)
 		return CMD_RET_FAILURE;
 
 	/* ### TODO: set copy depending on Set A or B (or redundant copy) */
-	failed = fs_image_save_uboot(&fi, &ri);
+	failed = fs_image_save_uboot(&fi, patf_ri, &uboot_ri);
 	fs_image_put_flash_info(&fi);
 
 	return fs_image_show_save_status(failed, "U-Boot");
 }
+
 
 /* ------------- Command implementation ------------------------------------ */
 
@@ -4154,19 +4275,23 @@ static int fsimage_imx8_load(ulong addr, bool load_uboot)
 		fs_image_set_header(dram_info_fsh, sub.type, sub.descr,
 				    sub.img - (void *)(dram_info_fsh + 1), 0);
 
-		/* Load ATF */
-		sub.type = "ATF";
-		sub.offset = 0;
-		if (fs_image_load_image(&fi, &ni.atf, &sub))
-			return CMD_RET_FAILURE;
+		if (fs_image_is_u_atf(&fi, &ni.atf)) {
+			puts("Skipping U-ATF/U-TEE\n");
+		} else {
+			/* Load ATF */
+			sub.type = "ATF";
+			sub.offset = 0;
+			if (fs_image_load_image(&fi, &ni.atf, &sub))
+				return CMD_RET_FAILURE;
 
 #ifdef CONFIG_IMX_OPTEE
-		/* Load TEE */
-		sub.type = "TEE";
-		sub.offset += sub.size;
-		if (fs_image_load_image(&fi, &ni.atf, &sub))
-			return CMD_RET_FAILURE;
+			/* Load TEE */
+			sub.type = "TEE";
+			sub.offset += sub.size;
+			if (fs_image_load_image(&fi, &ni.atf, &sub))
+				return CMD_RET_FAILURE;
 #endif
+		}
 	} else {
 		/* Simply load the whole FIRMWARE sub-image */
 		sub.type = "FIRMWARE";
@@ -4559,7 +4684,8 @@ int do_fsimage_load(int argc, char * const argv[])
 }
 
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
+static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force,
+			     bool system_atf)
 {
 	struct index_info cfg_info = {0};
 	struct fs_header_v1_0 *cfg_fsh;
@@ -4567,7 +4693,8 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 	struct fs_header_v1_0 firmware_fsh, dram_info_fsh, dram_type_fsh;
 	struct fs_header_v1_0 cfg_fsh_bak;
 	uint firmware_start, dram_info_start, dram_type_start;
-	struct region_info nboot_ri, spl_ri, atf_ri, *p_ri = &nboot_ri;
+	struct region_info nboot_ri, spl_ri, atf_ri;
+	struct region_info *patf_ri = NULL, *puatf_ri = NULL;
 	struct sub_info nboot_sub[MAX_SUB_IMGS], spl_sub, atf_sub[2];
 	void *uboot_addr, *env_addr, *envred_addr;
 	struct region_info uboot_ri, env_ri, envred_ri;
@@ -4591,7 +4718,9 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 
 	/* If this is an U-Boot image, handle separately */
 	if (fs_image_match((void *)addr, "U-BOOT", NULL))
-		return do_fsimage_save_uboot(addr, force);
+		return do_fsimage_save_uboot(addr, force, system_atf, false);
+	if (fs_image_match((void *)addr, "U-BOOT-ATF", NULL))
+		return do_fsimage_save_uboot(addr, force, system_atf, true);
 
 	/* Handle NBoot image */
 	ret = fs_image_find_board_cfg(addr, force, "save",
@@ -4651,6 +4780,36 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 		uboot_addr += fs_image_get_size(uboot_addr, true);
 		if (fs_image_load_uboot(&fi, &ni_old, uboot_addr, 0))
 			return CMD_RET_FAILURE;
+
+		/* Create ATF region for U-ATF/U-TEE if present */
+		if ((ni.flags & NI_SUPPORT_U_ATF)
+		    && fs_image_match(uboot_addr, "U-BOOT-ATF", arch)) {
+			puatf_ri = &atf_ri;
+			fs_image_region_create(puatf_ri, &ni.atf, atf_sub);
+
+			/* Add ATF image */
+			type = "U-ATF";
+			flags = SUB_HAS_FS_HEADER;
+			woffset = 0;
+#ifdef CONFIG_IMX_OPTEE
+			woffset = fs_image_region_find_add(puatf_ri, uboot_addr,
+							   type, arch, woffset,
+							   flags);
+			if (!woffset)
+				return CMD_RET_FAILURE;
+
+			/* Add TEE image */
+			type = "U-TEE";
+#endif
+			/* Last image, set SUB_SYNC */
+			flags |= SUB_SYNC;
+			woffset = fs_image_region_find_add(puatf_ri, uboot_addr,
+							   type, arch, woffset,
+							   flags);
+			if (!woffset)
+				return CMD_RET_FAILURE;
+			uboot_addr += woffset;
+		}
 
 		/* Prepare U-BOOT region with one sub-image */
 		fs_image_region_create(&uboot_ri, &ni.uboot, &uboot_sub);
@@ -4793,11 +4952,20 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 		return CMD_RET_FAILURE;
 
 	if (ni.flags & NI_SUPPORT_U_ATF) {
-		/* In case of U-ATF support, start ATF region */
-		fs_image_region_create(&atf_ri, &ni.atf, atf_sub);
-		p_ri = &atf_ri;
-		woffset = 0;
+		if (!system_atf && fs_image_is_u_atf(&fi, &ni.atf)) {
+			printf("Skipping ATF/TEE because U-ATF is present\n");
+		} else {
+			system_atf = true;
+
+			/* Start ATF region */
+			fs_image_region_create(&atf_ri, &ni.atf, atf_sub);
+			patf_ri = &atf_ri;
+			woffset = 0;
+		}
 	} else {
+		/* Always store ATF/TEE */
+		system_atf = true;
+
 		/* Update size and CRC32 (header only) for DRAM-TYPE header */
 		fs_image_update_header(&dram_type_fsh, woffset - dram_type_start,
 				       FSH_FLAGS_SECURE);
@@ -4811,29 +4979,31 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 			   (ni.flags & NI_SUPPORT_CRC32) ? FSH_FLAGS_SECURE : 0);
 	}
 
-	/* Add ATF image */
-	type = "ATF";
-	flags = SUB_HAS_FS_HEADER;
+	if (system_atf) {
+		/* Add ATF image */
+		type = "ATF";
+		flags = SUB_HAS_FS_HEADER;
 #ifdef CONFIG_IMX_OPTEE
-	woffset = fs_image_region_find_add(p_ri, nboot_fsh, type, arch,
-					   woffset, flags);
-	if (!woffset)
-		return CMD_RET_FAILURE;
+		woffset = fs_image_region_find_add(patf_ri, nboot_fsh, type,
+						   arch, woffset, flags);
+		if (!woffset)
+			return CMD_RET_FAILURE;
 
-	/* Add TEE image */
-	type = "TEE";
+		/* Add TEE image */
+		type = "TEE";
 #endif
-	/* Last image, set SUB_SYNC */
-	woffset = fs_image_region_find_add(p_ri, nboot_fsh, type, arch,
-					   woffset, flags | SUB_SYNC);
-	if (!woffset)
-		return CMD_RET_FAILURE;
+		/* Last image, set SUB_SYNC */
+		flags |= SUB_SYNC;
+		woffset = fs_image_region_find_add(patf_ri, nboot_fsh, type,
+						   arch, woffset, flags);
+		if (!woffset)
+			return CMD_RET_FAILURE;
+	}
 
 	if (!(ni.flags & NI_SUPPORT_U_ATF)) {
 		/* Update size and CRC32 (header only) for FIRMWARE */
 		fs_image_update_header(&firmware_fsh, woffset - firmware_start,
 				       FSH_FLAGS_SECURE);
-		p_ri = NULL;
 	}
 
 	/* Prepare SPL region: SPL */
@@ -4861,7 +5031,7 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 	/* Save U-Boot if needed */
 	failed = 0;
 	if (need_uboot) {
-		int uboot_failed = fs_image_save_uboot(&fi, &uboot_ri);
+		int uboot_failed = fs_image_save_uboot(&fi, puatf_ri, &uboot_ri);
 
 		if (!failed || (uboot_failed == 3))
 			failed = uboot_failed;
@@ -4887,7 +5057,8 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force)
 	if (failed != 3) {
 		int nboot_failed;
 
-		nboot_failed = fi.ops->save_nboot(&fi, &nboot_ri, p_ri, &spl_ri);
+		nboot_failed = fi.ops->save_nboot(&fi, &nboot_ri, patf_ri,
+						  &spl_ri);
 		if (!failed || (nboot_failed == 3))
 			failed = nboot_failed;
 	}
@@ -5223,7 +5394,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 	if (!ret)
 		goto put_fi;
 
-	ret = fs_image_save_uboot(&fi, &uboot_ri);
+	ret = fs_image_save_uboot(&fi, NULL, &uboot_ri);
 	ret = fs_image_show_save_status(ret, "U-BOOT");
 
 	put_fi:
@@ -5317,7 +5488,7 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 
 	/* Save U-Boot if needed */
 	if ((failed != 3) && uboot_ri.count) {
-		int uboot_failed = fs_image_save_uboot(&fi, &uboot_ri);
+		int uboot_failed = fs_image_save_uboot(&fi, NULL, &uboot_ri);
 
 		if (!failed || (uboot_failed == 3))
 			failed = uboot_failed;
@@ -5381,6 +5552,7 @@ int do_fsimage_save(int argc, char * const argv[])
 	int boot_hwpart = -1;
 	ulong addr;
 	bool force = false;
+	bool system_atf = false;	/* If set, prefer ATF/TEE from NBoot */
 	int ret;
 
 	early_support_index = 0;
@@ -5410,6 +5582,12 @@ int do_fsimage_save(int argc, char * const argv[])
 			force = true;
 			argv++;
 			argc--;
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+		} else if (!strcmp(argv[1], "-s")) {
+			system_atf = true;
+			argv++;
+			argc--;
+#endif
 		} else
 			return CMD_RET_USAGE;
 	}
@@ -5422,7 +5600,7 @@ int do_fsimage_save(int argc, char * const argv[])
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	ret = fsimage_cntr_save(addr, boot_hwpart, force);
 #else
-	ret = fsimage_imx8_save(addr, boot_hwpart, force);
+	ret = fsimage_imx8_save(addr, boot_hwpart, force, system_atf);
 #endif
 
 	return ret;
@@ -5720,7 +5898,11 @@ U_BOOT_CMD(fsimage, 4, 1, do_fsimage,
 	   "    - List the content of the F&S image at <addr>\n"
 	   "fsimage load [-f] [uboot | nboot] [<addr>]\n"
 	   "    - Verify the current NBoot or U-Boot and load to <addr>\n"
-	   "fsimage save [-f] [-e <n>] [-b <n>] [<addr>]\n"
+	   "fsimage save [-f] [-e <n>] [-b <n>]"
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+	   " [-s]"
+#endif
+	   " [<addr>]\n"
 	   "    - Save the F&S image at the right place (NBoot, U-Boot)\n"
 	   "fsimage fuse [-f] [<addr> | stored]\n"
 	   "    - Program fuses according to the current BOARD-CFG.\n"
@@ -5738,5 +5920,15 @@ U_BOOT_CMD(fsimage, 4, 1, do_fsimage,
 	   "from a pre 2023.08 NBoot version, try increasing <n> until it\n"
 	   "works. Be careful when storing such an old NBoot, you need to\n"
 	   "know the right <n> or you will lose the environment.\n"
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+	   "\nIf a User-ATF is present in an U-Boot image, this replaces the\n"
+	   "System-ATF from NBoot. From then on, ATF is ignored when saving\n"
+	   "new NBoot images and has to be handled by U-Boot updates. With\n"
+	   "option -s, this behavior can be reversed to prefer the System-ATF\n"
+	   "again. Which means when saving U-Boot, any User-ATF in the image\n"
+	   "is ignored, and when saving NBoot, the System-ATF included there\n"
+	   "is saved again. (Remark: opTee, if present, must be grouped with\n"
+	   "ATF and is handled with ATF in one go.)\n"
+#endif
 );
 #endif /* __UBOOT__ */

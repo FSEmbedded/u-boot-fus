@@ -1148,17 +1148,25 @@ int fs_image_load_system_copy(struct flash_info_spl *fi, basic_init_t basic_init
 	start = atf_start;
 	err = fs_image_load_system_sub(fi, start, "ATF", arch,
 				       atf_addr, NULL, &size);
-	if (err)
-		return err;
-
+	if (err) {
+		err = fs_image_load_system_sub(fi, start, "U-ATF", arch,
+					       atf_addr, NULL, &size);
+		if (err)
+			return err;
+	}
 
 #ifdef CONFIG_OPTEE
 	/* Load TEE to TEE address, validate in place */
 	start += size;
 	err = fs_image_load_system_sub(fi, start, "TEE", arch,
 				       (void *)CONFIG_SPL_TEE_ADDR, NULL, &size);
-	if (err)
-		return err;
+	if (err) {
+		err = fs_image_load_system_sub(fi, start, "U-TEE", arch,
+					       (void *)CONFIG_SPL_TEE_ADDR,
+					       NULL, &size);
+		if (err)
+			return err;
+	}
 #endif
 
 	return 0;
