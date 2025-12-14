@@ -7,7 +7,12 @@
  * F&S image processing
  *
  */
+#if __UBOOT__
 #include <imx_container.h>
+#else
+#include "../../../include/linux/compiler_attributes.h"
+#include "../../../include/imx_container.h"
+#endif
 
 #ifndef __FS_CNTR_COMMON_H__
 #define __FS_CNTR_COMMON_H__

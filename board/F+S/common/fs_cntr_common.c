@@ -133,6 +133,7 @@
  *   +---+------------------------------------+
  */
 
+#ifdef __UBOOT__
 #include <common.h>
 #include <spl.h>
 #include <malloc.h>
@@ -140,15 +141,34 @@
 #include <asm/sections.h>
 #include <hang.h>
 #include <asm/arch/sys_proto.h>
+#include <fdt_support.h>
+#include <memalign.h>
+#include <u-boot/sha256.h>
+#include <u-boot/sha512.h>
+#include <hash.h>
 #include <image.h>
 #ifdef CONFIG_AHAB_BOOT
 #include <asm/mach-imx/ahab.h>
 #endif
 
 #include "fs_dram_common.h"
+#include "fs_bootrom.h"
+
+#else
+
+#include <linux/kconfig.h>		/* Get kconfig macros only */
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include "../../../include/u-boot/sha256.h"
+#include "../../../include/u-boot/sha512.h"
+#include "linux_helpers.h"
+#endif /* __UBOOT__ */
+
+#include <hash.h>
 #include "fs_image_common.h"
 #include "fs_cntr_common.h"
-#include "fs_bootrom.h"
 
 struct ram_info_t {
 	const char *type;
@@ -303,6 +323,7 @@ bool fs_cntr_is_signed(struct container_hdr *cntr)
  * free imx container
  * @param cntr_info: ptr to image_info for imx_container
  */
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 static void free_container(struct spl_image_info *cntr_info)
 {
 #if defined(CONFIG_AHAB_BOOT)
@@ -625,7 +646,145 @@ static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_i
 
 	return ret;
 }
+#endif /* __UBOOT__ */
 
+enum sha_types {
+	SHA_TYPE_256,
+	SHA_TYPE_384,
+	SHA_TYPE_512,
+};
+
+/*
+ * Use a "constant-length" time compare function for this
+ * hash compare:
+ *
+ * https://crackstation.net/hashing-security.htm
+ */
+static int __maybe_unused slow_equals(u8 *a, u8 *b, int len)
+{
+	int diff = 0;
+	int i;
+
+	for (i = 0; i < len; i++)
+		diff |= a[i] ^ b[i];
+
+	return diff == 0;
+}
+
+static void __maybe_unused print_hash(u8 *hash, int hash_size)
+{
+	int i;
+	for (i = 0; i < hash_size; i++) {
+		printf("%02x", hash[i]);
+	}
+	puts("\n");
+}
+
+bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
+{
+	int sha_size = HASH_MAX_DIGEST_SIZE;
+	unsigned int sha_type;
+	const char *algo_name;
+	bool ret = true;
+
+	sha_type = ((img->hab_flags & GENMASK(10,8)) >> 8);
+	switch (sha_type) {
+	case SHA_TYPE_256:
+		algo_name = "sha256";
+		break;
+	case SHA_TYPE_384:
+		algo_name = "sha384";
+		break;
+	case SHA_TYPE_512:
+		algo_name = "sha512";
+		break;
+	default:
+		sha_size = 0;
+		algo_name = "NONE";
+		break;
+	}
+
+	/* No hash in use */
+	if (sha_size > 0) {
+#ifdef __UBOOT__
+		u8 sha[HASH_MAX_DIGEST_SIZE];
+		int err;
+
+		err = hash_block(algo_name, blob, img->size, sha, &sha_size);
+		if (err) {
+			printf("Failed to calc %s: error %d\n", algo_name, err);
+			return false;
+		}
+#ifdef DEBUG
+		printf("CNTR %s is ", algo_name);
+		print_hash(img->hash, sha_size);
+		printf("Calc %s is ", algo_name);
+		print_hash(sha, sha_size);
+#endif
+		ret = slow_equals(sha, img->hash, sha_size);
+#else
+		printf("Warning: %s not implemented; assuming correct hash\n",
+		       algo_name);
+#endif /* __UBOOT__ */
+	}
+
+	return ret;
+}
+
+bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
+{
+	__maybe_unused struct container_hdr *authhdr = NULL;
+	__maybe_unused u16 cntr_length;
+	int i;
+	bool ret = false;
+	struct boot_img_t *img_idx;
+
+
+	if(!valid_container_hdr(cntr_hdr)){
+		return false;
+	}
+
+//TODO: is skipped in linux because the functionality is not fully implemented
+//      yet.
+#ifdef __UBOOT__
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	cntr_length = cntr_hdr->length_lsb + (cntr_hdr->length_msb << 8);;
+	authhdr = ahab_auth_cntr_hdr(cntr_hdr, cntr_length);
+	if(!authhdr)
+		goto ahab_release;
+#endif
+#endif
+
+	if(!cntr_hdr->num_images)
+		goto ahab_release;
+
+	img_idx = (struct boot_img_t *)((u8 *)cntr_hdr + sizeof(struct container_hdr));
+
+	for (i = 0; i < cntr_hdr->num_images; i++) {
+		void *img_ptr;
+
+		img_ptr = (void *)cntr_hdr + img_idx[i].offset;
+
+		ret = cntr_image_check_sha(&img_idx[i], img_ptr);
+		if(!ret)
+			goto ahab_release;
+	}
+
+	ahab_release:
+//TODO: skip for now because of missing functionality
+#ifdef __UBOOT__
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	ahab_auth_release();
+#endif
+#endif
+	return ret;
+}
+
+bool fs_cntr_is_signed(struct container_hdr *cntr)
+{
+	/* CHECK CNTR FLAG SRK Set*/
+	return !!(cntr->flags & GENMASK(1,0) );
+}
 
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
 /**

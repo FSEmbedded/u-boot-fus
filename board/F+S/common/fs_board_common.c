@@ -8,7 +8,7 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-
+#ifdef __UBOOT__
 #include <config.h>
 #include <env.h>			/* env_get() */
 #include <command.h>			/* run_command() */
@@ -21,8 +21,7 @@
 #if CONFIG_IS_ENABLED(MTD_RAW_NAND)
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
 #endif
-#include <dm/uclass.h>				/* uclass_get_device() */
-#include "fs_board_common.h"		/* Own interface */
+#include <dm/uclass.h>			/* uclass_get_device() */
 #include "fs_mmc_common.h"
 #ifdef CONFIG_FS_SELFTEST
 #include "fs_dram_test.h"
@@ -31,6 +30,17 @@
 #include <update.h>			/* enum update_action */
 #include "fs_fdt_common.h"
 
+#else
+
+#include <linux/kconfig.h>		/* Get kconfig macros only */
+#include <linux/bitops.h>		/* BITS_PER_LONG */
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>			/* strcmp() */
+
+#endif /* __UBOOT__ */
+
+#include "fs_board_common.h"		/* Own interface */
 #ifdef CONFIG_FS_BOARD_CFG
 #include "fs_image_common.h"		/* fs_image_*() */
 #endif
@@ -174,6 +184,7 @@ void board_nand_state(struct mtd_info *mtd, unsigned int state)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 /* Get Pointer to struct cfg_info */
 struct cfg_info *fs_board_get_cfg_info(void)
 {
@@ -219,11 +230,13 @@ int board_phys_sdram_size(phys_size_t *size)
 
 	return 0;
 }
+#endif /* __UBOOT__ */
 
 #endif /* CONFIG_FS_BOARD_CFG */
 
 /* ------------- Generic functions ----------------------------------------- */
 
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 /* Issue reset signal on up to three gpios (~0: gpio unused) */
 void fs_board_issue_reset(uint active_us, uint delay_us,
 			  uint gpio0, uint gpio1, uint gpio2)
@@ -627,7 +640,6 @@ char *get_sys_prompt(void)
 {
 	return fs_sys_prompt;
 }
-
 #ifdef CONFIG_FS_SELFTEST
 /* Return dram_result for bdinfo */
 char *get_dram_result(void)
@@ -635,6 +647,7 @@ char *get_dram_result(void)
 	return dram_result;
 }
 #endif
+#endif /* __UBOOT__ */
 
 #endif /* ! CONFIG_SPL_BUILD */
 
@@ -684,7 +697,9 @@ const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
+#ifdef __UBOOT__
 #include <fdtdec.h>
+#endif
 
 #ifdef CONFIG_IMX8
 /* Definitions in boot_cfg (fuse bank 0, word 18) */
@@ -852,8 +867,6 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	force_alt_usdhc = val & BOOT_CFG_FORCE_ALT_USDHC;
 	alt = (val & BOOT_CFG_ALT_SEL_MASK) >> BOOT_CFG_ALT_SEL_SHIFT;
 	switch ((val & BOOT_CFG_DEVSEL_MASK) >> BOOT_CFG_DEVSEL_SHIFT) {
-	case 0x1: // USB0 / USB1
-		boot_dev = get_boot_device();
 	case 0x2: // eMMC(SD3)
 		boot_dev = MMC3_BOOT;
 		if (force_alt_usdhc)
@@ -871,6 +884,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 		boot_dev = NAND_BOOT;
 		break;
 
+	case 0x1: // USB0 / USB1
 	default:
 		break;
 	}
@@ -948,6 +962,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	return boot_dev;
 }
 
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 #define IMG_CNTN_SET1_OFFSET_SHIFT 8
 #define IMG_CNTN_SET1_OFFSET_MASK GENMASK(15, IMG_CNTN_SET1_OFFSET_SHIFT)
 u32 fs_board_get_secondary_offset(void)
@@ -978,6 +993,7 @@ u32 fs_board_get_secondary_offset(void)
 
 	return offset;
 }
+#endif /* __UBOOT__ */
 #elif defined(CONFIG_IMX8ULP)
 /* Definitions in boot_cfg (fuse bank 4, word 1) */
 #define BOOT_CFG_BOOT_TYPE_SHIFT	29
@@ -1054,6 +1070,9 @@ u32 fs_board_get_secondary_offset(void)
 
 #endif /* CONFIG_FS_BOARD_CFG */
 
+//TODO: not used in linux because of missing functionality. Will  be activated
+//      when possible.
+#ifdef __UBOOT__
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 static bool imx_ele_ahab_is_enabled(void)
 {
@@ -1065,20 +1084,27 @@ static bool imx_ele_ahab_is_enabled(void)
 	// if lc != 0x8 then lifecycle is not OEM open
 	return !!(lc != 0x8);
 }
-
 #endif
+#endif /* __UBOOT__ */
 
+//TODO: not used in linux because of missing functionality. Will  be activated
+//      when possible.
 bool fs_board_is_closed(void)
 {
+#ifdef __UBOOT__
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 	return imx_ele_ahab_is_enabled();
 #elif CONFIG_IS_ENABLED(IMX_HAB)
 	return imx_hab_is_enabled();
-#endif
-
+#else
 	return false;
+#endif
+#else
+	return false;
+#endif /* __UBOOT__ */
 }
 
+#ifdef __UBOOT__
 __weak int fs_board_cma_fdt_fixup(void * fdt)
 {
 	const char *cma_env;
@@ -1129,3 +1155,4 @@ __weak int fs_board_cma_fdt_fixup(void * fdt)
 	fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	return 0;
 }
+#endif /* __UBOOT__ */

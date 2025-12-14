@@ -5,8 +5,13 @@
  */
 #include "libfdt_env.h"
 
-#include <fdt.h>
+#if __UBOOT__
 #include <libfdt.h>
+#include <fdt.h>
+#else
+#include "libfdt.h"
+#include "fdt.h"
+#endif
 
 #include "libfdt_internal.h"
 

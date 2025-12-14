@@ -86,19 +86,13 @@ RT_DDR3L := ddr3l_fw.fs $(RT_DDR3L)
 RT_LPDDR4 := lpddr4_fw.fs $(RT_LPDDR4)
 RT_DDR4 := ddr4_fw.fs $(RT_DDR4)
 
-# List of files to add to FIRMWARE image
-ifeq ($(CONFIG_OPTEE),y)
-FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs $(BOARD)_optee.fs
-else
-FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs
-endif
-
 # List of files to add to EXTRA image
 EXTRA_FILES = addfsheader.sh.fs fsimage.sh.fs
 
 # List of files to add to NBOOT image
 NBOOT_FILES = $(BOARD)_spl.fs $(BOARD)_board_info.fs \
-	$(BOARD)_firmware.fs $(BOARD)_extra.fs
+	$(BOARD)_dram_info.fs $(BOARD)_atf.fs \
+	$(if $(CONFIG_OPTEE),$(BOARD)_optee.fs) $(BOARD)_extra.fs
 
 # Final NBOOT image
 NBOOT = $(BOARD)_nboot.fs
@@ -113,7 +107,6 @@ OBJ_RT_DDR3L = $(addprefix $(obj)/, $(RT_DDR3L))
 OBJ_RT_LPDDR4 = $(addprefix $(obj)/, $(RT_LPDDR4))
 OBJ_RT_DDR4 = $(addprefix $(obj)/, $(RT_DDR4))
 OBJ_DRAM_TYPES = $(addprefix $(obj)/, $(DRAM_TYPES))
-OBJ_FIRMWARE_FILES = $(addprefix $(obj)/, $(FIRMWARE_FILES))
 OBJ_EXTRA_FILES = $(addprefix $(obj)/, $(EXTRA_FILES))
 OBJ_NBOOT_FILES = $(addprefix $(obj)/, $(NBOOT_FILES))
 OBJ_NBOOT = $(addprefix $(obj)/, $(NBOOT))
@@ -210,9 +203,6 @@ $(obj)/ddr4_type.fs: $(OBJ_RT_DDR4)
 
 %_optee.fs: $(NXP_PATH_TEE)
 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_TEE_ADDR) -t TEE -d $(*F))
-
-%_firmware.fs: $(OBJ_FIRMWARE_FILES)
-	$(call cmd,fsimg,-s -t FIRMWARE -d $(*F))
 
 MKIMAGEFLAGS_u-boot-spl-ivt.bin = -n spl/u-boot-spl.cfgout -T imx8mimage -e $(CONFIG_SPL_TEXT_BASE)
 $(obj)/u-boot-spl-ivt.bin: MKIMAGEOUTPUT = $(obj)/u-boot-spl-ivt.log
