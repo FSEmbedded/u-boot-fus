@@ -1534,9 +1534,9 @@ FS_FW_PATH = $(srctree)/board/$(VENDOR)/NXP-Firmware/$(BOARD)
 uboot.fs: $(addfsheader_target)
 	$(call cmd,addfsheader,$(FSIMG_OPT) $<)
 atf.fs: $(FS_FW_PATH)/bl31$(if $(CONFIG_OPTEE),-optee).bin
-	$(call cmd,addfsheader,-s -c -a 16 -t U-ATF -d $(BOARD) $<)
+	$(call cmd,addfsheader,-s -c -a 16 -p32[7]=${CONFIG_ATF_ADDR} -t U-ATF -d $(BOARD) $<)
 tee.fs: $(FS_FW_PATH)/bl32.bin
-	$(call cmd,addfsheader,-s -c -a 16 -t U-TEE -d $(BOARD) $<)
+	$(call cmd,addfsheader,-s -c -a 16 -p32[7]=${CONFIG_TEE_ADDR} -t U-TEE -d $(BOARD) $<)
 uboot-atf.fs: atf.fs $(if $(CONFIG_OPTEE),tee.fs) uboot.fs
 	$(call cmd,addfsheader,-s -c -a 16 -t U-BOOT-ATF -d $(BOARD) $^)
 endif
