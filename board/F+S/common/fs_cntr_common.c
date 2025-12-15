@@ -914,7 +914,7 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh[idx].type, cfg_fsh[idx].param.descr);
 
 	/* place fsh in OCRAM */
-	memcpy((void *)CFG_FUS_BOARDCFG_ADDR, &cfg_fsh[idx],
+	memcpy((void *)CONFIG_FUS_BOARDCFG_ADDR, &cfg_fsh[idx],
 			sizeof(struct fs_header_v1_0));
 
 	/* We need to skip images in stream */
@@ -942,9 +942,9 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	{
 		/**
 		 * TODO: A simple workaround to load data in other sram areas using Cortex-A.
-		 * Check between Loadaddr and CFG_FUS_BOARDCFG_ADDR and copy the binary.
+		 * Check between Loadaddr and CONFIG_FUS_BOARDCFG_ADDR and copy the binary.
 		 */
-		ulong load_addr = (CFG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0));
+		ulong load_addr = (CONFIG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0));
 
 		if ((ulong)cfg_info.load_addr != load_addr){
 			debug("FSCNTR: move board-cfg to another location!\n");

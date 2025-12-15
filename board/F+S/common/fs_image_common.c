@@ -67,7 +67,7 @@ const char *fs_image_get_arch(void)
 /* Return the intended address of the board configuration in OCRAM */
 void *fs_image_get_regular_cfg_addr(void)
 {
-	return (void*)CFG_FUS_BOARDCFG_ADDR;
+	return (void*)CONFIG_FUS_BOARDCFG_ADDR;
 }
 
 /* Return the real address of the board configuration in OCRAM */
