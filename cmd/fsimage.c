@@ -1030,6 +1030,11 @@ struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 	fsh++;
 	fsh = (void *)((ulong)fsh + extra_size);
 	while (remaining > 0) {
+#if CONFIG_IS_ENABLED(FS_SECURE_BOOT)
+		//in case of a signed Image
+		if (!fs_image_is_fs_image(fsh))
+			fsh++;
+#endif
 		if (!fs_image_is_fs_image(fsh)){
 			return NULL;
 		}
