@@ -2054,7 +2054,7 @@ static int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
 		if (err)
 			return err;
 
-#ifdef CONFIG_IMX_OPTEE
+#ifdef CONFIG_OPTEE
 		/* Load U-TEE */
 		sub.type = "U-TEE";
 		sub.offset += sub.size;
@@ -4036,7 +4036,7 @@ static int __maybe_unused do_fsimage_save_uboot(ulong addr, bool force,
 			/* Add ATF image */
 			type = "U-ATF";
 			flags = SUB_HAS_FS_HEADER;
-#ifdef CONFIG_IMX_OPTEE
+#ifdef CONFIG_OPTEE
 			woffset = fs_image_region_find_add(patf_ri, fsh, type,
 							   arch, woffset, flags);
 			if (!woffset)
@@ -4318,7 +4318,7 @@ static int fsimage_imx8_load(ulong addr, bool load_uboot)
 			if (fs_image_load_image(&fi, &ni.atf, &sub))
 				return CMD_RET_FAILURE;
 
-#ifdef CONFIG_IMX_OPTEE
+#ifdef CONFIG_OPTEE
 			/* Load TEE */
 			sub.type = "TEE";
 			sub.offset += sub.size;
@@ -4831,7 +4831,7 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force,
 			type = "U-ATF";
 			flags = SUB_HAS_FS_HEADER;
 			woffset = 0;
-#ifdef CONFIG_IMX_OPTEE
+#ifdef CONFIG_OPTEE
 			woffset = fs_image_region_find_add(puatf_ri, uboot_addr,
 							   type, arch, woffset,
 							   flags);
@@ -5023,7 +5023,7 @@ static int fsimage_imx8_save(ulong addr, int boot_hwpart, bool force,
 		/* Add ATF image */
 		type = "ATF";
 		flags = SUB_HAS_FS_HEADER;
-#ifdef CONFIG_IMX_OPTEE
+#ifdef CONFIG_OPTEE
 		woffset = fs_image_region_find_add(patf_ri, nboot_fsh, type,
 						   arch, woffset, flags);
 		if (!woffset)
