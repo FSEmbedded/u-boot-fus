@@ -1883,6 +1883,21 @@ static int fs_image_load_sub(struct flash_info *fi, uint offs, uint size,
 	return 0;
 }
 
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+static void fs_image_set_spl_secondary_bit(void *img, int copy)
+{
+	uint32_t *ivt = img;
+
+	uint32_t spl_csf = ivt[6];
+	uint32_t spl_self = ivt[5];
+	uint32_t offset_csf = spl_csf - spl_self;
+	uint32_t *real_csf = img + offset_csf;
+	uint32_t *copy_addr = real_csf - 1;
+
+	*copy_addr = copy;
+}
+#endif
+
 static int fs_image_load_image(struct flash_info *fi,
 			       const struct storage_info *si,
 			       struct sub_info *sub)
@@ -1917,6 +1932,13 @@ static int fs_image_load_image(struct flash_info *fi,
 	} else if (err || (copy0 == copy1)) {
 		printf("  Warning! One copy corrupted! Saving NBoot again may"
 		       " fix this.\n");
+	}
+
+	/* In case of SPL, set the secondary bit back to 0 before comparing */
+	if (sub->flags & SUB_IS_SPL) {
+		fs_image_set_spl_secondary_bit(copy0, 0);
+		if (copy0 != copy1)
+			fs_image_set_spl_secondary_bit(copy1, 0);
 	}
 
 	if (!err) {
@@ -3710,23 +3732,6 @@ static int fs_image_write_secondary_table(struct flash_info *fi, int copy,
 
 #endif
 
-#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-static void fs_image_set_spl_secondary_bit(struct region_info *spl_ri, int copy)
-{
-	uint32_t *ivt = *(uint32_t**)(spl_ri->sub);
-
-	uint32_t *spl_csf = ivt + 6;
-	uint32_t *spl_self = ivt + 5;
-	uint32_t offset_csf = *spl_csf - *spl_self;
-
-	//Divide by four, for pointer arithmetic
-	uint32_t *real_csf = ivt + offset_csf/4;
-	uint32_t *copy_addr = real_csf - 1;
-
-	*copy_addr = copy;
-}
-#endif
-
 /* Save NBOOT and SPL region to MMC */
 static int fs_image_save_nboot_mmc(struct flash_info *fi,
 				   struct region_info *nboot_ri,
@@ -3813,7 +3818,7 @@ static int fs_image_save_nboot_mmc(struct flash_info *fi,
 			failed |= BIT(copy);
 
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-		fs_image_set_spl_secondary_bit(spl_ri, copy);
+		fs_image_set_spl_secondary_bit(spl_ri->sub->img, copy);
 #endif
 
 		if (fs_image_save_region(fi, copy, spl_ri))
