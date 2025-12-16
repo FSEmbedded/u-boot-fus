@@ -31,9 +31,11 @@
  */
 int ivt_header_error(const char *err_str, struct ivt_header *ivt_hdr, int message)
 {
-	if (message == 1) {
-		printf("%s magic=0x%x length=0x%02x version=0x%x\n", err_str,
-		       ivt_hdr->magic, ivt_hdr->length, ivt_hdr->version);
+	if (imx_hab_is_enabled()) {
+		if (message == 1) {
+			printf("%s magic=0x%x length=0x%02x version=0x%x\n", err_str,
+			       ivt_hdr->magic, ivt_hdr->length, ivt_hdr->version);
+		}
 	}
 	return 1;
 }
