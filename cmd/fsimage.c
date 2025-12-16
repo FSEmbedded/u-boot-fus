@@ -1934,12 +1934,14 @@ static int fs_image_load_image(struct flash_info *fi,
 		       " fix this.\n");
 	}
 
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	/* In case of SPL, set the secondary bit back to 0 before comparing */
 	if (sub->flags & SUB_IS_SPL) {
 		fs_image_set_spl_secondary_bit(copy0, 0);
 		if (copy0 != copy1)
 			fs_image_set_spl_secondary_bit(copy1, 0);
 	}
+#endif
 
 	if (!err) {
 		if (copy0 == copy1)
