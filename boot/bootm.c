@@ -1020,9 +1020,14 @@ int bootm_run_states(struct bootm_info *bmi, int states)
 
 #ifdef CONFIG_FS_SECURE_BOOT
 	/* prepare images for authentification */
-	if (states & BOOTM_STATE_START)
-		if (parse_images_for_authentification(bmi->argc, bmi->argv))
+	if (states & BOOTM_STATE_START) {
+		//Neccessary for now because of different argument handling as in the past
+		char* const test_addr[] = { (char* const) bmi->addr_img,
+				            (char* const) bmi->conf_ramdisk,
+				            (char* const) bmi->conf_fdt };
+		if (parse_images_for_authentification(3, test_addr))
 			return 1;
+	}
 #endif
 
 	images->state |= states;
