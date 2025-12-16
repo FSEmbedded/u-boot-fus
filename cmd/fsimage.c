@@ -5592,7 +5592,7 @@ int do_fsimage_save(int argc, char * const argv[])
 	int boot_hwpart = -1;
 	ulong addr;
 	bool force = false;
-	bool system_atf = false;	/* If set, prefer ATF/TEE from NBoot */
+	__maybe_unused bool system_atf = false;	/* If set, prefer ATF/TEE from NBoot */
 	int ret;
 
 	early_support_index = 0;
