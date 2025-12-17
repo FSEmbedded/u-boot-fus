@@ -409,7 +409,7 @@ static void basic_init(const char *layout_name)
 	boot_dev_name = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
 	boot_dev = fs_board_get_boot_dev_from_name(boot_dev_name);
 
-	printf("BOARD-ID: %s\n", fs_image_get_board_id());
+	printf("BOARD-ID:   %s\n", fs_image_get_board_id());
 
 	/* Get U-Boot offset; not necessary in SDP mode */
 	if (layout_name) {
