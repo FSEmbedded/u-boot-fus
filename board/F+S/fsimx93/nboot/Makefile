@@ -27,7 +27,7 @@ include board/$(VENDOR)/common/fus-common.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2025.10.2
+NBOOT_SUFFIX = 2025.12
 
 # Image type for mkimage
 MKIMAGE_TYPE = imx8image

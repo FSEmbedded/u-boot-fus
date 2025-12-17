@@ -992,6 +992,7 @@ INPUTS-$(CONFIG_TARGET_FSVYBRID) += uboot.nb0
 INPUTS-$(CONFIG_ARCH_MX6) += uboot.nb0
 
 INPUTS-$(CONFIG_ADDFSHEADER) += uboot.fs
+INPUTS-$(CONFIG_FS_ADD_ATF_TO_UBOOT) += uboot-atf.fs
 ifeq ($(CONFIG_SPL_FSL_PBL),y)
 INPUTS-$(CONFIG_RAMBOOT_PBL) += u-boot-with-spl-pbl.bin
 else
@@ -1510,7 +1511,7 @@ uboot.nb0:	u-boot.bin
 #		dd if=$< of=$@ conv=notrunc bs=1K
 
 quiet_cmd_addfsheader = FSIMG   $@
-cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 $< > $@
+cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
 
 # Use V0.0 F&S header on Vybrid/i.MX6, otherwise V1.0 plus type/descr
 ifneq ($(CONFIG_TARGET_FSVYBRID)$(CONFIG_ARCH_MX6),)
@@ -1529,8 +1530,15 @@ ifeq ($(CONFIG_SPL_LOAD_IMX_CONTAINER), y)
 uboot.fs: u-boot.bin FORCE
 	$(Q)$(MAKE) $(build)=board/${BOARDDIR} $@
 else
-uboot.fs:	$(addfsheader_target)
-	$(call cmd,addfsheader,$(FSIMG_OPT))
+FS_FW_PATH = $(srctree)/board/$(VENDOR)/NXP-Firmware/$(BOARD)
+uboot.fs: $(addfsheader_target)
+	$(call cmd,addfsheader,$(FSIMG_OPT) $<)
+atf.fs: $(FS_FW_PATH)/bl31$(if $(CONFIG_OPTEE),-optee).bin
+	$(call cmd,addfsheader,-s -c -a 16 -p32[7]=${CONFIG_ATF_ADDR} -t U-ATF -d $(BOARD) $<)
+tee.fs: $(FS_FW_PATH)/bl32.bin
+	$(call cmd,addfsheader,-s -c -a 16 -p32[7]=${CONFIG_TEE_ADDR} -t U-TEE -d $(BOARD) $<)
+uboot-atf.fs: atf.fs $(if $(CONFIG_OPTEE),tee.fs) uboot.fs
+	$(call cmd,addfsheader,-s -c -a 16 -t U-BOOT-ATF -d $(BOARD) $^)
 endif
 
 PHONY += nboot
@@ -2205,6 +2213,9 @@ tools/version.h: include/version.h
 
 envtools: u-boot-initial-env scripts_basic $(version_h) $(timestamp_h) tools/version.h
 	$(Q)$(MAKE) $(build)=tools/env
+
+fsimage:
+	$(Q)$(MAKE) $(build)=tools/fsimage
 
 tools-only: export TOOLS_ONLY=y
 tools-only: scripts_basic $(version_h) $(timestamp_h) tools/version.h

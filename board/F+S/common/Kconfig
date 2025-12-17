@@ -76,6 +76,16 @@ config FS_USB_COMMON
 	bool
 	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL
 
+config FS_ADD_ATF_TO_UBOOT
+	bool "Add ATF (and opTEE) to U-Boot on fsimx8mm/mn/mp"
+	depends on TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP
+	help
+	  Add ATF and opTEE to U-Boot. the result is in uboot-atf.fs. This
+	  allows having an own ATF and opTEE that does noch depend on NBoot.
+	  Please provide the images in board/F+S/NXP-Firmware/<arch>/ as
+	  bl31.bin (non opTEE case) or bl31-optee.bin and bl32.bin (opTEE case).
+	  <arch> is one of fsimx8mm, fsimx8mn, fsimx8mp.
+
 config FS_USB_PWR_USBNC
 	bool "Use USB PWR function from host controller"
 	depends on FS_USB_COMMON

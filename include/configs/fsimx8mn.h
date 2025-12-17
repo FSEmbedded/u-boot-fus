@@ -23,7 +23,7 @@
  * OCRAM layout SPL                 U-Boot
  * ---------------------------------------------------------
  * 0x0090_0000: (Region reserved by ROM loader)(64KB)
- * 0x0091_0000: BOARD-CFG           BOARD-CFG (8KB)  CFG_FUS_BOARDCFG_ADDR
+ * 0x0091_0000: BOARD-CFG           BOARD-CFG (8KB)  CONFIG_FUS_BOARDCFG_ADDR
  * 0x0091_2000: BSS data            cfg_info  (8KB)  CONFIG_SPL_BSS_START_ADDR
  * 0x0091_4000: MALLOC_F pool       ---       (28KB) CONFIG_MALLOC_F_ADDR
  * 0x0091_B000: ---                 ---       (4KB)
@@ -109,7 +109,7 @@
 #define CONFIG_SYS_SERCON_NAME "ttymxc"	/* Base name for serial devices */
 
 /* Address in OCRAM where BOARD-CFG is loaded to; U-Boot must know this, too */
-#define CFG_FUS_BOARDCFG_ADDR	0x910000
+#define CONFIG_FUS_BOARDCFG_ADDR	0x910000
 
 #ifdef CONFIG_SPL_BUILD
 /* Offsets in NAND where BOARD-CFG and FIRMWARE are stored */
@@ -464,7 +464,7 @@
 		"fi;\0"
 
 /* Initial environment variables */
-#define CONFIG_EXTRA_ENV_SETTINGS					\
+#define CFG_EXTRA_ENV_SETTINGS						\
 	"bd_kernel=undef\0"						\
 	"bd_fdt=undef\0"						\
 	"bd_rootfs=undef\0"						\

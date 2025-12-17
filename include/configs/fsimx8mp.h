@@ -23,7 +23,7 @@
  * OCRAM layout SPL                 U-Boot
  * ---------------------------------------------------------
  * 0x0090_0000: (Region reserved by ROM loader)(96KB)
- * 0x0091_8000: BOARD-CFG           BOARD-CFG (8KB)  CFG_FUS_BOARDCFG_ADDR
+ * 0x0091_8000: BOARD-CFG           BOARD-CFG (8KB)  CONFIG_FUS_BOARDCFG_ADDR
  * 0x0091_A000: BSS data            cfg_info  (2KB)  CONFIG_SPL_BSS_START_ADDR
  * 0x0091_A800: MALLOC_F pool       ---       (34KB) CONFIG_MALLOC_F_ADDR
  * 0x0092_3000: ---                 ---       (4KB)
@@ -81,7 +81,7 @@
  * the idea is re-use the early malloc (CONFIG_SYS_MALLOC_F_LEN) with
  * CONFIG_SYS_SPL_MALLOC_START
  */
-#define CFG_FUS_BOARDCFG_ADDR	0x00918000
+#define CONFIG_FUS_BOARDCFG_ADDR	0x00918000
 
 #ifdef CONFIG_SPL_BUILD
 /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */

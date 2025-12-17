@@ -31,6 +31,7 @@
 #include <power-domain.h>
 #include <dt-bindings/power/imx8ulp-power.h>
 #include <fdt_support.h>
+#include <linux/delay.h>
 #include <hang.h>
 
 #include "fsimx8ulp.h"
@@ -335,6 +336,31 @@ int board_fix_fdt(void *fdt_blob)
 }
 #endif
 
+static void prepare_clocksource_tpm(void *fdt_blob) {
+
+	int offset;
+	const char *compat = NULL;
+	int compat_len = 0;
+
+	offset = fs_fdt_path_offset(fdt_blob, "tpm6");
+	if (offset < 0)
+		return;
+	compat = fdt_getprop(fdt_blob, offset, "compatible", &compat_len);
+	if (!compat)
+		return;
+	if (!fdt_stringlist_contains(compat, compat_len, "fsl,imx7ulp-tpm"))
+		return;
+
+	debug("%s: Enable TPM6 CLK before Linux-Boot\n", __func__);
+	pcc_clock_enable(4, TPM6_PCC4_SLOT, false);
+	pcc_reset_peripheral(4, TPM6_PCC4_SLOT, true);
+	udelay(10);
+	pcc_reset_peripheral(4, TPM6_PCC4_SLOT, false);
+	pcc_clock_sel(4, TPM6_PCC4_SLOT, SOSC_DIV2);
+	pcc_clock_enable(4, TPM6_PCC4_SLOT, true);
+	fs_fdt_enable(fdt_blob, "tpm6", 1);
+}
+
 #if CONFIG_IS_ENABLED(OF_BOARD_SETUP)
 int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 {
@@ -368,6 +394,7 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 	}
 
 	fs_board_cma_fdt_fixup(fdt_blob);
+	prepare_clocksource_tpm(fdt_blob);
 
 	return 0;
 }
@@ -516,23 +543,6 @@ int board_late_init(void)
 	debug("FEATURES=0x%x\n", info->features);
 	return 0;
 }
-
-#if 0 //### defined in serial-uclass.c
-int serial_get_alias_seq(void)
-{
-	int seq, err;
-
-	if (!gd->cur_serial_dev)
-		return -ENXIO;
-
-	err = fdtdec_get_alias_seq(gd->fdt_blob, "serial",
-				   dev_of_offset(gd->cur_serial_dev), &seq);
-	if (err < 0)
-		return err;
-
-	return seq;
-}
-#endif
 
 void board_quiesce_devices(void)
 {

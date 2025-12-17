@@ -694,8 +694,18 @@ int arch_cpu_init(void)
 	if (IS_ENABLED(CONFIG_SPL_BUILD)) {
 		clock_init();
 
+	/* MK 25-12-03:
+	 * Disable the power down counter to support older NBoot versions.
+	 * TODO:
+	 * Add flag in UBoot header to distinguish if UBoot or NBoot disables
+	 * the power down counter.
+	 */
+#if 0
 		if (!IS_ENABLED(CONFIG_IMX_WATCHDOG))
 			imx_set_wdog_powerdown(false);
+#else
+		imx_set_wdog_powerdown(false);
+#endif
 
 #if defined(CONFIG_IMX_HAB) && defined(CONFIG_IMX8MQ)
 		secure_lockup();

@@ -7,7 +7,11 @@
 #ifndef	__FS_CFG_INFO_H
 #define __FS_CFG_INFO_H
 
+#if __UBOOT__
 #include <asm/mach-imx/boot_mode.h>	/* enum boot_device */
+#else
+#include "../arch/arm/include/asm/mach-imx/boot_mode.h"
+#endif
 
 /*
  * This is a binary version of that part of the BOARD-CFG data that is needed

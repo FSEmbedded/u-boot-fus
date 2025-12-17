@@ -1,5 +1,5 @@
 #ifdef USE_HOSTCC
-#include "../scripts/dtc/libfdt/libfdt_env.h"
+#include "../../scripts/dtc/libfdt/libfdt_env.h"
 #else
 /*
  * This position of the include guard is intentional.

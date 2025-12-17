@@ -50,6 +50,10 @@
 #endif
 #include <usb.h>
 
+#ifdef CONFIG_FSL_CAAM
+#include <fsl_sec.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define BT_PICOCOREMX8MP 0x0
@@ -715,6 +719,11 @@ void spl_board_init(void)
 #ifdef CONFIG_FS_SPL_MEMTEST_COMMON
 	    dram_test();
 #endif
+
+	if (IS_ENABLED(CONFIG_FSL_CAAM)) {
+		if (sec_init())
+			printf("\nsec_init failed!\n");
+	}
 	debug("Normal Boot\n");
 }
 

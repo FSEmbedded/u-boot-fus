@@ -9,4 +9,12 @@ config SYS_VENDOR
 config SYS_CONFIG_NAME
 	default "fsimx8mp"
 
+config ATF_ADDR
+	hex
+	default 0x00968000
+
+config TEE_ADDR
+	hex
+	default 0x56000000
+
 endif

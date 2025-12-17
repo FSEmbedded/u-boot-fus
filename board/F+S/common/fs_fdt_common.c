@@ -197,7 +197,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	unsigned int board_rev = fs_board_get_rev();
 
 	/* Add board-config to bdinfo node */
-#ifdef CFG_FUS_BOARDCFG_ADDR
+#ifdef CONFIG_FUS_BOARDCFG_ADDR
 	void *fdt_cfg = fs_image_get_cfg_fdt();
 	int offs_cfg = fs_image_get_board_cfg_offs(fdt_cfg);
 	int offs_bdinfo_cfg = fdt_add_subnode(fdt, offs, "board-cfg");

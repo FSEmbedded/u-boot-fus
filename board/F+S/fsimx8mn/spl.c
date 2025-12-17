@@ -34,6 +34,10 @@
 #include "../common/fs_board_common.h"	/* fs_board_*() */
 #include "../common/fs_mmc_common.h"	/* struct fs_mmc_cd, fs_mmc_*(), ... */
 
+#ifdef CONFIG_FSL_CAAM
+#include <fsl_sec.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define BT_PICOCOREMX8MN 0x0
@@ -544,6 +548,11 @@ void spl_board_init(void)
 		restore_boot_params();
 	}
 #endif
+
+	if (IS_ENABLED(CONFIG_FSL_CAAM)) {
+		if (sec_init())
+			printf("\nsec_init failed!\n");
+	}
 	debug("Normal Boot\n");
 }
 

@@ -133,6 +133,7 @@
  *   +---+------------------------------------+
  */
 
+#ifdef __UBOOT__
 #include <common.h>
 #include <spl.h>
 #include <malloc.h>
@@ -140,15 +141,34 @@
 #include <asm/sections.h>
 #include <hang.h>
 #include <asm/arch/sys_proto.h>
+#include <fdt_support.h>
+#include <memalign.h>
+#include <u-boot/sha256.h>
+#include <u-boot/sha512.h>
+#include <hash.h>
 #include <image.h>
 #ifdef CONFIG_AHAB_BOOT
 #include <asm/mach-imx/ahab.h>
 #endif
 
 #include "fs_dram_common.h"
+#include "fs_bootrom.h"
+
+#else
+
+#include <linux/kconfig.h>		/* Get kconfig macros only */
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+#include "../../../include/u-boot/sha256.h"
+#include "../../../include/u-boot/sha512.h"
+#include "linux_helpers.h"
+#endif /* __UBOOT__ */
+
+#include <hash.h>
 #include "fs_image_common.h"
 #include "fs_cntr_common.h"
-#include "fs_bootrom.h"
 
 struct ram_info_t {
 	const char *type;
@@ -204,6 +224,13 @@ static void __maybe_unused print_hash(u8 *hash, int hash_size)
 	puts("\n");
 }
 
+bool fs_cntr_is_signed(struct container_hdr *cntr)
+{
+	/* CHECK CNTR FLAG SRK Set*/
+	return !!(cntr->flags & GENMASK(1,0) );
+}
+
+#ifdef __UBOOT__
 bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 {
 	unsigned int sha_type;
@@ -291,11 +318,18 @@ bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
 	return ret;
 }
 
-bool fs_cntr_is_signed(struct container_hdr *cntr)
+#else
+/* TODO: Implement alternatives for Linux */
+bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 {
-	/* CHECK CNTR FLAG SRK Set*/
-	return !!(cntr->flags & GENMASK(1,0) );
+	return false;
 }
+
+bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
+{
+	return false;
+}
+#endif
 
 /*-------------- Adapted functions from parse-container.c--------------------*/
 
@@ -303,6 +337,7 @@ bool fs_cntr_is_signed(struct container_hdr *cntr)
  * free imx container
  * @param cntr_info: ptr to image_info for imx_container
  */
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 static void free_container(struct spl_image_info *cntr_info)
 {
 #if defined(CONFIG_AHAB_BOOT)
@@ -625,6 +660,7 @@ static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_i
 
 	return ret;
 }
+#endif /* __UBOOT__ */
 
 
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
@@ -755,7 +791,7 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh[idx].type, cfg_fsh[idx].param.descr);
 
 	/* place fsh in OCRAM */
-	memcpy((void *)CFG_FUS_BOARDCFG_ADDR, &cfg_fsh[idx],
+	memcpy((void *)CONFIG_FUS_BOARDCFG_ADDR, &cfg_fsh[idx],
 			sizeof(struct fs_header_v1_0));
 
 	/* We need to skip images in stream */
@@ -783,9 +819,9 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	{
 		/**
 		 * TODO: A simple workaround to load data in other sram areas using Cortex-A.
-		 * Check between Loadaddr and CFG_FUS_BOARDCFG_ADDR and copy the binary.
+		 * Check between Loadaddr and CONFIG_FUS_BOARDCFG_ADDR and copy the binary.
 		 */
-		ulong load_addr = (CFG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0));
+		ulong load_addr = (CONFIG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0));
 
 		if ((ulong)cfg_info.load_addr != load_addr){
 			debug("FSCNTR: move board-cfg to another location!\n");
