@@ -154,16 +154,19 @@ static int selftest_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 		test_OkOrFail(-1,1,szStrBuffer);
 	}
 
+	/* check ADC on INTF if EEPROM is not equipped */
 	if (has_feature(FEAT_EEPROM))
 		ret = test_eeprom(szStrBuffer);
-	
+
+	ret = test_osm_i2c_a(szStrBuffer, 0x48);
+
 	test_pmic(szStrBuffer);
-	
+
 	test_gpio(UCLASS_GPIO, szStrBuffer);
-	
+
 	if (has_feature(FEAT_EXT_RTC))
 		ret = test_rtc_end(szStrBuffer);
-	
+
 	test_USBHost(szStrBuffer);
 
 	printf("Selftest done!\n");

@@ -213,7 +213,7 @@ int board_fit_config_name_match(const char *name)
 
 #if CONFIG_IS_ENABLED(CMD_SELFTEST)
 	set_gd_board_type();
-	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX8ULP, name);
+	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX93, name);
 #endif
 
 	if(board_fdt && !strncmp(name, board_fdt, 64))
