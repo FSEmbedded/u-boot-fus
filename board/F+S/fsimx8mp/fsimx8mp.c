@@ -569,7 +569,8 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 				}
 			}
 			break;
-		default:
+		case BT_PICOCOREMX8MP:
+		case BT_PICOCOREMX8MPr2:
 			/* Disable SGTL5000 if it is not available */
 			if (!(features & FEAT_AUDIO)) {
 				/* disable all sgtl5000 regulators */
@@ -581,6 +582,8 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 				/* disable sgtl5000 platform driver */
 				fs_fdt_enable(fdt, "sound-sgtl5000", 0);
 			}
+			break;
+		default:
 	}
 
 	if (!(features & FEAT_ADC)) {
