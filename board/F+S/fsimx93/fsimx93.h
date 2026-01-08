@@ -65,6 +65,10 @@ static __maybe_unused iomux_v3_cfg_t const lpuart1_pads[] = {
     MX93_PAD_UART1_RXD__LPUART1_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
     MX93_PAD_UART1_TXD__LPUART1_TX | MUX_PAD_CTRL(UART_PAD_CTRL)};
 
+static __maybe_unused iomux_v3_cfg_t const lpuart5_pads[] = {
+	MX93_PAD_DAP_TDO_TRACESWO__LPUART5_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
+	MX93_PAD_DAP_TDI__LPUART5_RX          | MUX_PAD_CTRL(UART_PAD_CTRL)};
+
 /* PCoreMX93 rev110 */
 static __maybe_unused iomux_v3_cfg_t const lpuart7_pads[] = {
     MX93_PAD_GPIO_IO09__LPUART7_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
@@ -105,7 +109,8 @@ enum fsimx93_board_types {
 	BT_NDCU93,
 	BT_PICOCOREMX91,
 	BT_OSMSFMX91,
-	BT_EFUSMX91
+	BT_EFUSMX91,
+	BT_PICOCOM93
 };
 
 #endif /* __BOARD_FSIMX93_H */

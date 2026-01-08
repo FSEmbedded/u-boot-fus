@@ -1223,7 +1223,8 @@ dtb-$(CONFIG_ARCH_IMX9) += \
 	picocoremx93.dtb \
 	fs-osm-sf-mx93-adp-osm-bb.dtb \
 	fs-osm-sf-mx91-adp-osm-bb.dtb \
-	efusmx91.dtb
+	efusmx91.dtb \
+	picocom93.dtb
 
 dtb-$(CONFIG_ARCH_IMXRT) += imxrt1050-evk.dtb \
 	imxrt1020-evk.dtb \
