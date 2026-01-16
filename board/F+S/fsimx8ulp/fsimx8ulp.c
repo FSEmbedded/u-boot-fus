@@ -248,6 +248,8 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_LVDS;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
 		features |= FEAT_RGB;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-can-in-apd", NULL))
+		features |= FEAT_CAN_IN_APD;
 
 	info->features = features;
 }
@@ -321,6 +323,9 @@ static void fdt_common_fixup(void *fdt)
 
 	if(gd->board_type == BT_ARMSTONEMX8ULP)
 		fdt_astone_fixup(fdt);
+
+	if(!(features & FEAT_CAN_IN_APD))
+		fs_fdt_enable(fdt, "flexcan", 0);
 }
 
 #if CONFIG_IS_ENABLED(OF_BOARD_FIXUP)
