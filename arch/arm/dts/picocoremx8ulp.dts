@@ -15,7 +15,7 @@
 /dts-v1/;
 
 /* Cortex-M is always supported */
-#define CONFIG_PICOCOREMX8ULP_REV 110
+#define CONFIG_PICOCOREMX8ULP_REV 120
 
 #if CONFIG_PICOCOREMX8ULP_REV >= 120
 /* Network */
