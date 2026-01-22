@@ -40,6 +40,9 @@ BOARD_CONFIGS = \
 	PCoreMX8MPr2-FERT12.fs \
 	PCoreMX8MPr2-FERT13.fs \
 	PCoreMX8MPr2-FERT14.fs \
+	PCoreMX8MPr2-FERT15.fs \
+	PCoreMX8MPr2-FERT16.fs \
+	PCoreMX8MPr2-FERT17.fs \
 	armStoneMX8MP-FERT0.fs \
 	armStoneMX8MP-FERT2.fs \
 	armStoneMX8MP-FERT4.fs \
