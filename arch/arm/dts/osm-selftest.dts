@@ -18,17 +18,13 @@
 #endif
 #ifdef CONFIG_IMX93
 #include "fs-osm-sf-mx93-selftest.dts"
-#include "fs-osm-sf-mx93-selftest-u-boot.dtsi"
 #endif
 #ifdef CONFIG_IMX91
 #include "fs-osm-sf-mx91-selftest.dts"
-#include "fs-osm-sf-mx91-selftest-u-boot.dtsi"
 #endif
 #ifdef CONFIG_IMX8ULP
 #include "fs-osm-sf-mx8ulp-selftest.dts"
-#include "fs-osm-sf-mx8ulp-selftest-u-boot.dtsi"
 #endif
-
 
 #if 0
 &osm_can_a { status = "disabled"; };
@@ -179,3 +175,13 @@ in-gpios =
 		status = "okay";
 	};
 };
+
+#ifdef CONFIG_IMX93
+#include "fs-osm-sf-mx93-selftest-u-boot.dtsi"
+#endif
+#ifdef CONFIG_IMX91
+#include "fs-osm-sf-mx91-selftest-u-boot.dtsi"
+#endif
+#ifdef CONFIG_IMX8ULP
+#include "fs-osm-sf-mx8ulp-selftest-u-boot.dtsi"
+#endif

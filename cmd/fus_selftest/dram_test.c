@@ -41,7 +41,9 @@ struct ramInfo
 
 static void getRamInfo(struct ramInfo *rI){
 
-#if defined(CONFIG_IMX8MM) || defined(CONFIG_IMX8MN) || defined (CONFIG_IMX8MP) || defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
+#if defined(CONFIG_IMX8MM) || defined(CONFIG_IMX8MN) || \
+	 defined (CONFIG_IMX8MP) || defined(CONFIG_IMX93) || \
+	 defined(CONFIG_IMX91) || defined(CONFIG_IMX8ULP)
 	DECLARE_GLOBAL_DATA_PTR;
 
 	// HOTFIX: Assume rom_pointer[1] == 0x1

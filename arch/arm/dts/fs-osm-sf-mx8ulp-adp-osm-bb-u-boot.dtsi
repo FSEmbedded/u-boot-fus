@@ -22,11 +22,18 @@
 	/delete-property/ pwm1;
 	/delete-property/ pwm2;
 	/delete-property/ pwm3;
-	/delete-property/ i2c2;
-	/delete-property/ i2c3;
 	/delete-property/ gpio0;
 	/delete-property/ gpio1;
 	/delete-property/ gpio2;
+	/delete-property/ i2c0;
+	/delete-property/ i2c1;
+	/delete-property/ i2c2;
+	/delete-property/ i2c3;
+	/delete-property/ i2c4;
+	i2c4 = &lpi2c4;
+	i2c5 = &lpi2c5;
+	i2c6 = &lpi2c6;
+	i2c7 = &lpi2c7;
 };
 
 &reg_carrier_pwr {

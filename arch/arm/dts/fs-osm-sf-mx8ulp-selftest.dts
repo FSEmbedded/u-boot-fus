@@ -18,10 +18,6 @@
 	/delete-property/ gpio;
 };
 
-&reg_usb2_vbus {
-	/delete-property/ gpio;
-};
-
 &reg_sdio_a_pwr {
 	/delete-property/ gpio;
 };
@@ -36,6 +32,13 @@
 
 &osm_eth_a {
 	status = "disabled";
+};
+
+&osm_uart_con {
+	pinctrl-names = "default", "mute";
+	pinctrl-0 = <&pinctrl_lpuart5>;
+	pinctrl-1 = <&pinctrl_uart_con_mute>;
+	status = "okay";
 };
 
 &osm_uart_a {
@@ -86,13 +89,13 @@
 // 	status = "disabled";
 // };
 
-/{
+&soc {
 	iomuxc0: pinctrl@280a1000 {
 		compatible = "fsl,imx8ulp-iomuxc0";
 		reg = <0x280a1000 0x10000>;
 	};
 
-	gpioa: gpioa@28800000 {
+	gpioa: gpioa@28800080 {
 		compatible = "fsl,imx8ulp-gpio", "fsl,imx7ulp-gpio";
 		reg = <0x28800080 0x1000>, <0x28800040 0x40>;
 		gpio-controller;
@@ -105,7 +108,7 @@
 		gpio-ranges = <&iomuxc0 0 0 25>;
 	};
 
-	gpiob: gpiob@28810000 {
+	gpiob: gpiob@28810080 {
 		compatible = "fsl,imx8ulp-gpio", "fsl,imx7ulp-gpio";
 		reg = <0x28810080 0x1000>, <0x28810040 0x40>;
 		gpio-controller;
@@ -118,7 +121,7 @@
 		gpio-ranges = <&iomuxc0 0 25 16>;
 	};
 
-	gpioc: gpiob@28820000 {
+	gpioc: gpiob@28820080 {
 		compatible = "fsl,imx8ulp-gpio", "fsl,imx7ulp-gpio";
 		reg = <0x28820080 0x1000>, <0x28820040 0x40>;
 		gpio-controller;
@@ -233,9 +236,9 @@
 #define gRGB_G0			<&gpiof 17 0>
 #define gRGB_G1			<&gpiof 16 0>
 #define gRGB_G2			<&gpiof 15 0>
-#define gRGB_G3			<&gpiof 13 0>
-#define gRGB_G4			<&gpiof 12 0>
-#define gRGB_G5			<&gpiof 11 0>
+#define gRGB_G3			<&gpiof 14 0>
+#define gRGB_G4			<&gpiof 13 0>
+#define gRGB_G5			<&gpiof 12 0>
 #define gRGB_CLK		<&gpiof 24 0>
 #define gRGB_DISP		<&gpiof 1 0>
 #define gRGB_DE			<&gpiof 27 0>
@@ -306,11 +309,24 @@
 	compatible = "nxp,pcf85263";
 };
 
+&osm_i2c_int {
+	status = "okay";
+};
+
 &osm_i2c_a {
 	status = "okay";
 };
 
-pinctrl_uart_con_mute: &pinctrl_lpuart5 {};
+&osm_usb_a {
+	dr_mode = "otg";
+	status = "okay";
+};
+
+&osm_usb_b {
+	dr_mode = "host";
+	status = "okay";
+};
+
 &iomuxc1 {
 	pinctrl_osm_eth_gpio: ethgpiogrp {
 		fsl,pins = <
@@ -325,30 +341,6 @@ pinctrl_uart_con_mute: &pinctrl_lpuart5 {};
 			MX8ULP_PAD_PTE21__PTE21		0x2
 			MX8ULP_PAD_PTE22__PTE22		0x2
 			MX8ULP_PAD_PTE23__PTE23		0x2
-		>;
-	};
-
-	pinctrl_osm_uart_gpio: uartgpiogrp {
-		fsl,pins = <
-			/* RTD */
-		>;
-	};
-
-	pinctrl_osm_i2s_gpio: i2sgpiogrp {
-		fsl,pins = <
-			/* RTD */
-		>;
-	};
-
-	pinctrl_osm_i2c_gpio: i2cgpiogrp {
-		fsl,pins = <
-			/* RTD */
-		>;
-	};
-
-	pinctrl_osm_can_gpio: cangpiogrp {
-		fsl,pins = <
-			/* RTD */
 		>;
 	};
 
@@ -379,6 +371,9 @@ pinctrl_uart_con_mute: &pinctrl_lpuart5 {};
 
 	pinctrl_osm_rgb_gpio: rgbgpiogrp {
 		fsl,pins = <
+			MX8ULP_PAD_PTF0__PTF0           0x2
+			MX8ULP_PAD_PTF1__PTF1           0x2
+			MX8ULP_PAD_PTF2__PTF2           0x2
 			MX8ULP_PAD_PTF6__PTF6           0x2
 			MX8ULP_PAD_PTF7__PTF7           0x2
 			MX8ULP_PAD_PTF8__PTF8           0x2
@@ -420,12 +415,6 @@ pinctrl_uart_con_mute: &pinctrl_lpuart5 {};
 		>;
 	};
 
-	pinctrl_osm_spi_gpio: spigpiogrp {
-		fsl,pins = <
-			/* RTD */
-		>;
-	};
-
 	pinctrl_osm_usb_gpio: usbgpiogrp{
 		fsl,pins = <
 			/* USB_A */
@@ -433,5 +422,48 @@ pinctrl_uart_con_mute: &pinctrl_lpuart5 {};
 			MX8ULP_PAD_PTD13__PTD13		0x2
 			MX8ULP_PAD_PTD14__PTD14		0x2
 		>;
+	};
+
+	pinctrl_uart_con_mute: uartconmutegrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE6__PTE6	0x3
+			MX8ULP_PAD_PTE7__PTE7 	0x3
+		>;
+	};
+
+	pinctrl_osm_uart_gpio: uartgpiogrp {
+		fsl,pins = <
+			MX8ULP_PAD_PTE8__PTE8	0x3
+			MX8ULP_PAD_PTE9__PTE9	0x3
+			MX8ULP_PAD_PTE10__PTE10	0x3
+			MX8ULP_PAD_PTE11__PTE11	0x3
+		>;
+	};
+};
+
+&iomuxc0 {
+
+	pinctrl_osm_i2s_gpio: i2sgpiogrp {
+		// fsl,pins = <
+		// 	/* RTD */
+		// >;
+	};
+
+	pinctrl_osm_i2c_gpio: i2cgpiogrp {
+		// fsl,pins = <
+		// 	/* RTD */
+		// >;
+	};
+
+	pinctrl_osm_can_gpio: cangpiogrp {
+		// fsl,pins = <
+		// 	/* RTD */
+		// >;
+	};
+
+	pinctrl_osm_spi_gpio: spigpiogrp {
+		// fsl,pins = <
+		// 	/* RTD */
+		// >;
 	};
 };

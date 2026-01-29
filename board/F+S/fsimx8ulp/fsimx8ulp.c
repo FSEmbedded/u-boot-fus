@@ -40,6 +40,8 @@
 #include "../common/fs_image_common.h"
 #include "../common/fs_cntr_common.h"
 #include "../common/fs_fdt_common.h"
+#include <power/regulator.h>
+
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -447,6 +449,7 @@ int board_init(void)
 
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[gd->board_type]);
+	regulators_enable_boot_on(false);
 
 	return 0;
 }

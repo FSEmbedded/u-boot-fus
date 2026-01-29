@@ -238,7 +238,7 @@ osm_pwm_3_4: &tpm2_rpchip {};
 
 	extcon_usb2: extcon_usb2 {
 		compatible = "linux,extcon-usb-gpio";
-		id-gpio = <&gpioe 2 GPIO_ACTIVE_HIGH>;
+		id-gpio = <&gpioe 4 GPIO_ACTIVE_HIGH>;
 	};
 };
 

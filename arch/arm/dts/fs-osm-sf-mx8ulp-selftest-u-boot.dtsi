@@ -1,1 +1,23 @@
 #include "fs-osm-sf-mx8ulp-adp-osm-bb-u-boot.dtsi"
+
+&{/aliases}{
+	gpio0 = &gpioa;
+	gpio1 = &gpiob;
+	gpio2 = &gpioc;
+};
+
+&{/gpio-test} {
+		pinctrl-0 = <&pinctrl_osm_eth_gpio>,
+					<&pinctrl_osm_gpio_gpio>,
+					// <&pinctrl_osm_i2c_gpio>,
+					<&pinctrl_osm_pwm_gpio>,
+					<&pinctrl_osm_rgb_gpio>,
+					<&pinctrl_osm_sdio_gpio>,
+					// <&pinctrl_osm_spi_gpio>,
+					<&pinctrl_osm_uart_gpio>,
+					<&pinctrl_osm_usb_gpio>;
+};
+
+&reg_carrier_pwr {
+	gpio = <&gpioa 1 GPIO_ACTIVE_HIGH>;
+};

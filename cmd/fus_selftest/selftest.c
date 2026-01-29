@@ -199,6 +199,8 @@ static int selftest_common(enum proto_t proto, struct cmd_tbl *cmdtp, int argc,
 	if (has_feature(FEAT_EEPROM))
 		ret = test_eeprom(szStrBuffer);
 
+	ret = test_osm_i2c_a(szStrBuffer, 0x48);
+
 	test_pmic(szStrBuffer);
 
 	test_gpio(UCLASS_GPIO, szStrBuffer);
