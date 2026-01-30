@@ -73,13 +73,13 @@
 	
 	phy-reset-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
 	phy-reset-duration = <10>;
-	phy-reset-post-delay = <50>;
+	phy-reset-post-delay = <100>;
 };
 
 &fec {
 	phy-reset-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
 	phy-reset-duration = <10>;
-	phy-reset-post-delay = <50>;
+	phy-reset-post-delay = <100>;
 };
 
 &usb_dwc3_1 {
