@@ -58,5 +58,9 @@
 		PCoreMX8ULP-FERT11.120 {
 			board-rev = <120>;
 		};
+
+		PCoreMX8ULP-FERT11.130 {
+			board-rev = <130>;
+		};
 	};
 };

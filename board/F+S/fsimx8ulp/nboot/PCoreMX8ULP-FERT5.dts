@@ -48,9 +48,16 @@
 
 		/* realtimed-features*/
 		have-can-in-apd;
+		PCoreMX8ULP-FERT5.110 {
+			board-rev = <110>;
+		};
 
-        PCoreMX8ULP-FERT5.110 {
-            board-rev = <110>;
-        };
+		PCoreMX8ULP-FERT5.120 {
+			board-rev = <120>;
+		};
+
+		PCoreMX8ULP-FERT5.130 {
+			board-rev = <130>;
+		};
 	};
 };
