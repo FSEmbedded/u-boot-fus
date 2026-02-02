@@ -50,6 +50,7 @@ emmc: &usdhc0 {};
 fs_sdio_a: &usdhc1 {};
 fs_bl_pwm: &tpm7 {};
 fs_pwm: &tpm2_rpchip{};
+fs_can_a: &flexcan {};
 
 / {
 	model = "F&S PicoCoreMX8ULP";
@@ -444,8 +445,13 @@ fs_pwm: &tpm2_rpchip{};
 			// since only one phy is in use.
 			reg = <0>;
 			interrupt-parent = <&pca6416a>;
+#if CONFIG_PICOCOREMX8ULP_REV == 120
 			interrupts = <14 IRQ_TYPE_EDGE_FALLING>;
 			reset-gpios = <&pca6416a 13 GPIO_ACTIVE_LOW>;
+#else
+			interrupts = <13 IRQ_TYPE_EDGE_FALLING>;
+			reset-gpios = <&pca6416a 14 GPIO_ACTIVE_LOW>;
+#endif
 			status = "disabled";
 		};
 	};
@@ -533,13 +539,13 @@ fs_pwm: &tpm2_rpchip{};
 		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
 #endif
 		gpio-line-names = 
-			/* 0-2 */ "BT_IRQ", "BT_HOST_WAKE",
-			/* 3-4 */ "BT_LED", "WLAN_LED", "WLAN_HOST_WAKE",
+			/* 0-2 */ "BT_IRQ", "BT_HOST_WAKE", "BT_LED",
+			/* 3-4 */ "WLAN_LED", "WLAN_HOST_WAKE",
 			/* 5-6 */ "GPIO-EXP_GPIO1", "GPIO-EXP_GPIO2",
 			/* 7-8 */ "WLAN_WAKE_HOST", "BL_EN",
-			/* 9-10 */ "VLCD_EN", "VLCD_EN",
-			/* 11-12 */ "", "USB_OTG_PWR",
-			/* 13-14 */ "ETH_RST", "ETH_IRQ",
+			/* 9-10 */ "VLCD_EN", "",
+			/* 11-12 */ "USB_HOST_PWR", "USB_OTG_PWR",
+			/* 13-14 */ "ETH_IRQ", "ETH_RST",
 			/* 15 */ "LVDS_CONV_STBY";
 		status = "okay";
 	};
@@ -746,6 +752,11 @@ fs_pwm: &tpm2_rpchip{};
 
 &fs_pwm {
 	status = "disabled";
+};
+
+/* CAN decleration */
+&fs_can_a {
+	status = "okay";
 };
 
 /* USB decleration */
