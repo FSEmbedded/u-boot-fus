@@ -49,6 +49,7 @@ struct fsl_lpspi_slave {
 	unsigned int	mode;
 	unsigned int	wordlen;
 	unsigned int	fifolen;
+	bool		swap_sout_sin;
 	struct gpio_desc ss;
 	struct gpio_desc cs_gpios[MAX_CS_COUNT];
 	struct udevice *dev;
@@ -180,6 +181,9 @@ static s32 spi_cfg_lpspi(struct fsl_lpspi_slave *lpspi, unsigned int cs)
 			LPSPI_CFGR1_PINCFG_MASK | LPSPI_CFGR1_NOSTALL_MASK)) |
 			LPSPI_CFGR1_OUTCFG(0) | LPSPI_CFGR1_PINCFG(0) |
 			LPSPI_CFGR1_NOSTALL(0);
+	if (lpspi->swap_sout_sin)
+		reg_config = reg_config | LPSPI_CFGR1_PINCFG(3);
+
 	reg_write(&regs->CFGR1, reg_config);
 
 	if (IS_ENABLED(CONFIG_CLK)) {
@@ -417,6 +421,8 @@ static int fsl_lpspi_probe(struct udevice *bus)
 
 	lpspi->max_hz = fdtdec_get_int(blob, node, "spi-max-frequency",
 				      500000);
+
+	lpspi->swap_sout_sin = fdtdec_get_bool(blob, node, "swap_sout_sin");
 
 	if (IS_ENABLED(CONFIG_CLK)) {
 		//Enable clks
