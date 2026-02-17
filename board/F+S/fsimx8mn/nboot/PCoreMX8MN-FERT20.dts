@@ -40,6 +40,7 @@
 		//have-security;
 		//have-can;
 		//have-eeprom;
+		//have-qspi;
 
 		PCoreMX8MN-FERT20.120 {
 			board-rev = <120>;

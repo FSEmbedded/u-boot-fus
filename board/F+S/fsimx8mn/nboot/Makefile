@@ -9,7 +9,7 @@ include spl/include/autoconf.mk
 # NBoot version with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_VERSION = 2024.02.2
+NBOOT_VERSION = 2024.02.3
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
 # names given in the Selectsoft WaWi for the board and the PCB revision. The
@@ -41,7 +41,8 @@ BOARD_CONFIGS = \
 	PCoreMX8MN-FERT19.fs \
 	PCoreMX8MN-FERT20.fs \
 	PCoreMX8MN-FERT21.fs \
-	PCoreMX8MN-FERT23.fs
+	PCoreMX8MN-FERT23.fs \
+	PCoreMX8MN-FERT24.fs
 
 # List of DRAM Timings for each DRAM-TYPE
 RT_DDR3L := \
@@ -114,7 +115,7 @@ NXP_LPDDR4 = lpddr4_pmu_train_1d_imem.bin lpddr4_pmu_train_1d_dmem.bin \
 NXP_DDR4 = ddr4_imem_1d$(NANO).bin ddr4_dmem_1d$(NANO).bin \
 	ddr4_imem_2d$(NANO).bin ddr4_dmem_2d$(NANO).bin
 NXP_ATF = bl31-imx8mn.bin
-NXP_TEE = tee-fsimx8mn.bin
+NXP_TEE = tee-imx8mn.bin
 
 # Add path for NXP firmware images
 NXP_PATH = $(srctree)/board/F+S/NXP-Firmware

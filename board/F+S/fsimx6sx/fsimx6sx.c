@@ -2436,7 +2436,7 @@ int board_eth_init(struct bd_info *bd)
 		}
 
 		/* Realtek RTL8211F(D): Assert reset for at least 10ms */
-		fs_board_issue_reset(10000, 50000, IMX_GPIO_NR(2, 2), ~0, ~0);
+		fs_board_issue_reset(10000, 100000, IMX_GPIO_NR(2, 2), ~0, ~0);
 
 		/* Probe FEC ports, both PHYs on one MII bus */
 		if (features2 & FEAT2_ETH_A)

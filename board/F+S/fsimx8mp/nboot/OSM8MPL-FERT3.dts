@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 F&S Elektronik Systeme GmbH
+ * Copyright (C) 2025 F&S Elektronik Systeme GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -12,34 +12,34 @@
 
 / {
 	board-cfg {
-		board-name = "PicoCoreMX8MMr2-LPDDR4";
+		board-name = "OSM8MP";
 
-		/* DRAM: 1GB Foresee B.ICDRAM.36 */
+		/* DRAM: 2GB Samsung B.ICDRAM.41 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_1g3000m2ch1cs";
+		dram-timing = "lpddr4_os_1g2000m2ch1cs";
 		dram-size = <0x400>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
-		boot-dev = "MMC3";
-		fuse-bankword = <0x00010003>;	/* MSW: Bank, LSW: Fuse-Word */
-		fuse-mask = <0x10007fff>;
-		fuse-value = <0x10002800>;
+		boot-dev = "MMC1";
+
+		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
+		fuse-bankword = <0x00010003>;
+		fuse-mask =     <0x1000fe00>;
+		fuse-value =    <0x10002a00>;
 
 		/* Common board features */
-		board-rev = <100>;
+		board-rev = <110>;
 		//have-nand;
 		have-emmc;
-		have-sgtl5000;
+		//have-audio;
 		have-eth-phy;
-		have-wlan;
-		have-lvds;
+		//have-wlan;
 		//have-mipi-dsi;
-		//have-rtc-pcf85063;
-		have-rtc-pcf85263;
+		//have-hdmi;
+		have-ext-rtc;
 		//have-security;
-		//have-can;
-		//have-eeprom;
-		//have-qspi;
+		have-eeprom;
+		//have-temp;
 	};
 };

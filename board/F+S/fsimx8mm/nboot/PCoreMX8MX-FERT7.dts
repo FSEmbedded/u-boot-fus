@@ -38,6 +38,7 @@
 		have-security;
 		//have-can;
 		//have-eeprom;
+		//have-qspi;
 
 		/* Board-revision specific features */
 		PCoreMX8MX-FERT7.110 {

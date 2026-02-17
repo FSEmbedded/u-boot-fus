@@ -3611,7 +3611,6 @@ static int do_fsimage_save(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* Sub 6: ATF image */
 	type = "ATF";
-#ifdef CONFIG_IMX_OPTEE
 	woffset = fs_image_region_find_add(&nboot_ri, nboot_fsh, type, arch,
 					   woffset, flags);
 	if (!woffset)
@@ -3619,12 +3618,10 @@ static int do_fsimage_save(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	/* Sub 7: TEE image */
 	type = "TEE";
-#endif
 	/* Last image, set SUB_SYNC */
 	woffset = fs_image_region_find_add(&nboot_ri, nboot_fsh, type, arch,
 					   woffset, flags | SUB_SYNC);
-	if (!woffset)
-		return CMD_RET_FAILURE;
+
 
 	/* Update size and CRC32 (header only) for FIRMWARE */
 	fs_image_update_header(&firmware_fsh, woffset - firmware_start,

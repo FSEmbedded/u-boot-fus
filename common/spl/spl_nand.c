@@ -85,6 +85,7 @@ static int spl_nand_load_element(struct spl_image_info *spl_image,
 	if ((extra_offset > 0) && fs_image_is_signed((void *)header)) {
 		u32 size;
 		void *addr = fs_image_get_ivt_info((void *)header, &size);
+		size = fs_image_get_size((struct fs_header_v1_0 *)header, true);
 
 		if (addr && size) {
 			err = nand_spl_load_image(offset, size, addr);

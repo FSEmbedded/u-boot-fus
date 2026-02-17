@@ -734,6 +734,8 @@ static int get_extra_offset(void *header, struct spl_image_info *spl_image)
 		void *addr;
 
 		addr = fs_image_get_ivt_info((void *)header, &size);
+		size = fs_image_get_size((struct fs_header_v1_0 *)header, true);
+
 		if (addr && size)
 			memcpy(addr, header, size);
 		if (secure_spl_load_simple_fit(spl_image, addr, size) < 0)

@@ -41,6 +41,7 @@
 		//have-security;
 		have-can;
 		//have-eeprom;
+		//have-qspi;
 
 		PCoreMX8MN-FERT23.130 {
 			board-rev = <130>;

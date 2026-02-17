@@ -40,5 +40,6 @@
 		have-security;
 		have-can;
 		//have-eeprom;
+		have-qspi;
 	};
 };
