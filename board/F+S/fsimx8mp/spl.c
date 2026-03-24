@@ -533,11 +533,8 @@ static void basic_init(const char *layout_name)
 	/* Get U-Boot offset; not necessary in SDP mode */
 	if (layout_name) {
 		int layout;
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-		index = 0;		/* ### TODO: Select slot A or B */
-#else
+
 		index = 0;
-#endif
 		offs = fs_image_get_nboot_info_offs(fdt);
 		layout = fdt_subnode_offset(fdt, offs, layout_name);
 		uboot_offs = fdt_getprop_u32_default_node(fdt, layout, index,
