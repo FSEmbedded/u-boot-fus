@@ -17,7 +17,7 @@
 #define BOOT_WITH_FDT "booti ${loadaddr} - ${fdt_addr_r}"
 
 #if defined(CONFIG_ENV_IS_IN_MMC)
-#define FILSEIZE2BLOCKCOUNT "block_size=200\0" 	\
+#define FILESIZE2BLOCKCOUNT "block_size=200\0" 	\
 		"filesize2blockcount=" \
 			"setexpr test_rest \\${filesize} % \\${block_size}; " \
 			"if test \\${test_rest} = 0; then " \
@@ -27,7 +27,7 @@
 				"setexpr blocckount \\${blockcount} + 1; " \
 			"fi;\0"
 #else
-#define FILSEIZE2BLOCKCOUNT
+#define FILESIZE2BLOCKCOUNT
 #endif /* CONFIG_ENV_IS_IN_MMC */
 
 /*
