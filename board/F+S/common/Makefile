@@ -32,7 +32,11 @@ else
 obj-$(CONFIG_FS_FDT_COMMON)	+= fs_fdt_common.o
 obj-$(CONFIG_FS_MMC_COMMON)	+= fs_mmc_common.o
 obj-$(CONFIG_FS_ETH_COMMON)	+= fs_eth_common.o
-obj-$(CONFIG_FS_IMAGE_COMMON)	+= fs_image_nonspl.o
+ifeq ($(CONFIG_FS_IMAGE_COMMON), y)
+obj-y				+= fs_image_nonspl.o
+obj-$(CONFIG_CMD_NAND)		+= fs_image_nand.o
+obj-$(CONFIG_CMD_MMC)		+= fs_image_mmc.o
+endif
 obj-$(CONFIG_FS_USB_COMMON)	+= fs_usb_common.o
 obj-$(CONFIG_FS_DISP_COMMON)	+= fs_disp_common.o
 obj-$(CONFIG_FS_DEVICEINFO_COMMON)	+= fs_deviceinfo_common.o

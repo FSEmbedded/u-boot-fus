@@ -11,6 +11,10 @@ typedef uint64_t u64;
 typedef unsigned int uint;
 typedef unsigned long ulong;
 
+#define CMD_RET_FAILURE -1
+#define CMD_RET_SUCCESS 0
+#define CMD_RET_USAGE -2
+
 #define ARRAY_SIZE(a) sizeof(a)/sizeof(a[0])
 
 //#define BITS_PER_LONG 64
@@ -18,14 +22,8 @@ typedef unsigned long ulong;
 #define GENMASK(h, l) ((~1UL << (h)) ^ (~0UL << (l)))
 
 
-#ifdef DEBUG
-#define debug(fmt, ...) fprintf(stderr, "DEBUG: " fmt "\n", ##__VA_ARGS__)
-#else
-#define debug(fmt, ...) do {} while (0)
-#endif
-
-#define ALIGN(x,a)		__ALIGN_MASK((x),(typeof(x))(a)-1)
 #define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
+#define ALIGN(x,a)		__ALIGN_MASK((x),(typeof(x))(a)-1)
 
 #ifndef BIT
 #define BIT(nr)	(1UL << (nr))
@@ -40,6 +38,11 @@ struct __packed boot_data {
         uint32_t        plugin;
 };
 
+#ifdef DEBUG
+#define debug(fmt, ...) fprintf(stderr, "DEBUG: " fmt "\n", ##__VA_ARGS__)
+#else
+#define debug(fmt, ...) do {} while (0)
+#endif
 
 //#undef CONFIG_VAL
 //#define _CONFIG_VAL(option) CONFIG_ ## option
@@ -61,6 +64,31 @@ unsigned int fuse_read(int bank, int word, uint32_t *buf);
 
 int fs_image_get_start_copy(void);
 int fs_image_get_start_copy_uboot(void);
+int confirm_yesno(void);
+
+/**
+ * fit_get_end - get FIT image size
+ * @fit: pointer to the FIT format image header
+ *
+ * returns:
+ *     size of the FIT image (blob) in memory
+ */
+static inline ulong fit_get_size(const void *fit)
+{
+	return fdt_totalsize(fit);
+}
+
+int fit_image_get_data_size(const void *fit, int noffset, int *data_size);
+int fit_image_get_data_offset(const void *fit, int noffset, int *data_offset);
+int fit_image_get_data_position(const void *fit, int noffset,
+				int *data_position);
+int fit_image_get_data(const void *fit, int noffset,
+		       const void **data, size_t *size);
+
+ulong parse_loadaddr(char *filename, void *digest);
+ulong get_loadaddr(void);
+unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
+long simple_strtol(const char *cp, char **endp, unsigned int base);
 
 
 #endif /* FSIMAGE_LINUX_HELPERS_H */

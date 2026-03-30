@@ -615,6 +615,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 			}
 			break;
 		default:
+			break;
 	}
 
 	if (!(features & FEAT_ADC)) {

@@ -157,6 +157,7 @@
 #else
 
 #include <linux/kconfig.h>		/* Get kconfig macros only */
+#include <linux/libfdt.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -204,6 +205,19 @@ enum sha_types {
  *
  * https://crackstation.net/hashing-security.htm
  */
+bool fs_cntr_is_signed(struct container_hdr *cntr)
+{
+	/* CHECK CNTR FLAG SRK Set*/
+	return !!(cntr->flags & GENMASK(1,0) );
+}
+
+bool fs_cntr_is_image_data(struct boot_img_t *img)
+{
+	/* CHECK IMAGE FLAG "Type of Image" equals data */
+	return !!(img->hab_flags & 0x4);
+}
+
+#ifdef __UBOOT__
 static int slow_equals(u8 *a, u8 *b, int len)
 {
 	int diff = 0;
@@ -224,19 +238,6 @@ static void __maybe_unused print_hash(u8 *hash, int hash_size)
 	puts("\n");
 }
 
-bool fs_cntr_is_signed(struct container_hdr *cntr)
-{
-	/* CHECK CNTR FLAG SRK Set*/
-	return !!(cntr->flags & GENMASK(1,0) );
-}
-
-bool fs_cntr_is_image_data(struct boot_img_t *img)
-{
-	/* CHECK IMAGE FLAG "Type of Image" equals data */
-	return !!(img->hab_flags & 0x4);
-}
-
-#ifdef __UBOOT__
 bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 {
 	unsigned int sha_type;

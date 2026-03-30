@@ -28,9 +28,9 @@
 #else
 
 #include <linux/kconfig.h>		/* Get kconfig macros only */
-#include "linux_helpers.h"
 //####include "../../../include/fdt_support.h"
 #include <linux/libfdt.h>
+#include "linux_helpers.h"
 #include <asm/mach-imx/hab.h>		/* struct ivt, ... */
 //####include <asm/mach-imx/checkboot.h>	/* HAB_HEADER */
 //####include "../../../include/linux/libfdt_env.h"
@@ -756,4 +756,3 @@ bool fs_image_is_ocram_cfg_valid(void)
 
 	return true;
 }
-

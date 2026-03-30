@@ -12,6 +12,7 @@
 #define __FS_IMAGE_COMMON_H__
 
 #include <linux/compiler_attributes.h>	/* __nonstring */
+#include <asm/mach-imx/boot_mode.h>	/* enum boot_mode */
 
 #define MAX_TYPE_LEN 16
 #define MAX_DESCR_LEN 32
@@ -75,6 +76,10 @@ void *fs_image_find_cfg_fdt(struct fs_header_v1_0 *fsh);
 
 /* Return the fdt part of the given board configuration with index header */
 void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info);
+
+struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
+				     const char *type, const char *descr,
+				     struct index_info *idx_info);
 
 /* Return the address of the /board-cfg node */
 int fs_image_get_board_cfg_offs(void *fdt);
@@ -202,13 +207,301 @@ bool fs_image_find_cfg_in_ocram(void);
 int fs_image_get_fdt_val(void *fdt, int offs, const char *name, uint align,
 			 int count, uint *val);
 
+
+/* --- ### from fsimage.c */
+
+struct env_info {
+	unsigned int start[2];
+	unsigned int size;
+};
+
+/* Structure to hold regions in NAND/eMMC for an image, taken from nboot-info */
+struct storage_info {
+	uint start[2];			/* *-start entries */
+	uint size;			/* *-size entry */
+#ifdef CONFIG_CMD_MMC
+	u8 hwpart[2];			/* hwpart (in case of eMMC) */
+#endif
+	const char *type;		/* Name of storage region */
+};
+
+/* Storage info from the nboot-info of a BOARD-CFG in binary form */
+#define NI_SUPPORT_CRC32       BIT(0)	/* Support CRC32 in F&S headers */
+#define NI_SAVE_BOARD_ID       BIT(1)	/* Save the board-rev. in BOARD-CFG */
+#define NI_UBOOT_WITH_FSH      BIT(2)	/* Save U-Boot with F&S Header */
+#define NI_UBOOT_EMMC_BOOTPART BIT(3)	/* On eMMC when booting from boot part,
+					   also save U-Boot in boot part */
+#define NI_EMMC_BOTH_BOOTPARTS BIT(4)	/* On eMMC when booting from boot part,
+					   use both boot partitions, one for
+					   each copy */
+#define NI_SUPPORT_U_ATF       BIT(5)	/* Support for user defined U_ATF/U_TEE
+					   in addition to system ATF/TEE */
+
+#define MAX_SUB_IMGS	8 		/* Max Array-Size for Sub-Images */
+
+struct nboot_info {
+	uint flags;			/* See NI_* above */
+	uint board_cfg_size;
+	struct storage_info spl;
+	struct storage_info nboot;
+	struct storage_info atf;
+	struct storage_info uboot;
+	struct storage_info env;
+};
+
+#define SUB_SYNC          BIT(0)	/* After writing image, flush temp */
+#define SUB_HAS_FS_HEADER BIT(1)	/* Image has an F&S header in flash */
+#define SUB_IS_SPL        BIT(2)	/* SPL: has IVT, may beed offset */
+#define SUB_IS_ENV        BIT(3)	/* Environment data */
 #ifdef CONFIG_NAND_MXS
-int fs_image_get_known_env_nand(uint index, uint start[2], uint *size);
+#define SUB_IS_FCB        BIT(4)	/* FCB: needs other ECC */
+#define SUB_IS_DBBT       BIT(5)
+#define SUB_IS_DBBT_DATA  BIT(6)
 #endif
 
-#ifdef CONFIG_MMC
-int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size);
+struct sub_info {
+	void *img;			/* Pointer to image */
+	const char *type;		/* "BOARD-CFG", "FIRMWARE", "SPL" */
+	const char *descr;		/* e.g. board architecture */
+	uint size;			/* Size of image */
+	uint offset;			/* Offset of image within si */
+	uint flags;			/* See SUB_* above */
+};
+
+struct region_info {
+	struct storage_info *si;	/* Region information */
+	struct sub_info *sub;		/* Pointer to subimages */
+	int count;			/* Number of subimages */
+};
+
+/* Access functions that differ between NAND and MMC */
+struct flash_info;
+struct flash_ops {
+	bool (*check_for_uboot)(struct storage_info *si, bool force);
+	bool (*check_for_nboot)(struct flash_info *fi, struct storage_info *si,
+				bool force);
+	int (*get_nboot_info)(struct flash_info *fi, void *fdt, int offs,
+			      struct nboot_info *ni, int hwpart, bool show,
+			      uint index);
+	bool (*si_differs)(const struct storage_info *si1,
+			   const struct storage_info *si2);
+	int (*read)(struct flash_info *fi, uint offs, uint size, uint lim,
+		    uint flags, u8 *buf);
+	int (*load_image)(struct flash_info *fi, int copy,
+			  const struct storage_info *si, struct sub_info *sub);
+	int (*load_extra)(struct flash_info *fi, struct storage_info *spl,
+			  void *tempaddr);
+	int (*invalidate)(struct flash_info *fi, int copy,
+			  const struct storage_info *si);
+	int (*write)(struct flash_info *fi, uint offs, uint size, uint lim,
+		     uint flags, u8 *buf);
+	int (*prepare_region)(struct flash_info *fi, int copy,
+			      struct storage_info *si);
+	int (*save_nboot)(struct flash_info *fi, struct region_info *nboot_ri,
+			  struct region_info *atf_ri,
+			  struct region_info *spl_ri);
+	int (*set_hwpart)(struct flash_info *fi, int copy,
+			  const struct storage_info *si);
+	int (*set_boot_hwpart)(struct flash_info *fi, int boot_hwpart);
+	void (*put_flash)(struct flash_info *fi);
+};
+
+struct flash_info {
+#ifdef CONFIG_NAND_MXS
+	struct mtd_info *mtd;		/* Handle to NAND */
+	uint env_used;			/* From env-size entry, region size
+					   is from env-range */
 #endif
+#ifdef CONFIG_CMD_MMC
+	struct udevice *bdev;		/* blkdev driver instance */
+	u8 boot_hwpart;			/* HW partition we boot from (0..2) */
+	u8 old_hwpart;			/* Previous partition before command */
+#endif
+	char devname[6];		/* Name of device (NAND, mmc<n>) */
+	u8 *temp;			/* Buffer for one NAND page/MMC block */
+	uint temp_size;			/* Size of temp buffer */
+	uint base_offs;			/* Offset where temp will be written */
+	uint write_pos;			/* temp contains data up to this pos */
+	uint bb_extra_offs;		/* Extra offset due to bad blocks */
+	u8 temp_fill;			/* Default value for temp buffer */
+	enum boot_device boot_dev;	/* Device to boot from */
+	const char *boot_dev_name;	/* Boot device as string */
+	struct flash_ops *ops;		/* Access functions for NAND/MMC */
+};
+
+/* Get start[0..1] and size for a storage info */
+int fs_image_get_si(void *fdt, int offs, uint align, const char *type,
+		    struct storage_info *si);
+
+//###int fs_image_get_nboot_info(struct flash_info *fi, void *fdt,
+//###			    struct nboot_info *ni, int hwpart, bool show);
+
+enum parse_type {
+	PARSE_CONTENT,
+	PARSE_CHECKSUM,
+};
+
+//###void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs,
+//###			  int level);
+
+/* Set all fields of the F&S header */
+//###void fs_image_set_header(struct fs_header_v1_0 *fsh, const char *type,
+//###			 const char *descr, uint size, uint fsh_flags);
+
+//###struct fs_header_v1_0 *fs_image_find_concat(struct fs_header_v1_0 *fsh,
+//###					    const char *type,
+//###					    const char *descr,
+//###					    struct index_info *idx_info);
+
+void fs_image_region_create(struct region_info *ri, struct storage_info *si,
+			    struct sub_info *sub);
+
+/*
+ * Add a subimage with any format to the region. Return offset for next
+ * subimage or 0 in case of error.
+ */
+void fs_image_region_add_raw(struct region_info *ri, void *img,
+			     const char *type, const char *descr, uint woffset,
+			     uint flags, uint size);
+
+//###uint fs_image_region_add(struct region_info *ri, struct fs_header_v1_0 *fsh,
+//###			 const char *type, const char *descr, uint woffset,
+//###			 uint flags);
+
+/*
+ * Add a single F&S header with given data to the region. Return offset for
+ * next subimage or 0 in case of error.
+ */
+//###uint fs_image_region_add_fsh(struct region_info *ri, struct fs_header_v1_0 *fsh,
+//###			     const char *type, const char *descr, uint woffset);
+
+/*
+ * Search the subimage with given type/descr and add it to the region. Return
+ * offset for next image or 0 in case of error.
+ */
+//###uint fs_image_region_find_add(struct region_info *ri,
+//###			      struct fs_header_v1_0 *fsh, const char *type,
+//###			      const char *descr, uint woffset, uint flags);
+
+/* Show status after handling a subimage */
+void fs_image_show_sub_status(int err);
+
+/* Show status after saving an image and return CMD_RET code */
+//###int fs_image_show_save_status(int failed, const char *type);
+
+int fs_image_confirm(void);
+
+/* Determine first copy to modify depending on which SPL copy we booted */
+int fs_image_get_start_copy(void);
+
+int fs_image_get_boot_dev(void *fdt, enum boot_device *boot_dev,
+			  const char **boot_dev_name);
+
+/* Check boot device; Return 0: OK, 1: Not fused yet, <0: Error */
+int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action);
+
+/* Check CRC32 from image and all sub-images */
+int fs_image_check_all_crc32(struct fs_header_v1_0 *fsh);
+
+/* Validate an image, either check signature or CRC32; 0: OK, <0: Error */
+//###int fs_image_validate(struct fs_header_v1_0 *fsh, const char *type,
+//###		      const char *descr, ulong addr);
+
+/* Get image length any header (F&S header, IVT or FIT header) */
+int fs_image_get_size_from_header(struct flash_info *fi, uint offs, uint lim,
+				  struct sub_info *sub, uint *size);
+
+/*
+ * Get pointer to BOARD-CFG image that is to be used and to NBOOT part
+ * Returns: <0: error; 0: aborted by user; 1: same ID; 2: new ID
+ */
+int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
+			    struct index_info *cfg_info,
+			    struct fs_header_v1_0 **nboot);
+
+/* Get addr for image; 0 if "stored", <0: Error */
+//###ulong fs_image_get_loadaddr(int argc, char * const argv[],
+//###			    bool use_stored_if_empty);
+
+/* Invalidate the temp buffer read cache */
+void fs_image_drop_temp(struct flash_info *fi);
+
+int fs_image_load_sub(struct flash_info *fi, uint offs, uint size, uint lim,
+		      uint flags, u8 *buf);
+
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+void fs_image_set_spl_secondary_bit(void *img, int copy);
+#endif
+
+int fs_image_load_image(struct flash_info *fi, const struct storage_info *si,
+			struct sub_info *sub);
+
+/* Load the F&S header of ATF in the ATF region, return 0 if ATF, 1 if U-ATF */
+//###bool fs_image_is_u_atf(struct flash_info *fi, const struct storage_info *atf_si);
+
+/* Check CRC32 for an environment of given size */
+int fs_image_check_env_crc32(void *env, uint size);
+
+/* Load one ENV */
+//###int fs_image_load_env(struct flash_info *fi, struct storage_info *si,
+//###		      void *env_addr, int copy);
+
+/*
+ * Load U-Boot to given address. If SUB_HAS_FS_HEADER is not set as sub_flags,
+ * then fs_image_load_image() will create a new one. If the image actually has
+ * a header in this case (new U-BOOT versions are stored with header), it is
+ * used for CRC32 checking, then removed, and the own new header is used
+ * instead.
+ */
+//###int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
+//###			void *addr, uint sub_flags);
+
+/* Flush the temp buffer to flash */
+//###int fs_image_flush_temp(struct flash_info *fi, uint lim, uint flags);
+
+/* Save the given region to flash */
+int fs_image_save_region(struct flash_info *fi, int copy,
+			 struct region_info *ri);
+
+//###int fs_image_save_uboot(struct flash_info *fi, struct region_info *atf_ri,
+//###			struct region_info *uboot_ri);
+
+int fs_image_get_known_env_nand(uint index, uint start[2], uint *size);
+int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size);
+
+int fs_image_get_flash_nand(struct flash_info *fi, int devnum);
+int fs_image_get_flash_mmc(struct flash_info *fi, int devnum);
+
+/* ------------- Command implementation ------------------------------------ */
+
+/* Show the F&S architecture */
+int fs_image_do_arch(int argc, char * const argv[]);
+
+/* Show the current BOARD-ID */
+int fs_image_do_boardid(int argc, char * const argv[]);
+
+/* Print FDT content of current BOARD-CFG */
+int fs_image_do_boardcfg(int argc, char * const argv[]);
+
+/* Show current boot settings */
+int fs_image_do_boot(int argc, char * const argv[]);
+
+/* List contents of an F&S image */
+int fs_image_do_list(int argc, char * const argv[]);
+
+/* Load NBOOT and SPL regions from the boot device (NAND or MMC) to DRAM,
+   create minimal NBoot image that could be saved again */
+int fs_image_do_load(int argc, char * const argv[]);
+
+/* Save the F&S NBoot image to the boot device (NAND or MMC) */
+int fs_image_do_save(int argc, char * const argv[]);
+
+/* Burn the fuses according to the NBoot in DRAM */
+int fs_image_do_fuse(int argc, char * const argv[]);
+
+/* Load DRAM timings from the boot device (NAND or MMC) to DRAM,
+   look for the CRC and print it out */
+int fs_image_do_checksum(int argc, char * const argv[]);
 
 #endif /* !CONFIG_SPL_BUILD */
 
