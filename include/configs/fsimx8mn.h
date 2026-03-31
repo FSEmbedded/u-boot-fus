@@ -187,75 +187,60 @@
    single backslash. So we actually need an escaped backslash, i.e. two
    backslashes. Which finally results in having to type four backslashes here,
    as each backslash must also be escaped with a backslash in C. */
-#define BOOT_WITH_FDT "\\\\; booti ${loadaddr} - ${fdtaddr}\0"
+#define BOOT_WITH_FDT "\\\\; booti \\\\${loadaddr} - \\\\${fdtaddr}\0"
 
 /* In case of NAND, load kernel and device tree from MTD partitions. */
 #ifdef CONFIG_CMD_NAND
-#define MTDPARTS_DEFAULT_AB                                            \
+#define MTDPARTS_DEFAULT_AB						\
 	"mtdparts=" MTDPARTS_1 MTDPARTS_2_U MTDPARTS_3_A MTDPARTS_3_B MTDPARTS_4
-#define MTDPARTS_DEFAULT                                               \
+#define MTDPARTS_DEFAULT						\
 	"mtdparts=" MTDPARTS_1 MTDPARTS_2 MTDPARTS_3 MTDPARTS_4
-#define BOOT_FROM_NAND                                              \
-	".mtdparts_std_ab=setenv mtdparts " MTDPARTS_DEFAULT_AB "\0"   \
-	".mtdparts_std_noab=setenv mtdparts " MTDPARTS_DEFAULT "\0"    \
-	".mtdparts_std=if test \"x${use_ab}\" = \"xtrue\"; then "      \
-		"run .mtdparts_std_ab; "                               \
-	"else "                                                        \
-		"run .mtdparts_std_noab; "                             \
-	"fi\0"                                                         \
-	".kernel_nand_A=setenv kernel nand read ${loadaddr} Kernel_A\0" \
-	".kernel_nand_B=setenv kernel nand read ${loadaddr} Kernel_B\0" \
-	".kernel_nand=setenv bd_kernel nand\0"        \
-	".load_kernel_nand=setenv kernel nand read ${loadaddr} Kernel\0"    \
-	".fdt_nand_A=setenv fdt nand read ${fdtaddr} FDT_A" BOOT_WITH_FDT \
-	".fdt_nand_B=setenv fdt nand read ${fdtaddr} FDT_B" BOOT_WITH_FDT \
-	".fdt_nand=setenv bd_fdt nand\0"        \
-	".load_fdt_nand=setenv fdt nand read ${fdtaddr} FDT" BOOT_WITH_FDT
+#define BOOT_FROM_NAND							\
+	".mtdparts_std_ab=setenv mtdparts " MTDPARTS_DEFAULT_AB "\0"	\
+	".mtdparts_std_noab=setenv mtdparts " MTDPARTS_DEFAULT "\0"	\
+	".mtdparts_std=if test -n ${use_ab}; then "			\
+		"run .mtdparts_std_ab; "				\
+	"else "								\
+		"run .mtdparts_std_noab; "				\
+	"fi\0"								\
+	".kernel_nand=setenv kernel nand read \\\\${loadaddr} Kernel\\\\${slot_}\0" \
+	".fdt_nand=setenv fdt nand read \\\\${fdtaddr} FDT\\\\${slot_}" BOOT_WITH_FDT
 #else
 #define BOOT_FROM_NAND
 #endif
 
 /* In case of UBI, load kernel and FDT directly from UBI volumes */
 #ifdef CONFIG_CMD_UBI
-#define BOOT_FROM_UBI                                               \
-	".mtdparts_ubionly_ab=setenv mtdparts mtdparts="               \
-	  MTDPARTS_1 MTDPARTS_2_U MTDPARTS_4 "\0"                      \
-	".mtdparts_ubionly_noab=setenv mtdparts mtdparts="             \
-	  MTDPARTS_1 MTDPARTS_2 MTDPARTS_4 "\0"                        \
-	".mtdparts_ubionly=if test \"x${use_ab}\" = \"xtrue\"; then "  \
-		"run .mtdparts_ubionly_ab; "                           \
-	"else "                                                        \
-		"run .mtdparts_ubionly_noab; "                         \
-	"fi\0"                                                         \
-	".ubivol_std=ubi part TargetFS; ubi create rootfs\0"           \
-	".ubivol_std_ab=ubi part TargetFS;"                            \
-	" ubi create rootfs_A ${rootfs_size};"                         \
-	" ubi create rootfs_B ${rootfs_size};"                         \
-	" ubi create data\0"                                           \
-	".ubivol_ubi=ubi part TargetFS; ubi create kernel ${kernel_size} s;" \
-	" ubi create fdt ${fdt_size} s; ubi create rootfs\0"           \
-	".ubivol_ubi_ab=ubi part TargetFS;"                            \
-	" ubi create kernel_A ${kernel_size} s;"                       \
-	" ubi create kernel_B ${kernel_size} s;"                       \
-	" ubi create fdt_A ${fdt_size} s;"                             \
-	" ubi create fdt_B ${fdt_size} s;"                             \
-	" ubi create rootfs_A ${rootfs_size};"                         \
-	" ubi create rootfs_B ${rootfs_size};"                         \
-	" ubi create data\0"                                           \
-	".kernel_ubi_A=setenv kernel ubi part TargetFS\\\\;"           \
-	" ubi read . kernel_A\0"                                       \
-	".kernel_ubi_B=setenv kernel ubi part TargetFS\\\\;"           \
-	" ubi read . kernel_B\0"                                       \
-	".kernel_ubi=setenv bd_kernel ubi\0"                           \
-	".load_kernel_ubi=setenv kernel ubi part TargetFS\\\\;"        \
-	" ubi read . kernel\0"                                         \
-	".fdt_ubi_A=setenv fdt ubi part TargetFS\\\\;"                 \
-	" ubi read ${fdtaddr} fdt_A" BOOT_WITH_FDT                     \
-	".fdt_ubi_B=setenv fdt ubi part TargetFS\\\\;"                 \
-	" ubi read ${fdtaddr} fdt_B" BOOT_WITH_FDT                     \
-	".fdt_ubi=setenv bd_fdt ubi\0"                                 \
-	".load_fdt_ubi=setenv fdt ubi part TargetFS\\\\;"              \
-	" ubi read ${fdtaddr} fdt" BOOT_WITH_FDT
+#define BOOT_FROM_UBI							\
+	".mtdparts_ubionly_ab=setenv mtdparts mtdparts="                \
+	  MTDPARTS_1 MTDPARTS_2_U MTDPARTS_4 "\0"                       \
+	".mtdparts_ubionly_noab=setenv mtdparts mtdparts="              \
+	  MTDPARTS_1 MTDPARTS_2 MTDPARTS_4 "\0"                         \
+	".mtdparts_ubionly=if test -n ${use_ab}; then "			\
+		"run .mtdparts_ubionly_ab; "                            \
+	"else "                                                         \
+		"run .mtdparts_ubionly_noab; "                          \
+	"fi\0"                                                          \
+	".ubivol_std=ubi part TargetFS; ubi create rootfs\0"		\
+	".ubivol_std_ab=ubi part TargetFS;"				\
+	" ubi create rootfs_A \\${rootfs_size};"			\
+	" ubi create rootfs_B \\${rootfs_size};"			\
+	" ubi create data\0"						\
+	".ubivol_ubi=ubi part TargetFS;"				\
+	" ubi create kernel \\${kernel_size} s;"			\
+	" ubi create fdt \\${fdt_size} s; ubi create rootfs\0"	\
+	".ubivol_ubi_ab=ubi part TargetFS;"				\
+	" ubi create kernel_A \\${kernel_size} s;"			\
+	" ubi create kernel_B \\${kernel_size} s;"			\
+	" ubi create fdt_A \\${fdt_size} s;"				\
+	" ubi create fdt_B \\${fdt_size} s;"				\
+	" ubi create rootfs_A \\${rootfs_size};"			\
+	" ubi create rootfs_B \\${rootfs_size};"			\
+	" ubi create data\0"						\
+	".kernel_ubi=setenv kernel ubi part TargetFS\\\\;"		\
+	" ubi read . kernel\\\\${slot_}\0"				\
+	".fdt_ubi=setenv fdt ubi part TargetFS\\\\;"			\
+	" ubi read \\\\${fdtaddr} fdt\\\\${slot_}" BOOT_WITH_FDT
 #else
 #define BOOT_FROM_UBI
 #endif
@@ -266,33 +251,27 @@
  * rootfs in directory /boot.
  */
 #ifdef CONFIG_CMD_UBIFS
-#define BOOT_FROM_UBIFS                                             \
-	".kernel_ubifs_A=setenv kernel ubi part TargetFS\\\\;"         \
-	" ubifsmount ubi0:rootfs_A\\\\; ubifsload . /boot/${bootfile}\0" \
-	".kernel_ubifs_B=setenv kernel ubi part TargetFS\\\\;"         \
-	" ubifsmount ubi0:rootfs_B\\\\; ubifsload . /boot/${bootfile}\0" \
-	".kernel_ubifs=setenv bd_kernel ubifs\0"                       \
-	".load_kernel_ubifs=setenv kernel ubi part TargetFS\\\\;"      \
-	" ubifsmount ubi0:rootfs\\\\; ubifsload . /boot/${bootfile}\0" \
-	".fdt_ubifs_A=setenv fdt ubi part TargetFS\\\\;"               \
-	" ubifsmount ubi0:rootfs_A\\\\;"                               \
-	" ubifsload ${fdtaddr} /boot/${bootfdt}" BOOT_WITH_FDT         \
-	".fdt_ubifs_B=setenv fdt ubi part TargetFS\\\\;"               \
-	" ubifsmount ubi0:rootfs_B\\\\;"                               \
-	" ubifsload ${fdtaddr} /boot/${bootfdt}" BOOT_WITH_FDT         \
-	".fdt_ubifs=setenv bd_fdt ubifs\0"                             \
-	".load_fdt_ubifs=setenv fdt ubi part TargetFS\\\\;"            \
-	" ubifsmount ubi0:rootfs\\\\;"                                 \
-	" ubifsload ${fdtaddr} /boot/${bootfdt}" BOOT_WITH_FDT         \
-	".rootfs_ubifs_A=setenv rootfs 'rootfstype=squashfs"           \
-	" ubi.block=0,rootfs_A ubi.mtd=TargetFS,2048"                  \
-	" root=/dev/ubiblock0_0 rootwait ro'\0"                        \
-	".rootfs_ubifs_B=setenv rootfs 'rootfstype=squashfs"           \
-	" ubi.block=0,rootfs_B ubi.mtd=TargetFS,2048"                  \
-	" root=/dev/ubiblock0_1 rootwait ro'\0"                        \
-	".rootfs_ubifs=setenv bd_rootfs ubifs\0"                       \
-	".load_rootfs_ubifs=setenv rootfs rootfstype=ubifs ubi.mtd=TargetFS" \
-	" root=ubi0:rootfs\0"
+#define BOOT_FROM_UBIFS							\
+	".ubiblock_A=0_0\0"						\
+	".ubiblock_B=0_1\0"						\
+	".boot_part_B=2\0"						\
+	".boot_part=1\0"						\
+	".kernel_ubifs=setenv kernel ubi part TargetFS\\\\;"		\
+	" ubifsmount ubi0:rootfs\\\\${slot_}\\\\;"			\
+	" ubifsload . /boot/${bootfile}\0"				\
+	".fdt_ubifs=setenv fdt ubi part TargetFS\\\\;"			\
+	" ubifsmount ubi0:rootfs\\\\${slot_}\\\\;"			\
+	" ubifsload \\\\${fdtaddr} /boot/\\\\${bootfdt}" BOOT_WITH_FDT	\
+	".rootfs_ubifs=setenv set_rootfs"				\
+	" if test -n \\\\${use_ab}\\\\; then"				\
+		" n=.ubiblock\\\\${slot_}\\\\;"				\
+		" setenv rootfs rootfstype=squashfs"			\
+		" ubi.block=0,rootfs\\\\${slot_} ubi.mtd=TargetFS,2048"	\
+		" root=/dev/ubiblock\\\\${!n} rootwait ro\\\\;"	\
+	" else"								\
+		" setenv rootfs rootfstype=ubifs ubi.mtd=TargetFS"	\
+		" root=ubi0:rootfs\\\\;"				\
+	" fi\0"
 #else
 #define BOOT_FROM_UBIFS
 #endif
@@ -303,124 +282,75 @@
  * typically formated with FAT.
  */
 #ifdef CONFIG_CMD_MMC
-#define BOOT_FROM_MMC                                                \
-	".boot_part_A=1\0"                                              \
-	".boot_part_B=2\0"                                              \
-	".rootfs_part_A=5\0"                                            \
-	".rootfs_part_B=6\0"                                            \
-	".kernel_mmc_A=setenv kernel mmc rescan\\\\;"                   \
-	" load mmc ${mmcdev}:${.boot_part_A}\0"                         \
-	".kernel_mmc_B=setenv kernel mmc rescan\\\\;"                   \
-	" load mmc ${mmcdev}:${.boot_part_B}\0"                         \
-	".kernel_mmc=setenv bd_kernel mmc\0"                            \
-	".load_kernel_mmc=setenv kernel mmc rescan\\\\;"                \
-	" load mmc ${mmcdev} . ${bootfile}\0"                           \
-	".fdt_mmc_A=setenv fdt mmc rescan\\\\;"                         \
-	" load mmc ${mmcdev}:${.boot_part_A} ${fdtaddr} \\\\${bootfdt}" \
-	BOOT_WITH_FDT                                                   \
-	".fdt_mmc_B=setenv fdt mmc rescan\\\\;"                         \
-	" load mmc ${mmcdev}:${.boot_part_B} ${fdtaddr} \\\\${bootfdt}" \
-	BOOT_WITH_FDT                                                   \
-	".fdt_mmc=setenv bd_fdt mmc\0"                                  \
-	".load_fdt_mmc=setenv fdt mmc rescan\\\\;"                      \
-	" load mmc ${mmcdev} ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT   \
-	".rootfs_mmc_A=setenv rootfs root=/dev/mmcblk${mmcdev}p{.rootfs_part_A}" \
-	" rootfstype=squashfs rootwait\0" \
-	".rootfs_mmc_B=setenv rootfs root=/dev/mmcblk${mmcdev}p{.rootfs_part_B}" \
-	" rootfstype=squashfs rootwait\0" \
-	".rootfs_mmc=setenv bd_rootfs mmc\0" \
-	".load_rootfs_mmc=setenv rootfs root=/dev/mmcblk${mmcdev}p2 rootwait\0"
+#define BOOT_FROM_MMC							\
+	".boot_part_A=1\0"						\
+	".boot_part_B=2\0"						\
+	".boot_part=1\0"						\
+	".rootfs_part_A=5\0"						\
+	".rootfs_part_B=6\0"						\
+	".rootfs_part=2\0"						\
+	".kernel_mmc=setenv kernel n=.boot_part\\\\${slot_}\\\\;"	\
+	" mmc rescan\\\\; load mmc ${mmcdev}:\\\\${!n} . ${bootfile}\0"	\
+	".fdt_mmc=setenv fdt n=.boot_part\\\\${slot_}\\\\; mmc rescan\\\\; " \
+	" load mmc ${mmcdev}:\\\\${!n} ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT \
+	".rootfs_mmc=setenv set_rootfs n=.rootfs_part\\\\${slot_}\\\\;" \
+	" setenv rootfs root=/dev/mmcblk${mmcdev}p\\\\${!n} ${rootfstype} rootwait\0"
 #else
 #define BOOT_FROM_MMC
 #endif
 
 /* In case of USB, the layout is the same as on MMC (no A/B support). */
-#define BOOT_FROM_USB                                               \
-	".kernel_usb=setenv bd_kernel usb\0"                           \
-	".load_kernel_usb=setenv kernel usb start\\\\;"                \
-	" load usb 0 . ${bootfile}\0"                                  \
-	".fdt_usb=setenv bd_fdt usb\0"                                 \
-	".load_fdt_usb=setenv fdt usb start\\\\;"                      \
-	" load usb 0 ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT              \
-	".rootfs_usb=setenv bd_rootfs usb\0"                           \
-	".load_rootfs_usb=setenv rootfs root=/dev/sda1 rootwait\0"
+#define BOOT_FROM_USB							\
+	".kernel_usb=setenv kernel usb start\\\\;"                      \
+	" load usb 0 . ${bootfile}\0"                                   \
+	".fdt_usb=setenv fdt usb start\\\\;"                            \
+	" load usb 0 ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT               \
+	".rootfs_usb=setenv rootfs root=/dev/sda1 rootwait\0"
 
 /* In case of TFTP, kernel and device tree are loaded from TFTP server */
-#define BOOT_FROM_TFTP                                              \
-	".kernel_tftp=setenv bd_kernel tftp\0"                          \
-	".load_kernel_tftp=setenv kernel tftpboot . ${bootfile}\0"      \
-	".fdt_tftp=setenv bd_fdt tftp\0"                                \
-	".load_fdt_tftp=setenv fdt tftpboot ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT
+#define BOOT_FROM_TFTP							\
+	".kernel_tftp=setenv kernel tftpboot . ${bootfile}\0"           \
+	".fdt_tftp=setenv fdt tftpboot ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT
 
 /* In case of NFS, kernel, device tree and rootfs are loaded from NFS server */
-#define BOOT_FROM_NFS                                               \
-	".kernel_nfs=setenv bd_kernel nfs\0"                           \
-	".load_kernel_nfs=setenv kernel nfs ."                         \
-	" ${serverip}:${rootpath}/${bootfile}\0"                       \
-	".fdt_nfs=setenv bd_fdt nfs\0"                                 \
-	".load_fdt_nfs=setenv fdt nfs ${fdtaddr}"                      \
-	" ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT            \
-	".rootfs_nfs=setenv bd_rootfs nfs\0"                           \
-	".load_rootfs_nfs=setenv rootfs root=/dev/nfs"                 \
+#define BOOT_FROM_NFS							\
+	".kernel_nfs=setenv kernel nfs ."                               \
+	" ${serverip}:${rootpath}/${bootfile}\0"                        \
+	".fdt_nfs=setenv fdt nfs ${fdtaddr}"                            \
+	" ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT             \
+	".rootfs_nfs=setenv rootfs root=/dev/nfs"                       \
 	" nfsroot=${serverip}:${rootpath},tcp,v3\0"
 
 /*
  * Generic settings for booting with updates on A/B.
  */
-#define BOOT_SYSTEM                                                 \
-	".init_fs_updater=setenv init init=/sbin/preinit.sh\0"         \
-	"BOOT_ORDER=A B\0"                                             \
-	"BOOT_ORDER_OLD=A B\0"                                         \
-	"BOOT_A_LEFT=3\0"                                              \
-	"BOOT_B_LEFT=3\0"                                              \
-	"update_reboot_state=0\0"                                      \
-	"update=0000\0"                                                \
-	"application=A\0"                                              \
-	"rauc_cmd=rauc.slot=A\0"                                       \
-	"selector="                                                    \
+#define BOOT_SYSTEM							\
+	".init_fs_updater=setenv init init=/sbin/preinit.sh\0"		\
+	"BOOT_ORDER=A B\0"						\
+	"BOOT_ORDER_OLD=A B\0"						\
+	"BOOT_A_LEFT=3\0"						\
+	"BOOT_B_LEFT=3\0"						\
+	"update_reboot_state=0\0"					\
+	"update=0000\0"							\
+	"application=A\0"						\
+	"rauc_cmd=rauc.slot=A\0"					\
+	"selector="                                                     \
+		"rootfstype=rootfstype=squashfs; " \
 		"for slot in ${BOOT_ORDER}; do "                        \
-			"if test \"x${slot}\" = \"xA\"; then "          \
-				"slot_cnt=${BOOT_A_LEFT}; "             \
-			"else "                                         \
-				"slot_cnt=${BOOT_B_LEFT}; "             \
-			"fi; "                                          \
+			"n=BOOT_${slot}_LEFT;"				\
+			"slot_cnt=${!n}; "                              \
 			"if test ${slot_cnt} -gt 0; then "              \
+				"slot_=_${slot}; "			\
 				"setexpr BOOT_${slot}_LEFT ${slot_cnt} - 1; " \
 				"setenv rauc_cmd rauc.slot=${slot}; "   \
 				"saveenv; "                             \
 				"echo \"Booting slot ${slot} (${slot_cnt} left)\"; " \
-				"if test \"x${bd_kernel}\" = \"xnand\" || "             \
-					"test \"x${bd_kernel}\" = \"xubifs\" || "        \
-					"test \"x${bd_kernel}\" = \"xmmc\"; then "        \
-					"run .kernel_${bd_kernel}_${slot}; "    \
-				"else "                                         \
-					"run .load_kernel_${bd_kernel}; "    \
-				"fi; " \
-				"if test \"x${bd_fdt}\" = \"xnand\" || "             \
-					"test \"x${bd_fdt}\" = \"xubifs\" || "        \
-					"test \"x${bd_fdt}\" = \"xmmc\"; then "        \
-					"run .fdt_${bd_fdt}_${slot}; "          \
-				"else "                                         \
-					"run .load_fdt_${bd_fdt}; "    \
-				"fi; " \
-				"if test \"x${bd_rootfs}\" = \"xnand\" || "             \
-					"test \"x${bd_rootfs}\" = \"xubifs\" || "        \
-					"test \"x${bd_rootfs}\" = \"xmmc\"; then "        \
-					"run .rootfs_${bd_rootfs}_${slot}; "    \
-				"else "                                         \
-					"run .load_rootfs_${bd_rootfs}; "    \
-				"fi; " \
 				"exit; "                                \
 			"fi; "                                          \
 		"done; "                                                \
-		"echo \"All boot tries exhausted, emergency boot\"; "   \
-		"for slot in ${BOOT_ORDER}; do "                        \
-			"setenv rauc_cmd rauc.slot=${slot}; "           \
-			"run .kernel_${bd_kernel}_${slot}; "            \
-			"run .fdt_${bd_fdt}_${slot}; "                  \
-			"run .rootfs_${bd_rootfs}_${slot}; "            \
-			"exit; "                                        \
-		"done;\0"
+		"echo \"Boot failed, system corrupted\"; "   \
+		"setenv boot_failed 1;\0"                    \
+
 
 
 /* Generic variables */
@@ -435,27 +365,18 @@
  * Boot mode dispatch: runtime selection between A/B update and legacy boot.
  * select_boot_mode is the single entry point called by CONFIG_BOOTCOMMAND.
  */
-#define BOOT_MODE_DISPATCH                                          \
-	"boot_legacy="                                                 \
-		"run .load_kernel_${bd_kernel}; "                    \
-		"run .load_fdt_${bd_fdt}; "                          \
-		"run .load_rootfs_${bd_rootfs}; "                    \
-		"run set_bootargs; run kernel; run fdt\0"              \
-	"boot_ab="                                                     \
-		"run selector; run set_bootargs; run kernel; run fdt; " \
-		"run failed_update_reset\0"                            \
-	"select_boot_mode="                                            \
-		"if test \"x${bd_kernel}\" = \"xnand\" || "            \
-			"test \"x${bd_kernel}\" = \"xubifs\"; then "       \
-			"run .mtdparts_std; "                              \
-		"fi; "                                                 \
-		"if test \"x${use_ab}\" = \"xtrue\"; then "            \
-			"run .init_fs_updater; "                       \
-			"run boot_ab; "                                \
-		"else "                                                \
-			"setenv rauc_cmd; "                            \
-			"run .init_init; "                             \
-			"run boot_legacy; "                            \
+#define BOOT_MODE_DISPATCH						\
+	"select_boot_mode="                         \
+		"if test -n \"${use_ab}\"; then "           \
+			"run .init_fs_updater selector; "   \
+			"if test -z \"${boot_failed}\"; then "\
+				"run set_bootargs kernel fdt; "	\
+				"run failed_update_reset; "     \
+			"fi; "                              \
+		"else "                                 \
+			"setenv rauc_cmd; "                 \
+			"run .init_init; "                  \
+			"run set_bootargs kernel fdt; "     \
 		"fi\0"
 
 /* Conversion from file size to MMC block count (512 bytes per block) */
@@ -476,63 +397,62 @@
 		"fi;\0"
 
 /* Initial environment variables */
-#define CFG_EXTRA_ENV_SETTINGS                                         \
-	"bd_kernel=undef\0"                                            \
-	"bd_fdt=undef\0"                                               \
-	"bd_rootfs=undef\0"                                            \
-	"initrd_addr=0x43800000\0"                                     \
-	"initrd_high=0xffffffffffffffff\0"                             \
-	"console=undef\0"                                              \
-	".console_none=setenv console\0"                               \
-	".console_serial=setenv console console=${sercon},${baudrate}\0" \
-	".console_display=setenv console console=tty1\0"               \
-	"login=undef\0"                                                \
-	".login_none=setenv login login_tty=null\0"                    \
-	".login_serial=setenv login login_tty=${sercon},${baudrate}\0" \
-	".login_display=setenv login login_tty=tty1\0"                 \
-	"mode=undef\0"                                                 \
-	".mode_rw=setenv mode rw\0"                                    \
-	".mode_ro=setenv mode ro\0"                                    \
-	"init=undef\0"                                                 \
-	".init_init=setenv init\0"                                     \
-	".init_linuxrc=setenv init init=linuxrc\0"                     \
-	"mtdids=undef\0"                                               \
-	"mtdparts=undef\0"                                             \
-	"use_ab=false\0"                                               \
-	"netdev=eth0\0"                                                \
-	"mmcdev=undef\0"                                               \
-	".network_off=setenv network\0"                                \
-	".network_on=setenv network ip=${ipaddr}:${serverip}"          \
-	":${gatewayip}:${netmask}:${hostname}:${netdev}\0"             \
-	".network_dhcp=setenv network ip=dhcp\0"                       \
-	"rootfs=undef\0"                                               \
-	"kernel=undef\0"                                               \
-	"fdt=undef\0"                                                  \
-	"fdtaddr=0x43000000\0"                                         \
-	".fdt_none=setenv fdt booti\0"                                 \
-	BOOT_FROM_NAND                                              \
-	BOOT_FROM_UBI                                               \
-	BOOT_FROM_UBIFS                                             \
-	BOOT_FROM_MMC                                               \
-	BOOT_FROM_USB                                               \
-	BOOT_FROM_TFTP                                              \
-	BOOT_FROM_NFS                                               \
-	BOOT_SYSTEM                                                 \
-	BOOT_MODE_DISPATCH                                          \
-	FILESIZE2BLOCKCOUNT                                            \
-	FSBOOTDELAY                                                    \
-	FAILED_UPDATE_RESET                                            \
-	"sercon=undef\0"                                               \
-	"installcheck=undef\0"                                         \
-	"updatecheck=undef\0"                                          \
-	"recovercheck=undef\0"                                         \
-	"platform=undef\0"                                             \
-	"arch=fsimx8mn\0"                                              \
-	"bootfdt=undef\0"                                              \
-	"m4_uart4=disable\0"                                           \
-	"fdt_high=0xffffffffffffffff\0"                                \
-	"set_bootfdt=setenv bootfdt ${platform}.dtb\0"                 \
-	"set_bootargs=setenv bootargs ${console} ${login} ${mtdparts}" \
+#define CFG_EXTRA_ENV_SETTINGS                                           \
+	"bd_kernel=undef\0"                                                 \
+	"bd_fdt=undef\0"                                                    \
+	"bd_rootfs=undef\0"                                                 \
+	"initrd_addr=0x43800000\0"                                          \
+	"initrd_high=0xffffffffffffffff\0"                                 \
+	"console=undef\0"                                                  \
+	".console_none=setenv console\0"                                   \
+	".console_serial=setenv console console=${sercon},${baudrate}\0"   \
+	".console_display=setenv console console=tty1\0"                   \
+	"login=undef\0"                                                     \
+	".login_none=setenv login login_tty=null\0"                         \
+	".login_serial=setenv login login_tty=${sercon},${baudrate}\0"     \
+	".login_display=setenv login login_tty=tty1\0"                     \
+	"mode=undef\0"                                                      \
+	".mode_rw=setenv mode rw\0"                                         \
+	".mode_ro=setenv mode ro\0"                                         \
+	"init=undef\0"                                                      \
+	".init_init=setenv init\0"                                          \
+	".init_linuxrc=setenv init init=linuxrc\0"                          \
+	"mtdids=undef\0"                                                    \
+	"mtdparts=undef\0"                                                  \
+	"netdev=eth0\0"                                                     \
+	"mmcdev=undef\0"                                                    \
+	".network_off=setenv network\0"                                     \
+	".network_on=setenv network ip=${ipaddr}:${serverip}:"              \
+	"${gatewayip}:${netmask}:${hostname}:${netdev}\0"                   \
+	".network_dhcp=setenv network ip=dhcp\0"                            \
+	"rootfs=undef\0"                                                    \
+	"kernel=undef\0"                                                    \
+	"fdt=undef\0"                                                       \
+	"fdtaddr=0x43000000\0"                                              \
+	".fdt_none=setenv fdt booti\0"                                      \
+	BOOT_FROM_NAND                                                   \
+	BOOT_FROM_UBI                                                    \
+	BOOT_FROM_UBIFS                                                  \
+	BOOT_FROM_MMC                                                    \
+	BOOT_FROM_USB                                                    \
+	BOOT_FROM_TFTP                                                   \
+	BOOT_FROM_NFS                                                    \
+	BOOT_SYSTEM                                                      \
+	BOOT_MODE_DISPATCH                                               \
+	FILESIZE2BLOCKCOUNT                                                 \
+	FSBOOTDELAY                                                         \
+	FAILED_UPDATE_RESET                                                 \
+	"sercon=undef\0"                                                    \
+	"installcheck=undef\0"                                              \
+	"updatecheck=undef\0"                                               \
+	"recovercheck=undef\0"                                              \
+	"platform=undef\0"                                                  \
+	"arch=fsimx8mm\0"                                                   \
+	"bootfdt=undef\0"                                                   \
+	"m4_uart4=disable\0"                                                \
+	"fdt_high=0xffffffffffffffff\0"                                     \
+	"set_bootfdt=setenv bootfdt ${platform}.dtb\0"                      \
+	"set_bootargs=run set_rootfs\\; setenv bootargs ${console} ${login} ${mtdparts}"      \
 	" ${network} ${rootfs} ${mode} ${init} ${extra} ${rauc_cmd}\0"
 
 /* Link Definitions */
