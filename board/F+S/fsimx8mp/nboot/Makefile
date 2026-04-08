@@ -8,7 +8,7 @@ include spl/include/autoconf.mk
 # NBoot version with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_VERSION = 2025.12
+NBOOT_VERSION = 2025.12.1
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
 # names given in the Selectsoft WaWi for the board, without the PCB revision.
@@ -40,6 +40,9 @@ BOARD_CONFIGS = \
 	PCoreMX8MPr2-FERT12.fs \
 	PCoreMX8MPr2-FERT13.fs \
 	PCoreMX8MPr2-FERT14.fs \
+	PCoreMX8MPr2-FERT15.fs \
+	PCoreMX8MPr2-FERT16.fs \
+	PCoreMX8MPr2-FERT17.fs \
 	armStoneMX8MP-FERT0.fs \
 	armStoneMX8MP-FERT2.fs \
 	armStoneMX8MP-FERT4.fs \

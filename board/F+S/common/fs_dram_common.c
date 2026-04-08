@@ -26,7 +26,9 @@ int parse_dram_timing(struct dram_timing_info * pdram)
 
 int fs_dram_init_common(unsigned long * p) {
 	struct dram_timing_info *dti = (struct dram_timing_info *)*p;
-	//dti = &dram_timing;
+
+	printf("DDR:        %uMTS\n", dti->fsp_msg[0].drate);
+
 #if defined(CONFIG_IMX8M)
 	return ddr_init(dti);
 #elif defined(CONFIG_IMX8)

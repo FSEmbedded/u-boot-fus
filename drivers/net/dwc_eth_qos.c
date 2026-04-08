@@ -775,10 +775,6 @@ static int eqos_start(struct udevice *dev)
 	ret = wait_for_bit_le32(&eqos->dma_regs->mode,
 				EQOS_DMA_MODE_SWR, false,
 				eqos->config->swr_wait, false);
-	if (ret) {
-		pr_err("EQOS_DMA_MODE_SWR stuck");
-		goto err_stop_resets;
-	}
 
 	ret = eqos->config->ops->eqos_calibrate_pads(dev);
 	if (ret < 0) {
@@ -791,6 +787,15 @@ static int eqos_start(struct udevice *dev)
 
 		val = (rate / 1000000) - 1;
 		writel(val, &eqos->mac_regs->us_tic_counter);
+	}
+
+	/*
+	 * Check DMA Reset here, since i.MX93 does not handle the reset until after
+	 * the clocks are set.
+	 */
+	if (ret) {
+		pr_err("EQOS_DMA_MODE_SWR stuck");
+		goto err_stop_resets;
 	}
 
 	/*

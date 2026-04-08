@@ -56,5 +56,6 @@ enum fsimx8ulp_board_types {
 #define FEAT_LVDS		BIT(18)
 #define FEAT_MIPI_CSI		BIT(19)
 #define FEAT_RGB		BIT(20)
+#define FEAT_CAN_IN_APD		BIT(21)
 
 #endif /* __BOARD_FSIMX8ULP_H */

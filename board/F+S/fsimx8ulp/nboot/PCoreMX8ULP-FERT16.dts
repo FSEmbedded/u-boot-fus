@@ -52,8 +52,15 @@
 		// have-mipi-dsi;
 		// have-lvds;
 
-		PCoreMX8ULP-FERT11.120 {
+		/* realtimed-features*/
+		have-can-in-apd;
+
+		PCoreMX8ULP-FERT16.120 {
 			board-rev = <120>;
+		};
+
+		PCoreMX8ULP-FERT16.130 {
+			board-rev = <130>;
 		};
 	};
 };

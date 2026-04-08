@@ -1071,6 +1071,7 @@ int fs_image_load_system_copy(struct flash_info_spl *fi, basic_init_t basic_init
 	int err;
 	void *atf_addr = (void *)CONFIG_SPL_ATF_ADDR;
 	const char *arch = fs_image_get_arch();
+	u32 *dram_crc;
 
 	/* Load BOARD-CFG to OCRAM and validate */
 	err = fi->set_hwpart(fi, copy);
@@ -1143,6 +1144,9 @@ int fs_image_load_system_copy(struct flash_info_spl *fi, basic_init_t basic_init
 		return -EINVAL;
 	}
 	debug("Init DDR succeeded\n");
+
+	dram_crc = (void *)&one_fsh.type[12];
+	printf("DRAM-CRC32: 0x%08x\n", *dram_crc);
 
 	/* Load ATF to ATF address, validate in place */
 	start = atf_start;

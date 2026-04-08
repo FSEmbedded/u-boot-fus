@@ -45,8 +45,19 @@
 		have-mipi-dsi;
 		have-mipi-csi;
 
-        PCoreMX8ULP-FERT1.110 {
-            board-rev = <110>;
-        };
+		/* realtimed-features*/
+		have-can-in-apd;
+
+		PCoreMX8ULP-FERT1.110 {
+			board-rev = <110>;
+		};
+
+		PCoreMX8ULP-FERT1.120 {
+			board-rev = <120>;
+		};
+
+		PCoreMX8ULP-FERT1.130 {
+			board-rev = <130>;
+		};
 	};
 };

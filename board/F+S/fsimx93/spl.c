@@ -119,6 +119,7 @@ static int set_gd_board_type(void)
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
 	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
 	SET_BOARD_TYPE("NDCU93", BT_NDCU93, board_id, len);
+	SET_BOARD_TYPE("PCOM93", BT_PICOCOM93, board_id, len);
 #elif defined(CONFIG_TARGET_FSIMX91)
 	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
 	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
@@ -144,6 +145,10 @@ int board_early_init_f(void)
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
+		case BT_PICOCOM93:
+			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
+			init_uart_clk(LPUART5_CLK_ROOT);
+			break;
 		default:
 			return -EINVAL;
 			break;
@@ -167,6 +172,7 @@ int board_fit_config_name_match(const char *name)
 	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX93, name);
 	CHECK_BOARD_TYPE_AND_NAME("efusmx93-SINTF", BT_EFUSMX93, name);
 	CHECK_BOARD_TYPE_AND_NAME("netdcumx93", BT_NDCU93, name);
+	CHECK_BOARD_TYPE_AND_NAME("picocom93", BT_PICOCOM93, name);
 #elif defined(CONFIG_TARGET_FSIMX91)
 	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX91, name);
 	CHECK_BOARD_TYPE_AND_NAME("efusmx91", BT_EFUSMX91, name);

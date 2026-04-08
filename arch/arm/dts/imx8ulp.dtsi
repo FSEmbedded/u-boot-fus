@@ -1002,6 +1002,10 @@
 						reg = <0>;
 						remote-endpoint = <&mipi_dsi_to_dcnano_dpi>;
 					};
+
+					dcnano_dpi_to_disp: endpoint@1 {
+						reg = <1>;
+					};
 				};
 			};
 		};

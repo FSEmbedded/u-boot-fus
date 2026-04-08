@@ -106,11 +106,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define INSTALL_DEF INSTALL_RAM
 #endif
 
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-#define INIT_DEF ".init_fs_updater"
-#else
 #define INIT_DEF ".init_init"
-#endif
 
 const struct fs_board_info board_info[] = {
 	{	/* 0 (BT_PICOCOREMX8MM) */

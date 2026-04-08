@@ -182,6 +182,7 @@ int board_fit_config_name_match(const char *name)
 	CHECK_BOARD_TYPE_AND_NAME("picocoremx8ulp", BT_PICOCOREMX8ULP, name);
 	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx8ulp-adp-osm-bb",
 					BT_OSMSFMX8ULP, name);
+	CHECK_BOARD_TYPE_AND_NAME("armstonemx8ulp", BT_ARMSTONEMX8ULP, name);
 
     return -EINVAL;
 }

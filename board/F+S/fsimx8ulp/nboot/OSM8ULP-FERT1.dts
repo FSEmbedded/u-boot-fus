@@ -51,6 +51,9 @@
 		have-mipi-dsi;
 		have-mipi-csi;
 
+		/* realtimed-features*/
+		have-can-in-apd;
+
 		OSM8ULP-FERT1.100 {
 	    		board-rev = <100>;
        		};

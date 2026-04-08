@@ -667,6 +667,9 @@ pc_sai: &sai3	{};
 	pinctrl-0 = <&pinctrl_lpspi1>;
 	pinctrl-1 = <&pinctrl_lpspi1>;
 	cs-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
+#if CONFIG_PICOCOREMX93_BOARD_REVISION <= 110
+	swap_sout_sin;
+#endif
 	status = "okay";
 
 	spidev@0 {
@@ -684,7 +687,7 @@ pc_sai: &sai3	{};
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_lpspi6>;
 	pinctrl-1 = <&pinctrl_lpspi6>;
-	cs-gpios = <&gpio2 1 GPIO_ACTIVE_LOW>;
+	cs-gpios = <&gpio2 0 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	spidev@0 {

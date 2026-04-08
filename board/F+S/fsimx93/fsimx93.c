@@ -45,6 +45,9 @@
 #include "../common/fs_cntr_common.h"
 #include "../common/fs_fdt_common.h"
 
+#include <syscon.h>
+#include <regmap.h>
+
 #if CONFIG_IS_ENABLED(IMX93)
 #define LABEL_CPU_ALERT "cpu_alert"
 #define LABEL_CPU_CRIT "cpu_crit"
@@ -172,6 +175,19 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
+	{	/* 6 (BT_PICOCOM93) */
+		.name = "PicoCOM93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
 };
 
 /* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
@@ -195,6 +211,8 @@ static int set_gd_board_type(void)
 
 	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
 	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
+
+	SET_BOARD_TYPE("PCOM93", BT_PICOCOM93, board_id, len);
 
 	return -EINVAL;
 }
@@ -320,6 +338,10 @@ int board_early_init_f(void)
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
+		case BT_PICOCOM93:
+			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
+			init_uart_clk(LPUART5_CLK_ROOT);
+			break;
 		default:
 			return -EINVAL;
 			break;
@@ -335,6 +357,7 @@ static void fdt_fsboard_fixup(void *fdt)
 		case BT_PICOCOREMX91:
 		case BT_PICOCOREMX93:
 		case BT_NDCU93:
+		case BT_PICOCOM93:
 			if(!(features & FEAT_ETH_PHY_A)){
 				fs_fdt_enable(fdt, "ethphy0", 0);
 			}
@@ -463,6 +486,7 @@ static void fdt_common_fixup(void *fdt)
 		case BT_EFUSMX91:
 		case BT_EFUSMX93:
 		case BT_NDCU93:
+		case BT_PICOCOM93:
 			fdt_fsboard_fixup(fdt);
 			break;
 		case BT_OSMSFMX91:
@@ -532,6 +556,11 @@ static int setup_fec(void)
 	return set_clk_enet(ENET_125MHZ);
 }
 
+static int setup_eqos(void)
+{
+	return set_clk_eqos(ENET_50MHZ);
+}
+
 int board_phy_config(struct phy_device *phydev)
 {
 	if (phydev->drv->config)
@@ -554,6 +583,7 @@ void fs_ethaddr_init(void)
 	case BT_PICOCOREMX91:
 	case BT_EFUSMX91:
 	case BT_OSMSFMX91:
+	case BT_PICOCOM93:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
 		break;
@@ -564,8 +594,18 @@ void fs_ethaddr_init(void)
 
 int board_init(void)
 {
+	if (gd->board_type == BT_PICOCOM93) {
+		//Set eqos clk direction to input
+		ofnode node = ofnode_by_compatible(ofnode_null(), \
+			                           "fsl,imx93-wakeupmix-syscfg");
+		struct regmap *map = syscon_node_to_regmap(node);
+		regmap_write(map, 0x2c, 0x0);
+	}
 #if CONFIG_IS_ENABLED(FEC_MXC)
 	setup_fec();
+#endif
+#if CONFIG_IS_ENABLED(DWC_ETH_QOS)
+	setup_eqos();
 #endif
 
 	/* Copy NBoot args to variables and prepare command prompt string */

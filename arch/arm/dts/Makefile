@@ -1119,7 +1119,8 @@ dtb-$(CONFIG_ARCH_IMX8ULP) += \
 	imx8ulp-watch.dtb \
 	picocoremx8ulp.dtb \
 	fs-osm-sf-mx8ulp-adp-osm-bb.dtb \
-	soldercore8ulp-bbhd.dtb
+	soldercore8ulp-bbhd.dtb \
+	armstonemx8ulp.dtb
 
 dtb-$(CONFIG_ARCH_IMX8M) += \
 	imx8mm-data-modul-edm-sbc.dtb \
@@ -1224,6 +1225,7 @@ dtb-$(CONFIG_ARCH_IMX9) += \
 	fs-osm-sf-mx93-adp-osm-bb.dtb \
 	fs-osm-sf-mx91-adp-osm-bb.dtb \
 	efusmx91.dtb \
+	picocom93.dtb \
 	osm-selftest.dtb
 
 dtb-$(CONFIG_ARCH_IMXRT) += imxrt1050-evk.dtb \

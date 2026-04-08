@@ -409,16 +409,13 @@ static void basic_init(const char *layout_name)
 	boot_dev_name = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
 	boot_dev = fs_board_get_boot_dev_from_name(boot_dev_name);
 
-	printf("BOARD-ID: %s\n", fs_image_get_board_id());
+	printf("BOARD-ID:   %s\n", fs_image_get_board_id());
 
 	/* Get U-Boot offset; not necessary in SDP mode */
 	if (layout_name) {
 		int layout;
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-		index = 0;		/* ### TODO: Select slot A or B */
-#else
+
 		index = 0;
-#endif
 		offs = fs_image_get_nboot_info_offs(fdt);
 		layout = fdt_subnode_offset(fdt, offs, layout_name);
 		uboot_offs = fdt_getprop_u32_default_node(fdt, layout, index,

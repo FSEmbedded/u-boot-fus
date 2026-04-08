@@ -91,11 +91,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define INSTALL_DEF INSTALL_RAM
 #endif
 
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-#define INIT_DEF ".init_fs_updater"
-#else
 #define INIT_DEF ".init_init"
-#endif
 
 const struct fs_board_info board_info[] = {
 	{	/* 0 (BT_PICOCOREMX8MP) */
@@ -569,7 +565,8 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 				}
 			}
 			break;
-		default:
+		case BT_PICOCOREMX8MP:
+		case BT_PICOCOREMX8MPr2:
 			/* Disable SGTL5000 if it is not available */
 			if (!(features & FEAT_AUDIO)) {
 				/* disable all sgtl5000 regulators */
@@ -581,6 +578,8 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 				/* disable sgtl5000 platform driver */
 				fs_fdt_enable(fdt, "sound-sgtl5000", 0);
 			}
+			break;
+		default:
 	}
 
 	if (!(features & FEAT_ADC)) {

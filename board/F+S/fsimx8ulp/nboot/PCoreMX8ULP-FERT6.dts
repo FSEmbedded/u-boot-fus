@@ -46,8 +46,19 @@
 		// have-audio-rtd;
 		have-wlan;
 
-        PCoreMX8ULP-FERT6.110 {
-            board-rev = <110>;
-        };
+		/* realtimed-features*/
+		have-can-in-apd;
+
+		PCoreMX8ULP-FERT6.110 {
+			board-rev = <110>;
+		};
+
+		PCoreMX8ULP-FERT6.120 {
+			board-rev = <120>;
+		};
+
+		PCoreMX8ULP-FERT6.130 {
+			board-rev = <130>;
+		};
 	};
 };

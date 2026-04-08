@@ -771,7 +771,7 @@ static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent, struct fs_head
  *  show [padding/unknown data] for the CSF which is fine for now.
  */ 
 static struct fs_header_v1_0 * fs_image_check_for_ivt(struct fs_header_v1_0 *fsh,
-						      uintptr_t *offs)
+						      uint32_t *offs)
 {
 	if (fs_image_is_fs_image(fsh) || *(uint8_t*)fsh != 0xD1)
 		return fsh;
