@@ -1302,7 +1302,8 @@ Void_t* mALLOc(bytes) size_t bytes;
     return NULL;
   }
 
-  if ((long)bytes < 0) return NULL;
+  if (bytes > CONFIG_SYS_MALLOC_LEN || (long)bytes < 0)
+     return NULL;
 
   nb = request2size(bytes);  /* padded request size; */
 
@@ -1714,7 +1715,8 @@ Void_t* rEALLOc(oldmem, bytes) Void_t* oldmem; size_t bytes;
   }
 #endif
 
-  if ((long)bytes < 0) return NULL;
+  if (bytes > CONFIG_SYS_MALLOC_LEN || (long)bytes < 0)
+     return NULL;
 
   /* realloc of null is supposed to be same as malloc */
   if (oldmem == NULL) return mALLOc(bytes);
@@ -1931,7 +1933,8 @@ Void_t* mEMALIGn(alignment, bytes) size_t alignment; size_t bytes;
 		return memalign_simple(alignment, bytes);
 #endif
 
-  if ((long)bytes < 0) return NULL;
+  if (bytes > CONFIG_SYS_MALLOC_LEN || (long)bytes < 0)
+     return NULL;
 
 #if CONFIG_VAL(SYS_MALLOC_F_LEN)
 	if (!(gd->flags & GD_FLG_FULL_MALLOC_INIT)) {
