@@ -336,7 +336,7 @@
 	"m4_uart4=disable\0"                                            \
 	"fdt_high=0xffffffffffffffff\0"                                 \
 	"set_bootfdt=setenv bootfdt ${platform}.dtb\0"                  \
-	"set_bootargs=setenv bootargs ${console} ${login} ${mtdparts}"  \
+	"set_bootargs=run set_rootfs\\; setenv bootargs ${console} ${login} ${mtdparts}"  \
 	" ${network} ${rootfs} ${mode} ${init} ${extra} ${rauc_cmd}\0"
 
 /* Link Definitions */
