@@ -7,7 +7,22 @@
  */
 
 #include <dt-bindings/pwm/pwm.h>
+#if 0
 #include <fsversion.h>
+#else
+#include <dt-bindings/gpio/gpio.h>
+#define FS_LINUX_VERSION ""
+
+/ {
+	cma: cam { };
+	flexcan1: flexcan1 { };
+	flexcan2: flexcan2 { };
+};
+
+&soc {
+	busfreq: busfreq { };
+};
+#endif
 
 /* Do we have HDMI? */
 #if ((CONFIG_QBLISSA9R2_MXCFB0 == DISPLAY_HDMI) \
