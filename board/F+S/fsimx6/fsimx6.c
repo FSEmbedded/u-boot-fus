@@ -1928,3 +1928,41 @@ void board_preboot_os(void)
 	mdio_shutdown_all();
 #endif
 }
+
+#ifdef CONFIG_MULTI_DTB_FIT
+/*
+ * This function is called for each appended device tree. If we signal a match
+ * (return value 0), the referenced device tree (and only this) is loaded
+ * for U-Boot. See doc/README.multi-dtb-fit for details.
+ */
+int board_fit_config_name_match(const char *name)
+{
+	u32 imxtype = ((get_cpu_rev() & 0x1FF000) >> 12);
+	unsigned int board_type = fs_board_get_type();
+	const char *board_fdt;
+	int i = 0;
+	char c;
+	static char board_name_lc[32];
+
+	do {
+		c = board_info[board_type].name[i];
+		if ((c >= 'A') && (c <= 'Z'))
+			c += 'a' - 'A';
+		board_name_lc[i++] = c;
+	} while (c);
+
+	switch (imxtype) {
+		case MXC_CPU_MX6DL:
+			board_name_lc[i++] = 'd';
+			board_name_lc[i++] = 'l';
+			break;
+		case MXC_CPU_MX6Q:
+			board_name_lc[i++] = 'q';
+			break;
+	}
+
+	board_fdt = (const char *)&board_name_lc[0];
+
+	return strcmp(name, board_fdt);
+}
+#endif
