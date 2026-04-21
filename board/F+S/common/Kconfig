@@ -99,7 +99,7 @@ config FS_ETH_COMMON
 
 config FS_USB_COMMON
 	bool
-	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL
+	default y if (TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL) && !DM_USB
 
 config FS_ADD_ATF_TO_UBOOT
 	bool "Add ATF (and opTEE) to U-Boot on fsimx8mm/mn/mp"

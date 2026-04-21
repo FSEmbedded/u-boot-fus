@@ -938,7 +938,27 @@ dtb-y += \
 	imx6dl-sabresd.dtb \
 	imx6dl-sielaff.dtb \
 	imx6dl-wandboard-revd1.dtb \
-	imx6s-dhcom-drc02.dtb
+	imx6s-dhcom-drc02.dtb \
+	armstonea9dl.dtb \
+	armstonea9q.dtb \
+	armstonea9r2dl.dtb \
+	armstonea9r2q.dtb \
+	armstonea9r3dl.dtb \
+	armstonea9r3q.dtb \
+	armstonea9r4dl.dtb \
+	armstonea9r4q.dtb \
+	efusa9dl.dtb \
+	efusa9q.dtb \
+	efusa9r2dl.dtb \
+	efusa9r2q.dtb \
+	netdcua9dl.dtb \
+	netdcua9q.dtb \
+	picomoda9dl.dtb \
+	picomoda9q.dtb \
+	qblissa9dl.dtb \
+	qblissa9q.dtb \
+	qblissa9r2dl.dtb \
+	qblissa9r2q.dtb
 
 endif
 
