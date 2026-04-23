@@ -169,15 +169,16 @@
 	".boot_part_A=1\0"						\
 	".boot_part_B=2\0"						\
 	".boot_part=1\0"						\
-	".rootfs_part_A=5\0"						\
-	".rootfs_part_B=6\0"						\
+	".rootfs_part_A=3\0"						\
+	".rootfs_part_B=4\0"						\
 	".rootfs_part=2\0"						\
 	".kernel_mmc=setenv kernel n=.boot_part\\\\${slot_}\\\\;"	\
 	" mmc rescan\\\\; load mmc ${mmcdev}:\\\\${!n} . ${bootfile}\0"	\
 	".fdt_mmc=setenv fdt n=.boot_part\\\\${slot_}\\\\; mmc rescan\\\\; " \
 	" load mmc ${mmcdev}:\\\\${!n} ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT \
 	".rootfs_mmc=setenv set_rootfs n=.rootfs_part\\\\${slot_}\\\\;" \
-	" setenv rootfs root=/dev/mmcblk${mmcdev}p\\\\${!n} ${rootfstype} rootwait\0"
+	" part uuid mmc ${mmcdev}:\\\\${!n} rootfsuuid\\\\;" \
+	" setenv rootfs root=PARTUUID=\\\\${rootfsuuid} ${rootfstype} rootwait\0"
 #else
 #define BOOT_FROM_MMC
 #endif
