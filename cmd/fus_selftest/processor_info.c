@@ -72,6 +72,8 @@ int get_processorInfo(bool silent){
 	if(!silent)
 		printf("%s", cpu_str);
 
+	env_set("cpu_info", cpu_str);
+
 	return ret;
 }
 #endif
