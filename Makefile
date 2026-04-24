@@ -1117,8 +1117,14 @@ append = cat $(filter-out $< $(PHONY), $^) >> $@
 quiet_cmd_pad_cat = CAT     $@
 cmd_pad_cat = $(cmd_objcopy) && $(append) || { rm -f $@; false; }
 
+# Do not use -9 as it is only for files >32 MiB and needs 65 MiB of RAM for
+# decompression. -6, which is the default, works equally good for U-Boot's
+# file size and just needs 9 MiB of RAM for decompression. If decompression
+# RAM space is critical, consider -0. It only needs 1 MiB of RAM, though
+# compresses slightly worse.
 quiet_cmd_lzma = LZMA    $@
-cmd_lzma = lzma -c -z -k -9 $< > $@
+cmd_lzma = lzma -c -z -k $< > $@
+
 
 cfg: u-boot.cfg
 
@@ -1503,12 +1509,12 @@ u-boot-with-spl.kwb: u-boot.bin spl/u-boot-spl.bin FORCE
 quiet_cmd_disasm = DISASM  $(2).dis
 cmd_disasm = $(OBJDUMP) -d $(2) > $(2).dis
 
+uboot.sfx: u-boot.bin.lzma
+	$(Q)$(MAKE) $(build)=board/$(BOARDDIR) $@
+
 OBJCOPYFLAGS_uboot.nb0 = --pad-to $(CONFIG_BOARD_SIZE_LIMIT) -I binary -O binary
-uboot.nb0:	u-boot.bin
-		$(call if_changed,objcopy)
-#		dd if=/dev/zero bs=1K count=$(CONFIG_BOARD_SIZE_LIMIT) \
-#			 | tr '\000' '\377' >$@
-#		dd if=$< of=$@ conv=notrunc bs=1K
+uboot.nb0: uboot.sfx
+	$(call if_changed,objcopy)
 
 quiet_cmd_addfsheader = FSIMG   $@
 cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
@@ -1523,6 +1529,9 @@ FSIMG_OPT = -s -c -a 16 -t U-BOOT -d $(BOARD)
 endif
 ifeq ($(CONFIG_SPL_LOAD_FIT), y)
 addfsheader_target = u-boot-dtb.img
+#else ifneq ($(CONFIG_TARGET_FSVYBRID)$(CONFIG_ARCH_MX6),)
+else ifneq ($(CONFIG_ARCH_MX6),)
+addfsheader_target = uboot.sfx
 else
 addfsheader_target = u-boot.bin
 endif
@@ -2247,7 +2256,7 @@ CLEAN_DIRS  += $(MODVERDIR) \
 			$(filter-out include, $(shell ls -1 $d 2>/dev/null))))
 
 CLEAN_FILES += include/autoconf.mk* include/bmp_logo.h include/bmp_logo_data.h \
-	       uboot.nb0 uboot.fs			  \
+	       uboot.nb0 uboot.sfx uboot.fs			  \
 	       include/config.h include/generated/env.* drivers/video/u_boot_logo.S \
 	       tools/version.h u-boot* MLO* SPL System.map fit-dtb.blob* \
 	       u-boot-ivt.img.log u-boot-dtb.imx.log SPL.log u-boot.imx.log \
