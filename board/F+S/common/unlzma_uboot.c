@@ -8,118 +8,14 @@
 #include <linux/types.h>
 #include <linux/linkage.h>
 
-/* Uncomment one of the following DEBUG_UART entries to activate debugging */
-//#define DEBUG_UART 0x21f0000		/* efusA9dl */
-//#define DEBUG_UART 0x2020000		/* efusA9x, efusA7ul */
-
-extern u8 uboot_start_comp;
-extern u8 uboot_end_comp;
+#ifndef MIN
+#define	MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
 
 extern u8 free_mem_start;
 extern u8 free_mem_end;
 
-#ifndef DEBUG_UART
-/* Without debugging */
-#define debug(x)
-#define putc(x)
-#define puts(x)
-#define hex8(x)
-#define hex16(x)
-#define hex32(x)
-#define hexdump(x)
-
-#else
-
-#define debug(x) puts(x)
-
-static inline void _ll_putc(char c)
-{
-	void *uart = (void *)DEBUG_UART;
-
-	*(volatile u32 *)(uart + 0x40) = (u32)c;
-	while (!(*(volatile u32 *)(uart + 0x98) & (1 << 3)))
-		;
-}
-
-void putc(char c)
-{
-	if (c == '\n')
-		_ll_putc('\r');
-	_ll_putc(c);
-}
-
-void puts(const char *s)
-{
-	while (*s)
-		putc(*s++);
-}
-
-static inline void hex4(unsigned int val)
-{
-	val &= 0xf;
-	if (val >= 10)
-		_ll_putc(val - 10 + 'a');
-	else
-		_ll_putc(val + '0');
-}
-
-void hex8(unsigned int val)
-{
-	hex4(val >> 4);
-	hex4(val);
-}
-
-void hex16(unsigned int val)
-{
-	hex8(val >> 8);
-	hex8(val);
-}
-
-void hex32(unsigned int val)
-{
-	hex16(val >> 16);
-	hex16(val);
-}
-
-void hexdump(const void *start, unsigned int size)
-{
-	unsigned int i = 0;
-	const char *p = start;
-
-	if (!size)
-		return;
-
-	do {
-		if ((i & 15) == 0) {
-			hex32((unsigned int)p);
-			putc(':');
-		}
-		putc(' ');
-		hex8(p[i++]);
-		if ((i < size) && (((i & 15) == 0)))
-			putc('\n');
-	} while (i < size);
-	putc('\n');
-}
-#endif /* !DEBUG_UART */
-
-static void error(char *x)
-{
-	puts("\n\n## ");
-	puts(x);
-	puts(" -- System halted\n\n");
-
-	while (1);	/* Halt */
-}
-
-asmlinkage void __div0(void)
-{
-	error("Attempting division by 0!");
-}
-
-#ifndef MIN
-#define	MIN(a, b) (((a) < (b)) ? (a) : (b))
-#endif
+extern void error(char *x);
 
 static long long read_int(unsigned char *ptr, int size)
 {
@@ -562,8 +458,9 @@ static inline int process_bit1(struct writer *wr, struct rc *rc,
 	return copy_bytes(wr, cst->rep0, len);
 }
 
-static inline int unlzma(unsigned char *inbuf, long in_len,
-			 unsigned char *output, long *posp)
+/* Called from sfx_uboot.c */
+int decompress(unsigned char *inbuf, long in_len,
+	       unsigned char *outbuf, long out_len, long *out_size)
 {
 	struct lzma_header header;
 	int lc, pb, lp;
@@ -615,7 +512,7 @@ static inline int unlzma(unsigned char *inbuf, long in_len,
 	if (header.dict_size == 0)
 		header.dict_size = 1;
 
-	wr.buffer = output;
+	wr.buffer = outbuf;
 
 	num_probs = LZMA_BASE_SIZE + (LZMA_LIT_SIZE << (lc + lp));
 	p = (uint16_t *) &free_mem_start;
@@ -647,46 +544,9 @@ static inline int unlzma(unsigned char *inbuf, long in_len,
 		}
 	}
 
-#if 0
-	/* Return size of used input data */
-	if (posp)
-		*posp = rc.ptr-rc.buffer;
-#else
 	/* Return size of output data */
-	if (posp)
-		*posp = wr.buffer_pos;
-#endif
+	if (out_size)
+		*out_size = wr.buffer_pos;
 
 	return 0;
-}
-
-/* Set to a bigger value (e.g. 20) for benchmarking */
-#define REPEAT_COUNT 1
-
-/* Called from sfx_head.S */
-void unlzma_uboot(unsigned long uboot_out, long expected_size)
-{
-	int ret;
-	long uboot_size_comp = &uboot_end_comp - &uboot_start_comp;
-	long real_size;
-	int i;
-
-	for (i = REPEAT_COUNT; i; i--)
-	{
-#if defined(DEBUG_UART) && (REPEAT_COUNT > 1)
-		hex8(i);
-		putc(':');
-#endif
-		debug("Decompressing U-Boot...");
-		ret = unlzma(&uboot_start_comp, uboot_size_comp,
-			     (unsigned char *)uboot_out, &real_size);
-		if (ret || (real_size != expected_size)) {
-			debug("Failed\n");
-			if (ret)
-				error("decompressor returned an error");
-			else
-				error("size mismatch");
-		}
-		debug("Done\n");
-	}
 }

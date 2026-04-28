@@ -138,7 +138,7 @@ start_thumb:
 	mov	r0, r4
 	mov	r1, r5
 	sub	r1, r1, r0
-	bl	unlzma_uboot
+	bl	sfx_uboot
 
 #ifdef SFX_USE_CACHE
 	mov	r0, r4
@@ -483,7 +483,12 @@ free_mem_end:
 	.section .ubootcomp, "a", %progbits
 	.globl	uboot_start_comp
 uboot_start_comp:
+#ifdef CONFIG_FS_SFX_UBOOT_ZSTD
+	.incbin	"u-boot.bin.zst"
+#endif
+#ifdef CONFIG_FS_SFX_UBOOT_LZMA
 	.incbin	"u-boot.bin.lzma"
+#endif
 	.globl	uboot_end_comp
 uboot_end_comp:
 
