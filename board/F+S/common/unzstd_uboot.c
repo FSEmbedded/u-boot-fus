@@ -84,6 +84,7 @@ extern u8 free_mem_end;
 
 extern void puts(const char *s);
 
+#ifndef CONFIG_USE_ARCH_MEMMOVE
 /*
  * memmove() is part of string.o that pulls in malloc() for other reasons;
  * have a copy without dependency to malloc() here
@@ -139,6 +140,7 @@ void *memmove(void * dest,const void *src,size_t count)
 	}
 	return (void *)d;
 }
+#endif /* !CONFIG_USE_ARCH_MEMMOVE */
 
 static int handle_zstd_error(size_t ret)
 {
