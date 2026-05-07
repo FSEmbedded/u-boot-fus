@@ -12,7 +12,8 @@
  * 0x8000_0000: (unused) (4KiB)
  * 0x8000_1000: NBoot-Args coming from NBoot (4KiB, untouched)
  * 0x8000_2000: (unused) (56KiB)
- * 0x8010_0000: Compressed U-Boot image with self-extractor (512KiB)
+ * 0x8010_0000: Compressed U-Boot image with self-extractor (384KiB)
+ * 0x8016_0000: (unused, space for bigger U-Boot)
  * 0x8018_0000: Stack (512KiB)
  * 0x8020_0000: Uncompressed U-Boot image (3MiB)
  * 0x8050_0000: Free memory area for decompressor dictionary (unlimited)
@@ -23,11 +24,11 @@ OUTPUT_FORMAT("elf32-littlearm")
 ENTRY(_start)
 
 MEMORY {
-	uboot_sfx (rwx): ORIGIN = 0x80100000, LENGTH = 0x80000
+	uboot_sfx (rwx): ORIGIN = 0x80100000, LENGTH = 0x60000
 	stack (rw):     ORIGIN = 0x80180000, LENGTH = 0x80000
 	ubootdata (rw): ORIGIN = 0x80200000, LENGTH = 0x300000
 	free_mem (rw):  ORIGIN = 0x80500000, LENGTH = 0x4100000
-        pagetable (rw): ORIGIN = 0x918000, LENGTH = 0x4000
+	pagetable (rw):	ORIGIN = 0x3f054000, LENGTH = 0x4000
 }
 SECTIONS
 {

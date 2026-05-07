@@ -33,7 +33,7 @@ config FS_BOARD_MODE_RO
 
 config FS_SFX_UBOOT
 	bool "Use compressed U-Boot with self-extractor"
-	depends on TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL
+	depends on TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSVYBRID
 	default y
 	help
 	  On i.MX6 based boards, U-Boot can only occupy 512KiB in NAND flash.

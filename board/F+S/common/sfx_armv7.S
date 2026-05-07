@@ -98,7 +98,7 @@ start:
 start_thumb:
 	/*
 	 * N-Boot leaves I-cache and MMU active, but D-cache is off; page
-	 * table is in OCRAM at 0x09180000, SP also points to OCRAM.
+	 * table is in OCRAM, SP also points to OCRAM.
 	 */
 	adr	r0, SFX_SETUP
 	ldr	sp, [r0]		@ Stack pointer
@@ -116,9 +116,9 @@ start_thumb:
 
 #ifdef SFX_USE_CACHE
 	adr	r1, _start
-	ldr	r0, =0x918000		@ r0: Page table in OCRAM
+	ldr	r0, =page_table_start	@ r0: Page table in OCRAM
 	lsr	r1, #28			@ r1: Start of DRAM
-	lsl	r1, #28			@ i.MX6: 0x10000000, SX/UL: 0x80000000
+	lsl	r1, #28			@ i.MX6: 0x10000000, others: 0x80000000
 	bl	cache_on
 #endif
 
@@ -419,13 +419,19 @@ stack_start:
 	.space	0x10000
 stack_end:
 
-/* Define free_mem area for decompression dictionary (LZMA: at most 65MB) */
+/* Define free_mem area for decompression dictionary (LZMA: at most 65MiB) */
 	.section ".free_mem", "aw", %nobits
 	.globl	free_mem_start
 free_mem_start:
 	.space	0x4100000
 	.globl	free_mem_end
 free_mem_end:
+
+/* Define space for page table in OCRAM (16KiB) */
+	.section ".pagetable", "aw", %nobits
+page_table_start:
+	.space	0x4000
+page_table_end:
 
 /* Include U-Boot compressed data as section .ubootcomp  */
 	.section .ubootcomp, "a", %progbits

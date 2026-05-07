@@ -10,6 +10,7 @@
 /* Uncomment one of the following DEBUG_UART entries to activate debugging */
 //#define DEBUG_UART 0x21f0000		/* efusA9dl */
 //#define DEBUG_UART 0x2020000		/* efusA9x, efusA7ul */
+//#define DEBUG_UART 0x40028000		/* armStoneA5 */
 
 extern u8 uboot_start_comp;
 extern u8 uboot_end_comp;
@@ -17,6 +18,20 @@ extern u8 uboot_end_comp;
 #ifdef DEBUG_UART
 #define debug(x) puts(x)
 
+#ifdef CONFIG_TARGET_FSVYBRID
+/* Vybrid UART */
+static inline void _ll_putc(char c)
+{
+	void *uart = (void *)DEBUG_UART;
+
+	*(volatile u8 *)(uart + 0x7) = c;
+	while (!(*(volatile u8 *)(uart + 0x4) & (1 << 6)))
+		;
+}
+
+#else
+
+/* i.MX6 UART */
 static inline void _ll_putc(char c)
 {
 	void *uart = (void *)DEBUG_UART;
@@ -25,6 +40,7 @@ static inline void _ll_putc(char c)
 	while (!(*(volatile u32 *)(uart + 0x98) & (1 << 3)))
 		;
 }
+#endif
 
 void putc(char c)
 {

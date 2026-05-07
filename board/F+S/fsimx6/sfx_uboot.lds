@@ -23,11 +23,11 @@ OUTPUT_FORMAT("elf32-littlearm")
 ENTRY(_start)
 
 MEMORY {
-        pagetable (rw): ORIGIN = 0x1000c000, LENGTH = 0x4000
 	uboot_sfx (rwx): ORIGIN = 0x10100000, LENGTH = 0x80000
 	stack (rw):     ORIGIN = 0x10180000, LENGTH = 0x80000
 	ubootdata (rw): ORIGIN = 0x10200000, LENGTH = 0x300000
 	free_mem (rw):  ORIGIN = 0x10500000, LENGTH = 0x4100000
+        pagetable (rw): ORIGIN = 0x918000, LENGTH = 0x4000
 }
 SECTIONS
 {
@@ -59,4 +59,7 @@ SECTIONS
 	.freemem : {
 		*(.free_mem)
 	} > free_mem
+	.pagetable : {
+		*(.pagetable)
+	} > pagetable
 }
