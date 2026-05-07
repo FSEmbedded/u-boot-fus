@@ -1466,6 +1466,7 @@ int board_late_init(void)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 #ifdef CONFIG_CMD_NET
+#ifndef CONFIG_DM_ETH
 static iomux_v3_cfg_t const eim_pads_eth_b[] = {
 	/* AX88796B Ethernet 2 */
 	IOMUX_PADS(PAD_EIM_OE__EIM_OE_B | MUX_PAD_CTRL(EIM_NO_PULL)),
@@ -1717,6 +1718,7 @@ int board_eth_init(struct bd_info *bis)
 
 	return 0;
 }
+#endif // !CONFIG_DM_ETH
 
 #define MIIM_RTL8211F_PAGE_SELECT 0x1f
 #define LED_MODE_B (1 << 15)
@@ -1856,6 +1858,15 @@ void __led_toggle(led_id_t id)
 }
 #endif /* CONFIG_LED_STATUS_CMD */
 
+#if CONFIG_OF_BOARD_FIXUP
+/* Placeholder for now */
+int board_fix_fdt(void *fdt_blob)
+{
+	//fdt_common_fixup(fdt_blob);
+	return 0;
+}
+#endif
+
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Do any additional board-specific device tree modifications */
 int ft_board_setup(void *fdt, struct bd_info *bd)
@@ -1951,14 +1962,18 @@ int board_fit_config_name_match(const char *name)
 		board_name_lc[i++] = c;
 	} while (c);
 
-	switch (imxtype) {
-		case MXC_CPU_MX6DL:
-			board_name_lc[i++] = 'd';
-			board_name_lc[i++] = 'l';
-			break;
-		case MXC_CPU_MX6Q:
-			board_name_lc[i++] = 'q';
-			break;
+	if (i--) {
+		switch (imxtype) {
+			case MXC_CPU_MX6DL:
+				board_name_lc[i++] = 'd';
+				board_name_lc[i++] = 'l';
+				break;
+			case MXC_CPU_MX6Q:
+				board_name_lc[i++] = 'q';
+				break;
+		}
+
+		board_name_lc[i] = 0;
 	}
 
 	board_fdt = (const char *)&board_name_lc[0];
