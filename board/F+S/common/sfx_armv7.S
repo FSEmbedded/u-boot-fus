@@ -43,8 +43,8 @@
 #include <linux/linkage.h>
 #include <asm/assembler.h>
 
-// ### Local cache code not yet functional
-//#define SFX_USE_CACHE
+#define SFX_USE_CACHE
+//#define SFX_DCACHE_WRITETHROUGH
 
  	.arch	armv7-a
 
@@ -65,7 +65,7 @@ _start:
 	.word	0			@ 0x18
 	.word	0			@ 0x1c
 /* NBoot needs an absolute value at offset 0x20 to get U-Boot's load address */	
-	.word	_start			@ 0x20: absolute value
+	.word	start			@ 0x20: absolute value
 	.word	0			@ 0x24
 	.word	0			@ 0x28
 	.word	0			@ 0x2c
@@ -96,23 +96,10 @@ start:
 	.thumb
 
 start_thumb:
-	/* N-Boot leaves cache active, page table in OCRAM at 0x09180000 */
-#if 0
-	mrc	p15, 0, r0, c1, c0, 0
-#if 0
-	bic	r0, r0, #(1<<12) | (1<<11) @ Disable cache
-	bic	r0, r0, #(1<<2) | (1<<0)
-#else
-	orr	r0, r0, #(1<<12) | (1<<11) @ Enable cache
-	orr	r0, r0, #(1<<2) | (1<<0)
-#endif
-	mcr	p15, 0, r0, c1, c0, 0
-#endif
-	mov	r0, #0
-//###	mcr	p15, 0, r0, c7, c5, 0	@ ICIALLU - Invalidae instruction cache
-//###	mcr	p15, 0, r0, c0, c7, 0	@ I-TLB and D-TLB invalidation
-//###	mcr	p15, 0, r0, c0, c7, 0	@ BPIALL - Invalidate branch predictor
-
+	/*
+	 * N-Boot leaves I-cache and MMU active, but D-cache is off; page
+	 * table is in OCRAM at 0x09180000, SP also points to OCRAM.
+	 */
 	adr	r0, SFX_SETUP
 	ldr	sp, [r0]		@ Stack pointer
 	ldr	r2, [r0, #4]		@ bss start
@@ -128,6 +115,10 @@ start_thumb:
 	blo	1b
 
 #ifdef SFX_USE_CACHE
+	adr	r1, _start
+	ldr	r0, =0x918000		@ r0: Page table in OCRAM
+	lsr	r1, #28			@ r1: Start of DRAM
+	lsl	r1, #28			@ i.MX6: 0x10000000, SX/UL: 0x80000000
 	bl	cache_on
 #endif
 
@@ -162,79 +153,20 @@ UBOOT_INFO:
 	.word	uboot_end		@ U-Boot decompressed size
 
 #ifdef SFX_USE_CACHE
-/*
- * dcache_line_size - get the minimum D-cache line size from the CTR register
- * on ARMv7.
- */
-	.macro	dcache_line_size, reg, tmp
-	mrc	p15, 0, \tmp, c0, c0, 1		@ read ctr
-	lsr	\tmp, \tmp, #16
-	and	\tmp, \tmp, #0xf		@ cache line size encoding
-	mov	\reg, #4			@ bytes per word
-	mov	\reg, \reg, lsl \tmp		@ actual cache line size
-	.endm
-
-
-__setup_mmu:
-	sub	r3, r4, #16384		@ Page directory size
-	bic	r3, r3, #0xff		@ Align the pointer
-	bic	r3, r3, #0x3f00
-/*
- * Initialise the page tables, turning on the cacheable and bufferable
- * bits for the RAM area only.
- */
-	mov	r0, r3
-	mov	r9, r0, lsr #18
-	mov	r9, r9, lsl #18		@ start of RAM
-	add	r10, r9, #0x10000000	@ a reasonable RAM size
-	mov	r1, #0x12		@ XN|U + section mapping
-	orr	r1, r1, #3 << 10	@ AP=11
-	add	r2, r3, #16384
-1:	cmp	r1, r9			@ if virt > start of RAM
-	cmphs	r10, r1			@   && end of RAM > virt
-	bic	r1, r1, #0x1c		@ clear XN|U + C + B
-	orrlo	r1, r1, #0x10		@ Set XN|U for non-RAM
-	orrhs	r1, r1, r6		@ set RAM section settings
-	str	r1, [r0], #4		@ 1:1 mapping
-	add	r1, r1, #1048576
-	teq	r0, r2
-	bne	1b
-/*
- * If ever we are running from Flash, then we surely want the cache
- * to be enabled also for our execution instance...  We map 2MB of it
- * so there is no map overlap problem for up to 1 MB compressed kernel.
- * If the execution is in RAM then we would only be duplicating the above.
- */
-	orr	r1, r6, #0x04		@ ensure B is set for this
-	orr	r1, r1, #3 << 10
-	mov	r2, pc
-	mov	r2, r2, lsr #20
-	orr	r1, r1, r2, lsl #20
-	add	r0, r3, r2, lsl #2
-	str	r1, [r0], #4
-	add	r1, r1, #1048576
-	str	r1, [r0]
-	mov	pc, lr
-ENDPROC(__setup_mmu)
 
 /*
  * Turn on the cache on ARMv7.  We need to setup some page tables so that we
  * can have both the I and D caches on.
  *
- * We place the page tables 16k down from the kernel execution address,
- * and we hope that nothing else is using it.  If we're using it, we
- * will go pop!
- *
  * On entry,
- *  r4 = kernel execution address
- *  r7 = architecture number
- *  r8 = atags pointer
+ *  r0 = Address for page table
+ *  r1 = Start of DRAM
  * On exit,
- *  r0, r1, r2, r3, r9, r10, r12 corrupted
+ *  r0, r1, r2, r3, r9, r10, r11 corrupted
  * This routine must preserve:
  *  r4, r7, r8
  */
-#ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
+#ifdef SFX_DCACHE_WRITETHROUGH
 #define CB_BITS 0x08
 #else
 #define CB_BITS 0x0c
@@ -246,70 +178,84 @@ ENDPROC(__setup_mmu)
 	bne	.L_\@
 	orr	\reg, \reg, #(1 << 5)	@ CP15 barrier instructions
 	mcr	p15, 0, \reg, c1, c0, 0	@ write SCTLR
- 	.inst   0xf57ff06f		@ v7+ isb	)
+ 	isb
  .L_\@:
 	.endm
 
 cache_on:
 	enable_cp15_barriers	r11
-	mov	r12, lr
-#ifdef CONFIG_MMU
+	mov	r3, r0
 	mrc	p15, 0, r11, c0, c1, 4	@ read ID_MMFR0
-	tst	r11, #0xf		@ VMSA
-	movne	r6, #CB_BITS | 0x02	@ !XN
-	blne	__setup_mmu
+	tst	r11, #0xf		@ we can only handle VMSA on ARMv7-A,
+	beq	no_vmsa			@ not PMSA on ARMv7-R
+
+	/*
+	 * Initialise the page tables, turning on the cacheable and bufferable
+	 * bits for the RAM area only. Silently assume 256MiB RAM.
+	 */
+__setup_mmu:
+	mov	r9, r1			@ r9: start of RAM
+	add	r10, r9, #0x10000000	@ r10: end of RAM (start + 256MiB)
+	mov	r1, #0x12		@ start addr. 0, XN|U + section mapping
+	orr	r1, r1, #3 << 10	@ AP=11 (full access, R/W)
+	add	r2, r0, #16384		@ Page table size is 16KiB
+1:	cmp	r1, r9			@ if virt > start of RAM
+	cmphs	r10, r1			@   && end of RAM > virt
+	bic	r1, r1, #0x1c		@ clear XN|U + C + B
+	orrlo	r1, r1, #0x10		@ Set XN|U for non-RAM sections
+	orrhs	r1, r1, #CB_BITS	@ set !XN and CB for RAM sections
+	str	r1, [r0], #4		@ 1:1 mapping, next page table entry
+	add	r1, r1, #1048576	@ Next memory section at offset 1MiB
+	teq	r0, r2
+	bne	1b
+
+no_vmsa:
 	mov	r0, #0
 	mcr	p15, 0, r0, c7, c10, 4	@ drain write buffer
-	tst	r11, #0xf		@ VMSA
+	tst	r11, #0xf		@ VMSA?
 	mcrne	p15, 0, r0, c8, c7, 0	@ flush I,D TLBs
-#endif
-	mrc	p15, 0, r0, c1, c0, 0	@ read control reg
+
+	mrc	p15, 0, r0, c1, c0, 0	@ read control reg (SCTLR)
 	bic	r0, r0, #1 << 28	@ clear SCTLR.TRE
 	orr	r0, r0, #0x5000		@ I-cache enable, RR cache replacement
-	orr	r0, r0, #0x003c		@ write buffer
+	orr	r0, r0, #0x003c		@ write buffer, D-cache enable
 	bic	r0, r0, #2		@ A (no unaligned access fault)
 	orr	r0, r0, #1 << 22	@ U (v6 unaligned access model)
-						@ (needed for ARM1176)
-#ifdef CONFIG_MMU
-	mrcne   p15, 0, r6, c2, c0, 2   @ read ttb control reg
-	orrne	r0, r0, #1		@ MMU enabled
-	movne	r1, #0xfffffffd		@ domain 0 = client
+					@ (needed for ARM1176)
+	mrcne   p15, 0, r6, c2, c0, 2   @ read ttb control reg (TTBCR)
+	orrne	r0, r0, #1		@ enable MMU
+
+	/* Keep domain access control (0x55555555) from NBoot */
+//###	mrc	p15, 0, r1, c3, c0, 0	@ load domain access control (DACR)
+//###	movne	r1, #0xfffffffd		@ domain 0 = client
+//###	movne	r1, #0x55555555		@ all domains = client
 	bic     r6, r6, #1 << 31        @ 32-bit translation system
 	bic     r6, r6, #(7 << 0) | (1 << 4)	@ use only ttbr0
-	mcrne	p15, 0, r3, c2, c0, 0	@ load page table pointer
-	mcrne	p15, 0, r1, c3, c0, 0	@ load domain access control
-	mcrne   p15, 0, r6, c2, c0, 2   @ load ttb control
-#endif
+	mcrne	p15, 0, r3, c2, c0, 0	@ store page table pointer (TTBR0)
+//###	mcrne	p15, 0, r1, c3, c0, 0	@ store domain access control (DACR)
+	mcrne   p15, 0, r6, c2, c0, 2   @ store ttb control (TTBCR)
+
 	mcr	p15, 0, r0, c7, c5, 4	@ ISB
-	mcr	p15, 0, r0, c1, c0, 0	@ load control register
+	mcr	p15, 0, r0, c1, c0, 0	@ store control register (SCTLR)
 	mrc	p15, 0, r0, c1, c0, 0	@ and read it back
 	mov	r0, #0
 	mcr	p15, 0, r0, c7, c5, 4	@ ISB
-	mov	pc, r12
-
+	mov	pc, lr
 
 /*
  * Turn off the Cache and MMU on ARMv7
  *
  * On exit,
- *  r0, r1, r2, r3, r9, r12 corrupted
- * This routine must preserve:
- *  r4, r7, r8
+ *  r0 is corrupted
  */
 	.align	5
 cache_off:
-	mrc	p15, 0, r0, c1, c0
-#ifdef CONFIG_MMU
-	bic	r0, r0, #0x0005
-#else
-	bic	r0, r0, #0x0004
-#endif
-	mcr	p15, 0, r0, c1, c0	@ turn MMU and cache off
+	mrc	p15, 0, r0, c1, c0	@ SCTRL
+	bic	r0, r0, #0x0005		@ turn MMU and cache off
+	mcr	p15, 0, r0, c1, c0	@ SCTRL
 	mov	r0, #0
-#ifdef CONFIG_MMU
 	mcr	p15, 0, r0, c8, c7, 0	@ invalidate whole TLB
-#endif
-	mcr	p15, 0, r0, c7, c5, 6	@ invalidate BTC
+	mcr	p15, 0, r0, c7, c5, 6	@ invalidate BTC (BPIALL)
 	mcr	p15, 0, r0, c7, c10, 4	@ DSB
 	mcr	p15, 0, r0, c7, c5, 4	@ ISB
 	mov	pc, lr
@@ -321,23 +267,23 @@ cache_off:
  *  r0 = start address
  *  r1 = end address (exclusive)
  * On exit,
- *  r1, r2, r3, r9, r10, r11, r12 corrupted
- * This routine must preserve:
- *  r4, r6, r7, r8
+ *  r0, r1, r2, r10, r11 corrupted
  */
 	.align	5
 cache_clean_flush:
+	mov	r11, r1
 	enable_cp15_barriers	r10
-	tst	r4, #1
-	bne	iflush
 	mrc	p15, 0, r10, c0, c1, 5	@ read ID_MMFR1
 	tst	r10, #0xf << 16		@ hierarchical cache (ARMv7)
 	mov	r10, #0
-	beq	hierarchical
-	mcr	p15, 0, r10, c7, c14, 0	@ clean+invalidate D
-	b	iflush
+	bne	non_hierarchical
 hierarchical:
-	dcache_line_size r1, r2		@ r1 := dcache min line size
+	/* Get cache line size */
+	mrc	p15, 0, r2, c0, c0, 1	@ read cache type register (CTR)
+	lsr	r2, r2, #16
+	and	r2, r2, #0xf		@ cache line size encoding
+	mov	r1, #4			@ bytes per word
+	mov	r1, r1, lsl r2		@ r1 := actual cache line size
 	sub	r2, r1, #1		@ r2 := line size mask
 	bic	r0, r0, r2		@ round down start to line size
 	sub	r11, r11, #1		@ end address is exclusive
@@ -347,15 +293,17 @@ hierarchical:
 	mcr	p15, 0, r0, c7, c14, 1	@ Dcache clean/invalidate by VA
 	add	r0, r0, r1
 	b	0b
+non_hierarchical:
+	mcr	p15, 0, r10, c7, c14, 0	@ clean+invalidate D
 iflush:
 	mcr	p15, 0, r10, c7, c10, 4	@ DSB
-	mcr	p15, 0, r10, c7, c5, 0	@ invalidate I+BTB
+	mcr	p15, 0, r10, c7, c5, 0	@ invalidate I+BTB (ICIALLU)
 	mcr	p15, 0, r10, c7, c10, 4	@ DSB
 	mcr	p15, 0, r10, c7, c5, 4	@ ISB
 	mov	pc, lr
 #endif /* SFX_USE_CACHE */
 
-#if 0 // Debugging is done in C-Code now
+#if 0 // Debugging is done in C-Code now; keep code just for reference
 
 #define DEBUG_UART 0x21f0000
 
