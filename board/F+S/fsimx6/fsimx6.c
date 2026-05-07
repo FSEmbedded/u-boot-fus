@@ -1466,7 +1466,143 @@ int board_late_init(void)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 #ifdef CONFIG_CMD_NET
-#ifndef CONFIG_DM_ETH
+#ifdef CONFIG_DM_ETH
+#ifndef CONFIG_CLK_IMX6Q
+/* The second ethernet controller is attached via EIM */
+void setup_weim(void)
+{
+	struct weim *weim = (struct weim *)WEIM_BASE_ADDR;
+	struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+	u32 gpr1;
+
+/* Needs to be active for EIM clock */
+#ifdef CONFIG_MTD_NOR_FLASH
+	/* Enable EIM clock */
+	enable_eim_clk(1);
+#endif
+
+	/*
+	 * Set EIM chip select configuration:
+	 *
+	 *   CS0: 0x08000000 - 0x08FFFFFF (64MB)
+	 *   CS1: 0x0C000000 - 0x0FFFFFFF (64MB)
+	 *   CS2, CS3: unused
+	 *
+	 * As these are three bits per chip select, use octal numbers!
+	 */
+	gpr1 = readl(&iomux_regs->gpr[1]);
+	gpr1 &= ~07777;
+	gpr1 |= 00033;
+	writel(gpr1, &iomux_regs->gpr[1]);
+
+	/* AX88796B is connected to CS1 of EIM */
+	writel(0x00020001, &weim->cs1gcr1);
+	writel(0x00000000, &weim->cs1gcr2);
+	writel(0x16000202, &weim->cs1rcr1);
+	writel(0x00000002, &weim->cs1rcr2);
+	writel(0x16002082, &weim->cs1wcr1);
+	writel(0x00000000, &weim->cs1wcr2);
+}
+
+int board_interface_eth_init(struct udevice *dev,
+			     phy_interface_t interface_type)
+{
+	int ret;
+	enum enet_freq freq;
+	int id = dev_seq(dev);
+	unsigned int board_type = fs_board_get_type();
+
+	printf("board_interface_eth_init: dev_seq(dev) = %d\n",id);
+
+	fs_eth_set_ethaddr(id);
+
+	if (id == 0) {
+		/* Activate on-chip ethernet port (FEC) */
+		switch (board_type) {
+		case BT_PICOMODA9:
+		case BT_NETDCUA9:
+			freq = ENET_50MHZ;
+			break;
+
+		default:
+			freq = ENET_25MHZ;
+			break;
+		}
+
+		/* Activate ENET PLL */
+		ret = enable_fec_anatop_clock(0, freq);
+		if (ret < 0)
+			return ret;
+
+		/* Enable ENET clock */
+		enable_enet_clk(1);
+	}
+
+	if (id == 1)
+		setup_weim();
+
+#if 0
+TODO: MOVE RESET HANDLING TO DTB!
+	if (features2 & FEAT2_ETH_A) {
+		/* Reset the PHY */
+		switch (board_type) {
+		case BT_PICOMODA9:
+		case BT_NETDCUA9:
+			/*
+			 * DP83484: This PHY needs at least 1us reset pulse
+			 * width. After power on it needs min 167ms (after
+			 * reset is deasserted) before the first MDIO access
+			 * can be done. In a warm start, it only takes around
+			 * 3us for this. As we do not know whether this is a
+			 * cold or warm start, we must assume the worst case.
+			 */
+			if (board_type == BT_PICOMODA9)
+				reset_gpio = IMX_GPIO_NR(2, 10);
+			else
+				reset_gpio = IMX_GPIO_NR(1, 2);
+			fs_board_issue_reset(10, 170000, reset_gpio, ~0, ~0);
+			phy_addr = 1;
+			xcv_type = RMII;
+			break;
+		case BT_EFUSA9R2:
+		case BT_ARMSTONEA9R3:
+		case BT_ARMSTONEA9R4:
+			/* Realtek RTL8211F(D): Assert reset for at least 10ms */
+			fs_board_issue_reset(10000, 100000, IMX_GPIO_NR(1, 25),
+					     ~0,~0);
+			phy_addr = 4;
+			xcv_type = RGMII;
+			if_mode = PHY_INTERFACE_MODE_RGMII_ID;
+			break;
+		default:
+			/* Atheros AR8035: Assert reset for at least 1ms */
+			fs_board_issue_reset(1000, 1000, IMX_GPIO_NR(1, 25),
+					     ~0,~0);
+			phy_addr = 4;
+			xcv_type = RGMII;
+			break;
+		}
+	}
+#endif
+
+#if 0
+TODO: MOVE HANDLING TO DTB!
+	/* If available, activate external ethernet port (AX88796B) */
+	if (features2 & FEAT2_ETH_B) {
+		/* Reset AX88796B, on NetDCUA9 */
+		fs_board_issue_reset(200, 1000, IMX_GPIO_NR(1, 3), ~0, ~0);
+
+		/* TODO: Driver needs to be restructured. PHY_FIXED_LINK? */
+		/* Initialize AX88796B */
+		ret = ax88796_initialize(-1, CONFIG_DRIVER_AX88796_BASE,
+					 AX88796_MODE_BUS16_DP16);
+	}
+#endif
+
+	return 0;
+}
+#endif // !CONFIG_CLK_IMX6Q
+#else // !CONFIG_DM_ETH
 static iomux_v3_cfg_t const eim_pads_eth_b[] = {
 	/* AX88796B Ethernet 2 */
 	IOMUX_PADS(PAD_EIM_OE__EIM_OE_B | MUX_PAD_CTRL(EIM_NO_PULL)),
@@ -1718,7 +1854,7 @@ int board_eth_init(struct bd_info *bis)
 
 	return 0;
 }
-#endif // !CONFIG_DM_ETH
+#endif // CONFIG_DM_ETH
 
 #define MIIM_RTL8211F_PAGE_SELECT 0x1f
 #define LED_MODE_B (1 << 15)
