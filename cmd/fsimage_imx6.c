@@ -27,6 +27,8 @@
 #endif
 #include <asm/cache.h>			/* ARCH_DMA_MINALIGN */
 
+#define MAX_UBOOT_SIZE 0x80000UL	/* 512KiB */
+
 /* Structure to hold regions in NAND/eMMC for an image */
 struct storage_info {
 	loff_t start;		/* List of start addresses */
@@ -71,13 +73,14 @@ static int fs_image_setup_storage_info(struct storage_info *si,
 						struct part_info *part)
 {
 	if (part->offset && part->size) {
-		if (part->size < CONFIG_BOARD_SIZE_LIMIT) {
-			printf("partition size < CONFIG_BOARD_SIZE_LIMIT(%d),"
-				"abbort!\n",CONFIG_BOARD_SIZE_LIMIT);
+		if (part->size < MAX_UBOOT_SIZE) {
+			printf("MTD partition too small: %llu bytes,"
+			       " needs at least %lu bytes. Abort!\n",
+			       part->size, MAX_UBOOT_SIZE);
 			return -EFBIG;
 		}
 		si->start = part->offset;
-		si->size = CONFIG_BOARD_SIZE_LIMIT;
+		si->size = MAX_UBOOT_SIZE;
 		return 0;
 	}
 	else {
@@ -313,7 +316,7 @@ static int fs_image_save_uboot_to_mmc(unsigned long addr, int mmc_dev)
 	struct blk_desc *blk_desc;
 	unsigned int cur_part;
 	unsigned int dest_part = 0;
-	unsigned int img_size = CONFIG_BOARD_SIZE_LIMIT;
+	unsigned int img_size = MAX_UBOOT_SIZE;
 	int err;
 
 	#ifdef CONFIG_FS_SECURE_BOOT

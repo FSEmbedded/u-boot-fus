@@ -1553,9 +1553,15 @@ endif
 uboot.sfx: $(UBOOT_SFX-y)
 	$(Q)$(MAKE) $(build)=board/$(BOARDDIR) $@
 
-OBJCOPYFLAGS_uboot.nb0 = --pad-to $(CONFIG_BOARD_SIZE_LIMIT) -I binary -O binary
+# If uboot.nb0 is compressed, u-boot.bin may exceed 512KiB considerably and
+# BOARD_SIZE_LIMIT does not make sense anymore. But still uboot.nb0 must not
+# exceed 512KiB (or 384KiB on Vybrid). Do the check here.
+uboot-nb0-size-$(CONFIG_TARGET_FSVYBRID) = 393216
+uboot-nb0-size-$(CONFIG_ARCH_MX6) = 524288
+OBJCOPYFLAGS_uboot.nb0 = --pad-to $(uboot-nb0-size-y) -I binary -O binary
 uboot.nb0: $(addfsheader_target)
 	$(call if_changed,objcopy)
+	@ $(call size_check,$@,$(uboot-nb0-size-y))
 
 PHONY += nboot
 NBOOT_PATH = board/$(BOARDDIR)/nboot
