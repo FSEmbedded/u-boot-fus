@@ -584,10 +584,20 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 		case BT_ARMSTONEMX8MPr2:
 			/* Disable Wolfson codec if it is not available */
 			if (!(features & FEAT_AUDIO)) {
+				/* disable i2c wm8960 */
+				fs_fdt_enable(fdt, "wm8960", 0);
 				/* disable i2c wm8904 */
 				fs_fdt_enable(fdt, "wm8904", 0);
+				/* disable wm8960 platform driver */
+				fs_fdt_enable(fdt, "sound-wm8960", 0);
 				/* disable wm8904 platform driver */
 				fs_fdt_enable(fdt, "sound-wm8904", 0);
+			}
+			else {
+				/* disable i2c wm8960 */
+				fs_fdt_enable(fdt, "wm8960", 0);
+				/* disable wm8960 platform driver */
+				fs_fdt_enable(fdt, "sound-wm8960", 0);
 			}
 			break;
 		case BT_PICOCOREMX8MP:
