@@ -2063,12 +2063,12 @@ void board_preboot_os(void)
  */
 int board_fit_config_name_match(const char *name)
 {
-	u32 imxtype = ((get_cpu_rev() & 0x1FF000) >> 12);
 	unsigned int board_type = fs_board_get_type();
 	const char *board_fdt;
 	int i = 0;
 	char c;
-	static char board_name_lc[32];
+	char board_name_lc[32];
+	/* BSS gets cleared when relocating, so avoid static */
 
 	do {
 		c = board_info[board_type].name[i];
@@ -2077,19 +2077,11 @@ int board_fit_config_name_match(const char *name)
 		board_name_lc[i++] = c;
 	} while (c);
 
-	if (i--) {
-		switch (imxtype) {
-			case MXC_CPU_MX6DL:
-				board_name_lc[i++] = 'd';
-				board_name_lc[i++] = 'l';
-				break;
-			case MXC_CPU_MX6Q:
-				board_name_lc[i++] = 'q';
-				break;
-		}
-
-		board_name_lc[i] = 0;
-	}
+	/* In case of regular i.MX, add 'dl' or 'q' */
+	if (is_mx6sdl())
+		sprintf(board_name_lc, "%sdl", board_name_lc);
+	else if (is_mx6dq())
+		sprintf(board_name_lc, "%sq", board_name_lc);
 
 	board_fdt = (const char *)&board_name_lc[0];
 
