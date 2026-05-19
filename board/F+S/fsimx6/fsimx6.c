@@ -18,6 +18,9 @@
 #endif
 #include <serial.h>			/* struct serial_device */
 #include <env_internal.h>
+#ifdef CONFIG_DM_REGULATOR
+#include <power/regulator.h>
+#endif
 
 #ifdef CONFIG_FSL_ESDHC_IMX
 #include <mmc.h>
@@ -342,6 +345,28 @@ bool is_usb_boot(void) {
 	return false;
 }
 
+void fs_ethaddr_init(void)
+{
+	unsigned int features2 = fs_board_get_nboot_args()->chFeatures2;
+	int id = 0;
+
+	/* Activate on-chip ethernet port (FEC) */
+	if (features2 & FEAT2_ETH_A)
+		fs_eth_set_ethaddr(id++);
+
+	/* If available, activate external ethernet port (AX88796B) */
+	if (features2 & FEAT2_ETH_B) {
+		/* Reset AX88796B, on NetDCUA9 */
+		gpio_request(IMX_GPIO_NR(1, 3), "ax88796b_rst");
+		fs_board_issue_reset(200, 1000, IMX_GPIO_NR(1, 3), ~0, ~0);
+		fs_eth_set_ethaddr(id++);
+	}
+
+	/* If WLAN is available, just set ethaddr variable */
+	if (features2 & FEAT2_WLAN)
+		fs_eth_set_ethaddr(id++);
+}
+
 /* Check board type */
 int checkboard(void)
 {
@@ -391,6 +416,11 @@ int board_init(void)
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[board_type]);
 
+#ifdef CONFIG_DM_REGULATOR
+	/* Activate all regulators defined in the Device-Tree */
+	regulators_enable_boot_on(false);
+#endif
+
 	if (board_type == BT_EFUSA9 || board_type == BT_EFUSA9R2) {
 		/*
 		 * efusA9/r2 has a generic RESET_OUT signal to reset some
@@ -403,10 +433,12 @@ int board_init(void)
 		 * pulse time?
 		 */
 		SETUP_IOMUX_PADS(reset_pads);
+		gpio_request(IMX_GPIO_NR(1, 26), "reset_out");
 		fs_board_issue_reset(1000, 0, IMX_GPIO_NR(1, 26), ~0, ~0);
 	} else if (board_type == BT_ARMSTONEA9R2 || board_type == BT_ARMSTONEA9R4) {
 		/* Reset uBlox WLAN/BT on armStoneA9r2 */
 		SETUP_IOMUX_PADS(wlan_reset_pads);
+		gpio_request(IMX_GPIO_NR(1, 27), "wlan_rst");
 		fs_board_issue_reset(1000, 0, IMX_GPIO_NR(1, 27), ~0, ~0);
 	}
 
@@ -1456,6 +1488,11 @@ int board_late_init(void)
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttymxc");
 
+#ifdef CONFIG_DM_ETH
+	/* Set mac addresses for corresponding boards */
+	fs_ethaddr_init();
+#endif
+
 #ifdef CONFIG_VIDEO_IPUV3
 	/* Enable backlight for displays */
 	fs_disp_set_backlight_all(1);
@@ -1512,10 +1549,12 @@ int board_interface_eth_init(struct udevice *dev,
 	int id = dev_seq(dev);
 	unsigned int board_type = fs_board_get_type();
 
-	printf("board_interface_eth_init: dev_seq(dev) = %d\n",id);
+	/* MK-2026-05-18: Remove fs_ethaddr_init() and uncomment,
+	 * when every ethernet device can be handled via DM_ETH.
+	 */
+	// fs_eth_set_ethaddr(id);
 
-	fs_eth_set_ethaddr(id);
-
+	/* If CONFIG_CLK_IMX6Q can be activated, this can be removed. */
 	if (id == 0) {
 		/* Activate on-chip ethernet port (FEC) */
 		switch (board_type) {
@@ -1537,67 +1576,6 @@ int board_interface_eth_init(struct udevice *dev,
 		/* Enable ENET clock */
 		enable_enet_clk(1);
 	}
-
-	if (id == 1)
-		setup_weim();
-
-#if 0
-TODO: MOVE RESET HANDLING TO DTB!
-	if (features2 & FEAT2_ETH_A) {
-		/* Reset the PHY */
-		switch (board_type) {
-		case BT_PICOMODA9:
-		case BT_NETDCUA9:
-			/*
-			 * DP83484: This PHY needs at least 1us reset pulse
-			 * width. After power on it needs min 167ms (after
-			 * reset is deasserted) before the first MDIO access
-			 * can be done. In a warm start, it only takes around
-			 * 3us for this. As we do not know whether this is a
-			 * cold or warm start, we must assume the worst case.
-			 */
-			if (board_type == BT_PICOMODA9)
-				reset_gpio = IMX_GPIO_NR(2, 10);
-			else
-				reset_gpio = IMX_GPIO_NR(1, 2);
-			fs_board_issue_reset(10, 170000, reset_gpio, ~0, ~0);
-			phy_addr = 1;
-			xcv_type = RMII;
-			break;
-		case BT_EFUSA9R2:
-		case BT_ARMSTONEA9R3:
-		case BT_ARMSTONEA9R4:
-			/* Realtek RTL8211F(D): Assert reset for at least 10ms */
-			fs_board_issue_reset(10000, 100000, IMX_GPIO_NR(1, 25),
-					     ~0,~0);
-			phy_addr = 4;
-			xcv_type = RGMII;
-			if_mode = PHY_INTERFACE_MODE_RGMII_ID;
-			break;
-		default:
-			/* Atheros AR8035: Assert reset for at least 1ms */
-			fs_board_issue_reset(1000, 1000, IMX_GPIO_NR(1, 25),
-					     ~0,~0);
-			phy_addr = 4;
-			xcv_type = RGMII;
-			break;
-		}
-	}
-#endif
-
-#if 0
-TODO: MOVE HANDLING TO DTB!
-	/* If available, activate external ethernet port (AX88796B) */
-	if (features2 & FEAT2_ETH_B) {
-		/* Reset AX88796B, on NetDCUA9 */
-		fs_board_issue_reset(200, 1000, IMX_GPIO_NR(1, 3), ~0, ~0);
-
-		/* TODO: Driver needs to be restructured. PHY_FIXED_LINK? */
-		/* Initialize AX88796B */
-		ret = ax88796_initialize(-1, CONFIG_DRIVER_AX88796_BASE,
-					 AX88796_MODE_BUS16_DP16);
-	}
-#endif
 
 	return 0;
 }
@@ -1841,6 +1819,7 @@ int board_eth_init(struct bd_info *bis)
 		/* Reset AX88796B, on NetDCUA9 */
 		fs_board_issue_reset(200, 1000, IMX_GPIO_NR(1, 3), ~0, ~0);
 
+		/* Not supported for U-Boot v2024.04 with CONFIG_DM */
 		/* Initialize AX88796B */
 		ret = ax88796_initialize(-1, CONFIG_DRIVER_AX88796_BASE,
 					 AX88796_MODE_BUS16_DP16);
