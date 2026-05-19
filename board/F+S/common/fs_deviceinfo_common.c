@@ -7,6 +7,7 @@
  * 2024-04-29 - zutter@fs-net.de - base version
  * 2024-06-18 - mueller@fs-net.de - stripped version
  * 2024-12-10 - friedrich@fs-net.de - port to fsimx93
+ * 2026-05-19 - roesner@fs-net.de - add bootlogo
  */
 #include <common.h>
 #include <blk.h>
@@ -29,6 +30,8 @@ static union fsdeviceinfo* pfsdi;
 static char boardname[FSDI_STD_STRING_LEN];
 static unsigned int displayinterface = -1;
 static unsigned int displaypanel = -1;
+static unsigned int logoblock = 0;
+static unsigned int logosize = 0;
 
 void fs_deviceinfo_dump(union fsdeviceinfo* pfsdi)
 {
@@ -50,6 +53,8 @@ void fs_deviceinfo_dump(union fsdeviceinfo* pfsdi)
 	printf("**Display**\n");
 	printf("Interface:     %d\n", pfsdi->info.displayinterface);
 	printf("Panel:         %d\n", pfsdi->info.displaypanel);
+	printf("Block:         %d\n", pfsdi->info.logoblock);
+	printf("Size:          %d\n", pfsdi->info.logosize);
 	printf("-----FS_DeviceInfo-----\n");
 }
 
@@ -78,6 +83,13 @@ void fs_deviceinfo_prepare(void)
 	char* dp = env_get("displaypanel");
 	if (dp)
 		displaypanel = simple_strtoul(dp, NULL, 10);
+
+	char* lb = env_get("logoblock");
+	if (lb)
+		logoblock = hextoul(lb, NULL);
+	char* ls = env_get("logosize");
+	if (ls)
+		logosize = hextoul(ls, NULL);
 }
 
 void fs_deviceinfo_assemble(void)
@@ -114,6 +126,9 @@ void fs_deviceinfo_assemble(void)
 	pfsdi->info.displayinterface = displayinterface;
 	pfsdi->info.displaypanel = displaypanel;
 
+	// Logo config
+	pfsdi->info.logoblock = logoblock;
+	pfsdi->info.logosize  = logosize;
 	// CRC
 	u32 calc = fs_deviceinfo_calccrc32(pfsdi);
 	fs_deviceinfo_setcrc32(pfsdi, calc);
