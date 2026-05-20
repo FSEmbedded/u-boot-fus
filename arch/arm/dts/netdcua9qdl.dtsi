@@ -178,8 +178,8 @@
 	};
 
 	chosen {
-		bootargs = "console=ttymxc1,115200";
-		stdout-path = &uart2;
+		bootargs = "console=ttymxc3,115200";
+		stdout-path = &uart4;
 	};
 
 	memory {
@@ -843,7 +843,7 @@
 #endif /* CONFIG_NETDCUA9_WM9715_AUDIO */
 
 #ifdef CONFIG_NETDCUA9_UART_A
-/* UART2 on pins 3,4,5,6 on J1 (debug port A)*/
+/* UART2 on pins 3,4,5,6 on J1 (port A)*/
 &uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart2>;
@@ -866,7 +866,7 @@
 #endif /* CONFIG_NETDCUA9_UART_B */
 
 #ifdef CONFIG_NETDCUA9_UART_C
-/* UART4 on pins 12/14 on J5 (port C) */
+/* UART4 on pins 12/14 on J5 (debug port C) */
 &uart4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
