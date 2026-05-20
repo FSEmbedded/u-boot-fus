@@ -1556,14 +1556,27 @@ int board_interface_eth_init(struct udevice *dev,
 
 	/* If CONFIG_CLK_IMX6Q can be activated, this can be removed. */
 	if (id == 0) {
+		struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+		u32 gpr1;
+
 		/* Activate on-chip ethernet port (FEC) */
 		switch (board_type) {
 		case BT_PICOMODA9:
 		case BT_NETDCUA9:
+			/* ENET CLK is generated in i.MX6 and is an output */
+			gpr1 = readl(&iomux_regs->gpr[1]);
+			gpr1 |= IOMUXC_GPR1_ENET_CLK_SEL_MASK;
+			writel(gpr1, &iomux_regs->gpr[1]);
+
 			freq = ENET_50MHZ;
 			break;
 
 		default:
+			/* ENET CLK is generated in PHY and is an input */
+			gpr1 = readl(&iomux_regs->gpr[1]);
+			gpr1 &= ~IOMUXC_GPR1_ENET_CLK_SEL_MASK;
+			writel(gpr1, &iomux_regs->gpr[1]);
+
 			freq = ENET_25MHZ;
 			break;
 		}
