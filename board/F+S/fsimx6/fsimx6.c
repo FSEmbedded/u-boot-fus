@@ -1236,6 +1236,43 @@ int board_video_skip(void)
 #endif /* CONFIG_VIDEO_IPUV3 */
 
 #ifdef CONFIG_USB_EHCI_MX6
+#ifdef CONFIG_DM_USB
+int board_usb_init(int index, enum usb_init_type init)
+{
+	int ret = 0;
+	struct udevice *dev, *vbus;
+
+	debug("USB%d: %s init.\n", index, (init)?"otg":"host");
+
+	ret = uclass_get_device_by_seq(UCLASS_USB, index, &dev);
+	if (ret)
+		return ret;
+
+	/* Check if VBUS is already handled by regulator */
+	ret = device_get_supply_regulator(dev, "vbus-supply", &vbus);
+
+	/* For native VBUS handling, set the polarity */
+	if (ret) {
+		u32 *usbnc_usb_ctrl;
+		u32 val;
+		bool active_high = dev_read_bool(dev, "power-active-high");
+
+		usbnc_usb_ctrl = (u32 *)(USB_BASE_ADDR + USB_OTHERREGS_OFFSET +
+					 index * 4);
+		val = readl(usbnc_usb_ctrl);
+		if (active_high)
+			val |= UCTRL_PWR_POL; /* active high */
+		else
+			val &= ~UCTRL_PWR_POL; /* active low */
+
+		/* Disable over-current detection */
+		val |= UCTRL_OVER_CUR_DIS;
+		writel(val, usbnc_usb_ctrl);
+	}
+
+	return 0;
+}
+#else /* !CONFIG_DM_USB */
 /*
  * USB Host support.
  *
@@ -1474,6 +1511,7 @@ int board_ehci_hcd_init(int index)
 
         return fs_usb_set_port(index, &cfg);
 }
+#endif /* CONFIG_DM_USB */
 #endif /* CONFIG_USB_EHCI_MX6 */
 
 #ifdef CONFIG_BOARD_LATE_INIT
@@ -1505,42 +1543,6 @@ int board_late_init(void)
 #ifdef CONFIG_CMD_NET
 #ifdef CONFIG_DM_ETH
 #ifndef CONFIG_CLK_IMX6Q
-/* The second ethernet controller is attached via EIM */
-void setup_weim(void)
-{
-	struct weim *weim = (struct weim *)WEIM_BASE_ADDR;
-	struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
-	u32 gpr1;
-
-/* Needs to be active for EIM clock */
-#ifdef CONFIG_MTD_NOR_FLASH
-	/* Enable EIM clock */
-	enable_eim_clk(1);
-#endif
-
-	/*
-	 * Set EIM chip select configuration:
-	 *
-	 *   CS0: 0x08000000 - 0x08FFFFFF (64MB)
-	 *   CS1: 0x0C000000 - 0x0FFFFFFF (64MB)
-	 *   CS2, CS3: unused
-	 *
-	 * As these are three bits per chip select, use octal numbers!
-	 */
-	gpr1 = readl(&iomux_regs->gpr[1]);
-	gpr1 &= ~07777;
-	gpr1 |= 00033;
-	writel(gpr1, &iomux_regs->gpr[1]);
-
-	/* AX88796B is connected to CS1 of EIM */
-	writel(0x00020001, &weim->cs1gcr1);
-	writel(0x00000000, &weim->cs1gcr2);
-	writel(0x16000202, &weim->cs1rcr1);
-	writel(0x00000002, &weim->cs1rcr2);
-	writel(0x16002082, &weim->cs1wcr1);
-	writel(0x00000000, &weim->cs1wcr2);
-}
-
 int board_interface_eth_init(struct udevice *dev,
 			     phy_interface_t interface_type)
 {
