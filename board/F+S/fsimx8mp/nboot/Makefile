@@ -8,7 +8,7 @@ include spl/include/autoconf.mk
 # NBoot version with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_VERSION = 2025.12.1
+NBOOT_VERSION = 2026.05
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
 # names given in the Selectsoft WaWi for the board, without the PCB revision.
@@ -43,6 +43,9 @@ BOARD_CONFIGS = \
 	PCoreMX8MPr2-FERT15.fs \
 	PCoreMX8MPr2-FERT16.fs \
 	PCoreMX8MPr2-FERT17.fs \
+	PCoreMX8MPr2-FERT18.fs \
+	PCoreMX8MPr2-FERT20.fs \
+	PCoreMX8MPr2-FERT21.fs \
 	armStoneMX8MP-FERT0.fs \
 	armStoneMX8MP-FERT2.fs \
 	armStoneMX8MP-FERT4.fs \
@@ -54,6 +57,9 @@ BOARD_CONFIGS = \
 	armStoneMX8MP-FERT10.fs \
 	armStoneMX8MP-FERT22.fs \
 	armStoneMX8MP-FERT24.fs \
+	armStoneMX8MP-FERT26.fs \
+	armStoneMX8MP-FERT27.fs \
+	armStoneMX8MPr2-FERT4.fs \
 	efusMX8MP-FERT3.fs \
 	efusMX8MP-FERT4.fs \
 	efusMX8MP-FERT5.fs \
@@ -77,6 +83,7 @@ RT_LPDDR4 := \
 	lpddr4_os_2g2000m2ch1cs_timing.fs \
 	lpddr4_os_1g2000m2ch1cs_timing.fs \
 	lpddr4_pc_4g1500m2ch2cs_timing.fs \
+	lpddr4_pc_4g1500m2ch2cs_nanya_timing.fs \
 	lpddr4_pc_2g1500m2ch1cs_timing.fs \
 	lpddr4_pc_2g1300m2ch1cs_timing.fs \
 	lpddr4_pc_1g1800m2ch1cs_timing.fs \

@@ -62,6 +62,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BT_EFUSMX8MP 0x3
 #define BT_FSSMMX8MP 0x4
 #define BT_OSM8MP 0x5
+#define BT_ARMSTONEMX8MPr2 0x6
 
 static const char *board_names[] = {
 	"PicoCoreMX8MP",
@@ -70,6 +71,7 @@ static const char *board_names[] = {
 	"efusMX8MP",
 	"FSSMMX8MP",
 	"OSM8MP",
+	"armStoneMX8MPr2",
 	"(unknown)"
 };
 
@@ -143,6 +145,7 @@ int power_init_board(void)
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
 	case BT_ARMSTONEMX8MP:
+	case BT_ARMSTONEMX8MPr2:
 		bus = 4;
 		pi2c_pad_info = &i2c_pad_info_8mp;
 		break;
@@ -264,6 +267,7 @@ static void config_uart(int bt)
 	{
 	default:
 	case BT_ARMSTONEMX8MP:
+	case BT_ARMSTONEMX8MPr2:
 		/* Initialize SHDN_RS232 and AUTONLINE_RS232
 		 * to auto online mode.
 		 */
@@ -315,6 +319,7 @@ ulong board_serial_base(void)
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
 	case BT_ARMSTONEMX8MP:
+	case BT_ARMSTONEMX8MPr2:
 	case BT_FSSMMX8MP:
 	case BT_OSM8MP:
 	default:
@@ -673,6 +678,7 @@ void spl_board_init(void)
 		bl_on_gpio = IMX_GPIO_NR(5, 3);
 		break;
 	case BT_ARMSTONEMX8MP:
+	case BT_ARMSTONEMX8MPr2:
 		bl_on_pad = MX8MP_PAD_SAI3_RXFS__GPIO4_IO28 | MUX_PAD_CTRL(NO_PAD_CTRL);
 		bl_on_gpio = IMX_GPIO_NR(4, 28);
 		break;
@@ -903,6 +909,7 @@ int board_usb_gadget_port_auto(void)
 		case BT_PICOCOREMX8MP:
 		case BT_PICOCOREMX8MPr2:
 		case BT_ARMSTONEMX8MP:
+		case BT_ARMSTONEMX8MPr2:
 		case BT_EFUSMX8MP:
 			return 1;
 		case BT_FSSMMX8MP:
