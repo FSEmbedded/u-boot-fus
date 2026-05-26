@@ -525,6 +525,13 @@ void board_nand_init(void)
 }
 
 #ifdef CONFIG_FSL_ESDHC_IMX
+#ifdef CONFIG_DM_MMC
+/* Driver Model handling */
+void init_clk_usdhc(u32 index)
+{
+	enable_usdhc_clk(true, index);
+}
+#else /* !CONFIG_DM_MMC */
 /*
  * SD/MMC support.
  *
@@ -773,6 +780,7 @@ int board_mmc_init(struct bd_info *bd)
 
 	return ret;
 }
+#endif /* CONFIG_DM_MMC */
 #endif /* CONFIG_FSL_ESDHC_IMX */
 
 #ifdef CONFIG_VIDEO_IPUV3
