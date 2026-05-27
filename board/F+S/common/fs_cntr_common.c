@@ -731,6 +731,109 @@ static int init_ram_info(struct ram_info_t *ram_info)
 	return 0;
 }
 
+#if defined(CFG_ELE_WORKAROUND)
+/*
+ * NOTE: This workaround is required for the i.MX ELE firmware.
+ * 	 The ELE API does not allow to validate cntr-hdr or images of
+ * 	 IMX-Container, where the number of images is >= 32.
+ * 
+ * 	 We place every board-cfg in groups of 4. One Group is one IMX-CNTR-Image.
+ * 	 This will allow to save up to 120 Board-CFGs in one container,
+ * 	 which should be sufficient for the next years.
+ * 
+ * TODO: This is a workaround and not a final solution within NBOOT.
+ * 	 New Specification for BOARD-INFO / DRAM-INFO is required!
+ */
+static int board_cfg_ele_workaround(struct fsh_load_info *fsh_info, struct spl_image_info *cntr_info, struct fs_header_v1_0 *cfg_index)
+{
+	struct spl_image_info cfg_info;
+	struct spl_load_info *load_info;
+	struct container_hdr *cntr;
+	int num_imgs;
+	int fsh_idx;
+	int cntr_idx;
+	int i, ret;
+	long fsh_cfg_addr;
+	long fsi_cfg_addr;
+	long fsi_cfg_offset;
+
+	load_info = fsh_info->load_info;
+	cntr = (struct container_hdr *)cntr_info->load_addr;
+	num_imgs = cntr->num_images;
+
+	/* search board-cfg fsh within index */
+	for(fsh_idx = 1; (fsh_idx < (num_imgs * 4)) && fs_image_is_fs_image(&cfg_index[fsh_idx]); fsh_idx++){
+		if(fs_image_match_board_id(&cfg_index[fsh_idx]))
+			break;
+	}
+
+	if(fsh_idx >= (num_imgs * 4) || !fs_image_is_fs_image(&cfg_index[fsh_idx])){
+		free_container(cntr_info);
+		return -EINVAL;
+	}
+
+	debug("FSCNTR: FOUND %s (%s)\n", cfg_index[fsh_idx].type, cfg_index[fsh_idx].param.descr);
+
+	/* We need to skip images in stream */
+	cntr_idx = 1 + (fsh_idx / 4);
+	if(is_boot_from_stream_device()){
+		ret = fs_cntr_skip_streamed_images(&cfg_info,
+				cntr_info,
+				load_info,1,cntr_idx-1);
+		if(ret){
+			free_container(cntr_info);
+			return ret;
+		}
+	}
+
+	/* load image group with board-cfg.dtb */
+	ret = fs_cntr_load_single_image(&cfg_info,
+				cntr_info,
+				load_info,
+				cntr_idx);
+
+	if(ret){
+		free_container(cntr_info);
+		return ret;
+	}
+
+	/* catch correct config in group and place it */
+	fsh_cfg_addr = CONFIG_FUS_BOARDCFG_ADDR;
+	fsi_cfg_addr = CONFIG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0);
+	for(i=0, fsi_cfg_offset=0; i < ((fsh_idx - 1) % 4); i++) {
+		int idx = fsh_idx - ((fsh_idx - 1) % 4) + i;
+		fsi_cfg_offset += fs_image_get_size(&cfg_index[idx], false);
+	}
+
+	if(cfg_info.load_addr != CONFIG_FUS_BOARDCFG_ADDR || \
+			(fsh_idx - 1) % 4 != 0)
+	{
+		memcpy((void *)fsh_cfg_addr, &cfg_index[fsh_idx],
+			sizeof(struct fs_header_v1_0));
+
+		memcpy((void *)fsi_cfg_addr,
+				(void *)(cfg_info.load_addr + fsi_cfg_offset),
+				fs_image_get_size(&cfg_index[fsh_idx], false));
+	} else {
+		/*
+		 * NOTE: board-cfg needs to be placed 0x40 behind CONFIG_FUS_BOARDCFG_ADDR
+		 * Two memcpy operations are required.
+		 */
+		long tmp_addr = cfg_info.load_addr;
+		tmp_addr += fs_image_get_size(&cfg_index[fsh_idx], false);
+		memcpy((void *)tmp_addr, (void *)cfg_info.load_addr,
+				fs_image_get_size(&cfg_index[fsh_idx], false));
+		memcpy((void *)fsh_cfg_addr, &cfg_index[fsh_idx],
+				sizeof(struct fs_header_v1_0));
+		memcpy((void *)fsi_cfg_addr, (void *)tmp_addr,
+				fs_image_get_size(&cfg_index[fsh_idx], false));
+	}
+
+	free_container(cntr_info);
+	return ret;
+}
+#endif
+
 static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 {
 	struct fs_header_v1_0 *fsh;
@@ -776,6 +879,10 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 		free_container(&cntr_info);
 		return -EINVAL;
 	}
+
+#if defined(CFG_ELE_WORKAROUND)
+	return board_cfg_ele_workaround(fsh_info, &cntr_info, cfg_fsh);
+#endif
 
 	/* search board-cfg fsh within index */
 	for(idx = 1; idx < num_imgs; idx++){
