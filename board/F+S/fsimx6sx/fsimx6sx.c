@@ -14,9 +14,13 @@
 #include <miiphy.h>
 #include <netdev.h>
 #include "../common/fs_eth_common.h"	/* fs_eth_*() */
+#include <phy.h>
 #endif
 #include <serial.h>			/* struct serial_device */
 #include <env_internal.h>
+#ifdef CONFIG_DM_REGULATOR
+#include <power/regulator.h>
+#endif
 
 #ifdef CONFIG_FSL_ESDHC_IMX
 #include <mmc.h>
@@ -369,6 +373,24 @@ bool is_usb_boot(void) {
 	return false;
 }
 
+void fs_ethaddr_init(void)
+{
+	unsigned int features2 = fs_board_get_nboot_args()->chFeatures2;
+	int id = 0;
+
+	/* Activate on-chip ethernet port (FEC0) */
+	if (features2 & FEAT2_ETH_A)
+		fs_eth_set_ethaddr(id++);
+
+	/* Activate on-chip ethernet port (FEC1) */
+	if (features2 & FEAT2_ETH_B)
+		fs_eth_set_ethaddr(id++);
+
+	/* If WLAN is available, just set ethaddr variable */
+	if (features2 & FEAT2_WLAN)
+		fs_eth_set_ethaddr(id++);
+}
+
 /* Check board type */
 int checkboard(void)
 {
@@ -422,6 +444,11 @@ int board_init(void)
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[fs_board_get_type()]);
 
+#ifdef CONFIG_DM_REGULATOR
+	/* Activate all regulators defined in the Device-Tree */
+	regulators_enable_boot_on(false);
+#endif
+
 	/*
 	 * efusA9X has a generic RESETOUTn signal to reset on-board WLAN (only
 	 * board revisions before 1.20), PCIe and that is also available on
@@ -441,22 +468,26 @@ int board_init(void)
 			if ((features2 && FEAT2_WLAN) && (board_rev < 120))
 				active_us = 100000;
 			SETUP_IOMUX_PADS(efusa9x_reset_pads);
+			gpio_request(IMX_GPIO_NR(2, 1), "RESETOUTn");
 			fs_board_issue_reset(active_us, 0, IMX_GPIO_NR(2, 1), ~0, ~0);
 
 			/* Toggle WL_EN and BT_EN on Silex chip */
 			if ((features2 && FEAT2_WLAN) && (board_rev >= 120)) {
 				SETUP_IOMUX_PADS(efusa9x_wlanbt_en_pads);
+				gpio_request(IMX_GPIO_NR(1, 3), "WLANBT_EN");
 				fs_board_issue_reset(1000, 0, IMX_GPIO_NR(1, 3),
 							 ~0, ~0);
 			}
 			break;
 		case BT_EFUSA9XR2:
 			SETUP_IOMUX_PADS(efusa9x_reset_pads);
+			gpio_request(IMX_GPIO_NR(2, 1), "RESETOUTn");
 			fs_board_issue_reset(active_us, 0, IMX_GPIO_NR(2, 1), ~0, ~0);
 
 			/* Toggle WL_EN and BT_EN on Silex chip */
 			if (features2 && FEAT2_WLAN) {
 				SETUP_IOMUX_PADS(efusa9x_wlanbt_en_pads);
+				gpio_request(IMX_GPIO_NR(1, 3), "WLANBT_EN");
 				fs_board_issue_reset(1000, 0, IMX_GPIO_NR(1, 3),
 							 ~0, ~0);
 			}
@@ -549,6 +580,13 @@ void board_nand_init(void)
 }
 
 #ifdef CONFIG_FSL_ESDHC_IMX
+#ifdef CONFIG_DM_MMC
+/* Driver Model handling */
+void init_clk_usdhc(u32 index)
+{
+	enable_usdhc_clk(true, index);
+}
+#else /* !CONFIG_DM_MMC */
 /*
  * SD/MMC support.
  *
@@ -773,6 +811,7 @@ int board_mmc_init(struct bd_info *bd)
 
 	return ret;
 }
+#endif /* CONFIG_DM_MMC */
 #endif /* CONFIG_FSL_ESDHC_IMX */
 
 #ifdef CONFIG_VIDEO_MXS
@@ -1231,6 +1270,57 @@ int board_video_skip(void)
 #endif
 
 #ifdef CONFIG_USB_EHCI_MX6
+#ifdef CONFIG_DM_USB
+int board_usb_init(int index, enum usb_init_type init)
+{
+	int ret = 0;
+	struct udevice *dev, *vbus;
+
+	debug("USB%d: %s init.\n", index, (init)?"otg":"host");
+
+	ret = uclass_get_device_by_seq(UCLASS_USB, index, &dev);
+	if (ret)
+		return ret;
+
+	/* Check if VBUS is already handled by regulator */
+	ret = device_get_supply_regulator(dev, "vbus-supply", &vbus);
+
+	/* For native VBUS handling, set the polarity */
+	if (ret) {
+		u32 *usbnc_usb_ctrl;
+		u32 val;
+		bool active_high = dev_read_bool(dev, "power-active-high");
+#if CONFIG_IS_ENABLED(CLK)
+		struct clk clk;
+		ret = clk_get_by_index(dev, 0, &clk);
+		if (ret < 0)
+			return ret;
+
+		ret = clk_enable(&priv->clk);
+		if (ret)
+			return ret;
+#else
+		/* Compatibility with DM_USB and !CLK */
+		enable_usboh3_clk(1);
+		mdelay(1);
+#endif
+
+		usbnc_usb_ctrl = (u32 *)(USB_BASE_ADDR + USB_OTHERREGS_OFFSET +
+					 index * 4);
+		val = readl(usbnc_usb_ctrl);
+		if (active_high)
+			val |= UCTRL_PWR_POL; /* active high */
+		else
+			val &= ~UCTRL_PWR_POL; /* active low */
+
+		/* Disable over-current detection */
+		val |= UCTRL_OVER_CUR_DIS;
+		writel(val, usbnc_usb_ctrl);
+	}
+
+	return 0;
+}
+#else /* !CONFIG_DM_USB */
 /*
  * USB Host support.
  *
@@ -1397,6 +1487,7 @@ int board_ehci_hcd_init(int index)
 
         return fs_usb_set_port(index, &cfg);
 }
+#endif /* CONFIG_DM_USB */
 #endif /* CONFIG_USB_EHCI_MX6 */
 
 #ifdef CONFIG_BOARD_LATE_INIT
@@ -1410,6 +1501,11 @@ int board_late_init(void)
 {
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttymxc");
+
+#ifdef CONFIG_DM_ETH
+	/* Set mac addresses for corresponding boards */
+	fs_ethaddr_init();
+#endif
 
 #ifdef CONFIG_VIDEO_MXS
 	/* Enable backlight for displays */
@@ -1883,6 +1979,77 @@ static int sja1105_init(void)
 #endif /* CONFIG_MXC_SPI */
 
 #ifdef CONFIG_FEC_MXC
+#ifdef CONFIG_DM_ETH
+int board_interface_eth_init(struct udevice *dev,
+			     phy_interface_t interface_type)
+{
+	int ret;
+	enum enet_freq freq;
+	int id = dev_seq(dev);
+	unsigned int board_type = fs_board_get_type();
+	struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+	u32 gpr1 = readl(&iomux_regs->gpr[1]);
+	u32 fec_mask;
+
+	/* MK-2026-05-18: Remove fs_ethaddr_init() and uncomment,
+	 * when every ethernet device can be handled via DM_ETH.
+	 */
+	// fs_eth_set_ethaddr(id);
+
+	/* If CONFIG_CLK can be activated, this can be removed. */
+	switch (id) {
+	case 0:
+		fec_mask = IOMUX_GPR1_FEC1_MASK;
+		break;
+	case 1:
+		fec_mask = IOMUX_GPR1_FEC2_MASK;
+		break;
+	};
+
+	switch (board_type) {
+	case BT_EFUSA9X:
+	case BT_PCOREMX6SX:
+	case BT_EFUSA9XR2:
+	case BT_PCOREMX6SXR2:
+	case BT_CONT1:
+		gpr1 &= ~fec_mask;
+		freq = ENET_125MHZ;
+		break;
+	case BT_PICOCOMA9X:
+	case BT_BEMA9X:
+	case BT_VAND3:
+		gpr1 |= fec_mask;
+		freq = ENET_50MHZ;
+		break;
+	};
+
+	switch (id) {
+	case 0:
+	case 1:
+		writel(gpr1, &iomux_regs->gpr[1]);
+		/* Activate ENET PLL */
+		ret = enable_fec_anatop_clock_ref(id, freq, true);
+		if (ret < 0)
+			return ret;
+		break;
+	};
+
+#ifdef CONFIG_MXC_SPI
+	if (board_type == BT_CONT1) {
+		static bool already_run = false;
+		ret = sja1105_init();
+		if (ret) {
+			printf("SJA1105: Configuration failed"
+			       " with error %d\n", ret);
+		}
+		else
+			already_run = true;
+	}
+#endif
+
+	return 0;
+}
+#else // !CONFIG_DM_ETH
 /* enet pads definition */
 static iomux_v3_cfg_t const enet_pads_control_efusa9x[] = {
 	/* MDIO; on efusA9X both PHYs are on ENET1_MDIO bus  */
@@ -2458,6 +2625,7 @@ int board_eth_init(struct bd_info *bd)
 
 	return ret;
 }
+#endif // CONFIG_DM_ETH
 
 #define MIIM_RTL8211F_PAGE_SELECT 0x1f
 #define LED_MODE_B (1 << 15)
@@ -2491,6 +2659,15 @@ int board_phy_config(struct phy_device *phydev)
 	return 0;
 }
 #endif /* CONFIG_FEC_MXC */
+
+#if CONFIG_OF_BOARD_FIXUP
+/* Placeholder for now */
+int board_fix_fdt(void *fdt_blob)
+{
+	//fdt_common_fixup(fdt_blob);
+	return 0;
+}
+#endif
 
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Reserve a RAM memory region (Framebuffer, Cortex-M4)*/
@@ -2713,3 +2890,31 @@ void board_preboot_os(void)
 		mdio_shutdown_all();
 #endif
 }
+
+#ifdef CONFIG_MULTI_DTB_FIT
+/*
+ * This function is called for each appended device tree. If we signal a match
+ * (return value 0), the referenced device tree (and only this) is loaded
+ * for U-Boot. See doc/README.multi-dtb-fit for details.
+ */
+int board_fit_config_name_match(const char *name)
+{
+	unsigned int board_type = fs_board_get_type();
+	const char *board_fdt;
+	int i = 0;
+	char c;
+	char board_name_lc[32];
+	/* BSS gets cleared when relocating, so avoid static */
+
+	do {
+		c = board_info[board_type].name[i];
+		if ((c >= 'A') && (c <= 'Z'))
+			c += 'a' - 'A';
+		board_name_lc[i++] = c;
+	} while (c);
+
+	board_fdt = (const char *)&board_name_lc[0];
+
+	return strcmp(name, board_fdt);
+}
+#endif
