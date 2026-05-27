@@ -1264,6 +1264,20 @@ int board_usb_init(int index, enum usb_init_type init)
 		u32 *usbnc_usb_ctrl;
 		u32 val;
 		bool active_high = dev_read_bool(dev, "power-active-high");
+#if CONFIG_IS_ENABLED(CLK)
+		struct clk clk;
+		ret = clk_get_by_index(dev, 0, &clk);
+		if (ret < 0)
+			return ret;
+
+		ret = clk_enable(&priv->clk);
+		if (ret)
+			return ret;
+#else
+		/* Compatibility with DM_USB and !CLK */
+		enable_usboh3_clk(1);
+		mdelay(1);
+#endif
 
 		usbnc_usb_ctrl = (u32 *)(USB_BASE_ADDR + USB_OTHERREGS_OFFSET +
 					 index * 4);
