@@ -57,6 +57,9 @@ BOARD_CONFIGS = \
 	PCoreMX8MPr2-FERT15.fs \
 	PCoreMX8MPr2-FERT16.fs \
 	PCoreMX8MPr2-FERT17.fs \
+	PCoreMX8MPr2-FERT18.fs \
+	PCoreMX8MPr2-FERT20.fs \
+	PCoreMX8MPr2-FERT21.fs \
 	armStoneMX8MP-FERT0.fs \
 	armStoneMX8MP-FERT2.fs \
 	armStoneMX8MP-FERT4.fs \
@@ -93,6 +96,7 @@ RT_LPDDR4 := \
 	lpddr4_os_2g2000m2ch1cs_timing.fs \
 	lpddr4_os_1g2000m2ch1cs_timing.fs \
 	lpddr4_pc_4g1500m2ch2cs_timing.fs \
+	lpddr4_pc_4g1500m2ch2cs_nanya_timing.fs \
 	lpddr4_pc_2g1500m2ch1cs_timing.fs \
 	lpddr4_pc_2g1300m2ch1cs_timing.fs \
 	lpddr4_pc_1g1800m2ch1cs_timing.fs \
