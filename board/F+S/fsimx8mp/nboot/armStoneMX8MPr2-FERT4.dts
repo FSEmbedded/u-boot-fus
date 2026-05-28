@@ -12,12 +12,13 @@
 
 / {
 	board-cfg {
-		board-name = "armStoneMX8MP";
+		board-name = "armStoneMX8MPr2";
 
-		/* DRAM: 4GB Samsung B.ICDRAM.45 */
+		/* DRAM: 2GB Samsung B.ICDRAM.51 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_as_4g1500m2ch2cs";
-		dram-size = <0x1000>;		/* In MiB */
+		/* Replacement for B.ICDRAM.30, so use those timings for now (2000m possible) */
+		dram-timing = "lpddr4_as_2g1600m2ch1cs";
+		dram-size = <0x800>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
@@ -29,29 +30,21 @@
 		fuse-value =    <0x10002a00>;
 
 		/* Common board features */
+		board-rev = <110>;
 		//have-nand;
 		have-emmc;
-		//have-audio;
+		have-audio;
 		have-eth-phy-a;
 		have-eth-phy-b;
-		//have-wlan;
-		have-mipi-dsi;
+		have-wlan;
+		//have-mipi-dsi;
 		have-hdmi;
 		have-ext-rtc;
-		//have-security;
+		have-security;
+		have-eeprom;
 		have-adc;
 		have-can0;
 		have-can1;
-		//have-rs485;
-
-		/* Board-revision specific features */
-		armStoneMX8MP-FERT26.100 {
-			board-rev = <100>;
-		};
-
-		armStoneMX8MP-FERT26.110 {
-			board-rev = <110>;
-			have-eeprom;
-		};
+		have-rs485;
 	};
 };
