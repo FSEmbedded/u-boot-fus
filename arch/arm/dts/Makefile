@@ -1057,7 +1057,19 @@ dtb-$(CONFIG_MX6UL) += \
 	imx6ul-pico-hobbit.dtb \
 	imx6ul-pico-pi.dtb \
 	imx6ul-kontron-bl.dtb \
-	imx6ull-kontron-bl.dtb
+	imx6ull-kontron-bl.dtb \
+	cube2.0.dtb \
+	cubea7ul.dtb \
+	efusa7ul.dtb \
+	gar1.dtb \
+	gar2.dtb \
+	gar3.dtb \
+	picocom1.2.dtb \
+	picocoma7.dtb \
+	picocoremx6ul.dtb \
+	picocoremx6ul100.dtb
+
+
 
 dtb-$(CONFIG_MX6ULL) += \
 	imx6ull-14x14-evk.dtb \
@@ -1074,7 +1086,12 @@ dtb-$(CONFIG_MX6ULL) += \
 	imx6ulz-bsh-smm-m2.dtb \
 	imx6ulz-14x14-evk.dtb \
 	imx6ulz-14x14-evk-emmc.dtb \
-	imx6ulz-14x14-evk-gpmi-weim.dtb
+	imx6ulz-14x14-evk-gpmi-weim.dtb \
+	cube2.0ull.dtb \
+	efusa7ull.dtb \
+	picocoma7ull.dtb \
+	picocoremx6ull.dtb \
+	picocoremx6ull100.dtb
 
 dtb-$(CONFIG_ARCH_MX6) += \
 	imx6q-apalis-eval.dtb \

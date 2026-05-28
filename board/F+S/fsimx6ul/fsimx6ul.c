@@ -17,6 +17,9 @@
 #endif
 #include <serial.h>			/* struct serial_device */
 #include <env_internal.h>
+#ifdef CONFIG_DM_REGULATOR
+#include <power/regulator.h>
+#endif
 
 #ifdef CONFIG_FSL_ESDHC_IMX
 #include <mmc.h>
@@ -441,6 +444,24 @@ bool is_usb_boot(void) {
 	return false;
 }
 
+void fs_ethaddr_init(void)
+{
+	unsigned int features2 = fs_board_get_nboot_args()->chFeatures2;
+	int id = 0;
+
+	/* Activate on-chip ethernet port (FEC0) */
+	if (features2 & FEAT2_ETH_A)
+		fs_eth_set_ethaddr(id++);
+
+	/* Activate on-chip ethernet port (FEC1) */
+	if (features2 & FEAT2_ETH_B)
+		fs_eth_set_ethaddr(id++);
+
+	/* If WLAN is available, just set ethaddr variable */
+	if (features2 & FEAT2_WLAN)
+		fs_eth_set_ethaddr(id++);
+}
+
 /* Check board type */
 int checkboard(void)
 {
@@ -510,6 +531,11 @@ int board_init(void)
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[board_type]);
 
+#ifdef CONFIG_DM_REGULATOR
+	/* Activate all regulators defined in the Device-Tree */
+	regulators_enable_boot_on(false);
+#endif
+
 	/*
 	 * REMARK:
 	 * efusA7UL has a generic RESETOUTn signal to reset on-board WLAN
@@ -527,6 +553,8 @@ int board_init(void)
 	 * A similar issue exists for PicoCOM1.2. RESETOUTn is also triggered
 	 * in board_eth_init().
 	 */
+#if 0
+	TODO: IO Expander to Device-Tree!!!!
 	if ((board_type == BT_EFUSA7UL) && (board_rev >= 120)) {
 		uint8_t val;
 
@@ -546,6 +574,7 @@ int board_init(void)
 		val |= IOEXP_ALL_RESETS;
 		i2c_reg_write(0x41, 1, val);
 	}
+#endif
 
 	return 0;
 }
@@ -633,6 +662,13 @@ void board_nand_init(void)
 }
 
 #ifdef CONFIG_FSL_ESDHC_IMX
+#ifdef CONFIG_DM_MMC
+/* Driver Model handling */
+void init_clk_usdhc(u32 index)
+{
+	enable_usdhc_clk(true, index);
+}
+#else /* !CONFIG_DM_MMC */
 /*
  * SD/MMC support.
  *
@@ -850,8 +886,8 @@ int board_mmc_init(struct bd_info *bd)
 
 	return ret;
 }
+#endif /* CONFIG_DM_MMC */
 #endif /* CONFIG_FSL_ESDHC_IMX */
-
 
 #ifdef CONFIG_VIDEO_MXS
 /*
@@ -1214,6 +1250,57 @@ int board_video_skip(void)
 #endif
 
 #ifdef CONFIG_USB_EHCI_MX6
+#ifdef CONFIG_DM_USB
+int board_usb_init(int index, enum usb_init_type init)
+{
+	int ret = 0;
+	struct udevice *dev, *vbus;
+
+	debug("USB%d: %s init.\n", index, (init)?"otg":"host");
+
+	ret = uclass_get_device_by_seq(UCLASS_USB, index, &dev);
+	if (ret)
+		return ret;
+
+	/* Check if VBUS is already handled by regulator */
+	ret = device_get_supply_regulator(dev, "vbus-supply", &vbus);
+
+	/* For native VBUS handling, set the polarity */
+	if (ret) {
+		u32 *usbnc_usb_ctrl;
+		u32 val;
+		bool active_high = dev_read_bool(dev, "power-active-high");
+#if CONFIG_IS_ENABLED(CLK)
+		struct clk clk;
+		ret = clk_get_by_index(dev, 0, &clk);
+		if (ret < 0)
+			return ret;
+
+		ret = clk_enable(&priv->clk);
+		if (ret)
+			return ret;
+#else
+		/* Compatibility with DM_USB and !CLK */
+		enable_usboh3_clk(1);
+		mdelay(1);
+#endif
+
+		usbnc_usb_ctrl = (u32 *)(USB_BASE_ADDR + USB_OTHERREGS_OFFSET +
+					 index * 4);
+		val = readl(usbnc_usb_ctrl);
+		if (active_high)
+			val |= UCTRL_PWR_POL; /* active high */
+		else
+			val &= ~UCTRL_PWR_POL; /* active low */
+
+		/* Disable over-current detection */
+		val |= UCTRL_OVER_CUR_DIS;
+		writel(val, usbnc_usb_ctrl);
+	}
+
+	return 0;
+}
+#else /* !CONFIG_DM_USB */
 /*
  * USB Host support.
  *
@@ -1498,6 +1585,7 @@ int board_ehci_hcd_init(int index)
 
 	return fs_usb_set_port(index, &cfg);
 }
+#endif /* CONFIG_DM_USB */
 #endif /* CONFIG_USB_EHCI_MX6 */
 
 #ifdef CONFIG_BOARD_LATE_INIT
@@ -1512,6 +1600,11 @@ int board_late_init(void)
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttymxc");
 
+#ifdef CONFIG_DM_ETH
+	/* Set mac addresses for corresponding boards */
+	fs_ethaddr_init();
+#endif
+
 #ifdef CONFIG_VIDEO_MXS
 	/* Enable backlight for displays */
 	fs_disp_set_backlight_all(1);
@@ -1522,6 +1615,65 @@ int board_late_init(void)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 #ifdef CONFIG_CMD_NET
+#ifdef CONFIG_DM_ETH
+int board_interface_eth_init(struct udevice *dev,
+			     phy_interface_t interface_type)
+{
+	int ret;
+	enum enet_freq freq;
+	int id = dev_seq(dev);
+	unsigned int board_type = fs_board_get_type();
+	struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+	u32 gpr1 = readl(&iomux_regs->gpr[1]);
+	u32 fec_mask;
+#if 0
+	/* MK-2026-05-18: Remove fs_ethaddr_init() and uncomment,
+	 * when every ethernet device can be handled via DM_ETH.
+	 */
+	// fs_eth_set_ethaddr(id);
+
+	/* If CONFIG_CLK can be activated, this can be removed. */
+	switch (id) {
+	case 0:
+		fec_mask = IOMUX_GPR1_FEC1_MASK;
+		break;
+	case 1:
+		fec_mask = IOMUX_GPR1_FEC2_MASK;
+		break;
+	};
+
+	switch (board_type) {
+	case BT_EFUSA9X:
+	case BT_PCOREMX6SX:
+	case BT_EFUSA9XR2:
+	case BT_PCOREMX6SXR2:
+	case BT_CONT1:
+		gpr1 &= ~fec_mask;
+		freq = ENET_125MHZ;
+		break;
+	case BT_PICOCOMA9X:
+	case BT_BEMA9X:
+	case BT_VAND3:
+		gpr1 |= fec_mask;
+		freq = ENET_50MHZ;
+		break;
+	};
+
+	switch (id) {
+	case 0:
+	case 1:
+		writel(gpr1, &iomux_regs->gpr[1]);
+		/* Activate ENET PLL */
+		ret = enable_fec_anatop_clock_ref(id, freq, true);
+		if (ret < 0)
+			return ret;
+		break;
+	};
+#endif
+
+	return 0;
+}
+#else // !CONFIG_DM_ETH
 /* MDIO on ENET1, used if either only ENET1 port or both ports are in use */
 static iomux_v3_cfg_t const enet1_pads_mdio[] = {
 	IOMUX_PADS(PAD_GPIO1_IO06__ENET1_MDIO | MUX_PAD_CTRL(MDIO_PAD_CTRL)),
@@ -1977,6 +2129,7 @@ int board_eth_init(struct bd_info *bis)
 
 	return 0;
 }
+#endif // CONFIG_DM_ETH
 #endif /* CONFIG_CMD_NET */
 
 #ifdef CONFIG_LED_STATUS_CMD
@@ -2113,6 +2266,17 @@ static int do_fdt_board_setup_common(void *fdt)
 	return 0;
 }
 
+#if CONFIG_OF_BOARD_FIXUP
+/* Do any addiotional board-specific device tree modifications for U-Boot */
+int board_fix_fdt(void *fdt)
+{
+	/* Make some room in the FDT */
+	fdt_shrink_to_minimum(fdt, 8192);
+
+	return do_fdt_board_setup_common(fdt);
+}
+#endif
+
 /* Do any additional board-specific device tree modifications */
 int ft_board_setup(void *fdt, struct bd_info *bd)
 {
@@ -2213,3 +2377,76 @@ void board_preboot_os(void)
 	mdio_shutdown_all();
 #endif
 }
+
+#ifdef CONFIG_MULTI_DTB_FIT
+/*
+ * This function is called for each appended device tree. If we signal a match
+ * (return value 0), the referenced device tree (and only this) is loaded
+ * for U-Boot. See doc/README.multi-dtb-fit for details.
+ */
+int board_fit_config_name_match(const char *name)
+{
+	unsigned int board_type = fs_board_get_type();
+	const char *board_fdt;
+	char lcasename[20];
+	char *p = board_info[board_type].name;
+	char *l = lcasename;
+	char c;
+	int len = 0;
+
+	do {
+		c = *p++;
+		if ((c >= 'A') && (c <= 'Z'))
+			c += 'a' - 'A';
+		*l++ = c;
+		len++;
+	} while (c);
+
+	/*
+	 * In case of i.MX6ULL, append a second 'l' if the name already
+	 * have a substring with 'ul', otherwise append 'ull'.
+	 * This results in the names efusa7ull, cubea7ull,
+	 * picocom1.2ull, cube2.0ull, picocoremx6ul100 ...
+	 */
+	if (is_mx6ull()) {
+		int i = 0;
+		bool found = false;
+		p = lcasename;
+		do {
+			if (*p == 'u' && *++p == 'l')
+			{
+				i += 2;
+				*l = '\0';
+				do {
+					//*l-- = *l;
+					*l = l[-1];
+					l--;
+					len--;
+				} while (i != len);
+				*l = 'l';
+				found = true;
+				break;
+			}
+			p++;
+			i++;
+		} while (*p);
+
+		if (!found) {
+			l--;
+			/* Names have > 2 chars, so negative index
+			 * is valid
+			 */
+			if ((l[-2] != 'u') || (l[-1] != 'l')) {
+				*l++ = 'u';
+				*l++ = 'l';
+			}
+			*l++ = 'l';
+			*l++ = '\0';
+		}
+	}
+
+	board_fdt = (const char *)&lcasename[0];
+
+	return strcmp(name, board_fdt);
+}
+#endif
