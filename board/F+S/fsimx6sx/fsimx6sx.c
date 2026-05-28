@@ -2660,15 +2660,6 @@ int board_phy_config(struct phy_device *phydev)
 }
 #endif /* CONFIG_FEC_MXC */
 
-#if CONFIG_OF_BOARD_FIXUP
-/* Placeholder for now */
-int board_fix_fdt(void *fdt_blob)
-{
-	//fdt_common_fixup(fdt_blob);
-	return 0;
-}
-#endif
-
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Reserve a RAM memory region (Framebuffer, Cortex-M4)*/
 static void fs_fdt_reserve_ram(void *fdt)
@@ -2786,6 +2777,17 @@ static int do_fdt_board_setup_common(void *fdt)
 
 	return 0;
 }
+
+#if CONFIG_OF_BOARD_FIXUP
+/* Do any addiotional board-specific device tree modifications for U-Boot */
+int board_fix_fdt(void *fdt)
+{
+	/* Make some room in the FDT */
+	fdt_shrink_to_minimum(fdt, 8192);
+
+	return do_fdt_board_setup_common(fdt);
+}
+#endif
 
 /* Do any additional board-specific device tree modifications */
 int ft_board_setup(void *fdt, struct bd_info *bd)
