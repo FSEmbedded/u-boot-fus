@@ -27,7 +27,7 @@ include board/$(VENDOR)/common/fus-common.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2026.05
+NBOOT_SUFFIX = 2026.05.1
 
 # Image type for mkimage
 MKIMAGE_TYPE = imx8image
@@ -88,6 +88,62 @@ $(obj)/%_BOARD-CFG.fsi: $(obj)/.%.dts.tmp
 
 # 3. Build F&S container image
 $(eval $(call fsc,board_info,-a 0x400 -t BOARD-INFO -d $(BOARD)))
+
+# -----------------------------------------------------------------------------
+# Workarround for ELE Authentication Error
+# ELE allows only 31 Images to be validated within a container.
+# Group 4 Board-CFG files into one container image to reduce number of Images.
+
+ALIGN := 0x400
+NUM_IMG_PER_GROUP := 4
+NUM_GROUPS := $(shell echo $$(( ($(words $(board_info_others)) + $(NUM_IMG_PER_GROUP) - 1) / $(NUM_IMG_PER_GROUP) )))
+BOARD_CFG_BINS := $(addprefix $(obj)/.,$(addsuffix .tmp,$(notdir $(board_info_others))))
+BOARD_CFG_GROUPS := \
+	$(foreach n,$(shell seq 0 $$(( $(NUM_GROUPS) - 1 ))), \
+		$(obj)/board_info_grp$(n).fsi)
+
+define gen_groups
+GROUP$(1) := $$(wordlist \
+	$$(shell expr $(1) \* $(NUM_IMG_PER_GROUP) + 1), \
+	$$(shell expr \( $(1) + 1 \) \* $(NUM_IMG_PER_GROUP)), \
+	$$(BOARD_CFG_BINS))
+
+$$(obj)/board_info_grp$(1).fsi: $$(GROUP$(1))
+	$$(call cmd,cat)
+endef
+
+$(foreach n,$(shell seq 0 $$(( $(NUM_GROUPS) - 1 ))), \
+	$(eval $(call gen_groups,$(n))))
+
+#ensure correct alignment of CFG-Image to match board_info_INDEX.fs
+$(obj)/.%_BOARD-CFG.fsi.tmp: $(obj)/%_BOARD-CFG.fsi
+	@size=$$(stat -c%s $<); \
+	aligned=$$(( ($$size + $(ALIGN) - 1) & ~($(ALIGN) - 1) )); \
+	objcopy -I binary -O binary --pad-to=$$aligned --gap-fill=0x0 $< $@
+
+#generate mkimage cfg file
+$(obj)/.board_info_group.cfg.tmp: $(obj)/.board_info.cfg.tmp $(BOARD_CFG_GROUPS)
+	@line_begin=$$(grep -n DATA $< | head -n 1 | cut -d':' -f1); \
+	head -n $$((line_begin)) $< > $@; \
+	for file in $(BOARD_CFG_GROUPS); do \
+		echo "DATA	A35	$$file	0x20498000" >> $@; \
+	done
+
+#create IMX-Container with grouped board-cfgs
+MKIMAGEFLAGS_.board_info_group_cntr.tmp = \
+	-n $(obj)/.board_info_group.cfg.tmp -T $(MKIMAGE_TYPE) -e $(CONFIG_TEXT_BASE)
+
+$(obj)/.board_info_group_log.tmp: $(obj)/.board_info_group_cntr.tmp
+$(obj)/.board_info_group_cntr.tmp: MKIMAGEOUTPUT := $(obj)/.board_info_group_log.tmp
+$(obj)/.board_info_group_cntr.tmp: /dev/null $(board_info_index) $(obj)/.board_info_group.cfg.tmp
+	$(call if_changed,mkimage)
+
+$(obj)/board_info_group.fs: $(obj)/.board_info_group_cntr.tmp $(obj)/.board_info_group_log.tmp
+	$(eval board_info_group_index_offs := \
+		$(shell grep -oP 'image offset \(aligned\): \K[^ ]+' \
+			 $(obj)/.board_info_group_log.tmp))
+	$(call cmd,fsimg, -c -w -e $(board_info_group_index_offs) -a 0x400 -t BOARD-INFO -d $(BOARD) $<)
+
 
 # -----------------------------------------------------------------------------
 #
@@ -190,7 +246,7 @@ $(obj)/extra.fs: $(EXTRA_FILES_OBJ)
 NBOOT_FILES = \
 	$(obj)/boot_info.fs \
 	$(obj)/board_id.fsh \
-	$(obj)/board_info.fs \
+	$(obj)/board_info_group.fs \
 	$(if $(wildcard $(LPDDR4_CFG)),$(obj)/lpddr4_info.fs) \
 	$(if $(wildcard $(LPDDR4X_CFG)),$(obj)/lpddr4x_info.fs) \
 	$(obj)/extra.fs
