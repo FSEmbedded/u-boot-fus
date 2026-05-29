@@ -526,7 +526,6 @@ void i2c_init_board(void)
 int board_init(void)
 {
 	unsigned int board_type = fs_board_get_type();
-	unsigned int board_rev = fs_board_get_rev();
 
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[board_type]);
@@ -1625,8 +1624,8 @@ int board_interface_eth_init(struct udevice *dev,
 	unsigned int board_type = fs_board_get_type();
 	struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
 	u32 gpr1 = readl(&iomux_regs->gpr[1]);
-	u32 fec_mask;
-#if 0
+	u32 clk_sel;
+
 	/* MK-2026-05-18: Remove fs_ethaddr_init() and uncomment,
 	 * when every ethernet device can be handled via DM_ETH.
 	 */
@@ -1635,26 +1634,17 @@ int board_interface_eth_init(struct udevice *dev,
 	/* If CONFIG_CLK can be activated, this can be removed. */
 	switch (id) {
 	case 0:
-		fec_mask = IOMUX_GPR1_FEC1_MASK;
+		clk_sel = IOMUXC_GPR1_ENET1_CLK_SEL;
 		break;
 	case 1:
-		fec_mask = IOMUX_GPR1_FEC2_MASK;
+		clk_sel = IOMUXC_GPR1_ENET2_CLK_SEL;
 		break;
 	};
 
 	switch (board_type) {
-	case BT_EFUSA9X:
-	case BT_PCOREMX6SX:
-	case BT_EFUSA9XR2:
-	case BT_PCOREMX6SXR2:
-	case BT_CONT1:
-		gpr1 &= ~fec_mask;
-		freq = ENET_125MHZ;
-		break;
-	case BT_PICOCOMA9X:
-	case BT_BEMA9X:
-	case BT_VAND3:
-		gpr1 |= fec_mask;
+	default:
+	case BT_PCOREMX6UL:
+		gpr1 |= clk_sel;
 		freq = ENET_50MHZ;
 		break;
 	};
@@ -1664,12 +1654,13 @@ int board_interface_eth_init(struct udevice *dev,
 	case 1:
 		writel(gpr1, &iomux_regs->gpr[1]);
 		/* Activate ENET PLL */
-		ret = enable_fec_anatop_clock_ref(id, freq, true);
+		ret = enable_fec_anatop_clock(id, freq);
 		if (ret < 0)
 			return ret;
+
+		enable_enet_clk(1);
 		break;
 	};
-#endif
 
 	return 0;
 }
