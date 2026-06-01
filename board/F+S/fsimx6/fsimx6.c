@@ -1252,6 +1252,10 @@ int board_usb_init(int index, enum usb_init_type init)
 
 	debug("USB%d: %s init.\n", index, (init)?"otg":"host");
 
+	/* VBUS needs to be controlled only for HOST mode */
+	if (init == USB_INIT_DEVICE)
+		return 0;
+
 	ret = uclass_get_device_by_seq(UCLASS_USB, index, &dev);
 	if (ret)
 		return ret;
