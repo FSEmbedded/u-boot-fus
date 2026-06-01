@@ -183,8 +183,9 @@ wvga {					\
 /* Audio */
 #define CONFIG_PICOCOREMX6UL100_AUDIO
 
+/* Deactivate WLAN for U-Boot */
 /* WLAN/BLUETOOTH; either WLAN-only or combined WLAN/Bluetooth chip */
-#define CONFIG_PICOCOREMX6UL100_WLAN
+//#define CONFIG_PICOCOREMX6UL100_WLAN
 
 /*
  * SD_A - External SD port with CD/WP

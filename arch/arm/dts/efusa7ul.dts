@@ -84,7 +84,8 @@ wvga {					\
 #define CONFIG_EFUSA7UL_EMMC
 
 /* Network */
-#define CONFIG_EFUSA7UL_WLAN
+/* Deactivate WLAN for U-Boot */
+//#define CONFIG_EFUSA7UL_WLAN
 #define CONFIG_EFUSA7UL_ETH0
 #define CONFIG_EFUSA7UL_ETH1
 
@@ -96,7 +97,8 @@ wvga {					\
  * On efus SKIT: external port is Micro-SD card slot with CD but without WP
  */
 #define CONFIG_EFUSA7UL_SD_A
-#define CONFIG_EFUSA7UL_SD_A_CD
+/* Force non-removable for U-Boot */
+//#define CONFIG_EFUSA7UL_SD_A_CD
 //#define CONFIG_EFUSA7UL_SD_A_WP
 
 /*
@@ -105,8 +107,9 @@ wvga {					\
  * CD and WP are only available on SD_B if WLAN is equipped but not eMMC.
  */
 #define CONFIG_EFUSA7UL_SD_B
-#define CONFIG_EFUSA7UL_SD_B_CD
-#define CONFIG_EFUSA7UL_SD_B_WP
+/* Force non-removable for U-Boot */
+//#define CONFIG_EFUSA7UL_SD_B_CD
+//#define CONFIG_EFUSA7UL_SD_B_WP
 
 /* Check for invalid CONFIG combinations */
 
