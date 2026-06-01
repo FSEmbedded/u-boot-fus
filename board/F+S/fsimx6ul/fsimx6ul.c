@@ -2237,6 +2237,7 @@ static void fs_fdt_limit_speed(void *fdt, int offs, char *name)
 /* Do all fixups that are done on both, U-Boot and Linux device tree */
 static int do_fdt_board_setup_common(void *fdt)
 {
+	int err;
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 	unsigned int board_type = fs_board_get_type();
 	unsigned int features = pargs->chFeatures2;
@@ -2255,6 +2256,19 @@ static int do_fdt_board_setup_common(void *fdt)
 	if (!(features & FEAT2_EMMC))
 		fs_fdt_enable(fdt, FDT_EMMC, 0);
 
+	/* Disable ethernet node(s) if feature is not available */
+	if (!(features & FEAT2_ETH_A)) {
+		err = fs_fdt_enable(fdt, FDT_ETH_A, 0);
+		if(err)
+			fs_fdt_enable(fdt, FDT_ETH_A_LEGACY, 0);
+	}
+
+	if (!(features & FEAT2_ETH_B)) {
+		err = fs_fdt_enable(fdt, FDT_ETH_B, 0);
+		if(err)
+			fs_fdt_enable(fdt, FDT_ETH_B_LEGACY, 0);
+	}
+
 	return 0;
 }
 
@@ -2272,7 +2286,7 @@ int board_fix_fdt(void *fdt)
 /* Do any additional board-specific device tree modifications */
 int ft_board_setup(void *fdt, struct bd_info *bd)
 {
-	int offs, err;
+	int offs;
 	struct fs_nboot_args *pargs = fs_board_get_nboot_args();
 	unsigned int board_type = fs_board_get_type();
 	unsigned int board_rev = fs_board_get_rev();
@@ -2329,23 +2343,6 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 				fs_fdt_set_wlan_macaddr(fdt, offs, id++, 1);
 			else if (board_type == BT_CUBE2_0)
 				fs_fdt_set_wlan_macaddr(fdt, offs, id++, 0);
-		}
-	}
-
-	/* Disable ethernet node(s) if feature is not available */
-	if (!(pargs->chFeatures2 & FEAT2_ETH_A)) {
-		err = fs_fdt_enable(fdt, FDT_ETH_A, 0);
-		if(err) {
-			printf("   Trying legacy path\n");
-			fs_fdt_enable(fdt, FDT_ETH_A_LEGACY, 0);
-		}
-	}
-
-	if (!(pargs->chFeatures2 & FEAT2_ETH_B)) {
-		err = fs_fdt_enable(fdt, FDT_ETH_B, 0);
-		if(err) {
-			printf("   Trying legacy path\n");
-			fs_fdt_enable(fdt, FDT_ETH_B_LEGACY, 0);
 		}
 	}
 
