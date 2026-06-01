@@ -1644,6 +1644,7 @@ int board_interface_eth_init(struct udevice *dev,
 	switch (board_type) {
 	default:
 	case BT_PCOREMX6UL:
+	case BT_PCOREMX6UL100:
 		gpr1 |= clk_sel;
 		freq = ENET_50MHZ;
 		break;

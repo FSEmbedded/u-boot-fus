@@ -1114,6 +1114,7 @@ wvga {					\
 	voltage-ranges = <3300 3300>;
 	no-1-8-v;
 	keep-power-in-suspend;
+	non-removable;
 	status = "okay";
 };
 #endif
