@@ -930,7 +930,8 @@ int fs_image_confirm(void)
 }
 
 #ifdef __UBOOT__
-#if CONFIG_IS_ENABLED(FS_BOOTROM)
+
+#if 0 //###CONFIG_IS_ENABLED(FS_BOOTROM)
 
 #include "fs_bootrom.h"
 

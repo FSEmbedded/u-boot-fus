@@ -44,6 +44,7 @@
 #include "../common/fs_image_common.h"
 #include "../common/fs_cntr_common.h"
 #include "../common/fs_fdt_common.h"
+#include "../common/fs_bootrom.h"
 
 #include <syscon.h>
 #include <regmap.h>
@@ -297,6 +298,13 @@ static void fs_setup_cfg_info(void)
 
 	if (!fs_image_is_ocram_cfg_valid())
 		hang();
+
+	/*
+	 * SPL and U-Boot are both loaded from the same copy.
+	 * ### TODO ###  In the future we might load either from either copy.
+	 */
+	if (is_boot_from_secondary())
+		flags |= CI_FLAGS_SECONDARY | CI_FLAGS_SECONDARY_UBOOT;
 
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));

@@ -87,6 +87,19 @@ int get_bootrom_pagesize(u32 *pagesize)
 	return 0;
 }
 
+/* Check if system was booted from primary or secondary copy */
+bool is_boot_from_secondary(void)
+{
+	int ret;
+	u32 bstage;
+
+	ret = rom_api_query_boot_infor(QUERY_BT_STAGE, &bstage);
+	if ((ret == ROM_API_OKAY) && (bstage == BT_STAGE_SECONDARY))
+		return true;
+
+	return false;
+}
+
 /**
  * is_boot_from_stream_device
  * 
