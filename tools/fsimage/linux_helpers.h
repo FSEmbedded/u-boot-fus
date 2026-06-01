@@ -90,5 +90,11 @@ ulong get_loadaddr(void);
 unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base);
 long simple_strtol(const char *cp, char **endp, unsigned int base);
 
+#ifdef CONFIG_IMX_HAB
+int imx_hab_authenticate_image(uint32_t ddr_start, uint32_t image_size,
+			       uint32_t ivt_offset);
+bool imx_hab_is_enabled(void);
+#endif
+
 
 #endif /* FSIMAGE_LINUX_HELPERS_H */

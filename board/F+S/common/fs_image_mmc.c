@@ -13,7 +13,6 @@
 #include <dm/device.h>
 #include <linux/err.h>
 #include "fs_board_common.h"		/* fs_board_*() */
-//#include "fs_bootrom.h"
 
 #else /* !__UBOOT__ */
 
@@ -274,17 +273,18 @@ static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
 	char devicename[32];
 	snprintf(devicename, 32, "/dev/mmcblk0boot%x", current_boot_part);
 	FILE *mmc = fopen(devicename, "rb");
-	if(!mmc) {
+	if (!mmc) {
 		printf("Error opening %s, exiting...\n", devicename);
 		return -EINVAL;
 	}
 	int seek = fseek(mmc, offs, SEEK_SET);
-	if(seek != 0) {
-		printf("Error (0x%x) while seeking in %s, exiting...\n", seek, devicename);
+	if (seek != 0) {
+		printf("Error (0x%x) while seeking in %s, exiting...\n", seek,
+		       devicename);
 		return -EINVAL;
 	}
 	size_t bytes_read = fread(buf, 1, size, mmc);
-	if(bytes_read != size) {
+	if (bytes_read != size) {
 		printf("Error while reading %s, exiting...\n", devicename);
 		return -EINVAL;
 	}
@@ -454,20 +454,22 @@ static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 	char devicename[32];
 	snprintf(devicename, 32, "/dev/mmcblk0boot%x", current_boot_part);
 	FILE *mmc = fopen(devicename, "w+b");
-	if(!mmc) {
+	if (!mmc) {
 		printf("Error opening %s, exiting...\n", devicename);
 		return -EINVAL;
 	}
 
 	int seek = fseek(mmc, offs, SEEK_SET);
-	if(seek != 0) {
-		printf("Error (0x%x) while seeking in %s, exiting...\n", seek, devicename);
+	if (seek != 0) {
+		printf("Error (0x%x) while seeking in %s, exiting...\n",
+		       seek, devicename);
 		return -EINVAL;
 	}
 
 	size_t bytes_read = fwrite(buf, 1, size, mmc);
-	if(bytes_read != size) {
-		printf("Error (0x%lx) while writing %s, exiting...\n", bytes_read, devicename);
+	if (bytes_read != size) {
+		printf("Error (0x%lx) while writing %s, exiting...\n",
+		       bytes_read, devicename);
 		return -EINVAL;
 	}
 	fclose(mmc);

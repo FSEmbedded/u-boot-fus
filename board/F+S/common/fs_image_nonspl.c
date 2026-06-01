@@ -148,26 +148,13 @@
 #include <linux/err.h>
 #include <asm/mach-imx/checkboot.h>	/* struct boot_data */
 #include "fs_board_common.h"		/* fs_board_*() */
-//####include <mmc.h>
-//####include <nand.h>
-//####include <sdp.h>
 #include <asm/global_data.h>		/* DECLARE_GLOBAL_DATA_PTR */
-//####include <asm/sections.h>
-
-//#####include "fs_dram_common.h"		/* fs_dram_init_common() */
-
-#ifdef CONFIG_FS_SECURE_BOOT
-//####include <stdbool.h>
-//####include <hang.h>
-#endif
 
 #else
 
 #include <linux/kconfig.h>		/* Get kconfig macros only */
 #include <fdt_support.h>
 #include <linux/libfdt.h>
-//####include <linux/libfdt_env.h>
-//####include <string.h>
 #include <errno.h>			/* IS_ERR_VALUE() */
 #include <stdio.h>
 #include "linux_helpers.h"		/* fit_get_size(), confirm_yesno() ... */
@@ -426,7 +413,8 @@ static void fs_image_print_line(struct fs_header_v1_0 *fsh, uint offs, int level
 	puts("\n");
 }
 
-static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent, struct fs_header_v1_0 *fsh, uint offs, int level)
+static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent,
+			       struct fs_header_v1_0 *fsh, uint offs, int level)
 {
 	struct index_info idx_info = {0};
 	char info[MAX_DESCR_LEN + 1];
@@ -434,7 +422,7 @@ static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent, struct fs_head
 	bool crc_valid = false;
 	int i;
 
-	if(!fsh_parent)
+	if (!fsh_parent)
 		fsh_parent = fsh;
 
 	pcs = (u32 *)&fsh->type[12];
@@ -471,7 +459,7 @@ static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent, struct fs_head
  *  show [padding/unknown data] for the CSF which is fine for now.
  */
 static struct fs_header_v1_0 *fs_image_check_for_ivt(struct fs_header_v1_0 *fsh,
-						      uint32_t *offs)
+						     uint32_t *offs)
 {
 	if (fs_image_is_fs_image(fsh) || *(uint8_t*)fsh != 0xD1)
 		return fsh;
@@ -490,16 +478,14 @@ static void fs_image_parse_index_image(enum parse_type ptype,
 {
 	struct fs_header_v1_0 *idx_fsh;
 	uint num_images;
-	uint size;
 	int i;
 
 	idx_fsh = (struct fs_header_v1_0 *)(addr + offs);
 	num_images = fs_image_index_get_n(idx_fsh);
-	size = fs_image_get_size(idx_fsh, true);
 
-	if(ptype == PARSE_CONTENT)
+	if (ptype == PARSE_CONTENT)
 		fs_image_print_line(idx_fsh, offs, level);
-	else if(ptype == PARSE_CHECKSUM)
+	else if (ptype == PARSE_CHECKSUM)
 		fs_image_print_crc(fsh_parent, idx_fsh, offs, level);
 
 	/* skip index image */
@@ -507,34 +493,33 @@ static void fs_image_parse_index_image(enum parse_type ptype,
 	remaining -= fs_image_get_size(idx_fsh, true);
 	level++;
 
-	for(i=1; i<=num_images; i++){
-		if(fs_image_is_fs_image(&idx_fsh[i])){
-			if(ptype == PARSE_CONTENT)
-				fs_image_print_line(&idx_fsh[i], offs, level);
-			else if(ptype == PARSE_CHECKSUM)
-				fs_image_print_crc(fsh_parent, &idx_fsh[i], offs, level);
-
-			/* Find next underlying subimage */
-			fs_image_parse_image(ptype, addr, offs, level + 1);
-			offs += fs_image_get_size(&idx_fsh[i], false);
-			remaining -= fs_image_get_size(&idx_fsh[i], false);
-		}else {
+	for (i=1; i<=num_images; i++) {
+		if (!fs_image_is_fs_image(&idx_fsh[i]))
 			continue;
-		}
+
+		if (ptype == PARSE_CONTENT)
+			fs_image_print_line(&idx_fsh[i], offs, level);
+		else if (ptype == PARSE_CHECKSUM)
+			fs_image_print_crc(fsh_parent, &idx_fsh[i], offs, level);
+
+		/* Find next underlying subimage */
+		fs_image_parse_image(ptype, addr, offs, level + 1);
+		offs += fs_image_get_size(&idx_fsh[i], false);
+		remaining -= fs_image_get_size(&idx_fsh[i], false);
 	}
 
-	if(ptype == PARSE_CONTENT && remaining > 0) {
+	if (ptype == PARSE_CONTENT && remaining > 0) {
 		level--;
 		printf("%08x %08x", offs, remaining);
 		for (i = 0; i < level; i++)
-				printf(" ");
+			printf(" ");
 		puts(" [padding/unknown data]\n");
 	}
 
 }
 
-static void fs_image_parse_subimage(enum parse_type ptype,
-		ulong addr, uint offs, int level, uint remaining)
+static void fs_image_parse_subimage(enum parse_type ptype, ulong addr,
+				    uint offs, int level, uint remaining)
 {
 	struct fs_header_v1_0 *fsh;
 	uint size;
@@ -573,23 +558,23 @@ static void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs,
 	uint extra_size;
 	int i;
 
-	if(!fs_image_is_fs_image(fsh))
+	if (!fs_image_is_fs_image(fsh))
 		return;
 
 	extra_size = fs_image_get_extra_size(fsh);
 	remaining = fs_image_get_size(fsh, false);
 
-	if(ptype == PARSE_CONTENT){
+	if (ptype == PARSE_CONTENT) {
 		fs_image_print_line(fsh, offs, level);
 
 		offs += FSH_SIZE;
-		if(extra_size){
+		if (extra_size) {
 			printf("%08x %08x", offs, extra_size);
 			for (i = 0; i < level; i++)
 					printf(" ");
 			printf(" %s\n", "[header/extra data]");
 		}
-	}else if(ptype == PARSE_CHECKSUM){
+	} else if (ptype == PARSE_CHECKSUM) {
 		fs_image_print_crc(NULL, fsh, offs, level);
 		offs += FSH_SIZE;
 	}
@@ -604,11 +589,12 @@ static void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs,
 	fsh_sub = fs_image_check_for_ivt(fsh_sub, &offs);
 #endif
 
-	if(!fs_image_is_fs_image(fsh_sub))
+	if (!fs_image_is_fs_image(fsh_sub))
 		return;
 
-	if(fs_image_is_index(fsh_sub)){
-		fs_image_parse_index_image(ptype, fsh, addr, offs, level, remaining);
+	if (fs_image_is_index(fsh_sub)) {
+		fs_image_parse_index_image(ptype, fsh, addr, offs, level,
+					   remaining);
 	} else {
 		fs_image_parse_subimage(ptype, addr, offs, level, remaining);
 	}
@@ -654,20 +640,21 @@ static struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx
 	uint num_images = fs_image_index_get_n(fsh_idx);
 	int i;
 
-	if(fs_image_match(fsh_idx, type, descr))
+	if (fs_image_match(fsh_idx, type, descr))
 		return fsh_idx;
 
-	for (i = 1; i <= num_images; i++){
+	for (i = 1; i <= num_images; i++) {
 		img_offset -= FSH_SIZE;
-		if(!fs_image_is_fs_image(&fsh_idx[i]))
+		if (!fs_image_is_fs_image(&fsh_idx[i]))
 			continue;
 
 		/* search F&S HEADER within Image blob */
-		if(!fs_image_match(&fsh_idx[i], type, descr)){
+		if (!fs_image_match(&fsh_idx[i], type, descr)) {
 			void *img_blob;
+
 			img_blob = (void *)((ulong)&fsh_idx[i] + img_offset);
 			img_blob = fs_image_find(img_blob, type, descr, idx_info);
-			if(img_blob)
+			if (img_blob)
 				return img_blob;
 
 			img_offset += fs_image_get_size(&fsh_idx[i], false);
@@ -677,11 +664,10 @@ static struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx
 		break;
 	}
 
-	if(i > num_images)
+	if (i > num_images)
 		return NULL;
 
-	if(idx_info)
-	{
+	if (idx_info) {
 		idx_info->fsh_idx = fsh_idx;
 		idx_info->fsh_idx_entry = &fsh_idx[i];
 		idx_info->offset = img_offset;
@@ -707,17 +693,17 @@ struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 	uint extra_size;
 	uint remaining;
 
-	if(idx_info){
+	if (idx_info) {
 		idx_info->fsh_idx = NULL;
 		idx_info->fsh_idx_entry = NULL;
 		idx_info->offset = 0;
 	}
 
 	if (!fs_image_is_fs_image(fsh))
-			return NULL;
+		return NULL;
 
-	if (fs_image_match(fsh, type, descr)){
-		if(idx_info)
+	if (fs_image_match(fsh, type, descr)) {
+		if (idx_info)
 			idx_info->fsh_idx_entry = fsh;
 
 		return fsh;
@@ -736,18 +722,17 @@ struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 		if (!fs_image_is_fs_image(fsh))
 			fsh++;
 #endif
-		if (!fs_image_is_fs_image(fsh)){
+		if (!fs_image_is_fs_image(fsh))
 			return NULL;
-		}
 
-		if (fs_image_match(fsh, type, descr)){
-			if(idx_info)
+		if (fs_image_match(fsh, type, descr)) {
+			if (idx_info)
 				idx_info->fsh_idx_entry = fsh;
 
 			return fsh;
 		}
 
-		if(fs_image_is_index(fsh)){
+		if (fs_image_is_index(fsh)) {
 			/* Search iterative:
 			 * a combination of SUB and INDEX images is not
 			 * supportet. An Image can have ether a SUB
@@ -788,11 +773,11 @@ static struct fs_header_v1_0 *fs_image_find_concat(struct fs_header_v1_0 *fsh,
 	struct fs_header_v1_0 *fsh_sub;
 	uint size;
 
-	if(!fs_image_is_fs_image(fsh))
+	if (!fs_image_is_fs_image(fsh))
 		return NULL;
 
 	fsh_sub = fs_image_find(fsh, type, descr, idx_info);
-	if(fsh_sub)
+	if (fsh_sub)
 		return fsh_sub;
 
 	size = fs_image_get_size(fsh, true);
@@ -956,7 +941,7 @@ static int _fs_image_get_start_copy(const char *img_type)
 	int ret;
 
 	ret = get_bootrom_bootstage(&bstage);
-	if(ret){
+	if (ret) {
 		printf("Failed to get bootstage from bootrom, assume Primary\n");
 		bstage = BT_STAGE_PRIMARY;
 	}
@@ -991,7 +976,7 @@ static int fs_image_get_start_copy_uboot(void)
 
 #else /* !CONFIG_FS_BOOTROM */
 
-/* Determine first copy to modify depending on which SPL copy we booted */
+/* Determine NBoot copy to modify first depending on which SPL copy we booted */
 int fs_image_get_start_copy(void)
 {
 	int start_copy;
@@ -1007,6 +992,7 @@ int fs_image_get_start_copy(void)
 	return start_copy;
 }
 
+/* Determine U-Boot copy to modify first depending on U-Boot copy we booted */
 static int fs_image_get_start_copy_uboot(void)
 {
 	int start_copy;
@@ -1062,8 +1048,7 @@ int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action)
 	if (boot_dev_fuses == boot_dev)
 		return 0;		/* Match, no change */
 
-	if ((boot_dev_fuses == USB_BOOT)
-	|| (boot_dev_fuses == USB2_BOOT))
+	if ((boot_dev_fuses == USB_BOOT) || (boot_dev_fuses == USB2_BOOT))
 		return 1;		/* Not fused yet */
 
 	printf("Error: New BOARD-CFG wants to boot from %s but board is\n"
@@ -1082,24 +1067,24 @@ static int fs_image_check_index_crc32(struct fs_header_v1_0 *fsh_idx)
 	int i;
 	int err = 0;
 
-	for(i=1; i<= num_images; i++){
+	for (i=1; i<= num_images; i++) {
 		void *img_blob;
 
 		img_offset -= FSH_SIZE;
 
-		if(!fs_image_is_fs_image(&fsh_idx[i]))
+		if (!fs_image_is_fs_image(&fsh_idx[i]))
 			continue;
 
 		err = fs_image_check_crc32_offset(&fsh_idx[i], img_offset);
 		fs_image_print_crc32_status(&fsh_idx[i], err);
-		if(err)
+		if (err)
 			return err;
 
 		img_blob = (void *)((ulong)(fsh_idx) + img_offset);
-		if(fs_image_is_fs_image(img_blob))
+		if (fs_image_is_fs_image(img_blob))
 			err = fs_image_check_all_crc32(img_blob);
 
-		if(err)
+		if (err)
 			return err;
 
 		img_offset += fs_image_get_size(&fsh_idx[i], false);
@@ -1119,7 +1104,7 @@ int fs_image_check_all_crc32(struct fs_header_v1_0 *fsh)
 	debug("  - %s", fsh->type);
 	err = fs_image_check_crc32(fsh);
 	fs_image_print_crc32_status(fsh, err);
-	if(err)
+	if (err)
 		return err;
 
 	extra_size = fs_image_get_extra_size(fsh);
@@ -1131,7 +1116,7 @@ int fs_image_check_all_crc32(struct fs_header_v1_0 *fsh)
 			break;
 
 		/* check indexed image or recursivly */
-		if(fs_image_is_index(fsh))
+		if (fs_image_is_index(fsh))
 			err = fs_image_check_index_crc32(fsh);
 		else
 			err = fs_image_check_all_crc32(fsh);
@@ -1176,8 +1161,9 @@ static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
 }
 #else
 
-static int fs_image_validate_signed(struct fs_header_v1_0 *fsh){
-	if(!fs_image_is_valid_signature(fsh)){
+static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
+{
+	if (!fs_image_is_valid_signature(fsh)) {
 		puts("Error: Invalid signature, refusing to save\n");
 		return -EILSEQ;
 	}
@@ -1216,7 +1202,7 @@ static int fs_image_validate(struct fs_header_v1_0 *fsh, const char *type,
 	err = fs_image_check_crc32(fsh);
 	fs_image_print_crc32_status(fsh, err);
 
-	if(err >= 0)
+	if (err >= 0)
 		return 0;
 
 	return err;
@@ -1377,8 +1363,10 @@ static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh)
 		return NULL;
 #if CONFIG_IS_ENABLED(IMX_HAB)
 	else {
-		if(fs_image_is_signed(fsh)){
-			memcpy((void *)((uintptr_t)fsh + 0x40), (void *)((uintptr_t)fsh + 0x80), fsh->info.file_size_low + 0x2000);
+		if (fs_image_is_signed(fsh)) {
+			memcpy((void *)((uintptr_t)fsh + 0x40),
+			       (void *)((uintptr_t)fsh + 0x80),
+			       fsh->info.file_size_low + 0x2000);
 		}
 	}
 #endif
@@ -1408,7 +1396,6 @@ int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 {
 	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)addr;
 	struct fs_header_v1_0 *cfg = NULL;
-	const char *id;
 	char bcfg_name[MAX_DESCR_LEN + 1] = {0};
 	const char *nboot_version;
 	void *fdt;
@@ -1447,7 +1434,6 @@ int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 		fsh++;
 	}
 
-	id = fs_image_get_board_id();
 	fs_image_get_bcfg_name(bcfg_name, MAX_DESCR_LEN);
 
 	/* In case of an imx8m NBoot image */
@@ -1456,15 +1442,15 @@ int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 		return -ENOENT;
 
 	cfg = fs_image_find(cfg, "BOARD-CFG", bcfg_name, cfg_info);
-	if(!cfg)
+	if (!cfg)
 		return -ENOENT;
 
 	/* Get and show NBoot version as noted in BOARD-CFG */
 	fdt = fs_image_find_cfg_fdt_idx(cfg_info);
-	if(!fdt)
+	if (!fdt)
 		return -ENOENT;
 
-	if (!fs_image_match_board_id(cfg)){
+	if (!fs_image_match_board_id(cfg)) {
 		return -EINVAL;
 	}
 
@@ -1910,9 +1896,9 @@ static int fs_image_save_sub(struct flash_info *fi, uint offs, uint size,
 	if (write_pos && (remaining >= chunk_size)) {
 
 		/* Fill TEMP with DATA from FLASH */
-		if(!fi->write_pos || (base_offs != fi->base_offs)) {
+		if (!fi->write_pos || (base_offs != fi->base_offs)) {
 			err = fs_image_fill_temp(fi, base_offs, lim, flags);
-			if(err)
+			if (err)
 				return err;
 		}
 
@@ -1956,10 +1942,10 @@ static int fs_image_save_sub(struct flash_info *fi, uint offs, uint size,
 		base_offs = offs & ~chunk_mask;
 		write_pos = offs & chunk_mask;
 
-		if(!fi->write_pos || (base_offs != fi->base_offs)){
+		if (!fi->write_pos || (base_offs != fi->base_offs)) {
 			/* Fill TEMP with DATA from FLASH */
 			err = fs_image_fill_temp(fi, base_offs, lim, flags);
-			if(err)
+			if (err)
 				return err;
 		}
 
@@ -2424,7 +2410,7 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 	if (ret <= 0)
 		return CMD_RET_FAILURE;
 
-	/**
+	/*
 	 * TODO: For non-Container Images,
 	 * it is not expected to handle index structures.
 	 */
@@ -2788,21 +2774,21 @@ struct _image_list{
 };
 
 /* append fsh at end of img list */
-static int append_image_list(struct _image_list *img_list, struct fs_header_v1_0 *fsh)
+static int append_image_list(struct _image_list *img_list,
+			     struct fs_header_v1_0 *fsh)
 {
 	struct _image_list *ptr = img_list;
 	struct _image_list *next_entry;
 
 	next_entry = malloc(sizeof(struct _image_list));
-	if(!next_entry)
+	if (!next_entry)
 		return -ENOMEM;
 
 	next_entry->fsh = fsh;
 	next_entry->next = NULL;
 
-	while(ptr->next){
+	while (ptr->next)
 		ptr = ptr->next;
-	}
 
 	ptr->next = next_entry;
 
@@ -2818,10 +2804,11 @@ static void remove_next_image(struct _image_list *ptr)
 	free(tmp);
 }
 
-static void free_image_list(struct _image_list *img_list){
+static void free_image_list(struct _image_list *img_list)
+{
 	struct _image_list *tmp;
 
-	while(img_list){
+	while (img_list) {
 		tmp = img_list;
 		img_list = img_list->next;
 		free(tmp);
@@ -2829,19 +2816,19 @@ static void free_image_list(struct _image_list *img_list){
 }
 
 /* Create list of padded Images */
-static int create_image_list(struct _image_list **img_list,
-		ulong addr, uint *file_size)
+static int create_image_list(struct _image_list **img_list, ulong addr,
+			     uint *file_size)
 {
 	struct fs_header_v1_0 *fsh = (void *)addr;
 	uint size = 0;
 	int ret = 0;
 
 	*img_list = malloc(sizeof(struct _image_list));
-	if(!(*img_list))
+	if (!(*img_list))
 		return -ENOMEM;
 
 	/* set first entry */
-	if(!fs_image_is_fs_image(fsh)){
+	if (!fs_image_is_fs_image(fsh)) {
 		free(*img_list);
 		return -EINVAL;
 	}
@@ -2854,9 +2841,9 @@ static int create_image_list(struct _image_list **img_list,
 	fsh = (void *)addr;
 
 	/* set entries for padded images */
-	while(fs_image_is_fs_image(fsh)){
+	while (fs_image_is_fs_image(fsh)) {
 		ret = append_image_list(*img_list, fsh);
-		if(ret){
+		if (ret) {
 			free_image_list(*img_list);
 			return ret;
 		}
@@ -2865,7 +2852,7 @@ static int create_image_list(struct _image_list **img_list,
 		fsh = (void *)addr;
 	}
 
-	if(file_size)
+	if (file_size)
 		*file_size = size;
 
 	return 0;
@@ -2876,18 +2863,19 @@ static bool is_img_list_valid(struct _image_list *img_list)
 	struct _image_list *ptr;
 	bool ret = true;
 
-	if(!img_list)
+	if (!img_list)
 		return false;
 
 	ptr = img_list;
 
-	while(ptr){
-		if(fs_image_match(ptr->fsh, "BOARD-ID", NULL)) {
+	while (ptr) {
+		if (fs_image_match(ptr->fsh, "BOARD-ID", NULL)) {
 			ptr = ptr->next;
 			continue;
 		}
 
-		if(fs_image_validate(ptr->fsh, ptr->fsh->type, NULL, (ulong)ptr->fsh))
+		if (fs_image_validate(ptr->fsh, ptr->fsh->type, NULL,
+				      (ulong)ptr->fsh))
 			ret = false;
 
 		ptr = ptr->next;
@@ -2897,21 +2885,19 @@ static bool is_img_list_valid(struct _image_list *img_list)
 }
 
 static struct fs_header_v1_0 *get_fsh_from_list(struct _image_list *img_list,
-		const char* type, const char* descr)
+						const char* type,
+						const char* descr)
 {
 	struct _image_list *ptr = img_list;
 
-	while(ptr){
-		if(fs_image_match(ptr->fsh, type, descr))
-			break;
+	while (ptr) {
+		if (fs_image_match(ptr->fsh, type, descr))
+			return ptr->fsh;
 
 		ptr = ptr->next;
 	}
 
-	if(!ptr)
-		return NULL;
-
-	return ptr->fsh;
+	return NULL;
 }
 
 static uint get_nboot_cntr_size(struct _image_list *img_list)
@@ -2919,14 +2905,14 @@ static uint get_nboot_cntr_size(struct _image_list *img_list)
 	struct _image_list *ptr = img_list;
 	ulong size = 0;
 
-	if(!img_list)
+	if (!img_list)
 		return 0;
 
 	/* skip BOOT-INFO */
 	ptr = ptr->next;
-	while(ptr){
-		if(fs_image_match(ptr->fsh, "U-BOOT-INFO", NULL) ||
-				fs_image_match(ptr->fsh, "ENV", NULL))
+	while (ptr) {
+		if (fs_image_match(ptr->fsh, "U-BOOT-INFO", NULL)
+		    || fs_image_match(ptr->fsh, "ENV", NULL))
 			break;
 
 		size += fs_image_get_size(ptr->fsh, true);
@@ -2965,17 +2951,17 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 
 	fdt = fs_image_get_cfg_fdt();
 	ret = fs_image_get_flash_info(&fi, fdt);
-	if(ret)
+	if (ret)
 		return CMD_RET_FAILURE;
 
 	ret = fs_image_get_nboot_info(&fi, fdt, &ni, -1, false);
-	if(ret){
+	if (ret) {
 		fs_image_put_flash_info(&fi);
 		return CMD_RET_FAILURE;
 	}
 
-	if(load_uboot) {
-		if(!ni.uboot.start[0] || !ni.uboot.start[1]){
+	if (load_uboot) {
+		if (!ni.uboot.start[0] || !ni.uboot.start[1]) {
 			puts("Failed to load U-BOOT. "
 					"Try to load complete Firmware");
 			fs_image_put_flash_info(&fi);
@@ -2983,7 +2969,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 		}
 
 		ret = fs_image_load_uboot(&fi, &ni, (void *)addr, 0);
-		if (ret){
+		if (ret) {
 			fs_image_put_flash_info(&fi);
 			return CMD_RET_FAILURE;
 		}
@@ -3004,19 +2990,19 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 	flash_offset += size;
 	ram_offset += size;
 
-	/**
+	/*
 	 * BOOT-INFO provides two Container.
 	 * search directly for the second container, which is 1KiB aligned
 	 */
-	for(i = 1; i < 8; i++)	{
+	for (i = 1; i < 8; i++)	{
 		cntr = (void *)(fsh + 1);
 		cntr = (void *)((ulong)cntr + (i * CONTAINER_HDR_ALIGNMENT));
 		debug("search imx_cntr at 0x%lx\n", (ulong)cntr);
-		if(valid_container_hdr(cntr))
+		if (valid_container_hdr(cntr))
 			break;
 	}
 
-	if(i >= 8){
+	if (i >= 8) {
 		fs_image_put_flash_info(&fi);
 		puts("Failed to find BOOT-INFO Container\n");
 		return CMD_RET_FAILURE;
@@ -3025,7 +3011,8 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 	filesize = i * CONTAINER_HDR_ALIGNMENT;
 	filesize += get_container_size((ulong)cntr, NULL);
 	filesize += 0x380; // PADDING TO NEXT FSH
-	img_entry = (struct boot_img_t *)((ulong)cntr + sizeof(struct container_hdr));
+	img_entry = (struct boot_img_t *)
+		((ulong)cntr + sizeof(struct container_hdr));
 
 	/* Update FSH and set Extra Data offset */
 	fs_image_update_header(fsh, filesize,
@@ -3033,31 +3020,33 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 	fsh->param.p32[7] = i * CONTAINER_HDR_ALIGNMENT;
 	fsh->param.p32[7] += img_entry->offset;
 
-	/**
+	/*
 	 * Load all Images including U-Boot
 	 * Search until 3MiB is loaded.
 	 * U-Boot must be placed within 3MiB!.
 	 */
 	for (i = 0, fsh = NULL; i < 5; i++) {
 		ret = create_image_list(&img_list, addr, &filesize);
-		if(ret)
+		if (ret)
 			break;
 
 		fsh = get_fsh_from_list(img_list, "U-BOOT-INFO", NULL);
-		if(fsh)
+		if (fsh)
 			break;
 
 		/* Load next 512KiB and search again */
 		free_image_list(img_list);
 		img_list = NULL;
 		lim = flash_offset + size;
-		debug("load 0x%x at 0x%x into 0x%lx", size, flash_offset, ram_offset);
-		fi.ops->read(&fi, flash_offset, size, lim, 0, (void *)(ram_offset));
+		debug("load 0x%x at 0x%x into 0x%lx", size, flash_offset,
+		      ram_offset);
+		fi.ops->read(&fi, flash_offset, size, lim, 0,
+			     (void *)(ram_offset));
 		flash_offset += size;
 		ram_offset += size;
 	}
 
-	if(!fsh){
+	if (!fsh) {
 		fs_image_put_flash_info(&fi);
 		free_image_list(img_list);
 		return CMD_RET_FAILURE;
@@ -3065,16 +3054,17 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 
 	debug("found U-BOOT at 0x%lx", (ulong)fsh);
 	/* load rest of U-BOOT */
-	if(filesize > flash_offset) {
+	if (filesize > flash_offset) {
 		lim = filesize;
-		debug("load 0x%x at 0x%x into %0lx", size, flash_offset, ram_offset);
+		debug("load 0x%x at 0x%x into %0lx", size, flash_offset,
+		      ram_offset);
 		fi.ops->read(&fi, flash_offset, filesize - flash_offset,
-				lim, 0, (void *)(ram_offset));
+			     lim, 0, (void *)(ram_offset));
 		flash_offset += filesize - flash_offset;
 		ram_offset += filesize - flash_offset;
 	}
 
-	if(!is_img_list_valid(img_list)){
+	if (!is_img_list_valid(img_list)) {
 		puts("WARNING: Firmware is invalid\n");
 		fs_image_put_flash_info(&fi);
 		free_image_list(img_list);
@@ -3087,9 +3077,12 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 }
 
 static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
-		struct flash_info *fi, struct region_info *spl_ri,
-		struct region_info *nboot_ri, struct region_info *uboot_ri,
-		struct region_info *env_ri, struct nboot_info *ni_new)
+				     struct flash_info *fi,
+				     struct region_info *spl_ri,
+				     struct region_info *nboot_ri,
+				     struct region_info *uboot_ri,
+				     struct region_info *env_ri,
+				     struct nboot_info *ni_new)
 {
 	struct _image_list *img_list = NULL;
 	struct _image_list *ptr;
@@ -3118,14 +3111,14 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 
 	ptr = img_list;
 
-	if(!fs_image_match(ptr->fsh, "BOOT-INFO", arch)) {
+	if (!fs_image_match(ptr->fsh, "BOOT-INFO", arch)) {
 		free_image_list(img_list);
  		return -EINVAL;
 	}
 
 	ptr = ptr->next;
 
-	if(ptr && !fs_image_match(ptr->fsh, "BOARD-ID", NULL)) {
+	if (ptr && !fs_image_match(ptr->fsh, "BOARD-ID", NULL)) {
 		free_image_list(img_list);
 		return -EINVAL;
 	}
@@ -3135,26 +3128,27 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	strncpy(ptr->fsh->param.descr, board_id, MAX_DESCR_LEN);
 
 	/* Update CRC32 if available*/
-	fs_image_update_header(ptr->fsh, fs_image_get_size(ptr->fsh, false), ptr->fsh->info.flags);
+	fs_image_update_header(ptr->fsh, fs_image_get_size(ptr->fsh, false),
+			       ptr->fsh->info.flags);
 
 	/* get current DRAM-INFO descrp*/
  	dram_type = fs_image_getprop(fdt_new, offs, rev_offs, "dram-type", NULL);
- 	if(!dram_type){
+ 	if (!dram_type) {
 		free_image_list(img_list);
 		return -EINVAL;
 	}
 
 	/* remove unneeded Container or FS-Images */
-	while(ptr->next) {
+	while (ptr->next) {
 		/* Remove unneeded DRAM-INFO */
-		if(fs_image_match(ptr->next->fsh, "DRAM-INFO", NULL) &&
-				!fs_image_match(ptr->next->fsh, "DRAM-INFO", dram_type)){
+		if (fs_image_match(ptr->next->fsh, "DRAM-INFO", NULL)
+		    &&!fs_image_match(ptr->next->fsh, "DRAM-INFO", dram_type)) {
 			remove_next_image(ptr);
 			continue;
 		}
 
 		/* Remove EXTRA */
-		if(fs_image_match(ptr->next->fsh, "EXTRA", NULL)){
+		if (fs_image_match(ptr->next->fsh, "EXTRA", NULL)) {
 			remove_next_image(ptr);
 			continue;
 		}
@@ -3163,19 +3157,20 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	}
 
 	/* Check for DRAM-CNTR */
-	if(!get_fsh_from_list(img_list, "DRAM-INFO", dram_type)){
+	if (!get_fsh_from_list(img_list, "DRAM-INFO", dram_type)) {
 		free_image_list(img_list);
 		return -EINVAL;
 	}
 
 	/* --- get nboot-info --- */
 	ret = fs_image_get_nboot_info(fi, fdt_new, ni_new, -1, false);
-	if(ret){
+	if (ret) {
 		free_image_list(img_list);
 		return ret;
 	}
 
-	/** Update new nboot info
+	/*
+	 * Update new nboot info
 	 * nboot/uboot-start and nboot/uboot-size values are only
 	 * provided in OCRAM Board-CFG, if board was booted via flash.
 	 */
@@ -3189,15 +3184,15 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	ni_new->uboot.start[1] = ni_new->nboot.size + ni_new->nboot.start[1];
 
 	ret = fs_image_get_nboot_info(fi, fdt_old, &ni_old, -1, false);
-	if(ret){
+	if (ret) {
 		free_image_list(img_list);
 		return ret;
 	}
 
 	/* --- Get missing Images --- */
 	tmp_fsh = get_fsh_from_list(img_list, "U-BOOT-INFO", arch);
-	if(!tmp_fsh){
-		/**
+	if (!tmp_fsh) {
+		/*
 		 * Check if U-Boot and/or environment need to be relocated.
 		 * Old NBOOT-Info is only available, if device boots from flash.
 		 * These Informations can not be set during compile-time.
@@ -3205,33 +3200,38 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 		 * fs_handle_uboot(). When Infos are missing, than load complete
 		 * firmware into $loadaddr.
 		 */
-		if(ni_old.uboot.start[0] && ni_old.uboot.size){
-			/* Since new U-Boot is not provided, we need to know the old size */
+		if (ni_old.uboot.start[0] && ni_old.uboot.size) {
+			/*
+			 * Since new U-Boot is not provided, we need to know
+			 * the old size
+			 */
 			ni_new->uboot.size = ni_old.uboot.size;
 
 			/* Check if there are changes */
-			need_uboot = fi->ops->si_differs(&ni_new->uboot, &ni_old.uboot);
-			need_env = fi->ops->si_differs(&ni_new->env, &ni_old.env);
+			need_uboot = fi->ops->si_differs(&ni_new->uboot,
+							 &ni_old.uboot);
+			need_env = fi->ops->si_differs(&ni_new->env,
+						       &ni_old.env);
 		} else {
-			puts("WARNING: U-Boot is not found. System will not BOOT!\n");
-			puts("WARNING: Load U-Boot and then re-run fsimage save!\n");
+			puts("WARNING: U-Boot missing. System will not BOOT!\n"
+			     "WARNING: Load U-Boot and re-run fsimage save!\n");
 		}
-	}else{
+	} else {
 		ni_new->uboot.size = fs_image_get_size(tmp_fsh, true);
 	}
 
 	/* load U-Boot from Flash, if needed */
-	if(need_uboot) {
+	if (need_uboot) {
 		puts("Need to move U-BOOT-INFO\n");
 		uboot_addr = addr + (ulong)file_size;
 		ret = fs_image_load_uboot(fi, &ni_old,
 				(void *)uboot_addr, SUB_HAS_FS_HEADER);
-		if(ret) {
+		if (ret) {
 			free_image_list(img_list);
 			return -EIO;
 		}
 
-		if(!fs_image_match((void *)uboot_addr, "U-BOOT-INFO", arch)){
+		if (!fs_image_match((void *)uboot_addr, "U-BOOT-INFO", arch)) {
 			free_image_list(img_list);
 			return -EINVAL;
 		}
@@ -3240,21 +3240,21 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 		file_size += ni_new->uboot.size;
 
 		ret = append_image_list(img_list, (void *)uboot_addr);
-		if(ret){
+		if (ret) {
 			free_image_list(img_list);
 			return ret;
 		}
 	}
 
 	/* Load Env from Flash, if Needed */
-	if(need_env) {
+	if (need_env) {
 		puts("Need to move U-Boot Environment\n");
 		printf("Loading ENV from %s\n", fi->devname);
 
 		env_addr = addr + (ulong)file_size;
 
 		ret = fs_image_load_env(fi, &ni_old.env, (void *)env_addr, 0);
-		if (ret){
+		if (ret) {
 			free_image_list(img_list);
 			return -EIO;
 		}
@@ -3262,13 +3262,13 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 		file_size += fs_image_get_size((void *)env_addr, true);
 
 		ret = append_image_list(img_list, (void *)env_addr);
-		if(ret){
+		if (ret) {
 			free_image_list(img_list);
 			return ret;
 		}
 	}
 
-	if(!is_img_list_valid(img_list)){
+	if (!is_img_list_valid(img_list)) {
 		free_image_list(img_list);
 		return -EINVAL;
 	}
@@ -3278,7 +3278,7 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	/* --- Prepare SPL region --- */
 	woffset = fs_image_region_add(spl_ri, ptr->fsh, ptr->fsh->type,
 					   arch, 0, SUB_IS_SPL | SUB_SYNC);
-	if (!woffset){
+	if (!woffset) {
 		free_image_list(img_list);
 		return -ENOMEM;
 	}
@@ -3287,16 +3287,16 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	woffset = 0;
 
 	/* --- Prepare NBOOT region --- */
-	while(ptr){
-		if(fs_image_match(ptr->fsh, "U-BOOT-INFO", arch) ||
-				fs_image_match(ptr->fsh, "ENV", NULL))
+	while (ptr) {
+		if (fs_image_match(ptr->fsh, "U-BOOT-INFO", arch)
+		    || fs_image_match(ptr->fsh, "ENV", NULL))
 			break;
 
-		woffset = fs_image_region_add(nboot_ri, ptr->fsh,
-			ptr->fsh->type, ptr->fsh->param.descr,
-			woffset, SUB_HAS_FS_HEADER | SUB_SYNC);
+		woffset = fs_image_region_add(nboot_ri, ptr->fsh, ptr->fsh->type,
+					      ptr->fsh->param.descr, woffset,
+					      SUB_HAS_FS_HEADER | SUB_SYNC);
 
-		if (!woffset){
+		if (!woffset) {
 			free_image_list(img_list);
 			return -ENOMEM;
 		}
@@ -3306,29 +3306,28 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 
 	/* --- Prepare UBOOT Region --- */
 	tmp_fsh = get_fsh_from_list(img_list, "U-BOOT-INFO", arch);
-	if(tmp_fsh)
-	{
+	if (tmp_fsh) {
 		struct fs_header_v1_0 *uboot_fsh = tmp_fsh;
 
 		woffset = fs_image_region_add(uboot_ri, uboot_fsh,
-			uboot_fsh->type, uboot_fsh->param.descr,
-			0, SUB_HAS_FS_HEADER | SUB_SYNC);
+					      uboot_fsh->type,
+					      uboot_fsh->param.descr,
+					      0, SUB_HAS_FS_HEADER | SUB_SYNC);
 
-		if (!woffset){
+		if (!woffset) {
 			free_image_list(img_list);
 			return -ENOMEM;
 		}
 	}
 
 	tmp_fsh = get_fsh_from_list(img_list, "ENV", arch);
-	if(tmp_fsh){
+	if (tmp_fsh) {
 		struct fs_header_v1_0 *env_fsh = tmp_fsh;
 
-		woffset = fs_image_region_add(env_ri, env_fsh,
-			env_fsh->type, env_fsh->param.descr,
-			0, SUB_SYNC);
+		woffset = fs_image_region_add(env_ri, env_fsh, env_fsh->type,
+					      env_fsh->param.descr, 0, SUB_SYNC);
 
-		if (!woffset){
+		if (!woffset) {
 			free_image_list(img_list);
 			return -ENOMEM;
 		}
@@ -3380,7 +3379,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 	void *fdt = fs_image_get_cfg_fdt();
 	int ret = CMD_RET_SUCCESS;
 
-	if(fs_image_validate(uboot_fsh, "U-BOOT-INFO", arch, (ulong) uboot_fsh))
+	if (fs_image_validate(uboot_fsh, "U-BOOT-INFO", arch, (ulong) uboot_fsh))
 		return CMD_RET_FAILURE;
 
 	fs_image_region_create(&uboot_ri, &ni.uboot, &uboot_sub);
@@ -3389,12 +3388,13 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 		return CMD_RET_FAILURE;
 
 	ret = fs_image_get_nboot_info(&fi, fdt, &ni, -1, false);
-	if(ret)
+	if (ret)
 		goto put_fi;
 
-	if(!ni.uboot.start[0]){
-		puts("FAILED TO SAVE U-BOOT.\n");
-		puts("Boot from MMC or provide complete Firmware (NBOOT + UBOOT) in RAM\n");
+	if (!ni.uboot.start[0]) {
+		puts("FAILED TO SAVE U-BOOT.\n"
+		     "Boot from MMC or provide complete Firmware"
+		     " (NBOOT + UBOOT) in RAM\n");
 		ret = -EINVAL;
 		goto put_fi;
 	}
@@ -3402,9 +3402,9 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 	ni.uboot.size = fs_image_get_size(uboot_fsh, true);
 
 	/* --- Prepare UBOOT Region --- */
-	ret = fs_image_region_add(&uboot_ri, uboot_fsh,
-			uboot_fsh->type, uboot_fsh->param.descr,
-			0, SUB_HAS_FS_HEADER | SUB_SYNC);
+	ret = fs_image_region_add(&uboot_ri, uboot_fsh, uboot_fsh->type,
+				  uboot_fsh->param.descr, 0,
+				  SUB_HAS_FS_HEADER | SUB_SYNC);
 
 	if (!ret)
 		goto put_fi;
@@ -3414,7 +3414,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 
 	put_fi:
 	fs_image_put_flash_info(&fi);
-	if(ret < 0){
+	if (ret < 0) {
 		printf("Failed to Save U-BOOT: %d", ret);
 		return CMD_RET_FAILURE;
 	}
@@ -3423,6 +3423,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 
 	/* calc new crc32 */
 	fs_image_update_header(cfg_fsh, cfg_size, cfg_fsh->info.flags);
+
 	return ret;
 }
 
@@ -3439,6 +3440,7 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 	struct sub_info uboot_sub, env_sub;
 	void *fdt_new;
 	int failed = 0;
+	void *dest;
 
 	int ret = CMD_RET_SUCCESS;
 
@@ -3446,8 +3448,8 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 	if (fs_image_match((void *)addr, "U-BOOT-INFO", NULL))
 		return fsimage_cntr_save_uboot(addr, boot_hwpart, force);
 
-	if(!fs_image_match((void *)addr, "BOOT-INFO", arch) &&
-			!fs_image_match((void *)addr, "BOARD-ID", NULL))
+	if (!fs_image_match((void *)addr, "BOOT-INFO", arch)
+	    && !fs_image_match((void *)addr, "BOARD-ID", NULL))
 		return CMD_RET_FAILURE;
 
 	/* This call will set new board-id if available */
@@ -3456,11 +3458,11 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		return CMD_RET_FAILURE;
 
 	fdt_new = fs_image_find_cfg_fdt_idx(&cfg_info);
-	if(!fdt_new)
+	if (!fdt_new)
 		return CMD_RET_FAILURE;
 
 	/* When new ID is provided, skip to BOOT-INFO */
-	if(fs_image_match((void *)addr, "BOARD-ID", NULL))
+	if (fs_image_match((void *)addr, "BOARD-ID", NULL))
 		addr += fs_image_get_size((void *)addr, true);
 
 	/* Get Flash-Info */
@@ -3472,7 +3474,7 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		goto put_fi;
 	if (ret > 0) {
 		printf("Warning! Boot fuses not yet set, remember to burn"
-				" them for %s\n", fi.boot_dev_name);
+		       " them for %s\n", fi.boot_dev_name);
 	}
 
 	/* set HWPART, if Available */
@@ -3484,15 +3486,14 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 	fs_image_region_create(&uboot_ri, &ni_new.uboot, &uboot_sub);
 	fs_image_region_create(&env_ri, &ni_new.env, &env_sub);
 
-	ret = prepare_nboot_cntr_images(addr, fdt_new, &fi,
-					&spl_ri, &nboot_ri,
+	ret = prepare_nboot_cntr_images(addr, fdt_new, &fi, &spl_ri, &nboot_ri,
 					&uboot_ri, &env_ri, &ni_new);
-	if(ret)
+	if (ret)
 		goto put_fi;
 
 	/* --- Found all sub-images, everything is prepared, go and save --- */
 
-	/**
+	/*
 	 *  Save is done in two stages.
 	 *  In the first stage all new Images are stored as Secondary.
 	 *  Then the Images are stored as Primary
@@ -3534,24 +3535,20 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		goto put_fi;
 
 	/* Success: Activate new BOARD-CFG by copying it to OCRAM */
-	{
-		void *dest;
-
-		cfg_fsh = cfg_info.fsh_idx_entry;
-		memcpy(fs_image_get_cfg_addr(), cfg_fsh,
-				sizeof(struct fs_header_v1_0));
-		dest = (void *)cfg_fsh + sizeof(struct fs_header_v1_0) + cfg_info.offset;
-		memcpy(fs_image_get_cfg_addr() + sizeof(struct fs_header_v1_0), dest,
-				fs_image_get_size(cfg_fsh, false));
-	}
+	cfg_fsh = cfg_info.fsh_idx_entry;
+	memcpy(fs_image_get_cfg_addr(), cfg_fsh, sizeof(struct fs_header_v1_0));
+	dest = (void *)cfg_fsh + sizeof(struct fs_header_v1_0) + cfg_info.offset;
+	memcpy(fs_image_get_cfg_addr() + sizeof(struct fs_header_v1_0), dest,
+	       fs_image_get_size(cfg_fsh, false));
 
 	cfg_fsh = fs_image_get_cfg_addr();
 	update_board_cfg(&ni_new);
 	fs_image_board_cfg_set_board_rev(cfg_fsh);
 	puts("New BOARD-CFG is now active\n");
 
-	put_fi:
+put_fi:
 	fs_image_put_flash_info(&fi);
+
 	return ret;
 }
 #endif
@@ -3589,7 +3586,8 @@ int fs_image_do_boardcfg(int argc, char * const argv[])
 		return CMD_RET_USAGE;
 
 	if (addr) {
-		ret = fs_image_find_board_cfg(addr, true, "show", &cfg_info, NULL);
+		ret = fs_image_find_board_cfg(addr, true, "show", &cfg_info,
+					      NULL);
 		if (ret <= 0)
 			return CMD_RET_FAILURE;
 	} else
@@ -3647,13 +3645,13 @@ int fs_image_do_list(int argc, char * const argv[])
 	puts("offset   size     type (description)\n");
 
 	/* Find padded Images if available */
-	do{
-	     puts("------------------------------------------------------------"
-	     "-------------------\n");
+	do {
+		puts("---------------------------------------------------------"
+		     "----------------------\n");
 		fs_image_parse_image(PARSE_CONTENT, addr, offs, 0);
 		offs += fs_image_get_size(fsh, true);
 		fsh = (struct fs_header_v1_0 *)(addr + offs);
-	}while(fs_image_is_fs_image(fsh));
+	} while (fs_image_is_fs_image(fsh));
 
 	return CMD_RET_SUCCESS;
 }
@@ -3672,6 +3670,7 @@ int fs_image_do_load(int argc, char * const argv[])
 	if ((argc > 1) && (argv[1][0] == '-')) {
 		if (strcmp(argv[1], "-f"))
 			return CMD_RET_USAGE;
+
 		force = true;
 		argv++;
 		argc--;
@@ -3709,7 +3708,7 @@ int fs_image_do_load(int argc, char * const argv[])
 	memset(fsh->info.magic, 0, 4);
 
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	if(!fsimage_cntr_load(addr, load_uboot, 1))
+	if (!fsimage_cntr_load(addr, load_uboot, 1))
 		return CMD_RET_SUCCESS;
 
 	return fsimage_cntr_load(addr, load_uboot, 2);
@@ -3724,7 +3723,9 @@ int fs_image_do_save(int argc, char * const argv[])
 	int boot_hwpart = -1;
 	ulong addr;
 	bool force = false;
-	__maybe_unused bool system_atf = false;	/* If set, prefer ATF/TEE from NBoot */
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+	bool system_atf = false;	/* If set, prefer ATF/TEE from NBoot */
+#endif
 	int ret;
 
 	early_support_index = 0;
@@ -3920,12 +3921,13 @@ static int fs_image_list_crc(ulong addr, uint offset)
 
 	printf("Checksums of F&S image at addr 0x%lx\n\n", (ulong)fsh);
 	puts("checksum   valid type (description)\n");
-	do{
-		puts("------------------------------------------------------------\n");
+	do {
+		puts("---------------------------------------------------------"
+		     "---\n");
 		fs_image_parse_image(PARSE_CHECKSUM, addr, offs, 0);
 		offs += fs_image_get_size(fsh, true);
 		fsh = (struct fs_header_v1_0 *)(addr + offs);
-	}while(fs_image_is_fs_image(fsh));
+	} while (fs_image_is_fs_image(fsh));
 
 	return 0;
 }
@@ -3965,8 +3967,9 @@ int fs_image_do_checksum(int argc, char * const argv[])
 	else
 		addr = get_loadaddr();
 
-	ret = fs_image_find_board_cfg(addr, false, "checksum", &cfg_info, &nboot_fsh);
-	if(ret <= 0)
+	ret = fs_image_find_board_cfg(addr, false, "checksum", &cfg_info,
+				      &nboot_fsh);
+	if (ret <= 0)
 		return CMD_RET_FAILURE;
 
 	if (type) {
@@ -3983,14 +3986,15 @@ int fs_image_do_checksum(int argc, char * const argv[])
 			const char *prop;
 
 			prop = fs_image_getprop(fdt, offs, rev_offs,
-						      "dram-timing", NULL);
-			if(!prop)
+						"dram-timing", NULL);
+			if (!prop)
 				return CMD_RET_FAILURE;
 
 			strncpy(fsh_type, "DRAM-TIMING", MAX_TYPE_LEN);
 			strncpy(fsh_descr, prop, MAX_DESCR_LEN);
 
-			check_fsh = fs_image_find_concat(nboot_fsh, fsh_type, fsh_descr, NULL);
+			check_fsh = fs_image_find_concat(nboot_fsh, fsh_type,
+							 fsh_descr, NULL);
 		}
 
 		if (!check_fsh) {
@@ -3999,13 +4003,13 @@ int fs_image_do_checksum(int argc, char * const argv[])
 		}
 
 		pcs = (u32 *)&check_fsh->type[12];
-		if(check_fsh->info.flags & FSH_FLAGS_CRC32){
+		if (check_fsh->info.flags & FSH_FLAGS_CRC32) {
 			strncpy(fsh_type, check_fsh->type, MAX_TYPE_LEN);
-			strncpy(fsh_descr, check_fsh->param.descr, MAX_DESCR_LEN);
-			printf("Checksum[%s] = 0x%x\n",fsh_type,*pcs);
+			strncpy(fsh_descr, check_fsh->param.descr,
+				MAX_DESCR_LEN);
+			printf("Checksum[%s] = 0x%x\n", fsh_type, *pcs);
 		}
-	}
-	else {
+	} else {
 		fs_image_list_crc(addr, 0);
 	}
 

@@ -1,3 +1,14 @@
+// SPDX-License-Identifier:	GPL-2.0+
+/*
+ * Copyright 2025 F&S Elektronik Systeme GmbH
+ * Hartmut Keller <keller@fs-net.de>
+ *
+ * Handle F&S nboot.fs and uboot.fs images.
+ *
+ * For a description of the NBoot file format see:
+ *  - board/F+S/common/fs_image_spl.c for fsimx8mm/mn/mp
+ *  - board/F+S/common/fs_cntr_common.c for fsimx8ulp and fsimx91/93
+ */
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -9,11 +20,6 @@
 #include "linux_helpers.h"
 #include "../../board/F+S/common/fs_image_common.h"
 #include "../../include/imx_container.h"
-
-struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
-		const char *type,
-		const char *descr,
-		struct index_info *idx_info);
 
 #define MAX_NBOOT_SIZE (4 * 1024 * 1024)
 #define MAX_BOARD_CFG_SIZE (2 * 1024)

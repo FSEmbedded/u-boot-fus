@@ -18,7 +18,6 @@
 #include <jffs2/jffs2.h>		/* struct mtd_device + part_info */
 #endif
 #include "fs_board_common.h"		/* fs_board_*() */
-//#include "fs_bootrom.h"
 
 #else /* !__UBOOT__ */
 

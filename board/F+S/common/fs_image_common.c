@@ -11,30 +11,19 @@
 #ifdef __UBOOT__
 #include <common.h>
 #include <fdt_support.h>		/* fdt_getprop_u32_default_node() */
-//####include <spl.h>
-//####include <mmc.h>
-//####include <nand.h>
-//####include <sdp.h>
-//####include <asm/sections.h>
 #include <asm/global_data.h>		/* DECLARE_GLOBAL_DATA_PTR */
 #include <u-boot/crc.h>			/* crc32() */
 
 #include <asm/mach-imx/checkboot.h>
 #ifdef CONFIG_FS_SECURE_BOOT
-//####include <asm/mach-imx/hab.h>
-//####include <stdbool.h>
 #endif
 
 #else
 
 #include <linux/kconfig.h>		/* Get kconfig macros only */
-//####include "../../../include/fdt_support.h"
 #include <linux/libfdt.h>
 #include "linux_helpers.h"
 #include <asm/mach-imx/hab.h>		/* struct ivt, ... */
-//####include <asm/mach-imx/checkboot.h>	/* HAB_HEADER */
-//####include "../../../include/linux/libfdt_env.h"
-//####include <string.h>
 #include <stdio.h>
 #include <errno.h>
 #include "crc32.h"
@@ -108,19 +97,18 @@ void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info)
 {
 	void *fdt;
 
-	if(!cfg_info)
+	if (!cfg_info)
 		return NULL;
 	
-	if(cfg_info->fsh_idx == NULL)
+	if (cfg_info->fsh_idx == NULL)
 		return fs_image_find_cfg_fdt(cfg_info->fsh_idx_entry);
 	
 	fdt = (void *)cfg_info->fsh_idx_entry;
 	fdt += sizeof(struct fs_header_v1_0) + cfg_info->offset;
 
-	if(fdt_check_header(fdt)){
+	if (fdt_check_header(fdt))
 		return NULL;
-	}
-	
+
 	return fdt;
 }
 
@@ -180,7 +168,7 @@ bool fs_image_is_index(const struct fs_header_v1_0 *fsh)
 unsigned int fs_image_index_get_n(const struct fs_header_v1_0 *fsh)
 {
 	unsigned int size;
-	if(!fs_image_is_index(fsh))
+	if (!fs_image_is_index(fsh))
 		return 0;
 
 	size = fs_image_get_size(fsh, false);
@@ -398,7 +386,7 @@ bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
 {
 	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
 
-	if(!valid_container_hdr(cntr_hdr)){
+	if (!valid_container_hdr(cntr_hdr)) {
 		char type[MAX_TYPE_LEN + 1];
 		memcpy(type, fsh->type, MAX_TYPE_LEN);
 		type[MAX_TYPE_LEN] = 0;
@@ -415,7 +403,7 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 	struct signature_block_hdr *sig_hdr;
 	unsigned int offset;
 
-	if(!valid_container_hdr(cntr_hdr)){
+	if (!valid_container_hdr(cntr_hdr)) {
 		char type[MAX_TYPE_LEN + 1];
 		memcpy(type, fsh->type, MAX_TYPE_LEN);
 		type[MAX_TYPE_LEN] = 0;
@@ -423,10 +411,10 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 		return false;
 	}
 
-	if(!fs_image_match(fsh, "BOOT-INFO", NULL))
+	if (!fs_image_match(fsh, "BOOT-INFO", NULL))
 		return fs_cntr_is_valid_signature(cntr_hdr);
 
-	/**
+	/*
 	 * BOOT-INFO image contains two bootcntr.
 	 * One container contains the ELE-FW,
 	 * the second contains the SPL and optionally an M33_Image
@@ -436,13 +424,13 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 	offset = ALIGN(offset, CONTAINER_HDR_ALIGNMENT);
 	cntr_hdr = (void *)cntr_hdr + offset;
 
-	if(!valid_container_hdr(cntr_hdr)){
+	if (!valid_container_hdr(cntr_hdr)) {
 		printf("No IMX-Container found!\n");
 		return false;
 	}
 
 	/* if second cntr is not signed then it is OK when board is OEM open */
-	if(!fs_cntr_is_signed(cntr_hdr) && !fs_board_is_closed()){
+	if (!fs_cntr_is_signed(cntr_hdr) && !fs_board_is_closed()) {
 		printf("NOTE: Second BOOT-CNTR is unsigned\n");
 		return true;
 	}

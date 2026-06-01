@@ -9,32 +9,8 @@
 
 #include <common.h>
 #include <command.h>
-#include <mmc.h>
-#if CONFIG_IS_ENABLED(MTD_RAW_NAND)
-#include <nand.h>
-#include <mxs_nand.h>			/* mxs_nand_mode_fcb_62bit(), ... */
-#include <asm/mach-imx/imx-nandbcb.h>
-#include <jffs2/jffs2.h>		/* struct mtd_device + part_info */
-#endif
-#include <console.h>			/* confirm_yesno() */
-#include <image.h>			/* parse_loadaddr() */
-#include <u-boot/crc.h>			/* crc32() */
-#include <dm/device.h>
 
 #include "../board/F+S/common/fs_image_common.h"	/* fs_image_*() */
-#include "../board/F+S/common/fs_bootrom.h"
-
-#if CONFIG_IS_ENABLED(IMX_HAB)
-#include <asm/mach-imx/hab.h>
-#endif
-
-#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-#include <imx_container.h>
-#else
-#ifdef __UBOOT__
-#include <asm/mach-imx/checkboot.h>
-#endif
-#endif
 
 /* ------------- Command implementation ------------------------------------ */
 
