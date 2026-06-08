@@ -174,7 +174,7 @@ lcd_wvga {				\
 	};
 
 	chosen {
-		bootargs = "console=ttymxc0,115200";
+		bootargs = "console=ttymxc4,115200";
 		stdout-path = &uart5;
 	};
 
