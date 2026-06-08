@@ -124,9 +124,25 @@
 #endif
 
 #include <dt-bindings/input/input.h>
-#include <fsversion.h>
 
 #include "imx6ul.dtsi"
+
+#if 0
+#include <fsversion.h>
+#else
+#include <dt-bindings/gpio/gpio.h>
+#define FS_LINUX_VERSION ""
+
+/ {
+	cma: cam { };
+	flexcan1: flexcan1 { };
+	flexcan2: flexcan2 { };
+};
+
+&soc {
+	busfreq: busfreq { };
+};
+#endif
 
 / {
 	model = "F&S PicoCOM1.2";
@@ -137,11 +153,11 @@
 		nand=&gpmi;
 	};
 
-#if 0
-chosen {
+	chosen {
+		bootargs = "console=ttymxc0,115200";
 		stdout-path = &uart1;
 	};
-#endif
+
 	memory {
 		reg = <0x80000000 0x80000000>;
 	};
