@@ -167,8 +167,8 @@
 	".console_serial=setenv console ${sercon},${baudrate}\0" 				\
 	".console_display=setenv console tty1\0"						\
 	"mode=undef\0"										\
-	".mode_rw=setenv mode rw rootwait\0"							\
-	".mode_ro=setenv mode ro rootwait\0"							\
+	".mode_rw=setenv mode rw\0"								\
+	".mode_ro=setenv mode ro\0"								\
 	"login=undef\0"										\
 	".login_none=setenv login login_tty=null\0"						\
 	".login_serial=setenv login login_tty=${sercon},${baudrate}\0"				\
@@ -207,7 +207,7 @@
 		"setenv root \"/dev/nfs "							\
 			"nfsroot=${serverip}:${nfsroot},v3,tcp\";\0"				\
 	".tftp_mmc_root="									\
-		"setenv root \"/dev/mmcblk${mmcdev}p${default_rootpart}\";\0"			\
+		"setenv root \"/dev/mmcblk${mmcdev}p${default_rootpart} rootwait\";\0"		\
 	"ramdisk_addr_r=-\0"									\
 	"bootcmd_tftp_mmc="									\
 		"run .tftp_mmc_root; "								\
@@ -288,7 +288,7 @@
 	"boot_a_image="										\
 		"load ${devtype} ${devnum}:${distro_bootpart} ${kernel_addr_r} ${bootfile}; "	\
 		"load ${devtype} ${devnum}:${distro_bootpart} ${fdt_addr_r} ${fdtfile}; "	\
-		"setenv root PARTUUID=${distro_rootpart_uuid}; "				\
+		"setenv root PARTUUID=${distro_rootpart_uuid} rootwait; "			\
 		"run set_bootargs; "								\
 		"booti ${kernel_addr_r} - ${fdt_addr_r};\0"					\
 
@@ -378,7 +378,7 @@
 		"fi;\0"										\
 	"boot_a_cntr_image="									\
 		"load ${devtype} ${devnum}:${distro_bootpart} ${cntr_addr_r} ${bootcntrfile}; "	\
-		"setenv root PARTUUID=${distro_rootpart_uuid}; "				\
+		"setenv root PARTUUID=${distro_rootpart_uuid} rootwait; "				\
 		"run set_bootargs; "								\
 		"echo \"check container signature ...\"; "					\
 		"if auth_cntr ${cntr_addr_r}; then "						\
