@@ -1,0 +1,21 @@
+&fec1 {
+	// MX6ULL_PAD_SNVS_TAMPER0__GPIO5_IO00
+	phy-reset-gpios = <&gpio5 0 GPIO_ACTIVE_LOW>;
+	phy-reset-duration = <1>;
+	phy-reset-post-delay = <1>;
+};
+
+&fec2 {
+	// MX6ULL_PAD_SNVS_TAMPER1__GPIO5_IO01
+	phy-reset-gpios = <&gpio5 1 GPIO_ACTIVE_LOW>;
+	phy-reset-duration = <1>;
+	phy-reset-post-delay = <1>;
+};
+
+&ethphy0 {
+	microchip,rmii-50mhz;
+};
+
+&ethphy1 {
+	microchip,rmii-50mhz;
+};

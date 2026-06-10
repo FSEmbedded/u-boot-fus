@@ -938,7 +938,27 @@ dtb-y += \
 	imx6dl-sabresd.dtb \
 	imx6dl-sielaff.dtb \
 	imx6dl-wandboard-revd1.dtb \
-	imx6s-dhcom-drc02.dtb
+	imx6s-dhcom-drc02.dtb \
+	armstonea9dl.dtb \
+	armstonea9q.dtb \
+	armstonea9r2dl.dtb \
+	armstonea9r2q.dtb \
+	armstonea9r3dl.dtb \
+	armstonea9r3q.dtb \
+	armstonea9r4dl.dtb \
+	armstonea9r4q.dtb \
+	efusa9dl.dtb \
+	efusa9q.dtb \
+	efusa9r2dl.dtb \
+	efusa9r2q.dtb \
+	netdcua9dl.dtb \
+	netdcua9q.dtb \
+	picomoda9dl.dtb \
+	picomoda9q.dtb \
+	qblissa9dl.dtb \
+	qblissa9q.dtb \
+	qblissa9r2dl.dtb \
+	qblissa9r2q.dtb
 
 endif
 
@@ -1012,7 +1032,16 @@ dtb-$(CONFIG_MX6SX) += \
 	imx6sx-softing-vining-2000.dtb \
 	imx6sx-udoo-neo-basic.dtb \
 	imx6sx-udoo-neo-extended.dtb \
-	imx6sx-udoo-neo-full.dtb
+	imx6sx-udoo-neo-full.dtb \
+	bema9x.dtb \
+	cont1.dtb \
+	efusa9x.dtb \
+	efusa9xr2.dtb \
+	picocoma9x.dtb \
+	picocoremx6sx.dtb \
+	picocoremx6sxr2.dtb \
+	vand3.dtb \
+	vc600.dtb
 
 dtb-$(CONFIG_MX6UL) += \
 	imx6ul-geam.dtb \
@@ -1028,7 +1057,19 @@ dtb-$(CONFIG_MX6UL) += \
 	imx6ul-pico-hobbit.dtb \
 	imx6ul-pico-pi.dtb \
 	imx6ul-kontron-bl.dtb \
-	imx6ull-kontron-bl.dtb
+	imx6ull-kontron-bl.dtb \
+	cube2.0.dtb \
+	cubea7ul.dtb \
+	efusa7ul.dtb \
+	gar1.dtb \
+	gar2.dtb \
+	gar3.dtb \
+	picocom1.2.dtb \
+	picocoma7.dtb \
+	picocoremx6ul.dtb \
+	picocoremx6ul100.dtb
+
+
 
 dtb-$(CONFIG_MX6ULL) += \
 	imx6ull-14x14-evk.dtb \
@@ -1045,7 +1086,12 @@ dtb-$(CONFIG_MX6ULL) += \
 	imx6ulz-bsh-smm-m2.dtb \
 	imx6ulz-14x14-evk.dtb \
 	imx6ulz-14x14-evk-emmc.dtb \
-	imx6ulz-14x14-evk-gpmi-weim.dtb
+	imx6ulz-14x14-evk-gpmi-weim.dtb \
+	cube2.0ull.dtb \
+	efusa7ull.dtb \
+	picocoma7ull.dtb \
+	picocoremx6ull.dtb \
+	picocoremx6ull100.dtb
 
 dtb-$(CONFIG_ARCH_MX6) += \
 	imx6q-apalis-eval.dtb \
