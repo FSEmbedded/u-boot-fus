@@ -137,7 +137,7 @@
 #undef CONFIG_OSM8MM_PWM_0
 #endif
 
-#ifdef CONFIG_CMD_SELFTEST
+#if defined(CONFIG_CMD_SELFTEST) && defined(CONFIG_IMX8MM)
 #include "osm-selftest.dts"
 #else
 #include "osm8mm.dtsi"

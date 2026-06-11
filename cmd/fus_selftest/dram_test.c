@@ -49,7 +49,7 @@ static void getRamInfo(struct ramInfo *rI){
 	//if(rom_pointer[1])
 	//	rI->ramSize += rom_pointer[1];
 	rI->numChips = fs_board_get_cfg_info()->dram_chips;
-	rI->pRamBase = (u64*)CONFIG_SYS_SDRAM_BASE;
+	rI->pRamBase = (u64*)CFG_SYS_SDRAM_BASE;
 	rI->pUbootBase = (u64*)gd->start_addr_sp;
 #endif
 

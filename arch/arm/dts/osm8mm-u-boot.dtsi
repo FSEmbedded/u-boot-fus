@@ -129,7 +129,6 @@
 };
 
 &usbotg2 {
-
 	#ifdef CONFIG_USB_HOST_PWR
 	vbus-supply = <&reg_usb_host_pwr>;
 	#else

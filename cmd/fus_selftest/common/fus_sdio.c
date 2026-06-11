@@ -36,11 +36,6 @@
 #define DATA_SZIE 50
 
 
-static int mmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
-{
-	return dm_mmc_send_cmd(mmc->dev, cmd, data);
-}
-
 static int sdio_get_cis(struct mmc *mmc, int *uiManufactureID){
 
 	struct mmc_cmd cmd;

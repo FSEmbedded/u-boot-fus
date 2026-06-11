@@ -1501,11 +1501,8 @@ osm_usb_b
 #ifdef CONFIG_OSM8MP_USB_C
 	pinctrl_osm_usb_c: usb2grp {
 		fsl,pins = <
-#if 0
 			MX8MP_IOMUXC_GPIO1_IO14__USB2_PWR	0x4
-#else
-			MX8MP_IOMUXC_GPIO1_IO14__USB2_OTG_PWR	0x4
-#endif
+
 		>;
 	};
 #endif
