@@ -39,7 +39,6 @@ config CMD_SELFTEST
 
 config CMD_SELFTEST_VIDEO
 	bool "selftest video"
-	default y if IMX8MM
 	select VIDEO
 	select IMX_SEC_MIPI_DSI
 	select NT35521
