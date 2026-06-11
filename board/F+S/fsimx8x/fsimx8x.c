@@ -11,7 +11,7 @@
 #include <env_internal.h>
 #include <asm/gpio.h>
 #include <asm/arch/clock.h>
-#include <asm/arch/sci/sci.h>
+#include <firmware/imx/sci/sci.h>
 #include <asm/arch/imx8-pins.h>
 #include <asm/arch/snvs_security_sc.h>
 #include <asm/arch/iomux.h>
@@ -505,11 +505,6 @@ int board_late_init(void)
 	 */
 	env_set("fdtcontroladdr", "");
 
-	env_set("sec_boot", "no");
-#ifdef CONFIG_AHAB_BOOT
-	env_set("sec_boot", "yes");
-#endif
-
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttyLP");
 
@@ -648,7 +643,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 		tmp[1] = cpu_to_fdt32(0x28000000);
 
 		offs = fs_fdt_path_offset(fdt, FDT_CMA);
-		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
+		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	}
 
 	return do_fdt_board_setup_common(fdt);
@@ -677,7 +672,7 @@ void board_quiesce_devices(void)
 /*
  * Board specific reset that is system reset.
  */
-void reset_cpu(ulong addr)
+void reset_cpu(void)
 {
 	sc_pm_reboot(-1, SC_PM_RESET_TYPE_COLD);
 	while(1);
@@ -714,11 +709,3 @@ void board_late_mmc_env_init(void)
 	sprintf(cmd, "mmc dev %d", dev_no);
 	run_command(cmd, 0);
 }
-
-#ifdef CONFIG_BOARD_POSTCLK_INIT
-int board_postclk_init(void)
-{
-	/* TODO */
-	return 0;
-}
-#endif /* CONFIG_BOARD_POSTCLK_INIT */

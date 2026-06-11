@@ -96,11 +96,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define INSTALL_DEF INSTALL_RAM
 #endif
 
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-#define INIT_DEF ".init_fs_updater"
-#else
 #define INIT_DEF ".init_init"
-#endif
 
 const struct fs_board_info board_info[] = {
 	{	/* 0 (BT_PICOCOREMX8MN) */
@@ -1210,12 +1206,6 @@ int board_late_init(void)
 	if (fs_board_get_type() == BT_PICOCOREMX8MX)
 		env_set("platform", "picocoremx8mx-nano");
 #endif
-
-	env_set("tee", "no");
-#ifdef CONFIG_IMX_OPTEE
-	env_set("tee", "yes");
-#endif
-
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttymxc");
 
@@ -1312,7 +1302,7 @@ static int setup_fec(void)
 
 	/* Use 125M anatop REF_CLK1 for ENET1, not from external */
 	clrsetbits_le32(&iomuxc_gpr_regs->gpr[1],
-			IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL_SHIFT, 0);
+			IOMUXC_GPR_GPR1_GPR_ENET1_TX_CLK_SEL, 0);
 
 	return set_clk_enet(ENET_125MHZ);
 }
@@ -1536,7 +1526,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 		tmp[1] = cpu_to_fdt32(0x28000000);
 
 		offs = fs_fdt_path_offset(fdt, FDT_CMA);
-		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
+		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	}
 
 #ifdef CONFIG_CMD_SELFTEST
@@ -1562,11 +1552,3 @@ int mmc_map_to_kernel_blk(int devno)
 	return devno + 1;
 }
 #endif /* CONFIG_FASTBOOT_STORAGE_MMC */
-
-#ifdef CONFIG_BOARD_POSTCLK_INIT
-int board_postclk_init(void)
-{
-	/* TODO */
-	return 0;
-}
-#endif /* CONFIG_BOARD_POSTCLK_INIT */

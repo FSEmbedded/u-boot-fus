@@ -22,6 +22,7 @@
 #include <env.h>
 #include <log.h>
 #include <malloc.h>
+#include <linux/printk.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -33,6 +34,7 @@
 #include <spl.h>
 #include <image.h>
 #include <imximage.h>
+#include <imx_container.h>
 #include <watchdog.h>
 
 #ifdef CONFIG_FS_BOARD_CFG
@@ -327,7 +329,7 @@ static void sdp_rx_command_complete(struct usb_ep *ep, struct usb_request *req)
 		       sdp->dnl_bytes_remaining, sdp->dnl_address);
 
 		if (stream_ops && stream_ops->new_file) {
-			stream_ops->new_file(sdp->dnl_address,
+			stream_ops->new_file((void *)(ulong)(sdp->dnl_address),
 					     sdp->dnl_bytes_remaining);
 		}
 		break;
@@ -663,7 +665,7 @@ static int sdp_bind_config(struct usb_configuration *c)
 	return status;
 }
 
-int sdp_init(int controller_index)
+int sdp_init(struct udevice *udc)
 {
 	printf("SDP: initialize...\n");
 	while (!sdp_func->configuration_done) {
@@ -672,8 +674,8 @@ int sdp_init(int controller_index)
 			return 1;
 		}
 
-		WATCHDOG_RESET();
-		usb_gadget_handle_interrupts(controller_index);
+		schedule();
+		dm_usb_gadget_handle_interrupts(udc);
 	}
 
 	return 0;
@@ -801,8 +803,8 @@ static void sdp_handle_in_ep(void)
 		/* If imx header fails, try some U-Boot specific headers */
 		if (status) {
 #ifdef CONFIG_SPL_BUILD
-			struct image_header *header = (struct image_header *)
-				(ulong)(sdp_func->jmp_address);
+			struct legacy_img_hdr *header =
+				sdp_ptr(sdp_func->jmp_address);
 			struct spl_image_info spl_image = {};
 			int extra_offset = get_extra_offset(header, &spl_image);
 
@@ -817,15 +819,14 @@ static void sdp_handle_in_ep(void)
 
 			printf("Found header at 0x%08x\n", sdp_func->jmp_address);
 
-			header = (struct image_header *)(ulong)(sdp_func->jmp_address);
-
+			header = sdp_ptr(sdp_func->jmp_address);
 			if (IS_ENABLED(CONFIG_SPL_LOAD_FIT) &&
 			    image_get_magic(header) == FDT_MAGIC) {
 				struct spl_load_info load;
 
 				debug("Found FIT\n");
-				memset(&load, 0, sizeof(load));
-				load.bl_len = 1;
+				load.priv = header;
+				spl_set_bl_len(&load, 1);
 				load.read = sdp_load_read;
 				load.extra_offset = 0;
 				spl_load_simple_fit(&spl_image, &load,
@@ -833,12 +834,12 @@ static void sdp_handle_in_ep(void)
 						    (void *)header);
 			} else {
 				/* In SPL, allow jumps to U-Boot images */
-				spl_parse_image_header(&spl_image, header);
+				spl_parse_image_header(&spl_image, NULL, header);
 			}
 			jump_to_image_no_args(&spl_image);
 #else
 			/* In U-Boot, allow jumps to scripts */
-			image_source_script(sdp_func->jmp_address, "script@1");
+			cmd_source_script(sdp_func->jmp_address, NULL, NULL);
 #endif
 		}
 
@@ -856,7 +857,7 @@ static void sdp_handle_in_ep(void)
 	};
 }
 
-void sdp_handle(int controller_index,
+void sdp_handle(struct udevice *udc,
 		const struct sdp_stream_ops *ops, bool single)
 {
 	enum sdp_state last_state = SDP_STATE_IDLE;
@@ -870,8 +871,8 @@ void sdp_handle(int controller_index,
 			return;
 		}
 
-		WATCHDOG_RESET();
-		usb_gadget_handle_interrupts(controller_index);
+		schedule();
+		dm_usb_gadget_handle_interrupts(udc);
 
 		sdp_handle_in_ep();
 		if (single) {

@@ -14,7 +14,7 @@
 
 /* Set a generic value, if it was not already set in the device tree */
 void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
-		    int len, int force);
+		    int len, int force, bool verbose);
 
 /* Set a string value */
 void fs_fdt_set_string(void *fdt, int offs, const char *name, const char *str,
@@ -25,7 +25,7 @@ void fs_fdt_set_u32str(void *fdt, int offs, const char *name, u32 val,
 		       int force);
 
 /* Set a u32 value */
-void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force);
+void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force, bool verbose);
 
 /* Set ethernet MAC address aa:bb:cc:dd:ee:ff for given index */
 void fs_fdt_set_macaddr(void *fdt, int offs, int id);
@@ -40,7 +40,7 @@ void fs_fdt_set_getenv(void *fdt, int offs, const char *name, int force);
 int fs_fdt_path_offset(void *fdt, const char *path);
 
 /* Enable or disable node given by path, overwrite any existing status value */
-int fs_fdt_enable(void *fdt, const char *path, int enable);
+int fs_fdt_enable(void *fdt, const char *path, bool enable);
 
 /* Store common board specific values in node bdinfo */
 void fs_fdt_set_bdinfo(void *fdt, int offs);

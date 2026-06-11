@@ -25,7 +25,7 @@
 #include <fs.h>				/* FS_TYPE_ANY, fs_read(), ... */
 #include <nand.h>			/* get_nand_dev_by_index() */
 #include <cpu_func.h>			/* flush_cache() */
-#include <image.h>			/* image_source_script() */
+#include <image.h>			/* set_fileaddr(), get_loadaddr() */
 
 #ifndef CONFIG_CMD_SOURCE
 #error You need CONFIG_CMD_SOURCE when you define CONFIG_CMD_UPDATE
@@ -58,7 +58,7 @@ static int update_ram(const char *action, const char **check,
 #ifdef CONFIG_CMD_UBIFS
 extern int cmd_ubifs_mount(const char *vol_name);
 extern int set_ubi_part(const char *part_name, const char *vid_header_offset);
-extern int ubifs_load(const char *filename, u32 addr, u32 size);
+extern int ubifs_load(const char *filename, unsigned long addr, u32 size);
 
 static int update_ubi(const char *action, const char *part_name,
 		      const char *vol_name, const char *fname,
@@ -220,6 +220,7 @@ static int update_mmc(const char *action, const char **check, const char *fname,
 	char if_dev_part_str[MAX_IF_DEV_PART_STR + 1];
 	int dev_num;
 	struct mmc *mmc;
+	loff_t actread;
 
 	if (get_if_dev_part_str(if_dev_part_str, check))
 		return 1;		/* Parse error */
@@ -239,7 +240,7 @@ static int update_mmc(const char *action, const char **check, const char *fname,
 	if (fs_set_blk_dev("mmc", if_dev_part_str + 4, FS_TYPE_ANY))
 		return -1;		  /* Device or partition not valid */
 
-	if (fs_read(fname, addr, 0, 0, NULL) < 0)
+	if (fs_read(fname, addr, 0, 0, &actread) < 0)
 		return -1;		  /* File not found or I/O error */
 
 	env_set(UPDATEDEV, if_dev_part_str);
@@ -254,6 +255,7 @@ static int update_usb(const char *action, const char **check, const char *fname,
 {
 	char if_dev_part_str[MAX_IF_DEV_PART_STR + 1];
 	static int usb_init_done = 0;
+	loff_t actread;
 
 	if (get_if_dev_part_str(if_dev_part_str, check))
 		return 1;		/* Parse error */
@@ -276,7 +278,7 @@ static int update_usb(const char *action, const char **check, const char *fname,
 	if (fs_set_blk_dev("usb", if_dev_part_str + 4, FS_TYPE_ANY))
 		return -1;		  /* Device or partition not valid */
 
-	if (fs_read(fname, addr, 0, 0, NULL) < 0)
+	if (fs_read(fname, addr, 0, 0, &actread) < 0)
 		return -1;		  /* File not found or I/O error */
 
 	env_set(UPDATEDEV, if_dev_part_str);
@@ -427,7 +429,7 @@ int update_script(enum update_action action_id, const char *check,
 #endif
 				puts("Loaded!\n");
 
-				ret = image_source_script(addr, NULL);
+				ret = cmd_source_script(addr, NULL, NULL);
 
 				printf("---- %s %s ----\n", action,
 				       ret ? "FAILED!" : "COMPLETE!");
@@ -493,6 +495,17 @@ int do_update(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 			if (argc > 3)
 				addr = parse_loadaddr(argv[3], NULL);
 		}
+	}
+
+	/*
+	 * If secure boot is enabled, we do not allow update or install
+	 * scripts to be executed.
+	 *
+	 * TODO: prepare secure boot support for update and install
+	 */
+	if(env_get_yesno("sec_boot") == 1) {
+		puts("WARINING: Secure boot is enabled, update/install scripts are not allowed!\n");
+		return 1;
 	}
 
 	return update_script(action_id, check, fname, addr);

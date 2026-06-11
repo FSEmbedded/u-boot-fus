@@ -65,21 +65,39 @@
 
 };
 
-&eqos {
-	compatible = "fsl,imx-eqos";
-	/delete-property/ assigned-clocks;
-	/delete-property/ assigned-clock-parents;
-	/delete-property/ assigned-clock-rates;
-	
-	phy-reset-gpios = <&gpio1 11 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <10>;
-	phy-reset-post-delay = <100>;
+&gpio1 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
-&fec {
-	phy-reset-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <10>;
-	phy-reset-post-delay = <100>;
+&gpio2 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
+};
+
+&gpio3 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
+};
+
+&gpio4 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
+};
+
+&gpio5 {
+	bootph-all;
+
+	/* not used in U-Boot, save memory in SPL*/
+	/delete-property/ gpio-line-names;
 };
 
 &usb_dwc3_1 {

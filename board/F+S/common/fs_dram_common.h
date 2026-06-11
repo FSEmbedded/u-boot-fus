@@ -4,7 +4,7 @@
 #if CONFIG_IMX8M
 #include <asm/arch/ddr.h>
 #elif CONFIG_IMX8
-#include <asm/arch/sci/sci.h>
+#include <firmware/imx/sci/sci.h>
 
 enum DDR_CMD {
 	CMD_NONE,
@@ -35,6 +35,7 @@ struct dram_timing_info {
 };
 #endif
 
-int fs_dram_init_common(unsigned long * p);
+int fs_dram_init_common(unsigned long *p);
+int fs_board_init_dram_data(unsigned long *ptr);
 
 #endif // FS_DRAM_COMMON_H

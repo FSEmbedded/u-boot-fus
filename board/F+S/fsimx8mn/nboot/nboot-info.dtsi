@@ -46,6 +46,7 @@
 		uboot-with-fsh;
 		uboot-emmc-bootpart;
 		emmc-both-bootparts;
+		support-u-atf;
 
 		/*
 		 * Settings for NAND. All values must be aligned to NAND erase
@@ -66,8 +67,10 @@
 			 * 0x0006_0000: - (free, 128 KiB, option for BCB Copy 3)
 			 * 0x0008_0000: SPL Copy 0 (256 KiB + 256 KiB BBR)
 			 * 0x0010_0000: SPL Copy 1 (256 KiB + 256 KiB BBR)
-			 * 0x0018_0000: NBOOT Copy 0 (1 MiB + 256 KiB BBR)
-			 * 0x002c_0000: NBOOT Copy 1 (1 MiB + 256 KiB BBR)
+			 * 0x0018_0000: NBOOT Copy 0 (128 KiB + 256 KiB BBR)
+			 * 0x001e_0000: ATF/TEE Copy 0 (640 KiB + 256 KiB BBR)
+			 * 0x002c_0000: NBOOT Copy 1 (128 KiB + 256 KiB BBR)
+			 * 0x0032_0000: ATF/TEE Copy 1 (640 KiB + 256 KiB BBR)
 			 * 0x0040_0000: Refresh (128 KiB + 384 KiB BBR)
 			 * 0x0048_0000: UBootEnv (128 KiB + 128 KiB BBR)
 			 * 0x004c_0000: UBootEnvRed (128 KiB + 128 KiB BBR)
@@ -79,7 +82,9 @@
 			spl-size = <0x00080000>;		/* 512 KiB */
 			nboot-start = < CONFIG_FUS_BOARDCFG_NAND0
 				        CONFIG_FUS_BOARDCFG_NAND1 >;
-			nboot-size = <0x00140000>;		/* 1280 KiB */
+			nboot-size = <0x00060000>;		/* 384 KiB */
+			atf-start = <0x001e0000 0x00320000>;
+			atf-size = <0x000e0000>;		/* 896 KiB */
 			uboot-start = <0x00500000 0x00800000>;
 			uboot-size = <0x00300000>;		/* 3 MiB */
 			env-start = <0x00480000 0x004c0000>;
@@ -110,7 +115,8 @@
 			 * 0x0000_0000: SPL Copy 0/1 (256 KiB)
 			 * 0x0004_0000: UBootEnv/UBootEnvRed (16 KiB)
 			 * 0x0004_4000: - (free, 16 KiB, option for bigger Env)
-			 * 0x0004_8000: NBOOT Copy 0/1 (992 KiB)
+			 * 0x0004_8000: NBOOT Copy 0/1 (224 KiB)
+			 * 0x0008_0000: ATF/TEE Copy 0/1 (768 KiB)
 			 * 0x0014_0000: U-Boot A/B (2816 KiB, to end of part)
 			 *
 			 * User HW-Partition
@@ -121,7 +127,9 @@
 			spl-start = <0x00000000>;
 			spl-size = <0x00040000>;		/* 256 KiB */
 			nboot-start = < CONFIG_FUS_BOARDCFG_MMC0 >;
-			nboot-size = <0x000f8000>;		/* 992 KiB */
+			nboot-size = <0x00038000>;		/* 224 KiB */
+			atf-start = <0x00080000>;
+			atf-size = <0x000c0000>;		/* 768 KiB */
 			uboot-start = <0x00140000>;
 			uboot-size = <0x002c0000>;		/* 2816 KiB */
 			env-start = <0x00040000>;
@@ -140,12 +148,14 @@
 			 * -----------------------------------------------------
 			 * 0x0000_0000: --- (space for GPT, 32 KiB)
 			 * 0x0000_8000: SPL Copy 0 (256 KiB)
-			 * 0x0004_8000: NBOOT Copy 0 (992 KiB)
+			 * 0x0004_8000: NBOOT Copy 0 (224 KiB)
+			 * 0x0008_0000: ATF/TEE Copy 0 (768 KiB)
 			 * 0x0014_0000: U-Boot A (2816 KiB)
 			 * 0x0040_0000: SPL Copy 1 (256 KiB) Secondary Im. Offs.
 			 * 0x0044_0000: UBootEnv (16 KiB)
 			 * 0x0044_4000: UBootEnvRed (16 KiB)
-			 * 0x0044_8000: NBOOT Copy 1 (992 KiB)
+			 * 0x0044_8000: NBOOT Copy 1 (224 KiB)
+			 * 0x0048_0000: ATF/TEE Copy 1 (768 KiB)
 			 * 0x0054_0000: U-Boot B (2816 MiB)
 			 * 0x0080_0000: End of reserved area
 			 */
@@ -153,7 +163,9 @@
 			spl-size = <0x00040000>;		/* 256 KiB */
 			nboot-start = < CONFIG_FUS_BOARDCFG_MMC0
 					CONFIG_FUS_BOARDCFG_MMC1 >;
-			nboot-size = <0x000f8000>;		/* 992 KiB */
+			nboot-size = <0x00038000>;		/* 224 KiB */
+			atf-start = <0x00080000 0x00480000>;
+			atf-size = <0x000c0000>;		/* 768 KiB */
 			uboot-start = <0x00140000 0x00540000>;
 			uboot-size = <0x002c0000>;		/* 2816 KiB */
 			env-start = <0x00440000 0x00444000>;

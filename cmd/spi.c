@@ -29,11 +29,11 @@ static unsigned int	bus;
 static unsigned int	cs;
 static unsigned int	mode;
 static unsigned int	freq;
-static int   		bitlen;
-static uchar 		dout[MAX_SPI_BYTES];
-static uchar 		din[MAX_SPI_BYTES];
+static int		bitlen;
+static uchar		dout[MAX_SPI_BYTES];
+static uchar		din[MAX_SPI_BYTES];
 
-static int do_spi_xfer(int bus, int cs)
+static int do_spi_xfer(int bus, int cs, bool use_addr)
 {
 	struct spi_slave *slave;
 	int ret = 0;
@@ -46,8 +46,8 @@ static int do_spi_xfer(int bus, int cs)
 	str = strdup(name);
 	if (!str)
 		return -ENOMEM;
-	ret = spi_get_bus_and_cs(bus, cs, freq, mode, "spi_generic_drv",
-				 str, &dev, &slave);
+	ret = _spi_get_bus_and_cs(bus, cs, freq, mode, "spi_generic_drv",
+				  str, &dev, &slave);
 	if (ret)
 		return ret;
 #else
@@ -61,8 +61,40 @@ static int do_spi_xfer(int bus, int cs)
 	ret = spi_claim_bus(slave);
 	if (ret)
 		goto done;
-	ret = spi_xfer(slave, bitlen, dout, din,
-		       SPI_XFER_BEGIN | SPI_XFER_END);
+	if (use_addr) {
+		uchar * data = NULL;
+		unsigned long addr = 0;
+		int len = bitlen;
+		int i;
+		unsigned long flags;
+
+		addr |= ((dout[0] & 0xFF) << 24);
+		addr |= ((dout[1] & 0xFF) << 16);
+		addr |= ((dout[2] & 0xFF) <<  8);
+		addr |= ((dout[3] & 0xFF) <<  0);
+
+		data = (char *) (addr & 0xFFFFFFFF);
+
+		printf("do_spi_xfer: use_addr=true, data=0x%p, len=%d\n",data, len);
+
+		for (i = 0; len > 0; len -= 8) {
+			flags = 0;
+			if (len == bitlen)
+				flags = SPI_XFER_BEGIN;
+			if (len == 0)
+				flags = SPI_XFER_END;
+
+			ret = spi_xfer(slave, 8, data + i, din, flags);
+			i++;
+		}
+
+		/* For bulk transfers skip response */
+		return 0;
+	}
+	else {
+		ret = spi_xfer(slave, bitlen, dout, din,
+			       SPI_XFER_BEGIN | SPI_XFER_END);
+	}
 #if !CONFIG_IS_ENABLED(DM_SPI)
 	/* We don't get an error code in this case */
 	if (ret)
@@ -102,6 +134,7 @@ int do_spi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	char  *cp = 0;
 	uchar tmp;
 	int   j;
+	bool use_addr = false;
 
 	/*
 	 * We use the last specified parameters, unless new ones are
@@ -112,24 +145,31 @@ int do_spi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	if ((flag & CMD_FLAG_REPEAT) == 0)
 	{
+		if (argc < 2)
+			return CMD_RET_USAGE;
+
 		if (argc >= 2) {
 			mode = CONFIG_DEFAULT_SPI_MODE;
-			bus = simple_strtoul(argv[1], &cp, 10);
+			bus = dectoul(argv[1], &cp);
 			if (*cp == ':') {
-				cs = simple_strtoul(cp+1, &cp, 10);
+				cs = dectoul(cp + 1, &cp);
 			} else {
 				cs = bus;
 				bus = CONFIG_DEFAULT_SPI_BUS;
 			}
 			if (*cp == '.')
-				mode = simple_strtoul(cp+1, &cp, 10);
+				mode = dectoul(cp + 1, &cp);
 			if (*cp == '@')
-				freq = simple_strtoul(cp+1, &cp, 10);
+				freq = dectoul(cp + 1, &cp);
 		}
 		if (argc >= 3)
-			bitlen = simple_strtoul(argv[2], NULL, 10);
+			bitlen = dectoul(argv[2], NULL);
 		if (argc >= 4) {
 			cp = argv[3];
+			if (*cp == '@') {
+				use_addr = true;
+				cp++;
+			}
 			for(j = 0; *cp; j++, cp++) {
 				tmp = *cp - '0';
 				if(tmp > 9)
@@ -148,12 +188,12 @@ int do_spi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		}
 	}
 
-	if ((bitlen < 0) || (bitlen >  (MAX_SPI_BYTES * 8))) {
+	if ((bitlen < 0) || ((bitlen >  (MAX_SPI_BYTES * 8) && (!use_addr)))) {
 		printf("Invalid bitlen %d\n", bitlen);
 		return 1;
 	}
 
-	if (do_spi_xfer(bus, cs))
+	if (do_spi_xfer(bus, cs, use_addr))
 		return 1;
 
 	return 0;

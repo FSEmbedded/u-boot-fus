@@ -8,28 +8,45 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-
+#ifdef __UBOOT__
 #include <config.h>
 #include <env.h>			/* env_get() */
 #include <command.h>			/* run_command() */
 #include <common.h>			/* types, get_board_name(), ... */
 #include <serial.h>			/* get_serial_device() */
-#include <stdio_dev.h>			/* DEV_NAME_SIZE */
+#include <stdio_dev.h>			/* STDIO_NAME_LEN */
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */
 #include <asm/arch/sys_proto.h>		/* is_mx6*() */
 #include <linux/delay.h>
+#if CONFIG_IS_ENABLED(MTD_RAW_NAND)
 #include <linux/mtd/rawnand.h>		/* struct mtd_info */
-#include <dm/uclass.h>				/* uclass_get_device() */
-#include "fs_board_common.h"		/* Own interface */
+#endif
+#include <dm/uclass.h>			/* uclass_get_device() */
 #include "fs_mmc_common.h"
 #ifdef CONFIG_FS_SELFTEST
 #include "fs_dram_test.h"
 #endif
 #include <fuse.h>			/* fuse_read() */
 #include <update.h>			/* enum update_action */
+#include "fs_fdt_common.h"
 
+#else
+
+#include <linux/kconfig.h>		/* Get kconfig macros only */
+#include <linux/bitops.h>		/* BITS_PER_LONG */
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>			/* strcmp() */
+
+#endif /* __UBOOT__ */
+
+#include "fs_board_common.h"		/* Own interface */
 #ifdef CONFIG_FS_BOARD_CFG
 #include "fs_image_common.h"		/* fs_image_*() */
+#endif
+
+#if CONFIG_IS_ENABLED(IMX_HAB)
+#include <asm/mach-imx/hab.h>
 #endif
 
 /* ============= Functions not available in SPL ============================ */
@@ -52,8 +69,8 @@ static char dram_result[64] = "FAILED (Not run)";
 #ifndef CONFIG_FS_BOARD_CFG
 
 /* Addresses of arguments coming from NBoot and going to Linux */
-#define NBOOT_ARGS_BASE (CONFIG_SYS_SDRAM_BASE + 0x00001000)
-#define BOOT_PARAMS_BASE (CONFIG_SYS_SDRAM_BASE + 0x100)
+#define NBOOT_ARGS_BASE (CFG_SYS_SDRAM_BASE + 0x00001000)
+#define BOOT_PARAMS_BASE (CFG_SYS_SDRAM_BASE + 0x100)
 
 #define ACTION_RECOVER 0x00000040	/* Start recovery instead of update */
 
@@ -142,6 +159,7 @@ const char *fs_board_get_nboot_version(void)
 }
 
 /* Set RAM size (as given by NBoot) and RAM base */
+#ifndef CONFIG_TARGET_FSIMX8M
 int dram_init(void)
 {
 	DECLARE_GLOBAL_DATA_PTR;
@@ -151,18 +169,22 @@ int dram_init(void)
 
 	return 0;
 }
+#endif
 
+#ifndef CONFIG_TARGET_FSIMX7ULP
 void board_nand_state(struct mtd_info *mtd, unsigned int state)
 {
 	/* Save state to pass it to Linux later */
 	nboot_args.chECCstate |= (unsigned char)state;
 }
+#endif
 #endif /* !CONFIG_FS_BOARD_CFG */
 
 /* ------------- Functions using BOARD-CFG --------------------------------- */
 
 #ifdef CONFIG_FS_BOARD_CFG
 
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 /* Get Pointer to struct cfg_info */
 struct cfg_info *fs_board_get_cfg_info(void)
 {
@@ -208,11 +230,13 @@ int board_phys_sdram_size(phys_size_t *size)
 
 	return 0;
 }
+#endif /* __UBOOT__ */
 
 #endif /* CONFIG_FS_BOARD_CFG */
 
 /* ------------- Generic functions ----------------------------------------- */
 
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 /* Issue reset signal on up to three gpios (~0: gpio unused) */
 void fs_board_issue_reset(uint active_us, uint delay_us,
 			  uint gpio0, uint gpio1, uint gpio2)
@@ -288,6 +312,10 @@ enum update_action board_check_for_recover(void)
 {
 	char *gpiodesc;
 
+	if (env_get_yesno("sec_boot") == 1) {
+		return UPDATE_ACTION_NONE;
+	}
+
 #ifndef CONFIG_FS_BOARD_CFG
 	/* On some platforms, the check for recovery is already done in NBoot.
 	   Then the ACTION_RECOVER bit in the dwAction value is set. */
@@ -317,6 +345,8 @@ enum update_action board_check_for_recover(void)
 void fs_board_init_common(const struct fs_board_info *board_info)
 {
 	DECLARE_GLOBAL_DATA_PTR;
+	__maybe_unused struct udevice *udev;
+
 #ifndef CONFIG_FS_BOARD_CFG
 	struct fs_nboot_args *pargs = (struct fs_nboot_args *)NBOOT_ARGS_BASE;
 
@@ -340,7 +370,7 @@ void fs_board_init_common(const struct fs_board_info *board_info)
 
 #ifdef CONFIG_IMX_TMU
 	/* Initialize thermal sensor */
-	uclass_get_device(UCLASS_THERMAL, 0, NULL);
+	uclass_get_device(UCLASS_THERMAL, 0, &udev);
 #endif
 }
 
@@ -412,9 +442,9 @@ void fs_board_late_init_common(const char *serial_name)
 	envvar = env_get("sercon");
 	if (!envvar || !strcmp(envvar, "undef")) {
 #ifdef CONFIG_DM_SERIAL
-		char sercon[DEV_NAME_SIZE];
+		char sercon[STDIO_NAME_LEN];
 
-		snprintf(sercon, DEV_NAME_SIZE, "%s%d", serial_name,
+		snprintf(sercon, STDIO_NAME_LEN, "%s%d", serial_name,
 			 serial_get_alias_seq());
 		env_set("sercon", sercon);
 #else
@@ -495,7 +525,7 @@ void fs_board_late_init_common(const char *serial_name)
 	/* Set usdhcdev variable if not already set */
 	envvar = env_get("usdhcdev");
 	if (!envvar || !strcmp(envvar, "undef")) {
-		char usdhcdev[DEV_NAME_SIZE];
+		char usdhcdev[STDIO_NAME_LEN];
 
 		sprintf(usdhcdev, "%c", '0' + usdhc_boot_device);
 		env_set("usdhcdev", usdhcdev);
@@ -504,7 +534,7 @@ void fs_board_late_init_common(const char *serial_name)
 	/* Set mmcdev variable if not already set */
 	envvar = env_get("mmcdev");
 	if (!envvar || !strcmp(envvar, "undef")) {
-		char mmcdev[DEV_NAME_SIZE];
+		char mmcdev[STDIO_NAME_LEN];
 
 		sprintf(mmcdev, "%c", '0' + mmc_boot_device);
 		env_set("mmcdev", mmcdev);
@@ -522,7 +552,7 @@ void fs_board_late_init_common(const char *serial_name)
 	setup_var("installcheck", current_bi->installcheck, 0);
 	setup_var("recovercheck", current_bi->recovercheck, 0);
 #endif
-#ifndef CONFIG_ARCH_MX7ULP
+#if CONFIG_IS_ENABLED(MTD_RAW_NAND)
 	setup_var("mtdids", MTDIDS_DEFAULT, 0);
 	setup_var("partition", MTDPART_DEFAULT, 0);
 #endif
@@ -563,11 +593,17 @@ void fs_board_late_init_common(const char *serial_name)
 	setup_var("network", current_bi->network, 1);
 	setup_var("init", current_bi->init, 1);
 	setup_var("bootfdt", "set_bootfdt", 1);
+	setup_var("fdtfile", "set_bootfdt", 1);
 	setup_var("bootargs", "set_bootargs", 1);
 #ifdef CONFIG_ARCH_MX7ULP
 	setup_var("bootauxfile", "power_mode_switch.img", 0);
 #endif
 
+	if (fs_board_is_closed()) {
+		env_set("sec_boot", "yes");
+	} else {
+		env_set("sec_boot", "no");
+	}
 
 	/* Set some variables by runnning another variable */
 #ifdef CONFIG_FS_UPDATE_SUPPORT
@@ -604,7 +640,6 @@ char *get_sys_prompt(void)
 {
 	return fs_sys_prompt;
 }
-
 #ifdef CONFIG_FS_SELFTEST
 /* Return dram_result for bdinfo */
 char *get_dram_result(void)
@@ -612,6 +647,7 @@ char *get_dram_result(void)
 	return dram_result;
 }
 #endif
+#endif /* __UBOOT__ */
 
 #endif /* ! CONFIG_SPL_BUILD */
 
@@ -661,7 +697,9 @@ const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
+#ifdef __UBOOT__
 #include <fdtdec.h>
+#endif
 
 #ifdef CONFIG_IMX8
 /* Definitions in boot_cfg (fuse bank 0, word 18) */
@@ -829,8 +867,6 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	force_alt_usdhc = val & BOOT_CFG_FORCE_ALT_USDHC;
 	alt = (val & BOOT_CFG_ALT_SEL_MASK) >> BOOT_CFG_ALT_SEL_SHIFT;
 	switch ((val & BOOT_CFG_DEVSEL_MASK) >> BOOT_CFG_DEVSEL_SHIFT) {
-	case 0x1: // USB0 / USB1
-		boot_dev = get_boot_device();
 	case 0x2: // eMMC(SD3)
 		boot_dev = MMC3_BOOT;
 		if (force_alt_usdhc)
@@ -848,6 +884,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 		boot_dev = NAND_BOOT;
 		break;
 
+	case 0x1: // USB0 / USB1
 	default:
 		break;
 	}
@@ -879,6 +916,243 @@ u32 fs_board_get_secondary_offset(void)
 	return val;
 }
 
-#endif /* CONFIG_IMX8 CONFIG_IMX8MM CONFIG_IMX8MN */
+#elif   defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
+/* Definitions in boot_cfg (fuse bank 3, word 0) */
+#define BOOT_CFG_BOOT_MODE_SHIFT 0
+#define BOOT_CFG_BOOT_MODE_MASK GENMASK(3, BOOT_CFG_BOOT_MODE_SHIFT)
+
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB (returned by spl_boot_device()), but is basically fused to boot from
+ * NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 boot_mode;
+
+	enum boot_device boot_dev = USB_BOOT;
+
+	/* boot_mode is in fuse bank 3, word 1 */
+	if (fuse_read(3, 0, &val)) {
+		puts("Error reading boot_cfg\n");
+		return boot_dev;
+	}
+
+	boot_mode = (val & BOOT_CFG_BOOT_MODE_MASK);
+
+	switch (boot_mode) {
+	case 0x2: // eMMC(USDHC1)
+		boot_dev = MMC1_BOOT;
+		break;	
+	case 0x3: // SD(USDHC2)
+		boot_dev = SD2_BOOT;
+		break;
+	case 0x4: // NOR(FLEXSPI)
+		boot_dev = FLEXSPI_BOOT;
+		break;
+	case 0x5: // NAND(FLEXSPI)
+		boot_dev = FLEXSPI_NAND_BOOT;
+		break;
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+#ifdef __UBOOT__ /* unused outside of u-boot and spl */
+#define IMG_CNTN_SET1_OFFSET_SHIFT 8
+#define IMG_CNTN_SET1_OFFSET_MASK GENMASK(15, IMG_CNTN_SET1_OFFSET_SHIFT)
+u32 fs_board_get_secondary_offset(void)
+{
+	u32 val;
+	unsigned long offset;
+
+
+	/* Secondary boot image offset is in fuse bank 3, word 8 */
+	if (fuse_read(3, 8, &val)) {
+		puts("Error reading secondary image offset from fuses\n");
+		return 0;
+	}
+
+	val &= IMG_CNTN_SET1_OFFSET_MASK;
+	val >>= IMG_CNTN_SET1_OFFSET_SHIFT;
+
+	/**
+	 *  TODO: Value CNT_N = 254 and CNT_N = 255 are currently not supported
+	 */
+	if (val == 0)
+		val = 2;
+	else if (val == 2 || val >= 10 )
+		val = 0;
+
+	val += 20;
+	offset = 1 << val;
+
+	return offset;
+}
+#endif /* __UBOOT__ */
+#elif defined(CONFIG_IMX8ULP)
+/* Definitions in boot_cfg (fuse bank 4, word 1) */
+#define BOOT_CFG_BOOT_TYPE_SHIFT	29
+#define BOOT_CFG_BOOT_TYPE_MASK		GENMASK(30, 29)
+#define BOOT_CFG_BOOT_IFACE_SHIFT 	26
+#define BOOT_CFG_BOOT_IFACE_MASK	GENMASK(28, 26)
+#define BOOT_CFG_BOOT_DEV_SHIFT 	25
+#define BOOT_CFG_BOOT_DEV_MASK		GENMASK(25, 25)
+
+/*
+ * Return the boot device as programmed in the fuses. This may differ from the
+ * currently active boot device. For example the board can currently boot from
+ * USB (returned by spl_boot_device()), but is basically fused to boot from
+ * NAND (returned here).
+ */
+enum boot_device fs_board_get_boot_dev_from_fuses(void)
+{
+	u32 val;
+	u32 boot_type;
+	u32 boot_iface;
+	u32 boot_devtype;
+
+	enum boot_device boot_dev = USB_BOOT;
+
+	if (fuse_read(4, 1, &val)) {
+		puts("Error reading boot_cfg\n");
+	 	return boot_dev;
+	}
+
+	boot_type = val & BOOT_CFG_BOOT_TYPE_MASK;
+	boot_type = boot_type >> BOOT_CFG_BOOT_TYPE_SHIFT;
+
+	boot_iface = val & BOOT_CFG_BOOT_IFACE_MASK;
+	boot_iface = boot_iface >> BOOT_CFG_BOOT_IFACE_SHIFT;
+
+	boot_devtype = val & BOOT_CFG_BOOT_DEV_MASK;
+	boot_devtype = boot_devtype >> BOOT_CFG_BOOT_DEV_SHIFT;
+
+	if(boot_type != 0x0)
+		goto non_usdhc;
+
+	boot_dev = SD1_BOOT;
+	boot_dev += boot_iface;
+
+	if(!boot_devtype)
+		boot_dev += MMC1_BOOT - SD1_BOOT;
+
+	return boot_dev;
+
+	non_usdhc:
+	switch (boot_type) {
+	case 0x1: // NAND(FLEXSPI)
+	 	boot_dev = FLEXSPI_NAND_BOOT;
+	 	break;
+	case 0x2: // NOR(FLEXSPI)
+	 	boot_dev = FLEXSPI_BOOT;
+	 	break;
+	default:
+		break;
+	}
+
+	return boot_dev;
+}
+
+u32 fs_board_get_secondary_offset(void)
+{
+	/**
+	 *  TODO: There is no description for secondary cntr offset on mmc
+	 * devices
+	 */
+	return 0;
+}
+#endif
 
 #endif /* CONFIG_FS_BOARD_CFG */
+
+//TODO: not used in linux because of missing functionality. Will  be activated
+//      when possible.
+#ifdef __UBOOT__
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+static bool imx_ele_ahab_is_enabled(void)
+{
+	u32 lc;
+
+	lc = readl(FSB_BASE_ADDR + 0x41c);
+	lc &= 0x3ff;
+	
+	// if lc != 0x8 then lifecycle is not OEM open
+	return !!(lc != 0x8);
+}
+#endif
+#endif /* __UBOOT__ */
+
+//TODO: not used in linux because of missing functionality. Will  be activated
+//      when possible.
+bool fs_board_is_closed(void)
+{
+#ifdef __UBOOT__
+#if CONFIG_IS_ENABLED(AHAB_BOOT)
+	return imx_ele_ahab_is_enabled();
+#elif CONFIG_IS_ENABLED(IMX_HAB)
+	return imx_hab_is_enabled();
+#else
+	return false;
+#endif
+#else
+	return false;
+#endif /* __UBOOT__ */
+}
+
+#ifdef __UBOOT__
+__weak int fs_board_cma_fdt_fixup(void * fdt)
+{
+	const char *cma_env;
+	int cma_value;
+	int env_len;
+	int size_shift;
+	int offs;
+	fdt32_t tmp[2];
+
+	cma_env = env_get("cma_size");
+
+	/*
+	 * Set linux,cma size depending on RAM size. Keep default from
+	 * device tree if DRAM_SIZE <= 1GB, increase to 640MB otherwise.
+	 */
+	if ((!cma_env || !*cma_env) && gd->ram_size > (1UL << 30)){
+		/* Set cma size to 640MB */
+		cma_env = "640M";
+	}
+
+	if (!cma_env || !*cma_env)
+		return -EINVAL;
+
+	env_len = strlen(cma_env);
+
+	/*convert cma_env to int value, first get identifier M/G and make str to ul*/
+	if(cma_env[env_len - 1] == 'M' || cma_env[env_len - 1] == 'm') {
+		size_shift = 20; /* M */
+	} else if (cma_env[env_len - 1] == 'G' || cma_env[env_len - 1] == 'g') {
+		size_shift = 30; /* G */
+	} else {
+		printf("Invalid cma size %s, cma_size=nn[M|G]\n", cma_env);
+		return -EINVAL;
+	}
+
+	cma_value = simple_strtoul(cma_env, NULL, 10);
+	debug("cma_value = %d, size_shift = %d\n", cma_value, size_shift);
+
+	tmp[0] = cpu_to_fdt32(0x0);
+	tmp[1] = cpu_to_fdt32(cma_value << size_shift);
+
+	offs = fs_fdt_path_offset(fdt, "/reserved-memory/linux,cma");
+	if (offs < 0) {
+		printf("Failed to find /reserved-memory/linux,cma in device tree\n");
+		return offs;
+	}
+
+	fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
+	return 0;
+}
+#endif /* __UBOOT__ */

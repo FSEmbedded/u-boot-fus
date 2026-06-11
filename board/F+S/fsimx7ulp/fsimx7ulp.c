@@ -444,7 +444,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 	 */
 	if (pargs->dwMemSize >= 1023)	{
 		offs = fs_fdt_path_offset(fdt, FDT_CMA);
-		fs_fdt_set_u32(fdt, offs, "size", 0x10000000, 1);
+		fs_fdt_set_u32(fdt, offs, "size", 0x10000000, 1, true);
 	}
 
 	return 0;

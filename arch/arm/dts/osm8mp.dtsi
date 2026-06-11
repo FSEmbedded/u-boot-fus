@@ -20,8 +20,6 @@
 #define FS_LINUX_VERSION ""
 / {
 	mipi_csi_0: mipi_csi_0 {};
-	sai2: sai2 {};
-	sai3: sai3 {};
 };
 #endif
 
@@ -467,10 +465,7 @@ osm_usb_b
 
 #ifdef CONFIG_OSM8MP_ETH_A
 &osm_eth_a {
-	/delete-property/ assigned-clocks;
-	/delete-property/ assigned-clock-parents;
-	/delete-property/ assigned-clock-rates;
-	compatible = "fsl,imx-eqos";
+	compatible = "nxp,imx8mp-dwmac-eqos";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_osm_eth_a>;
 	snps,force_thresh_dma_mode;
@@ -1498,11 +1493,7 @@ osm_usb_b
 #ifdef CONFIG_OSM8MP_USB_A
 	pinctrl_osm_usb_a: usb1grp {
 		fsl,pins = <
-#if 0
 			MX8MP_IOMUXC_GPIO1_IO12__USB1_PWR	0x4
-#else
-			MX8MP_IOMUXC_GPIO1_IO12__USB1_OTG_PWR	0x4
-#endif
 		>;
 	};
 #endif

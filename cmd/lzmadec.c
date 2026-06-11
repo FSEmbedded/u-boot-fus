@@ -27,7 +27,7 @@ static int do_lzmadec(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	switch (argc) {
 	case 4:
-		dst_len = simple_strtoul(argv[3], NULL, 16);
+		dst_len = hextoul(argv[3], NULL);
 		/* fall through */
 	case 3:
 		src = parse_loadaddr(argv[1], NULL);

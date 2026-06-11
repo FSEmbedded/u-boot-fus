@@ -722,7 +722,7 @@ int set_lvds_clk(void *addr, unsigned int di, unsigned int ldb_di,
 		tmp_khz = (pll_base_clock * 18 + divider/2) / divider;
 		if (!freq_is_accurate(tmp_khz, freq_khz))
 			divider = 0;	/* Result exceeds requested accuracy */
-		}
+	}
 
 	if (divider) {
 		/* PLL2_PFDn is OK, set clock divider and ungate PFD */
@@ -740,7 +740,7 @@ int set_lvds_clk(void *addr, unsigned int di, unsigned int ldb_di,
 		if (ret) {
 			printf("Can not set display freq %ukHz\n", freq_khz);
 			return ret;	/* Not possible with PLL5 */
-	}
+		}
 		enable_video_pll();
 	}
 
@@ -816,20 +816,8 @@ void enable_qspi_clk(int qspi_num)
 }
 #endif
 
-#if defined(CONFIG_VIDEO_GIS)
-void mxs_set_vadcclk()
-{
-	u32 reg = 0;
-
-	reg = readl(&imx_ccm->cscmr2);
-	reg &= ~MXC_CCM_CSCMR2_VID_CLK_SEL_MASK;
-	reg |= 0x19 << MXC_CCM_CSCMR2_VID_CLK_SEL_OFFSET;
-	writel(reg, &imx_ccm->cscmr2);
-}
-#endif
-
 #ifdef CONFIG_FEC_MXC
-int enable_fec_anatop_clock(int fec_id, enum enet_freq freq)
+int enable_fec_anatop_clock_ref(int fec_id, enum enet_freq freq, bool ref_en)
 {
 	u32 reg = 0;
 	s32 timeout = 100000;
@@ -873,9 +861,8 @@ int enable_fec_anatop_clock(int fec_id, enum enet_freq freq)
 	else
 		reg |= BM_ANADIG_PLL_ENET2_ENABLE;
 	reg &= ~BM_ANADIG_PLL_ENET_BYPASS;
-#ifdef CONFIG_FEC_MXC_25M_REF_CLK
-	reg |= BM_ANADIG_PLL_ENET_REF_25M_ENABLE;
-#endif
+	if (ref_en)
+		reg |= BM_ANADIG_PLL_ENET_REF_25M_ENABLE;
 	writel(reg, &anatop->pll_enet);
 
 #ifdef CONFIG_MX6SX
@@ -905,6 +892,12 @@ int enable_fec_anatop_clock(int fec_id, enum enet_freq freq)
 	writel(reg, &imx_ccm->CCGR3);
 #endif
 	return 0;
+}
+
+
+int enable_fec_anatop_clock(int fec_id, enum enet_freq freq)
+{
+	return enable_fec_anatop_clock_ref(fec_id, freq, false);
 }
 #endif
 
@@ -1083,12 +1076,12 @@ int enable_pcie_clock(void)
 	if (!is_mx6sx()) {
 	/* Party time! Ungate the clock to the PCIe. */
 #if defined(CONFIG_SATA) || defined(CONFIG_IMX_AHCI)
-	ungate_sata_clock();
+		ungate_sata_clock();
 #endif
-	ungate_pcie_clock();
+		ungate_pcie_clock();
 
-	return enable_enet_pll(BM_ANADIG_PLL_ENET_ENABLE_SATA |
-			       BM_ANADIG_PLL_ENET_ENABLE_PCIE);
+		return enable_enet_pll(BM_ANADIG_PLL_ENET_ENABLE_SATA |
+				       BM_ANADIG_PLL_ENET_ENABLE_PCIE);
 	} else {
 		/* Party time! Ungate the clock to the PCIe. */
 		ungate_disp_axi_clock();
@@ -1166,6 +1159,7 @@ void enable_thermal_clk(void)
 	enable_pll3();
 }
 
+#ifdef CONFIG_MTD_NOR_FLASH
 void enable_eim_clk(unsigned char enable)
 {
 	u32 reg;
@@ -1177,6 +1171,7 @@ void enable_eim_clk(unsigned char enable)
 		reg &= ~MXC_CCM_CCGR6_EMI_SLOW_MASK;
 	__raw_writel(reg, &imx_ccm->CCGR6);
 }
+#endif
 
 unsigned int mxc_get_clock(enum mxc_clock clk)
 {

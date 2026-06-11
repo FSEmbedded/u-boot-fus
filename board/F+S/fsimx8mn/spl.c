@@ -34,6 +34,10 @@
 #include "../common/fs_board_common.h"	/* fs_board_*() */
 #include "../common/fs_mmc_common.h"	/* struct fs_mmc_cd, fs_mmc_*(), ... */
 
+#ifdef CONFIG_FSL_CAAM
+#include <fsl_sec.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define BT_PICOCOREMX8MN 0x0
@@ -348,11 +352,10 @@ static void fs_board_early_init(void)
 
 static void mmc_get_parts(void)
 {
-	if(uboot_offs == uboot_offs_redundant){
+	if (uboot_offs == uboot_offs_redundant){
 		uboot_part = 1;
 		uboot_part_redundant = 2;
-	}
-	else{
+	} else {
 		uboot_part = 0;
 		uboot_part_redundant = 0;
 	}
@@ -406,16 +409,13 @@ static void basic_init(const char *layout_name)
 	boot_dev_name = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
 	boot_dev = fs_board_get_boot_dev_from_name(boot_dev_name);
 
-	printf("BOARD-ID: %s\n", fs_image_get_board_id());
+	printf("BOARD-ID:   %s\n", fs_image_get_board_id());
 
 	/* Get U-Boot offset; not necessary in SDP mode */
 	if (layout_name) {
 		int layout;
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-		index = 0;		/* ### TODO: Select slot A or B */
-#else
+
 		index = 0;
-#endif
 		offs = fs_image_get_nboot_info_offs(fdt);
 		layout = fdt_subnode_offset(fdt, offs, layout_name);
 		uboot_offs = fdt_getprop_u32_default_node(fdt, layout, index,
@@ -439,7 +439,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	int part = 0;
 
-	if(uboot_try == 0)
+	if (uboot_try == 0)
 		part = uboot_part;
 	else
 		part = uboot_part_redundant;
@@ -447,7 +447,7 @@ int spl_mmc_emmc_boot_partition(struct mmc *mmc)
 	return part;
 }
 
-static int check_if_secondary(void)
+int check_if_secondary(void)
 {
 	uint32_t * csf_addr = (uint32_t *)*(uint32_t**)(CONFIG_SPL_TEXT_BASE - 0x28);
 	uint32_t * copy_addr = csf_addr - 1;
@@ -545,6 +545,11 @@ void spl_board_init(void)
 		restore_boot_params();
 	}
 #endif
+
+	if (IS_ENABLED(CONFIG_FSL_CAAM)) {
+		if (sec_init())
+			printf("\nsec_init failed!\n");
+	}
 	debug("Normal Boot\n");
 }
 
@@ -555,11 +560,12 @@ uint32_t spl_nand_get_uboot_raw_page(void)
 }
 
 /* Return the sector number where U-Boot starts in eMMC (User HW partition) */
-unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
+unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+					   unsigned long raw_sect)
 {
 	int offs;
 
-	if(uboot_try == 0)
+	if (uboot_try == 0)
 		offs = uboot_offs / 512;
 	else
 		offs = uboot_offs_redundant / 512;

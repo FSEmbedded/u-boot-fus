@@ -37,26 +37,8 @@
 /*****************************************************************************
  * High Level Configuration Options
  *****************************************************************************/
-#undef CONFIG_MP			/* No multi processor support */
-
-/*####define CONFIG_IMX_THERMAL*/	/* Read CPU temperature */
-
 /*### TODO: check if needed NXP specific mx7ulp_evk */
-#define CONFIG_SYS_HZ_CLOCK	1000000 /* Fixed at 1Mhz from TSTMR */
-
-#define CONFIG_BOARD_POSTCLK_INIT
-#define CONFIG_SYS_BOOTM_LEN	0x1000000
-
-/*### TODO: check if needed F&S specific */
-/* #ifndef CONFIG_SYS_L2CACHE_OFF*/
-/*#define CONFIG_SYS_L2_PL310*/
-/*#define CONFIG_SYS_PL310_BASE	L2_PL310_BASE
- * */
-/*#endif*/
-/*### TODO: check if needed NXP specific */
-#ifndef CONFIG_SYS_DCACHE_OFF
-#define CONFIG_CMD_CACHE
-#endif
+#define CFG_SYS_HZ_CLOCK	1000000 /* Fixed at 1Mhz from TSTMR */
 
 /* set Cortex-A7 specific addresses */
 #define SRC_BASE_ADDR		CMC1_RBASE
@@ -66,24 +48,8 @@
 /* Using ULP WDOG for reset */
 #define WDOG_BASE_ADDR		WDG1_RBASE
 
-/*### TODO: check if needed F&S specific */
-#undef CONFIG_SKIP_LOWLEVEL_INIT	/* Lowlevel init handles ARM errata */
-#undef CONFIG_USE_IRQ			/* For blinking LEDs */
-/*#define CONFIG_SYS_LONGHELP*/		/* Undef to save memory */
-
-#undef CONFIG_LOGBUFFER			/* No support for log files */
-
-/* The load address of U-Boot is now independent from the size. Just load it
-   at some rather low address in RAM. It will relocate itself to the end of
-   RAM automatically when executed. */
-/* set by defconfig */
-/*#define CONFIG_SYS_TEXT_BASE	0x67800000*/
-
-#define CONFIG_SYS_LOAD_ADDR	0x60800000
-#define CONFIG_BOARD_SIZE_LIMIT 0xC0000	/* max size of u-boot-dtb.imx */
-
 /* Define U-Boot offset in emmc */
-#define CONFIG_SYS_MMC_U_BOOT_START 0x00000400
+#define CFG_SYS_MMC_U_BOOT_START 0x00000400
 
 /*****************************************************************************
  * Memory Layout
@@ -91,39 +57,15 @@
 /* Physical addresses of DDR and CPU-internal SRAM */
 #define PHYS_SDRAM		0x60000000ul
 #define PHYS_SDRAM_SIZE		SZ_1G
-#define CONFIG_SYS_SDRAM_BASE	PHYS_SDRAM
+#define CFG_SYS_SDRAM_BASE	PHYS_SDRAM
 
 /* MX7ULP has 256KB SRAM, mapped from 0x2F000000-0x2F03FFFF */
-#define CONFIG_SYS_INIT_RAM_ADDR	(IRAM_BASE_ADDR)
-#define CONFIG_SYS_INIT_RAM_SIZE	SZ_256K
+#define CFG_SYS_INIT_RAM_ADDR	(IRAM_BASE_ADDR)
+#define CFG_SYS_INIT_RAM_SIZE	SZ_256K
 
 /* Init value for stack pointer, set at end of internal SRAM, keep room for
    global data behind stack. */
-#define CONFIG_SYS_INIT_SP_OFFSET \
-	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
-#define CONFIG_SYS_INIT_SP_ADDR \
-	(CONFIG_SYS_INIT_RAM_ADDR + CONFIG_SYS_INIT_SP_OFFSET)
-
-/* Size of malloc() pool (heap). The size should be large enough to
-   contain a copy of the environment. */
-#define CONFIG_SYS_MALLOC_LEN	(8 * SZ_1M)
-
-/* Allocate 2048KB protected RAM at end of RAM (device tree, etc.) */
-/*### TODO: check if needed F&S specific */
-/*#define CONFIG_PRAM		2048 */
-
-/* If environment variable fdt_high is not set, then the device tree is
-   relocated to the end of RAM before booting Linux. In this case do not go
-   beyond RAM offset 0x6f800000. Otherwise it will not fit into Linux' lowmem
-   region anymore and the kernel will hang when trying to access the device
-   tree after it has set up its final page table. */
-/*### TODO: check if needed F&S specific*/
-/*#define CONFIG_SYS_BOOTMAPSZ	0x6f800000*/
-
-#ifdef CONFIG_USE_IRQ
-#define CONFIG_STACKSIZE_IRQ	(4*1024)
-#define CONFIG_STACKSIZE_FIQ	(128)
-#endif
+#define CFG_SYS_INIT_SP_OFFSET (CFG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
 
 
 /*****************************************************************************
@@ -146,29 +88,13 @@
  * Serial Console (UART)
  *****************************************************************************/
 #define LPUART_BASE		LPUART4_RBASE
-#define CONFIG_SYS_UART_PORT	1	/* Default UART port */
-#define CONFIG_CONS_INDEX       (CONFIG_SYS_UART_PORT)
+#define CFG_SYS_UART_PORT	1	/* Default UART port */
+#define CONFIG_CONS_INDEX       (CFG_SYS_UART_PORT)
 
 
 /*****************************************************************************
  * I2C
  *****************************************************************************/
-/* ### TODO: check if needed F&S specific */
-/*#define CONFIG_SYS_I2C*/
-/*#define CONFIG_SYS_I2C_SOFT*/
-/*#define CONFIG_SOFT_I2C_GPIO_SCL	IMX_GPIO_NR(5, 9)*/
-/*#define CONFIG_SOFT_I2C_GPIO_SDA	IMX_GPIO_NR(5, 8)*/
-/*#define CONFIG_SYS_I2C_SOFT_SPEED	50000*/
-/*#define CONFIG_SYS_I2C_SOFT_SLAVE       0*/
-/*#define CONFIG_SOFT_I2C_READ_REPEATED_START*/
-/*#define CONFIG_SYS_SPD_BUS_NUM		0*/
-
-/* ###TODO###
- * #define CONFIG_CMD_I2C
- * #define CONFIG_SYS_I2C_MXC
- * #define CONFIG_SYS_I2C_SPEED	100000
- * #define CONFIG_SYS_SPD_BUS_NUM	1
- */
 
 
 /*****************************************************************************
@@ -203,32 +129,24 @@
 /* Use USB1 as host */
 /* ### TODO: check if needed F&S specific */
 /* #define CONFIG_USB_EHCI_POWERDOWN */	/* Shut down VBUS power on usb stop */
-#define CONFIG_MXC_USB_PORTSC (PORT_PTS_UTMI | PORT_PTS_PTW)
 #define CONFIG_USB_MAX_CONTROLLER_COUNT 1
-/*#define CONFIG_SYS_USB_EHCI_MAX_ROOT_PORTS 1*/ /* One port per controller */
-/*#define CONFIG_EHCI_IS_TDI*/		/* TDI version with USBMODE register */
 
 
 /*****************************************************************************
  * USB Device
  *****************************************************************************/
-#define CONFIG_INTERRUPTS
 
 
 /*****************************************************************************
  * Keyboard
  *****************************************************************************/
-#if 0
-#define CONFIG_USB_KEYBOARD
-#define CONFIG_SYS_DEVICE_DEREGISTER	/* Required for CONFIG_USB_KEYBOARD */
-#endif
 
 
 /*****************************************************************************
  * SD/MMC Card, eMMC
  *****************************************************************************/
-#define CONFIG_SYS_FSL_ESDHC_ADDR 	0
-#define CONFIG_SYS_FSL_USDHC_NUM       	1
+#define CFG_SYS_FSL_ESDHC_ADDR 	0
+#define CFG_SYS_FSL_USDHC_NUM   1
 
 
 /*****************************************************************************
@@ -241,10 +159,10 @@
  * SPI Flash
  *****************************************************************************/
 #ifdef CONFIG_FSL_QSPI
-#define FSL_QSPI_FLASH_NUM	1
-#define FSL_QSPI_FLASH_SIZE	SZ_64M
-#define QSPI0_BASE_ADDR		0x410A5000
-#define QSPI0_AMBA_BASE		0xC0000000
+//####define FSL_QSPI_FLASH_NUM	1
+//####define FSL_QSPI_FLASH_SIZE	SZ_64M
+//####define QSPI0_BASE_ADDR		0x410A5000
+//####define QSPI0_AMBA_BASE		0xC0000000
 #endif
 
 /*****************************************************************************
@@ -255,19 +173,6 @@
 /*****************************************************************************
  * Command Line Editor (Shell)
  *****************************************************************************/
-#ifdef CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
-#endif
-/* Allow editing (scroll between commands, etc.) */
-/* #define CONFIG_CMDLINE_EDITING
-#define CONFIG_AUTO_COMPLETE */
-
-/* Input and print buffer sizes */
-#define CONFIG_SYS_CBSIZE	512	/* Console I/O Buffer Size */
-#define CONFIG_SYS_PBSIZE       (CONFIG_SYS_CBSIZE + \
-				 sizeof(CONFIG_SYS_PROMPT) + 16)
-#define CONFIG_SYS_MAXARGS	16	/* max number of command args */
-#define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE /* Boot Arg Buffer Size */
 
 
 /*****************************************************************************
@@ -302,9 +207,6 @@
  * Network Options
  *****************************************************************************/
 /* ### TODO: check if needed - for network on variables */
-#define CONFIG_BOOTP_SEND_HOSTNAME
-#define CONFIG_NET_RETRY_COUNT	5
-#define CONFIG_ARP_TIMEOUT	2000UL
 
 
 /*****************************************************************************
@@ -331,17 +233,6 @@
  * is held in the heap, so keep the real size small to not waste malloc space.
  * We could activate CONFIG_SYS_REDUNDAND_ENVIRONMENT, this would make sense.
  */
-#define CONFIG_ENV_OVERWRITE			/* Allow overwriting ethaddr */
-
-#define CONFIG_ETHPRIME		"usb_ether"
-#define CONFIG_NETMASK		255.255.255.0
-#define CONFIG_IPADDR		192.168.137.2
-#define CONFIG_SERVERIP		10.0.0.122
-#define CONFIG_GATEWAYIP	192.168.137.1
-#define CONFIG_BOOTFILE		"zImage"
-#define CONFIG_ROOTPATH		"/rootfs"
-#define CONFIG_PREBOOT
-#define CONFIG_BOOTCOMMAND	"run set_bootargs; run auxcore; run kernel; run fdt"
 
 /* Add some variables that are not predefined in U-Boot. For example set
    fdt_high to 0xffffffff to avoid that the device tree is relocated to the

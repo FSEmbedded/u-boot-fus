@@ -55,7 +55,7 @@
 			regulator-name = "OTG1";
 			regulator-min-microvolt = <5000000>;
 			regulator-max-microvolt = <5000000>;
-			gpio = <&gpio2 15 GPIO_ACTIVE_LOW>;
+			gpio = <&gpio_pte 15 GPIO_ACTIVE_LOW>;
 		};
 
 		reg_vsd_3v3: regulator@1 {
@@ -72,7 +72,7 @@
 		compatible = "linux,extcon-usb-gpio";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_extcon_usb1>;
-		id-gpio = <&gpio0 13 GPIO_ACTIVE_HIGH>;
+		id-gpio = <&gpio_ptc 13 GPIO_ACTIVE_HIGH>;
 	};
 
 	pf1550-rpmsg {
@@ -171,9 +171,11 @@
 	status = "okay";
 };
 
+#if 0 //### FIXME: This does no longer exist in u-boot-2023.04
 &rpmsg{
 	status = "okay";
 };
+#endif
 
 &usbotg1 {
 	dr_mode = "otg";
@@ -203,7 +205,7 @@
 	pinctrl-1 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
 	pinctrl-2 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
 	pinctrl-3 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
-	cd-gpios = <&gpio2 13 GPIO_ACTIVE_HIGH>;
+	cd-gpios = <&gpio_pte 13 GPIO_ACTIVE_HIGH>;
 	vmmc-supply = <&reg_vsd_3v3>;
 	vqmmc-supply = <&reg_vsd_3v3>;
 	status = "okay";

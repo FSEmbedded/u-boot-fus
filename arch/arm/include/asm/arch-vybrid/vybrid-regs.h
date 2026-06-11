@@ -146,6 +146,9 @@
 
 #if !(defined(__KERNEL_STRICT_NAMES) || defined(__ASSEMBLY__))
 #include <asm/types.h>
+#include <stdbool.h>
+
+bool is_boot_from_usb(void);
 
 #define __REG(x)		(*((volatile u32 *)(x)))
 #define __REG16(x)		(*((volatile u16 *)(x)))

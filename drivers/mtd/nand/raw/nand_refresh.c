@@ -126,6 +126,7 @@
 #include <linux/errno.h>
 #include <linux/mtd/mtd.h>
 #include <nand.h>
+#include <linux/mtd/rawnand.h>		/* NAND_MAX_PAGESIZE/OOBSIZE, ... */
 
 typedef struct erase_info erase_info_t;
 typedef struct mtd_info	  mtd_info_t;

@@ -245,6 +245,15 @@ enum boot_device fs_board_get_boot_dev(void)
 	return NAND_BOOT;
 }
 
+/* We dont want to use the common "is_usb_boot" function, which returns true
+ * if we are e.g. transfer an U-Boot via NetDCU-USB-Loader in N-Boot and
+ * execute the image. We booted from fuse so fuse should be checked and not
+ * some flags. Therefore we return always false.
+ */
+bool is_boot_from_usb(void) {
+	return false;
+}
+
 /* Check board type */
 int checkboard(void)
 {
@@ -465,7 +474,7 @@ int board_late_init(void)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 
-#ifdef CONFIG_CMD_NET
+#ifdef CONFIG_FEC_MXC
 static void fecpin_config(uint32_t enet_addr)
 {
 	/*
@@ -732,7 +741,7 @@ int board_eth_init(struct bd_info *bis)
 	/* Probe second PHY and ethernet port */
 	return fecmxc_initialize_multi_type(bis, 1, phy_addr, enet_addr, RMII);
 }
-#endif /* CONFIG_CMD_NET */
+#endif /* CONFIG_FEC_MXC */
 
 /* Get board revision */
 unsigned int get_board_rev(void)
@@ -887,8 +896,10 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 
 	/* Set ECC mode for NAND driver */
 	offs = fs_fdt_path_offset(fdt, FDT_NAND);
-	if (offs >= 0)
-		fs_fdt_set_u32(fdt, offs, "fus,ecc_mode", pargs->chECCtype, 1);
+	if (offs >= 0) {
+		fs_fdt_set_u32(fdt, offs, "fus,ecc_mode", pargs->chECCtype,
+			       1, true);
+	}
 
 	/* Set bdinfo entries */
 	offs = fs_fdt_path_offset(fdt, "/bdinfo");
@@ -930,6 +941,8 @@ void board_preboot_os(void)
 	fs_disp_set_power_all(0);
 #endif
 
+#ifdef CONFIG_FEC_MXC
 	/* Shut down all ethernet PHYs (suspend mode) */
 	mdio_shutdown_all();
+#endif
 }

@@ -14,7 +14,7 @@
 #ifdef CONFIG_OF_BOARD_SETUP
 
 #include <common.h>			/* types, get_board_name(), ... */
-#include <version.h>			/* version_string[] */
+#include <version_string.h>		/* version_string[] */
 #include <cli.h>			/* get_board_name() */
 #include <net.h>			/* eth_env_get_enetaddr_by_index() */
 #include <fdt_support.h>		/* do_fixup_by_path_u32(), ... */
@@ -28,7 +28,7 @@
 
 /* Set a generic value, if it was not already set in the device tree */
 void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
-		    int len, int force)
+		    int len, int force, bool verbose)
 {
 	int err;
 
@@ -38,9 +38,11 @@ void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
 
 	/* Warn if property already exists in device tree */
 	if (fdt_get_property(fdt, offs, name, NULL) != NULL) {
-		printf("## %s property %s/%s from device tree!\n",
-		       force ? "Overwriting": "Keeping",
-		       fdt_get_name(fdt, offs, NULL), name);
+		if(verbose) {
+			printk("## %s property %s/%s from device tree!\n",
+			       force ? "Overwriting": "Keeping",
+			       fdt_get_name(fdt, offs, NULL), name);
+		}
 		if (!force)
 			return;
 	}
@@ -56,7 +58,7 @@ void fs_fdt_set_val(void *fdt, int offs, const char *name, const void *val,
 void fs_fdt_set_string(void *fdt, int offs, const char *name, const char *str,
 		       int force)
 {
-	fs_fdt_set_val(fdt, offs, name, str, strlen(str) + 1, force);
+	fs_fdt_set_val(fdt, offs, name, str, strlen(str) + 1, force, true);
 }
 
 /* Set a u32 value as a string (usually for bdinfo) */
@@ -70,16 +72,17 @@ void fs_fdt_set_u32str(void *fdt, int offs, const char *name, u32 val,
 }
 
 /* Set a u32 value */
-void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force)
+void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force, bool verbose)
 {
 	fdt32_t tmp = cpu_to_fdt32(val);
 
-	fs_fdt_set_val(fdt, offs, name, &tmp, sizeof(tmp), force);
+	fs_fdt_set_val(fdt, offs, name, &tmp, sizeof(tmp), force, verbose);
 }
 
 /* Set ethernet MAC address aa:bb:cc:dd:ee:ff for given index */
 void fs_fdt_set_macaddr(void *fdt, int offs, int id)
 {
+#ifdef CONFIG_NET
 	uchar enetaddr[6];
 	char name[10];
 	char str[20];
@@ -89,11 +92,13 @@ void fs_fdt_set_macaddr(void *fdt, int offs, int id)
 		sprintf(str, "%pM", enetaddr);
 		fs_fdt_set_string(fdt, offs, name, str, 1);
 	}
+#endif
 }
 
 /* Set MAC address in bdinfo as MAC_WLAN and in case of Silex as Silex-MAC */
 void fs_fdt_set_wlan_macaddr(void *fdt, int offs, int id, int silex)
 {
+#ifdef CONFIG_NET
 	uchar enetaddr[6];
 	char str[30];
 
@@ -107,6 +112,7 @@ void fs_fdt_set_wlan_macaddr(void *fdt, int offs, int id, int silex)
 			fs_fdt_set_string(fdt, offs, "Silex-MAC", str, 1);
 		}
 	}
+#endif
 }
 
 /* If environment variable exists, set a string property with the same name */
@@ -119,12 +125,21 @@ void fs_fdt_set_getenv(void *fdt, int offs, const char *name, int force)
 		fs_fdt_set_string(fdt, offs, name, str, force);
 }
 
-/* Open a node, warn if the node does not exist */
+/**
+ *  return offset via path, alias or __symbols__
+ */
 int fs_fdt_path_offset(void *fdt, const char *path)
 {
 	int offs;
 
 	offs = fdt_path_offset(fdt, path);
+
+	/* look in __symbols__ for given name */
+	if(offs < 0 && *path != '/') {
+		path = fdt_get_symbol(fdt, path);
+		offs = fdt_path_offset(fdt, path);
+	}
+
 	if (offs < 0) {
 		printf("## Can not access node %s: err=%s\n",
 		       path, fdt_strerror(offs));
@@ -133,14 +148,28 @@ int fs_fdt_path_offset(void *fdt, const char *path)
 	return offs;
 }
 
-/* Enable or disable node given by path, overwrite any existing status value */
-int fs_fdt_enable(void *fdt, const char *path, int enable)
+/**
+ * Enable or disable node given by path, alias, or __symbols__.
+ * This will overwrite the status property.
+ * @fdt: pointer to the device tree blob
+ * @path: full path or name of the node to locate
+ * @enable: if set, then status = "okay", else "disabled"
+ * Return: 0 if succesed, else -FDT_ERR
+ */
+int fs_fdt_enable(void *fdt, const char *path, bool enable)
 {
 	int offs, err, len;
 	const void *val;
 	char *str = enable ? "okay" : "disabled";
 
 	offs = fdt_path_offset(fdt, path);
+
+	/* look in __symbols__ for given name */
+	if(offs < 0 && *path != '/') {
+		path = fdt_get_symbol(fdt, path);
+		offs = fdt_path_offset(fdt, path);
+	}
+
 	if (offs < 0)
 		return offs;
 
@@ -208,7 +237,9 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);
 	fs_fdt_set_getenv(fdt, offs, "platform", 0);
 	fs_fdt_set_getenv(fdt, offs, "arch", 1);
-#ifndef CONFIG_ARCH_IMX8
+#if !CONFIG_IS_ENABLED(ARCH_IMX8) && \
+	!CONFIG_IS_ENABLED(ARCH_IMX9) && \
+	!CONFIG_IS_ENABLED(ARCH_IMX8ULP)
 	fs_fdt_set_string(fdt, offs, "reset_cause", get_reset_cause(), 1);
 #endif
 	fs_fdt_set_string(fdt, offs, "nboot_version",

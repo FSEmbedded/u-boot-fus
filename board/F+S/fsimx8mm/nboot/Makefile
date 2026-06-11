@@ -1,7 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0+
 #
-# Copyright 2020 F&S Elektronik Systeme GmbH
-#
-# SPDX-License-Identifier:      GPL-2.0+
+# Copyright 2025 F&S Elektronik Systeme GmbH
 #
 
 include spl/include/autoconf.mk
@@ -9,7 +8,7 @@ include spl/include/autoconf.mk
 # NBoot version with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_VERSION = 2024.09.4
+NBOOT_VERSION = 2026.03.1
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
 # names given in the Selectsoft WaWi for the board, without the PCB revision.
@@ -32,6 +31,7 @@ BOARD_CONFIGS = \
 	PCoreMX8MM-FERT18.fs \
 	PCoreMX8MM-FERT20.fs \
 	PCoreMX8MM-FERT22.fs \
+	PCoreMX8MM-FERT25.fs \
 	PCoreMX8MMr2-FERT2.fs \
 	PCoreMX8MMr2-FERT3.fs \
 	PCoreMX8MMr2-FERT4.fs \
@@ -48,6 +48,9 @@ BOARD_CONFIGS = \
 	PCoreMX8MMr2-FERT23.fs \
 	PCoreMX8MMr2-FERT24.fs \
 	PCoreMX8MMr2-FERT25.fs \
+	PCoreMX8MMr2-FERT26.fs \
+	PCoreMX8MMr2-FERT27.fs \
+	PCoreMX8MMr2-FERT28.fs \
 	PCoreMX8MX-FERT5.fs \
 	PCoreMX8MX-FERT6.fs \
 	PCoreMX8MX-FERT7.fs \
@@ -55,6 +58,7 @@ BOARD_CONFIGS = \
 	PCoreMX8MX-FERT17.fs \
 	OSM8MM-FERT1.fs \
 	OSM8MM-FERT2.fs \
+	OSM8MM-FERT3.fs \
 	TBS2-FERT1.fs \
 	TBS2-FERT3.fs
 
@@ -87,30 +91,16 @@ RT_DDR3L := ddr3l_fw.fs $(RT_DDR3L)
 RT_LPDDR4 := lpddr4_fw.fs $(RT_LPDDR4)
 RT_DDR4 := ddr4_fw.fs $(RT_DDR4)
 
-# List of files to add to FIRMWARE image
-ifeq ($(CONFIG_IMX_OPTEE),y)
-FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs $(BOARD)_optee.fs
-else
-FIRMWARE_FILES = $(BOARD)_dram_info.fs $(BOARD)_atf.fs
-endif
-
 # List of files to add to EXTRA image
 EXTRA_FILES = addfsheader.sh.fs fsimage.sh.fs
 
 # List of files to add to NBOOT image
 NBOOT_FILES = $(BOARD)_spl.fs $(BOARD)_board_info.fs \
-	$(BOARD)_firmware.fs $(BOARD)_extra.fs
+	$(BOARD)_dram_info.fs $(BOARD)_atf.fs \
+	$(if $(CONFIG_OPTEE),$(BOARD)_optee.fs) $(BOARD)_extra.fs
 
 # Final NBOOT image
 NBOOT = $(BOARD)_nboot.fs
-
-ifeq ($(BOARD),fsimx8mp)
-DDR_FW_VERSION = _202006
-endif
-
-ifeq ($(BOARD),fsimx8mn)
-NANO = _201810
-endif
 
 # Add source tree path for board configurations
 NBOOT_PATH = $(srctree)/board/$(BOARDDIR)/nboot
@@ -122,22 +112,25 @@ OBJ_RT_DDR3L = $(addprefix $(obj)/, $(RT_DDR3L))
 OBJ_RT_LPDDR4 = $(addprefix $(obj)/, $(RT_LPDDR4))
 OBJ_RT_DDR4 = $(addprefix $(obj)/, $(RT_DDR4))
 OBJ_DRAM_TYPES = $(addprefix $(obj)/, $(DRAM_TYPES))
-OBJ_FIRMWARE_FILES = $(addprefix $(obj)/, $(FIRMWARE_FILES))
 OBJ_EXTRA_FILES = $(addprefix $(obj)/, $(EXTRA_FILES))
 OBJ_NBOOT_FILES = $(addprefix $(obj)/, $(NBOOT_FILES))
 OBJ_NBOOT = $(addprefix $(obj)/, $(NBOOT))
 
 # List of provided firmware files from NXP
 NXP_DDR3L = ddr3_imem_1d.bin ddr3_dmem_1d.bin
-NXP_LPDDR4 = lpddr4_pmu_train_1d_imem$(DDR_FW_VERSION).bin lpddr4_pmu_train_1d_dmem$(DDR_FW_VERSION).bin \
-	lpddr4_pmu_train_2d_imem$(DDR_FW_VERSION).bin lpddr4_pmu_train_2d_dmem$(DDR_FW_VERSION).bin
-NXP_DDR4 = ddr4_imem_1d$(NANO).bin ddr4_dmem_1d$(NANO).bin \
-	ddr4_imem_2d$(NANO).bin ddr4_dmem_2d$(NANO).bin
-NXP_ATF = bl31-imx8mm.bin
-NXP_TEE = tee-imx8mm.bin
+NXP_LPDDR4 = lpddr4_pmu_train_1d_imem.bin lpddr4_pmu_train_1d_dmem.bin \
+	lpddr4_pmu_train_2d_imem.bin lpddr4_pmu_train_2d_dmem.bin
+NXP_DDR4 = ddr4_imem_1d.bin ddr4_dmem_1d.bin \
+	ddr4_imem_2d.bin ddr4_dmem_2d.bin
+ifeq ($(CONFIG_OPTEE),y)
+NXP_ATF = bl31-optee.bin
+NXP_TEE = bl32.bin
+else
+NXP_ATF = bl31.bin
+endif
 
 # Add path for NXP firmware images
-NXP_PATH = $(srctree)/board/F+S/NXP-Firmware
+NXP_PATH = $(srctree)/board/F+S/NXP-Firmware/$(BOARD)
 NXP_PATH_DDR3L = $(addprefix $(NXP_PATH)/, $(NXP_DDR3L))
 NXP_PATH_LPDDR4 = $(addprefix $(NXP_PATH)/, $(NXP_LPDDR4))
 NXP_PATH_DDR4 = $(addprefix $(NXP_PATH)/, $(NXP_DDR4))
@@ -170,11 +163,6 @@ $(obj)/.ddr4_fw.tmp: $(NXP_PATH_DDR4)
 quiet_cmd_sed = SED     $@
 cmd_sed = sed $2 $< > $@
 
-#quiet_cmd_lds = LDS     $@
-#cmd_lds = $(CPP) $(cpp_flags) -P -x c -o $@ $<
-#cmd_lds = sed -e "s/###DRAM_TIMING_ADDR###/$(CONFIG_SPL_DRAM_TIMING_ADDR)/g" \
-	$< > $@
-
 DRAM_TIMINGS_LDS = $(obj)/.dram-timings.lds.tmp
 DRAM_TIMINGS_REPLACE_SED_CMD = \
 	-e "s/\#\#\#DRAM_TIMING_ADDR\#\#\#/$(CONFIG_SPL_DRAM_TIMING_ADDR)/g"
@@ -183,6 +171,7 @@ $(DRAM_TIMINGS_LDS): $(NBOOT_PATH)/dram-timings.lds ${srctree}/include/configs/$
 	$(call cmd,sed,$(DRAM_TIMINGS_REPLACE_SED_CMD))
 
 quiet_cmd_dram_elf = LINK    $@
+#cmd_dram_elf = $(CC) -nostdlib -nostartfiles -T $(DRAM_TIMINGS_LDS) -o $@ $<
 cmd_dram_elf = $(LD) -T $(DRAM_TIMINGS_LDS) -o $@ $<
 #cmd_dram_elf = $(LD) -T $(DRAM_TIMINGS_LDS) -Map $*.map -o $@ $<
 
@@ -220,33 +209,14 @@ $(obj)/ddr4_type.fs: $(OBJ_RT_DDR4)
 %_optee.fs: $(NXP_PATH_TEE)
 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_TEE_ADDR) -t TEE -d $(*F))
 
-%_firmware.fs: $(OBJ_FIRMWARE_FILES)
-	$(call cmd,fsimg,-s -t FIRMWARE -d $(*F))
+MKIMAGEFLAGS_u-boot-spl-ivt.bin = -n spl/u-boot-spl.cfgout -T imx8mimage -e $(CONFIG_SPL_TEXT_BASE)
+$(obj)/u-boot-spl-ivt.bin: MKIMAGEOUTPUT = $(obj)/u-boot-spl-ivt.log
 
-%_spl.fs: SPL
+$(obj)/u-boot-spl-ivt.bin: spl/u-boot-spl.bin FORCE
+	$(call if_changed,mkimage)
+
+%_spl.fs: $(obj)/u-boot-spl-ivt.bin
 	$(call cmd,fsimg,-s -c -p32[7]=$(CONFIG_SPL_ATF_ADDR) -t SPL -d $(*F))
-
-### not necessary anymore, use CPP to insert variable values instead
-#REPLACE_NAND_START = $(CONFIG_FUS_BOARDCFG_NAND0) $(CONFIG_FUS_BOARDCFG_NAND1)
-#REPLACE_MMC_START = $(CONFIG_FUS_BOARDCFG_MMC0) $(CONFIG_FUS_BOARDCFG_MMC1)
-#NBOOT_INFO_REPLACE_SED_CMD = \
-	-e "s/\#\#\#NAND_START\#\#\#/$(REPLACE_NAND_START)/g" \
-	-e "s/\#\#\#MMC_START_BOOT\#\#\#/$(CONFIG_FUS_BOARDCFG_MMC0)/g" \
-	-e "s/\#\#\#MMC_START_USER\#\#\#/$(REPLACE_MMC_START)/g" \
-	-e "s/\#\#\#ENV_SIZE\#\#\#/$(CONFIG_ENV_SIZE)/g" \
-	-e "s/\#\#\#NBOOT_VERSION\#\#\#/$(NBOOT_VERSION)/g"
-
-# Preprocess .dts files: Use cpp and sed to replace macros
-#quiet_cmd_dtscpp = DTSCPP  $@
-#cmd_dtscpp = $(CPP) $(dtc_cpp_flags) -x assembler-with-cpp $< | sed $2 > $@
-
-#$(obj)/.%.dts.tmp: $(NBOOT_PATH)/%.dts $(NBOOT_PATH)/nboot-info.dtsi
-#	$(call cmd,dtscpp,$(NBOOT_INFO_REPLACE_SED_CMD))
-#	cat $@
-
-#quiet_cmd_dtc = DTC     $@
-#cmd_dtc = $(DTC) -I dts -O dtb -a 16 -o $@ $<
-#cmd_dtc and cmd_dtco are defined in scripts/Makefile.lib
 
 # Prepend some macros with varying content to BOARD-CFG .dts
 $(obj)/.%.dts.tmp: $(NBOOT_PATH)/%.dts
@@ -264,14 +234,6 @@ $(obj)/%.fs: $(obj)/.%.dtb.tmp
 
 %_board_info.fs: $(OBJ_BOARD_CONFIGS)
 	$(call cmd,fsimg,-s -t BOARD-INFO -d $(*F))
-
-#./scripts/dtc/dtc -O dtb -o arch/arm/dts/picocoremx8mm.dtb -b 0 -i
-#	arch/arm/dts/  -Wno-unit_address_vs_reg -Wno-simple_bus_reg
-#	-Wno-unit_address_format -Wno-pci_bridge
-#	-Wno-pci_device_bus_num -Wno-pci_device_reg  -d
-#	arch/arm/dts/.picocoremx8mm.dtb.d.dtc.tmp
-#	arch/arm/dts/.picocoremx8mm.dtb.dts.tmp
-#	$(call cmd,fsimg)
 
 $(obj)/addfsheader.sh.fs: $(srctree)/scripts/addfsheader.sh
 $(obj)/fsimage.sh.fs: $(srctree)/scripts/fsimage.sh

@@ -1,0 +1,1 @@
+../../board/F+S/common/fs_image_nonspl.c

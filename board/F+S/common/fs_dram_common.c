@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
+/*
+ * fs_dram_common.c - Handle common dram stuff
+ */
+#include <errno.h>
 #include "fs_dram_common.h"
 
 #if defined(CONFIG_IMX8)
@@ -21,7 +26,9 @@ int parse_dram_timing(struct dram_timing_info * pdram)
 
 int fs_dram_init_common(unsigned long * p) {
 	struct dram_timing_info *dti = (struct dram_timing_info *)*p;
-	//dti = &dram_timing;
+
+	printf("DDR:        %uMTS\n", dti->fsp_msg[0].drate);
+
 #if defined(CONFIG_IMX8M)
 	return ddr_init(dti);
 #elif defined(CONFIG_IMX8)
@@ -29,4 +36,10 @@ int fs_dram_init_common(unsigned long * p) {
 #else
 	return -1;
 #endif
+}
+
+__weak int fs_board_init_dram_data(unsigned long *ptr)
+{
+	debug("%s: not defined\n", __func__);
+	return -ENODEV;
 }

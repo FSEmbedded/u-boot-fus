@@ -25,7 +25,7 @@
 #include <search.h>
 #include <errno.h>
 #include <u-boot/crc.h>
-#include <fdtdec.h>
+#include <dm/ofnode.h>
 
 #if defined(CONFIG_CMD_SAVEENV) && defined(CONFIG_CMD_NAND) && \
 		!defined(CONFIG_SPL_BUILD)
@@ -45,11 +45,7 @@
 #define CONFIG_ENV_NAND_OFFSET_REDUND CONFIG_ENV_OFFSET_REDUND
 #endif
 #ifndef CONFIG_ENV_NAND_RANGE
-#ifdef CONFIG_ENV_RANGE
 #define CONFIG_ENV_NAND_RANGE CONFIG_ENV_RANGE
-#else
-#define CONFIG_ENV_NAND_RANGE CONFIG_ENV_SIZE
-#endif
 #endif
 
 #if defined(ENV_IS_EMBEDDED)
@@ -75,8 +71,7 @@ __weak loff_t board_nand_get_env_offset(struct mtd_info *mtd, int copy)
 		if (copy)
 			prop_name = "u-boot,nand-env-offset-redundant";
 #endif
-		env_offset = fdtdec_get_config_int(gd->fdt_blob, prop_name,
-						   env_offset);
+		env_offset = ofnode_conf_read_int(prop_name, env_offset);
 	}
 
 	return env_offset;
@@ -94,8 +89,8 @@ __weak loff_t board_nand_get_env_range(struct mtd_info *mtd)
 	loff_t env_range = CONFIG_ENV_NAND_RANGE;
 
 	if (CONFIG_IS_ENABLED(OF_CONTROL)) {
-		env_range = fdtdec_get_config_int(
-			gd->fdt_blob, "u-boot,nand-env-range", env_range);
+		env_range = ofnode_conf_read_int("u-boot,nand-env-range",
+						 env_range);
 	}
 
 	return env_range;
@@ -170,8 +165,7 @@ static int env_nand_init(void)
 	gd->env_addr = (ulong)env_ptr->data;
 
 #else /* ENV_IS_EMBEDDED || CONFIG_NAND_ENV_DST */
-	gd->env_addr	= (ulong)&default_environment[0];
-	gd->env_valid	= ENV_VALID;
+	gd->env_valid	= ENV_INVALID;
 #endif /* ENV_IS_EMBEDDED || CONFIG_NAND_ENV_DST */
 
 	return 0;
@@ -274,8 +268,8 @@ static int env_nand_save(void)
 #ifdef CONFIG_ENV_NAND_OFFSET_REDUND
 	if (!ret) {
 		/* preset other copy for next write */
-		gd->env_valid = gd->env_valid == ENV_REDUND ? ENV_VALID :
-				ENV_REDUND;
+		gd->env_valid = gd->env_valid == ENV_VALID ? ENV_REDUND :
+				ENV_VALID;
 		return ret;
 	}
 

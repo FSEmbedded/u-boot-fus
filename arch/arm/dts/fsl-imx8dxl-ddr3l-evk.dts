@@ -8,7 +8,7 @@
 #include "fsl-imx8dxl.dtsi"
 
 / {
-	model = "NXP i.MX8DXL DDR3L EVK Board";
+	model = "NXP i.MX8DXL DDR3 EVK Board";
 	compatible = "fsl,imx8dxl-evk", "fsl,imx8dxl";
 
 	chosen {
@@ -100,8 +100,8 @@
 				SC_P_EMMC0_CLK_CONN_NAND_READY_B	0x0e00004c
 				SC_P_EMMC0_STROBE_CONN_NAND_CLE		0x0e00004c
 				SC_P_EMMC0_RESET_B_CONN_NAND_WP_B	0x0e00004c
-				SC_P_EMMC0_CMD_CONN_NAND_DQS		0x0e00004c
 
+				SC_P_USDHC1_CD_B_CONN_NAND_DQS		0x0e00004c
 				SC_P_USDHC1_RESET_B_CONN_NAND_WE_B	0x0e00004c
 				SC_P_USDHC1_WP_CONN_NAND_ALE		0x0e00004c
 				SC_P_USDHC1_VSELECT_CONN_NAND_RE_B  	0x0e00004c
@@ -200,7 +200,7 @@
 };
 
 &A35_0 {
-	u-boot,dm-pre-reloc;
+	bootph-all;
 };
 
 &lpuart0 {
@@ -337,7 +337,7 @@
 		reg = <0>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "spi-flash";
+		compatible = "jedec,spi-nor";
 		spi-max-frequency = <29000000>;
 		spi-nor,ddr-quad-read-dummy = <8>;
 	};
@@ -365,10 +365,6 @@
 	fsl,magic-packet;
 	status = "okay";
 
-	phy-reset-gpios = <&pca6416_a 2 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <10>;
-	phy-reset-post-delay = <150>;
-
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -386,6 +382,7 @@
 	pinctrl-0 = <&pinctrl_gpmi_nand_1>;
 	status = "okay";
 	nand-on-flash-bbt;
+	fsl,use-minimum-ecc;
 };
 
 &pcieb{

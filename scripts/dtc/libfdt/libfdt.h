@@ -152,7 +152,7 @@ int fdt_next_node(const void *fdt, int offset, int *depth);
  *
  * @fdt:	FDT blob
  * @offset:	Offset of node to check
- * @return offset of first subnode, or -FDT_ERR_NOTFOUND if there is none
+ * Return: offset of first subnode, or -FDT_ERR_NOTFOUND if there is none
  */
 int fdt_first_subnode(const void *fdt, int offset);
 
@@ -164,7 +164,7 @@ int fdt_first_subnode(const void *fdt, int offset);
  *
  * @fdt:	FDT blob
  * @offset:	Offset of previous subnode
- * @return offset of next subnode, or -FDT_ERR_NOTFOUND if there are no more
+ * Return: offset of next subnode, or -FDT_ERR_NOTFOUND if there are no more
  * subnodes
  */
 int fdt_next_subnode(const void *fdt, int offset);
@@ -800,6 +800,42 @@ const char *fdt_get_alias_namelen(const void *fdt,
  *	NULL, if the given alias or the /aliases node does not exist
  */
 const char *fdt_get_alias(const void *fdt, const char *name);
+
+/**
+ * fdt_get_symbol_namelen - get symbol based on substring
+ * @fdt: pointer to the device tree blob
+ * @name: name of the symbol to look up
+ * @namelen: number of characters of name to consider
+ *
+ * Identical to fdt_get_symbol(), but only examine the first @namelen
+ * characters of @name for matching the symbol name.
+ *
+ * Return: a pointer to the expansion of the symbol named @name, if it exists,
+ *	   NULL otherwise
+ */
+#ifndef SWIG /* Not available in Python */
+const char *fdt_get_symbol_namelen(const void *fdt,
+				   const char *name, int namelen);
+#endif
+
+/**
+ * fdt_get_symbol - retrieve the path referenced by a given symbol
+ * @fdt: pointer to the device tree blob
+ * @name: name of the symbol to look up
+ *
+ * fdt_get_symbol() retrieves the value of a given symbol.  That is,
+ * the value of the property named @name in the node
+ * /__symbols__. Such a node exists only for a device tree blob that
+ * has been compiled with the -@ dtc option. Each property corresponds
+ * to a label appearing in the device tree source, with the name of
+ * the property being the label and the value being the full path of
+ * the node it is attached to.
+ *
+ * returns:
+ *	a pointer to the expansion of the symbol named 'name', if it exists
+ *	NULL, if the given symbol or the /__symbols__ node does not exist
+ */
+const char *fdt_get_symbol(const void *fdt, const char *name);
 
 /**
  * fdt_get_path - determine the full path of a node

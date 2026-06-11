@@ -45,6 +45,10 @@
 #include "../common/fs_memtest_common.h"
 #endif
 
+#ifdef CONFIG_FSL_CAAM
+#include <fsl_sec.h>
+#endif
+
 DECLARE_GLOBAL_DATA_PTR;
 
 #define BT_PICOCOREMX8MM 0x0
@@ -446,16 +450,13 @@ static void basic_init(const char *layout_name)
 	boot_dev_name = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
 	boot_dev = fs_board_get_boot_dev_from_name(boot_dev_name);
 
-	printf("BOARD-ID: %s\n", fs_image_get_board_id());
+	printf("BOARD-ID:   %s\n", fs_image_get_board_id());
 
 	/* Get U-Boot offset; not necessary in SDP mode */
 	if (layout_name) {
 		int layout;
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-		index = 0;		/* ### TODO: Select slot A or B */
-#else
+
 		index = 0;
-#endif
 		offs = fs_image_get_nboot_info_offs(fdt);
 		layout = fdt_subnode_offset(fdt, offs, layout_name);
 		uboot_offs = fdt_getprop_u32_default_node(fdt, layout, index,
@@ -506,7 +507,7 @@ void board_init_f(ulong dummy)
 		secondary = true;
 #else
 	/* Will also work on i.MX8MM, but is slower */
-	secondary = is_imx8m_running_secondary_boot_image();
+	secondary = boot_mode_getprisec();
 #endif
 
 	/* Try loading from the current boot dev. If this fails, try USB. */
@@ -582,6 +583,11 @@ void spl_board_init(void)
 #ifdef CONFIG_FS_SPL_MEMTEST_COMMON
 	dram_test();
 #endif
+
+	if (IS_ENABLED(CONFIG_FSL_CAAM)) {
+		if (sec_init())
+			printf("\nsec_init failed!\n");
+	}
 	debug("Normal Boot\n");
 }
 
@@ -592,7 +598,8 @@ uint32_t spl_nand_get_uboot_raw_page(void)
 }
 
 /* Return the sector number where U-Boot starts in eMMC (User HW partition) */
-unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc)
+unsigned long spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
+					   unsigned long raw_sect)
 {
 	return uboot_offs / 512;
 }

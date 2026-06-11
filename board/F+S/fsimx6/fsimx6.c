@@ -18,6 +18,9 @@
 #endif
 #include <serial.h>			/* struct serial_device */
 #include <env_internal.h>
+#ifdef CONFIG_DM_REGULATOR
+#include <power/regulator.h>
+#endif
 
 #ifdef CONFIG_FSL_ESDHC_IMX
 #include <mmc.h>
@@ -342,6 +345,28 @@ bool is_usb_boot(void) {
 	return false;
 }
 
+void fs_ethaddr_init(void)
+{
+	unsigned int features2 = fs_board_get_nboot_args()->chFeatures2;
+	int id = 0;
+
+	/* Activate on-chip ethernet port (FEC) */
+	if (features2 & FEAT2_ETH_A)
+		fs_eth_set_ethaddr(id++);
+
+	/* If available, activate external ethernet port (AX88796B) */
+	if (features2 & FEAT2_ETH_B) {
+		/* Reset AX88796B, on NetDCUA9 */
+		gpio_request(IMX_GPIO_NR(1, 3), "ax88796b_rst");
+		fs_board_issue_reset(200, 1000, IMX_GPIO_NR(1, 3), ~0, ~0);
+		fs_eth_set_ethaddr(id++);
+	}
+
+	/* If WLAN is available, just set ethaddr variable */
+	if (features2 & FEAT2_WLAN)
+		fs_eth_set_ethaddr(id++);
+}
+
 /* Check board type */
 int checkboard(void)
 {
@@ -391,6 +416,11 @@ int board_init(void)
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[board_type]);
 
+#ifdef CONFIG_DM_REGULATOR
+	/* Activate all regulators defined in the Device-Tree */
+	regulators_enable_boot_on(false);
+#endif
+
 	if (board_type == BT_EFUSA9 || board_type == BT_EFUSA9R2) {
 		/*
 		 * efusA9/r2 has a generic RESET_OUT signal to reset some
@@ -403,10 +433,12 @@ int board_init(void)
 		 * pulse time?
 		 */
 		SETUP_IOMUX_PADS(reset_pads);
+		gpio_request(IMX_GPIO_NR(1, 26), "reset_out");
 		fs_board_issue_reset(1000, 0, IMX_GPIO_NR(1, 26), ~0, ~0);
 	} else if (board_type == BT_ARMSTONEA9R2 || board_type == BT_ARMSTONEA9R4) {
 		/* Reset uBlox WLAN/BT on armStoneA9r2 */
 		SETUP_IOMUX_PADS(wlan_reset_pads);
+		gpio_request(IMX_GPIO_NR(1, 27), "wlan_rst");
 		fs_board_issue_reset(1000, 0, IMX_GPIO_NR(1, 27), ~0, ~0);
 	}
 
@@ -493,6 +525,13 @@ void board_nand_init(void)
 }
 
 #ifdef CONFIG_FSL_ESDHC_IMX
+#ifdef CONFIG_DM_MMC
+/* Driver Model handling */
+void init_clk_usdhc(u32 index)
+{
+	enable_usdhc_clk(true, index);
+}
+#else /* !CONFIG_DM_MMC */
 /*
  * SD/MMC support.
  *
@@ -741,6 +780,7 @@ int board_mmc_init(struct bd_info *bd)
 
 	return ret;
 }
+#endif /* CONFIG_DM_MMC */
 #endif /* CONFIG_FSL_ESDHC_IMX */
 
 #ifdef CONFIG_VIDEO_IPUV3
@@ -1204,6 +1244,61 @@ int board_video_skip(void)
 #endif /* CONFIG_VIDEO_IPUV3 */
 
 #ifdef CONFIG_USB_EHCI_MX6
+#ifdef CONFIG_DM_USB
+int board_usb_init(int index, enum usb_init_type init)
+{
+	int ret = 0;
+	struct udevice *dev, *vbus;
+
+	debug("USB%d: %s init.\n", index, (init)?"otg":"host");
+
+	/* VBUS needs to be controlled only for HOST mode */
+	if (init == USB_INIT_DEVICE)
+		return 0;
+
+	ret = uclass_get_device_by_seq(UCLASS_USB, index, &dev);
+	if (ret)
+		return ret;
+
+	/* Check if VBUS is already handled by regulator */
+	ret = device_get_supply_regulator(dev, "vbus-supply", &vbus);
+
+	/* For native VBUS handling, set the polarity */
+	if (ret) {
+		u32 *usbnc_usb_ctrl;
+		u32 val;
+		bool active_high = dev_read_bool(dev, "power-active-high");
+#if CONFIG_IS_ENABLED(CLK)
+		struct clk clk;
+		ret = clk_get_by_index(dev, 0, &clk);
+		if (ret < 0)
+			return ret;
+
+		ret = clk_enable(&priv->clk);
+		if (ret)
+			return ret;
+#else
+		/* Compatibility with DM_USB and !CLK */
+		enable_usboh3_clk(1);
+		mdelay(1);
+#endif
+
+		usbnc_usb_ctrl = (u32 *)(USB_BASE_ADDR + USB_OTHERREGS_OFFSET +
+					 index * 4);
+		val = readl(usbnc_usb_ctrl);
+		if (active_high)
+			val |= UCTRL_PWR_POL; /* active high */
+		else
+			val &= ~UCTRL_PWR_POL; /* active low */
+
+		/* Disable over-current detection */
+		val |= UCTRL_OVER_CUR_DIS;
+		writel(val, usbnc_usb_ctrl);
+	}
+
+	return 0;
+}
+#else /* !CONFIG_DM_USB */
 /*
  * USB Host support.
  *
@@ -1442,6 +1537,7 @@ int board_ehci_hcd_init(int index)
 
         return fs_usb_set_port(index, &cfg);
 }
+#endif /* CONFIG_DM_USB */
 #endif /* CONFIG_USB_EHCI_MX6 */
 
 #ifdef CONFIG_BOARD_LATE_INIT
@@ -1456,6 +1552,11 @@ int board_late_init(void)
 	/* Set up all board specific variables */
 	fs_board_late_init_common("ttymxc");
 
+#ifdef CONFIG_DM_ETH
+	/* Set mac addresses for corresponding boards */
+	fs_ethaddr_init();
+#endif
+
 #ifdef CONFIG_VIDEO_IPUV3
 	/* Enable backlight for displays */
 	fs_disp_set_backlight_all(1);
@@ -1466,6 +1567,61 @@ int board_late_init(void)
 #endif /* CONFIG_BOARD_LATE_INIT */
 
 #ifdef CONFIG_CMD_NET
+#ifdef CONFIG_DM_ETH
+#ifndef CONFIG_CLK_IMX6Q
+int board_interface_eth_init(struct udevice *dev,
+			     phy_interface_t interface_type)
+{
+	int ret;
+	enum enet_freq freq;
+	int id = dev_seq(dev);
+	unsigned int board_type = fs_board_get_type();
+
+	/* MK-2026-05-18: Remove fs_ethaddr_init() and uncomment,
+	 * when every ethernet device can be handled via DM_ETH.
+	 */
+	// fs_eth_set_ethaddr(id);
+
+	/* If CONFIG_CLK_IMX6Q can be activated, this can be removed. */
+	if (id == 0) {
+		struct iomuxc *iomux_regs = (struct iomuxc *)IOMUXC_BASE_ADDR;
+		u32 gpr1;
+
+		/* Activate on-chip ethernet port (FEC) */
+		switch (board_type) {
+		case BT_PICOMODA9:
+		case BT_NETDCUA9:
+			/* ENET CLK is generated in i.MX6 and is an output */
+			gpr1 = readl(&iomux_regs->gpr[1]);
+			gpr1 |= IOMUXC_GPR1_ENET_CLK_SEL_MASK;
+			writel(gpr1, &iomux_regs->gpr[1]);
+
+			freq = ENET_50MHZ;
+			break;
+
+		default:
+			/* ENET CLK is generated in PHY and is an input */
+			gpr1 = readl(&iomux_regs->gpr[1]);
+			gpr1 &= ~IOMUXC_GPR1_ENET_CLK_SEL_MASK;
+			writel(gpr1, &iomux_regs->gpr[1]);
+
+			freq = ENET_25MHZ;
+			break;
+		}
+
+		/* Activate ENET PLL */
+		ret = enable_fec_anatop_clock(0, freq);
+		if (ret < 0)
+			return ret;
+
+		/* Enable ENET clock */
+		enable_enet_clk(1);
+	}
+
+	return 0;
+}
+#endif // !CONFIG_CLK_IMX6Q
+#else // !CONFIG_DM_ETH
 static iomux_v3_cfg_t const eim_pads_eth_b[] = {
 	/* AX88796B Ethernet 2 */
 	IOMUX_PADS(PAD_EIM_OE__EIM_OE_B | MUX_PAD_CTRL(EIM_NO_PULL)),
@@ -1704,6 +1860,7 @@ int board_eth_init(struct bd_info *bis)
 		/* Reset AX88796B, on NetDCUA9 */
 		fs_board_issue_reset(200, 1000, IMX_GPIO_NR(1, 3), ~0, ~0);
 
+		/* Not supported for U-Boot v2024.04 with CONFIG_DM */
 		/* Initialize AX88796B */
 		ret = ax88796_initialize(-1, CONFIG_DRIVER_AX88796_BASE,
 					 AX88796_MODE_BUS16_DP16);
@@ -1717,6 +1874,7 @@ int board_eth_init(struct bd_info *bis)
 
 	return 0;
 }
+#endif // CONFIG_DM_ETH
 
 #define MIIM_RTL8211F_PAGE_SELECT 0x1f
 #define LED_MODE_B (1 << 15)
@@ -1856,6 +2014,15 @@ void __led_toggle(led_id_t id)
 }
 #endif /* CONFIG_LED_STATUS_CMD */
 
+#if CONFIG_OF_BOARD_FIXUP
+/* Placeholder for now */
+int board_fix_fdt(void *fdt_blob)
+{
+	//fdt_common_fixup(fdt_blob);
+	return 0;
+}
+#endif
+
 #ifdef CONFIG_OF_BOARD_SETUP
 /* Do any additional board-specific device tree modifications */
 int ft_board_setup(void *fdt, struct bd_info *bd)
@@ -1875,7 +2042,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 
 	if (offs >= 0) {
 		fs_fdt_set_u32(fdt, offs, "fus,ecc_strength",
-			       pargs->chECCtype, 1);
+			       pargs->chECCtype, 1, true);
 	}
 
 	/* Set bdinfo entries */
@@ -1923,6 +2090,42 @@ void board_preboot_os(void)
 	fs_disp_set_power_all(0);
 #endif
 
+#ifdef CONFIG_FEC_MXC
 	/* Shut down all ethernet PHYs (suspend mode) */
 	mdio_shutdown_all();
+#endif
 }
+
+#ifdef CONFIG_MULTI_DTB_FIT
+/*
+ * This function is called for each appended device tree. If we signal a match
+ * (return value 0), the referenced device tree (and only this) is loaded
+ * for U-Boot. See doc/README.multi-dtb-fit for details.
+ */
+int board_fit_config_name_match(const char *name)
+{
+	unsigned int board_type = fs_board_get_type();
+	const char *board_fdt;
+	int i = 0;
+	char c;
+	char board_name_lc[32];
+	/* BSS gets cleared when relocating, so avoid static */
+
+	do {
+		c = board_info[board_type].name[i];
+		if ((c >= 'A') && (c <= 'Z'))
+			c += 'a' - 'A';
+		board_name_lc[i++] = c;
+	} while (c);
+
+	/* In case of regular i.MX, add 'dl' or 'q' */
+	if (is_mx6sdl())
+		sprintf(board_name_lc, "%sdl", board_name_lc);
+	else if (is_mx6dq())
+		sprintf(board_name_lc, "%sq", board_name_lc);
+
+	board_fdt = (const char *)&board_name_lc[0];
+
+	return strcmp(name, board_fdt);
+}
+#endif

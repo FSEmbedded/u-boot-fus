@@ -22,7 +22,119 @@
 #define debug_parser(fmt, args...)		\
 	debug_cond(DEBUG_PARSER, fmt, ##args)
 
+int cli_simple_process_macros(const char *input, char *output, int max_size)
+{
+	char c, prev;
+	const char *varname_start = NULL;
+	int inputcnt = strlen(input);
+	int outputcnt = max_size;
+	int state = 0;		/* 0 = waiting for '$'  */
+	int ret;
 
+	/* 1 = waiting for '(' or '{' */
+	/* 2 = waiting for ')' or '}' */
+	/* 3 = waiting for '''  */
+	char __maybe_unused *output_start = output;
+
+	debug_parser("[PROCESS_MACROS] INPUT len %zd: \"%s\"\n", strlen(input),
+		     input);
+
+	prev = '\0';		/* previous character   */
+
+	while (inputcnt && outputcnt) {
+		c = *input++;
+		inputcnt--;
+
+		if (state != 3) {
+			/* remove one level of escape characters */
+			if ((c == '\\') && (prev != '\\')) {
+				if (inputcnt-- == 0)
+					break;
+				prev = c;
+				c = *input++;
+			}
+		}
+
+		switch (state) {
+		case 0:	/* Waiting for (unescaped) $    */
+			if ((c == '\'') && (prev != '\\')) {
+				state = 3;
+				break;
+			}
+			if ((c == '$') && (prev != '\\')) {
+				state++;
+			} else {
+				*(output++) = c;
+				outputcnt--;
+			}
+			break;
+		case 1:	/* Waiting for (        */
+			if (c == '(' || c == '{') {
+				state++;
+				varname_start = input;
+			} else {
+				state = 0;
+				*(output++) = '$';
+				outputcnt--;
+
+				if (outputcnt) {
+					*(output++) = c;
+					outputcnt--;
+				}
+			}
+			break;
+		case 2:	/* Waiting for )        */
+			if (c == ')' || c == '}') {
+				int i;
+				char envname[CONFIG_SYS_CBSIZE], *envval;
+				/* Varname # of chars */
+				int envcnt = input - varname_start - 1;
+
+				/* Get the varname */
+				for (i = 0; i < envcnt; i++)
+					envname[i] = varname_start[i];
+				envname[i] = 0;
+
+				/* Get its value */
+				envval = env_get(envname);
+
+				/* Copy into the line if it exists */
+				if (envval != NULL)
+					while ((*envval) && outputcnt) {
+						*(output++) = *(envval++);
+						outputcnt--;
+					}
+				/* Look for another '$' */
+				state = 0;
+			}
+			break;
+		case 3:	/* Waiting for '        */
+			if ((c == '\'') && (prev != '\\')) {
+				state = 0;
+			} else {
+				*(output++) = c;
+				outputcnt--;
+			}
+			break;
+		}
+		prev = c;
+	}
+
+	ret = inputcnt ? -ENOSPC : 0;
+	if (outputcnt) {
+		*output = 0;
+	} else {
+		*(output - 1) = 0;
+		ret = -ENOSPC;
+	}
+
+	debug_parser("[PROCESS_MACROS] OUTPUT len %zd: \"%s\"\n",
+		     strlen(output_start), output_start);
+
+	return ret;
+}
+
+#ifdef CONFIG_CMDLINE
 int cli_simple_parse_line(char *line, char *argv[])
 {
 	int nargs = 0;
@@ -405,3 +517,4 @@ int cli_simple_run_command_list(char *cmd, int flag)
 
 	return rcode;
 }
+#endif

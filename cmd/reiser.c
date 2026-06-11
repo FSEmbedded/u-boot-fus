@@ -91,7 +91,7 @@ int do_reiserload(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 
 	addr = (argc > 3) ? parse_loadaddr(argv[3], NULL) : get_loadaddr();
 	filename = (argc > 4) ? env_parse_bootfile(argv[4]) : env_get_bootfile();
-	count = (argc > 5) ? simple_strtoul(argv[5], NULL, 16) : 0;
+	count = (argc > 5) ? hextoul(argv[5], NULL) : 0;
 	set_fileaddr(addr);
 
 	part = blk_get_device_part_str(argv[1], argv[2], &dev_desc, &info, 1);

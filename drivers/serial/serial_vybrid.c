@@ -20,7 +20,6 @@
 #include <common.h>
 #include <linux/compiler.h>		  /* __weak */
 #include <serial.h>			  /* struct serial_device */
-#include <watchdog.h>		          /* WATCHDOG_RESET() */
 #include <asm/io.h>			  /* in_8(), clrbits_8(), ... */
 #include <asm/global_data.h>		  /* DECLARE_GLOBAL_DATA_PTR */
 #include <asm/arch/vybrid-regs.h>	  /* UART?_BASE */
@@ -74,7 +73,7 @@ static void vybrid_ll_putc(struct vybrid_uart *const uart, const char c)
 
 	/* wait for room in the tx FIFO */
 	while (!(in_8(&uart->us1) & US1_TDRE))
-		WATCHDOG_RESET();
+		schedule();
 
 	/* Send character */
 	out_8(&uart->ud, c);
@@ -111,7 +110,7 @@ static int vybrid_serial_getc(const struct serial_device *sdev)
 
 	/* Wait for character to arrive */
 	while (!(in_8(&uart->us1) & US1_RDRF))
-		WATCHDOG_RESET();
+		schedule();
 
 	setbits_8(&uart->us1, US1_RDRF);
 
@@ -155,7 +154,7 @@ static struct serial_device vybrid_serial_devices[] = {
 
 __weak ulong board_serial_base(void)
 {
-	return CONFIG_MXC_UART_BASE;
+	return CFG_MXC_UART_BASE;
 }
 
 struct serial_device *default_serial_console(void)

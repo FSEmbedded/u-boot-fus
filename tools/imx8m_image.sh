@@ -44,6 +44,13 @@ if [ $post_process = 1 ]; then
 		cat spl/u-boot-spl-pad.bin > spl/u-boot-spl-ddr.bin
 		rm -f spl/u-boot-spl-pad.bin
 	fi
+	if [ -f ddr3_imem_1d.bin ]; then
+		objcopy -I binary -O binary --pad-to 0x8000 --gap-fill=0x0 ddr3_imem_1d.bin ddr3_imem_1d_pad.bin
+		cat ddr3_imem_1d_pad.bin ddr3_dmem_1d.bin > ddr3_1d_fw.bin
+		dd if=spl/u-boot-spl.bin of=spl/u-boot-spl-pad.bin bs=4 conv=sync
+		cat spl/u-boot-spl-pad.bin ddr3_1d_fw.bin > spl/u-boot-spl-ddr.bin
+		rm -f ddr3_1d_fw.bin ddr3_imem_1d_pad.bin spl/u-boot-spl-pad.bin
+	fi
 fi
 
 exit 0

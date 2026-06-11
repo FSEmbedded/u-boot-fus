@@ -53,6 +53,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BT_EFUSMX8MP		3
 #define BT_FSSMMX8MP		4
 #define BT_OSM8MP		5
+#define BT_ARMSTONEMX8MPr2	6
 
 
 #define FEAT_ETH_A 	(1<<0)	/* 0: no LAN0,  1: has LAN0 */
@@ -91,11 +92,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define INSTALL_DEF INSTALL_RAM
 #endif
 
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-#define INIT_DEF ".init_fs_updater"
-#else
 #define INIT_DEF ".init_init"
-#endif
 
 const struct fs_board_info board_info[] = {
 	{	/* 0 (BT_PICOCOREMX8MP) */
@@ -165,6 +162,19 @@ const struct fs_board_info board_info[] = {
 	},
 	{	/* 5 (BT_OSM8MP) */
 		.name = "OSM8MP",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 6 (BT_ARMSTONEMX8MPr2) */
+		.name = "armStoneMX8MPr2",
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -369,6 +379,7 @@ static int do_fdt_board_setup_common(void *fdt)
 		case BT_PICOCOREMX8MP:
 		case BT_PICOCOREMX8MPr2:
 		case BT_ARMSTONEMX8MP:
+		case BT_ARMSTONEMX8MPr2:
 			break;
 		case BT_EFUSMX8MP:
 			/* Disable adc node if it is not available */
@@ -434,6 +445,7 @@ int board_fix_fdt(void *fdt)
 		case BT_PICOCOREMX8MP:
 		case BT_PICOCOREMX8MPr2:
 		case BT_ARMSTONEMX8MP:
+		case BT_ARMSTONEMX8MPr2:
 			break;
 		case BT_EFUSMX8MP:
 			/* get sd_(x) interface name name for wlan */
@@ -564,8 +576,28 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 				/* The ADC has i2c address 0x48 on aStone8MP revision 1.00 */
 				if (info->board_rev == 100) {
 					offs = fs_fdt_path_offset(fdt, "adc");
-					fs_fdt_set_u32(fdt, offs, "reg", 0x48, 1);
+					fs_fdt_set_u32(fdt, offs, "reg", 0x48,
+						       1, true);
 				}
+			}
+			break;
+		case BT_ARMSTONEMX8MPr2:
+			/* Disable Wolfson codec if it is not available */
+			if (!(features & FEAT_AUDIO)) {
+				/* disable i2c wm8960 */
+				fs_fdt_enable(fdt, "wm8960", 0);
+				/* disable i2c wm8904 */
+				fs_fdt_enable(fdt, "wm8904", 0);
+				/* disable wm8960 platform driver */
+				fs_fdt_enable(fdt, "sound-wm8960", 0);
+				/* disable wm8904 platform driver */
+				fs_fdt_enable(fdt, "sound-wm8904", 0);
+			}
+			else {
+				/* disable i2c wm8960 */
+				fs_fdt_enable(fdt, "wm8960", 0);
+				/* disable wm8960 platform driver */
+				fs_fdt_enable(fdt, "sound-wm8960", 0);
 			}
 			break;
 		case BT_PICOCOREMX8MP:
@@ -617,6 +649,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 			case BT_PICOCOREMX8MP:
 			case BT_PICOCOREMX8MPr2:
 			case BT_ARMSTONEMX8MP:
+			case BT_ARMSTONEMX8MPr2:
 				break;
 			case BT_EFUSMX8MP:
 				/* get sd_(x) interface name name for wlan */
@@ -662,7 +695,7 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 		tmp[1] = cpu_to_fdt32(0x28000000);
 
 		offs = fs_fdt_path_offset(fdt, FDT_CMA);
-		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1);
+		fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	}
 
 	/* Sanity check for get_cpu_temp_grade() */
@@ -671,15 +704,15 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 
 		tmp_val = (maxc - 10) * 1000;
 		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_ALERT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 		offs = fs_fdt_path_offset(fdt, FDT_SOC_TEMP_ALERT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 
 		tmp_val = maxc * 1000;
 		offs = fs_fdt_path_offset(fdt, FDT_CPU_TEMP_CRIT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 		offs = fs_fdt_path_offset(fdt, FDT_SOC_TEMP_CRIT);
-		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1);
+		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, true);
 	} else {
 		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
 	}
@@ -699,6 +732,7 @@ void fs_ethaddr_init(void)
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
 	case BT_ARMSTONEMX8MP:
+	case BT_ARMSTONEMX8MPr2:
 	case BT_EFUSMX8MP:
 	case BT_FSSMMX8MP:
 	case BT_OSM8MP:
@@ -738,6 +772,7 @@ int checkboard(void)
 	return 0;
 }
 
+#if 0 //### set in clock_imx8mm.c now, configured via device tree
 #ifdef CONFIG_FEC_MXC
 static int setup_fec(void)
 {
@@ -765,6 +800,7 @@ static int setup_eqos(void)
 	return set_clk_eqos(ENET_125MHZ);
 }
 #endif
+#endif //###
 
 #if defined(CONFIG_FEC_MXC) || defined(CONFIG_DWC_ETH_QOS)
 int board_phy_config(struct phy_device *phydev)
@@ -898,6 +934,7 @@ static int setup_typec(void)
 		port1_config.i2c_bus = 2; /* i2c3 */
 		break;
 	case BT_ARMSTONEMX8MP:
+	case BT_ARMSTONEMX8MPr2:
 		port1_config.i2c_bus = 0; /* i2c1 */
 		break;
 	}
@@ -943,9 +980,9 @@ static struct dwc3_device dwc3_device_data = {
 	.power_down_scale = 2,
 };
 
-int usb_gadget_handle_interrupts(int index)
+int dm_usb_gadget_handle_interrupts(struct udevice *dev)
 {
-	dwc3_uboot_handle_interrupt(index);
+	dwc3_uboot_handle_interrupt(dev);
 	return 0;
 }
 
@@ -1016,12 +1053,16 @@ int board_usb_init(int index, enum usb_init_type init)
 			 * for device
 			 * */
 			ret = tcpc_setup_ufp_mode(&port1);
-			if(ret)
+			if(ret) {
 				/*
 				 * second check downstream facing port (dfp)
 				 * for usb host
 				 * */
 				ret = tcpc_setup_dfp_mode(&port1);
+				/* MK_2025-11-19:
+				 * Force host because tcpc decides dr_mode */
+				dwc3_device_data.dr_mode = USB_DR_MODE_HOST;
+			}
 #endif
 		}
 	}
@@ -1108,6 +1149,7 @@ int board_usb_gadget_port_auto(void)
 		case BT_PICOCOREMX8MP:
 		case BT_PICOCOREMX8MPr2:
 		case BT_ARMSTONEMX8MP:
+		case BT_ARMSTONEMX8MPr2:
 		case BT_EFUSMX8MP:
 			return 1;
 		case BT_FSSMMX8MP:
@@ -1148,6 +1190,7 @@ int board_init(void)
 	setup_typec();
 #endif
 
+#if 0 //### set in clock_imx8mm.c now, configured via device tree
 #ifdef CONFIG_FEC_MXC
 	setup_fec();
 #endif
@@ -1156,6 +1199,7 @@ int board_init(void)
 	/* clock, pin, gpr */
 	setup_eqos();
 #endif
+#endif //###
 
 #if defined(CONFIG_USB_DWC3) || defined(CONFIG_USB_XHCI_IMX8M)
 	init_usb_clk();
@@ -1204,6 +1248,7 @@ ulong board_serial_base(void)
 	case BT_PICOCOREMX8MP:
 	case BT_PICOCOREMX8MPr2:
 	case BT_ARMSTONEMX8MP:
+	case BT_ARMSTONEMX8MPr2:
 	case BT_FSSMMX8MP:
 	case BT_OSM8MP:
 	default:
@@ -1233,11 +1278,3 @@ int mmc_map_to_kernel_blk(int devno)
 	return devno + 1;
 }
 #endif /* CONFIG_FASTBOOT_STORAGE_MMC */
-
-#ifdef CONFIG_BOARD_POSTCLK_INIT
-int board_postclk_init(void)
-{
-	/* TODO */
-	return 0;
-}
-#endif /* CONFIG_BOARD_POSTCLK_INIT */

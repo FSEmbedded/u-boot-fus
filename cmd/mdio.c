@@ -173,7 +173,7 @@ static int do_mdio(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	case 'w':
 		if (argc > 1)
-			data = simple_strtoul(argv[--argc], NULL, 16);
+			data = hextoul(argv[--argc], NULL);
 		/* Fall through to case 'r' */
 	case 'r':
 		if ((argc < 4) || (argc > 5))

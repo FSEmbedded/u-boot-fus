@@ -1,4 +1,7 @@
-if TARGET_FSVYBRID || TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX7ULP || TARGET_FSIMX8M || TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP || TARGET_FSIMX8X
+config FSIMX_BOARDS
+	bool
+
+if FSIMX_BOARDS
 
 config ETHADDR_BASE
 	string
@@ -28,13 +31,59 @@ config FS_BOARD_MODE_RO
 	  you want a writable rootfs instead, say N here. But be warned,
 	  this may be dangerous for your data!
 
+config FS_SFX_UBOOT
+	bool "Use compressed U-Boot with self-extractor"
+	depends on TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSVYBRID
+	default y
+	help
+	  On i.MX6 based boards, U-Boot can only occupy 512KiB in NAND flash.
+	  This is too small for newer U-Boot versions with Driver Model and
+	  device trees. This option builds a compressed U-Boot image with a
+	  self-extractor routine. The self-extractor decompresses the image
+	  when started from NBoot. Do not forget to change CONFIG_TEXT_BASE,
+	  too. Use offset 0x00200000 from DRAM start in case of y and offset
+	  0x00100000 in case of n.
+
+choice
+	prompt "U-Boot compression method"
+	depends on FS_SFX_UBOOT
+
+config FS_SFX_UBOOT_ZSTD
+	bool "Use ZSTD compression"
+
+config FS_SFX_UBOOT_LZMA
+	bool "Use LZMA compression"
+
+endchoice
+
 config FS_IMAGE_COMMON
 	bool
-	default y if TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP || TARGET_FSIMX8X
+	select FS_BOARD_CFG
+	default y if TARGET_FSIMX8MM || \
+				TARGET_FSIMX8MN || \
+				TARGET_FSIMX8MP || \
+				TARGET_FSIMX8X || \
+				TARGET_FSIMX8ULP || \
+				TARGET_FSIMX93 || \
+				TARGET_FSIMX91
+
+config FS_CNTR_COMMON
+	bool
+	select FS_IMAGE_COMMON
+	default y if TARGET_FSIMX8ULP || \
+				TARGET_FSIMX93 || \
+				TARGET_FSIMX91
+
+config FS_BOOTROM
+	bool
+	default y if FS_CNTR_COMMON
 
 config FS_DRAM_COMMON
 	bool
-	default y if TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP || TARGET_FSIMX8X
+	default y if TARGET_FSIMX8MM || \
+				TARGET_FSIMX8MN || \
+				TARGET_FSIMX8MP || \
+				TARGET_FSIMX8X
 
 config FS_FDT_COMMON
 	bool
@@ -42,20 +91,30 @@ config FS_FDT_COMMON
 
 config FS_MMC_COMMON
 	bool
-	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX7ULP || TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP
+	default y if !TARGET_FSIMX8X && !TARGET_FSIMX8M
 
 config FS_ETH_COMMON
 	bool
-	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL || TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP || TARGET_FSIMX8X
+	default y
 
 config FS_USB_COMMON
 	bool
-	default y if TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL
+	default y if (TARGET_FSIMX6 || TARGET_FSIMX6SX || TARGET_FSIMX6UL) && !DM_USB
+
+config FS_ADD_ATF_TO_UBOOT
+	bool "Add ATF (and opTEE) to U-Boot on fsimx8mm/mn/mp"
+	depends on TARGET_FSIMX8MM || TARGET_FSIMX8MN || TARGET_FSIMX8MP
+	help
+	  Add ATF and opTEE to U-Boot. the result is in uboot-atf.fs. This
+	  allows having an own ATF and opTEE that does noch depend on NBoot.
+	  Please provide the images in board/F+S/NXP-Firmware/<arch>/ as
+	  bl31.bin (non opTEE case) or bl31-optee.bin and bl32.bin (opTEE case).
+	  <arch> is one of fsimx8mm, fsimx8mn, fsimx8mp.
 
 config FS_USB_PWR_USBNC
 	bool "Use USB PWR function from host controller"
 	depends on FS_USB_COMMON
-	default y
+	default y if !TARGET_FSIMX8ULP && !TARGET_FSIMX93 && !TARGET_FSIMX93
 	help
 	  The VBUS power for a USB host port can either be switched
 	  automatically in hardware by the dedicated USB controller
@@ -101,5 +160,27 @@ config USB_TCPC
 	default n if TARGET_FSIMX8MP
 	help
 	  Enable USB type-c port controller (TCPC) driver
+
+config FS_WINIOT_SUPPORT
+	bool "Windows IoT support"
+	imply FS_DEVICEINFO_COMMON
+	help
+	  Allow booting Windows IoT UEFI images. Calls do_bootm_linux
+	  in bootm cmd if UEFI is detected.
+
+config FS_DEVICEINFO_COMMON
+        bool "Enable FS_DEVICEINFO for Windows"
+		depends on FS_WINIOT_SUPPORT
+        help
+          Enable shared struct in RAM for Windows. Contains MAC-addresses and other
+          board specific information which Windows needs. The memory address for the
+		  struct is controlled by CFG_FS_DEVICEINFO_ADDR, which is processor specific.
+
+config FUS_FORCE_DEFAULT_BOOTDELAY
+	bool "force default bootdelay (F&S)"
+	default n
+	help
+		If enabled, bootdelay defined in configs/<board>_defconfig keeps it value,
+		even during chain of trust. Use this setting only for debug purpose.
 
 endif

@@ -16,7 +16,7 @@
 
 #define IV_MAX_LEN			32
 #define HASH_MAX_LEN			64
-#define MAX_NUM_IMGS			6
+#define MAX_NUM_IMGS			64
 #define MAX_NUM_SRK_RECORDS		4
 
 #define IVT_HEADER_TAG_B0		0x87
@@ -156,17 +156,21 @@ enum imx8image_cmd {
 	CMD_SOC_TYPE,
 	CMD_CONTAINER,
 	CMD_IMAGE,
-	CMD_DATA
+	CMD_DATA,
+	CMD_HASH,
 };
 
 enum imx8image_core_type {
 	CFG_CORE_INVALID,
 	CFG_SCU,
+	CFG_M33,
 	CFG_M40,
 	CFG_M41,
 	CFG_A35,
+	CFG_A55,
 	CFG_A53,
-	CFG_A72
+	CFG_A72,
+	CFG_UPOWER
 };
 
 enum imx8image_fld_types {
@@ -181,7 +185,9 @@ typedef enum SOC_TYPE {
 	NONE = 0,
 	QX,
 	QM,
-	DXL
+	DXL,
+	ULP,
+	IMX9
 } soc_type_t;
 
 typedef enum option_type {
@@ -189,6 +195,7 @@ typedef enum option_type {
 	DCD,
 	SCFW,
 	SECO,
+	M33,
 	M40,
 	M41,
 	AP,
@@ -202,8 +209,16 @@ typedef enum option_type {
 	DATA,
 	PARTITION,
 	FILEOFF,
-	MSG_BLOCK
+	MSG_BLOCK,
+	SENTINEL,
+	UPOWER
 } option_type_t;
+
+typedef enum hashes {
+	SHA256 = 256,
+	SHA384 = 384,
+	SHA512 = 512,
+} option_hash_t;
 
 typedef struct {
 	option_type_t option;
@@ -222,6 +237,11 @@ typedef struct {
 #define CORE_CA72       5
 #define CORE_SECO       6
 
+#define CORE_ULP_CM33		0x1
+#define CORE_ULP_CA35		0x2
+#define CORE_ULP_UPOWER 	0x4
+#define CORE_ULP_SENTINEL 	0x6
+
 #define SC_R_OTP	357U
 #define SC_R_DEBUG	354U
 #define SC_R_ROM_0	236U
@@ -236,6 +256,7 @@ typedef struct {
 #define IMG_TYPE_DATA    0x04   /* Data image type */
 #define IMG_TYPE_DCD_DDR 0x05   /* DCD/DDR image type */
 #define IMG_TYPE_SECO    0x06   /* SECO image type */
+#define IMG_TYPE_SENTINEL 0x06	/* SENTINEL image type */
 #define IMG_TYPE_PROV    0x07   /* Provisioning image type */
 #define IMG_TYPE_DEK     0x08   /* DEK validation type */
 
@@ -264,7 +285,7 @@ typedef struct {
 #define PARTITION_ID_M4		0
 #define PARTITION_ID_AP		1
 
-#define IMG_STACK_SIZE	32
+#define IMG_STACK_SIZE	(MAX_NUM_IMGS * 4)
 
 #define append(p, s, l) do { \
 	memcpy((p), (uint8_t *)(s), (l)); (p) += (l); \
