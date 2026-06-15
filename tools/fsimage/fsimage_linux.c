@@ -918,6 +918,23 @@ int do_fsimage(int argc, char *argv[])
 	if (argc < 1)
 		return CMD_RET_USAGE;
 
+	if (!strcmp(argv[0], "arch"))
+		return fs_image_do_arch(argc, argv);
+
+	if (!strcmp(argv[0], "board-id"))
+		return fs_image_do_boardid(argc, argv);
+
+#if 0 //### TODO
+	if (!strcmp(argv[0], "board-cfg"))
+		return fs_image_do_boardcfg(argc, argv);
+#endif
+
+	if (!strcmp(argv[0], "boot"))
+		return fs_image_do_boot(argc, argv);
+
+	if (!strcmp(argv[0], "checksum"))
+		return fs_image_do_checksum(argc, argv);
+
 	if (!strcmp(argv[0], "list"))
 		return fs_image_do_list(argc, argv);
 

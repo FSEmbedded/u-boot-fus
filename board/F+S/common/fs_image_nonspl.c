@@ -1036,6 +1036,7 @@ static int fs_image_get_boot_dev(void *fdt, enum boot_device *boot_dev,
 /* Check boot device; Return 0: OK, 1: Not fused yet, <0: Error */
 int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action)
 {
+#ifdef __UBOOT__
 	enum boot_device boot_dev_fuses;
 
 	boot_dev_fuses = fs_board_get_boot_dev_from_fuses();
@@ -1051,6 +1052,10 @@ int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action)
 	       fs_board_get_name_from_boot_dev(boot_dev_fuses), action);
 
 	return -EINVAL;
+#else
+	/* Do not check boot fuses in Linux, this is only done in U-Boot */
+	return 0;
+#endif
 }
 
 /* Check CRC32 from indexed Images */
@@ -1261,7 +1266,6 @@ static int fs_image_get_size_from_fsh_or_ivt(struct sub_info *sub, uint *size)
 		*size = fs_image_get_size(fsh, true);
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	} else {
-#ifdef __UBOOT__
 		struct ivt *ivt = sub->img;
 		struct boot_data *boot_data;
 
@@ -1271,10 +1275,6 @@ static int fs_image_get_size_from_fsh_or_ivt(struct sub_info *sub, uint *size)
 			return -ENOENT;
 		boot_data = (struct boot_data *)(ivt + 1);
 		*size = boot_data->length;
-#else
-		printf("shortcut... cannot handle ivt at this moment...\n");
-		return -ENOENT;
-#endif /* __UBOOT__ */
 #endif
 	}
 
@@ -1782,7 +1782,7 @@ int fs_image_load_image(struct flash_info *fi, const struct storage_info *si,
 		printf("  Error, cannot load %s\n", sub->type);
 		return -ENOENT;
 	} else if (err || (copy0 == copy1)) {
-		printf("  Warning! One copy corrupted! Saving NBoot again may"
+		printf("  Warning! One copy corrupted! Saving image again may"
 		       " fix this.\n");
 	}
 
@@ -1800,6 +1800,8 @@ int fs_image_load_image(struct flash_info *fi, const struct storage_info *si,
 			size0 = sub->size;
 		else if ((size0 != sub->size) || memcmp(copy0, copy1, size0))
 			printf("  Warning! Images differ, taking copy 0\n");
+		else
+			printf("  Both copies are identical\n");
 	}
 
 	/* Align the size to 16 Bytes, pad with 0 and fill FS header */
@@ -2198,7 +2200,8 @@ repeat:
 	return 0;
 }
 
-static int fs_image_save_uboot(struct flash_info *fi, struct region_info *atf_ri,
+static int fs_image_save_uboot(struct flash_info *fi,
+			       struct region_info *atf_ri,
 			       struct region_info *uboot_ri)
 {
 	int failed;
@@ -2332,7 +2335,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 		if (err)
 			return CMD_RET_FAILURE;
 
-		printf("U-Boot successfully loaded to 0x%lx\n", addr);
+		printf("U-Boot successfully loaded to RAM\n");
 
 		return CMD_RET_SUCCESS;
 	}
@@ -2452,7 +2455,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 
 	fs_image_put_flash_info(&fi);
 
-	printf("NBoot successfully loaded to 0x%lx\n", addr);
+	printf("NBoot successfully loaded to RAM\n");
 
 	return CMD_RET_SUCCESS;
 }
@@ -3146,7 +3149,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
 			return CMD_RET_FAILURE;
 		}
 
-		printf("U-Boot successfully loaded to 0x%lx\n", addr);
+		printf("U-Boot successfully loaded to RAM\n", addr);
 		fs_image_put_flash_info(&fi);
 		return CMD_RET_SUCCESS;
 	}
