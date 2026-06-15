@@ -898,17 +898,6 @@ bool imx_hab_is_enabled(void)
 
 /* ------------- Linux command line handling ------------------------------- */
 
-const char usage[] =
-	"Usage:\n"
-	"fsimage list <file>]\n"
-	"    - List the content of the F&S image <file>\n"
-	"fsimage load [-f] [uboot | nboot] <file>\n"
-	"    - Verify the current NBoot or U-Boot and store in <file>\n"
-	"fsimage save [-f] [-e <n>] [-b <n>] <file>\n"
-	"    - Save the F&S image at the right place (NBoot, U-Boot)\n"
-	"\n";
-
-
 int do_fsimage(int argc, char *argv[])
 {
 	/* Drop argv[0] ("fsimage") */
@@ -1085,9 +1074,10 @@ int main(int argc, char *argv[])
 		return 1;
 #endif
 
+	/* fsimage_usage[] is defined in fs_image_nonspl.c */
 	status = do_fsimage(argc, argv);
 	if (status == CMD_RET_USAGE) {
-		fprintf(stderr, "%s\n", usage);
+		fprintf(stderr, "%s\n", fsimage_usage);
 		return 1;
 	}
 

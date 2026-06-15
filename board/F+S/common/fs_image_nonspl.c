@@ -178,6 +178,81 @@
 /* Argument of option -e in fsimage save */
 static uint early_support_index;
 
+#ifdef __UBOOT__
+#define IMAGE_SPEC "<addr>  [<size> | <file>]"
+#else
+#define IMAGE_SPEC "<filename>"
+#define puts printf
+#endif
+
+/* Define the usage here just once, it is very similar for U-Boot and Linux */
+const char fsimage_usage[] =
+#ifndef __UBOOT__
+	"Usage:\n"
+	"fsimage "
+#endif
+	"arch\n"
+	"    - Show F&S architecture\n"
+	"fsimage board-id\n"
+	"    - Show current BOARD-ID\n"
+#ifdef __UBOOT__
+#ifdef CONFIG_CMD_FDT
+	"fsimage board-cfg [stored | " IMAGE_SPEC "]\n"
+	"    - List contents of current BOARD-CFG\n"
+#endif
+#endif
+	"fsimage boot\n"
+	"    - Show the current boot settings\n"
+	"fsimage checksum [-t <type>] [" IMAGE_SPEC "]\n"
+	"    - List checksums of all headers or <type> if specified.\n"
+	"fsimage list [" IMAGE_SPEC "]\n"
+	"    - List the content of the F&S image at <addr>\n"
+	"fsimage load [uboot | nboot] [" IMAGE_SPEC "]\n"
+	"    - Verify the current NBoot or U-Boot and load to <addr>\n"
+	"fsimage save [-f] [-e <n>] [-b <n>]"
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+	" [-s]"
+#endif
+	" [" IMAGE_SPEC "]\n"
+	"    - Save the F&S image at the right place (NBoot, U-Boot)\n"
+#ifdef __UBOOT__
+	"fsimage fuse [-f] [stored | " IMAGE_SPEC "]\n"
+	"    - Program fuses according to the current BOARD-CFG.\n"
+	"      WARNING: This is a one time option and cannot be undone.\n"
+#endif
+#ifdef __UBOOT__
+	"\n"
+	"If no addr is given, use loadaddr. If a file is given, the image\n"
+	"is loaded from the file first. Otherwise, the image should already\n"
+	"be present at <addr>. A <file> is specified by three items:\n"
+	"\n"
+	"      <intf> <dev[:part]> <filename>\n"
+	"\n"
+	"  <intf>       Interface to use, e.g. mmc, usb, ubifs\n"
+	"  <dev[:part]> Device number and optionally partition number\n"
+	"  <filename>   Filename (incl. path)\n"
+#endif
+	"\n"
+	"Options:\n"
+	"-f      Suppress confirmation prompts; useful in scripts.\n"
+	"-b <n>  Set eMMC boot hwpart: 0: user, 1: boot1, 2: boot2.\n"
+	"        This is ignored on NAND.\n"
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+	"-e <n>  Helps in updating from pre-2023.08 NBoot versions. First\n"
+	"        update U-Boot, restart the board, then update NBoot. If no\n"
+	"        environment is found when saving the new NBoot, try\n"
+	"        increasing values 0, 1, 2, 3, ... for <n> until the\n"
+	"        environment is found again.\n"
+	"-s      Prefer System-ATF over User-ATF in fsimage save. This is\n"
+	"        only relevant if the System-ATF was replaced with a\n"
+	"        User-ATF by installing a special U-Boot image variant.\n"
+	"        If opTee is present, it is handled together with ATF.\n"
+	"\n"
+	"                                        without -s   with -s\n"
+	"          ATF/opTEE in NBoot image      ignored      saved\n"
+	"          ATF/opTEE in U-Boot image     saved        ignored\n"
+#endif
+	"";
 
 /* ------------- Functions only in U-Boot, not SPL ------------------------- */
 

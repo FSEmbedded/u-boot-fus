@@ -337,6 +337,8 @@ struct fs_image_params {
 #endif
 };
 
+extern const char fsimage_usage[];
+
 /* Get start[0..1] and size for a storage info */
 int fs_image_get_si(void *fdt, int offs, uint align, const char *type,
 		    struct storage_info *si);

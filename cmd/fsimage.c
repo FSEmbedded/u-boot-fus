@@ -149,52 +149,8 @@ static int do_fsimage(struct cmd_tbl *cmdtp, int flag, int argc,
 	return cp->cmd(cmdtp, flag, argc, argv);
 }
 
+/* fsimage_usage[] is defined in fs_image_nonspl.c */
 U_BOOT_CMD(fsimage, 9, 1, do_fsimage,
 	   "Handle F&S board configuration and F&S images, e.g. U-Boot, NBOOT",
-	   "arch\n"
-	   "    - Show F&S architecture\n"
-	   "fsimage board-id\n"
-	   "    - Show current BOARD-ID\n"
-#ifdef CONFIG_CMD_FDT
-	   "fsimage board-cfg [<addr> | stored]\n"
-	   "    - List contents of current BOARD-CFG\n"
-#endif
-	   "fsimage boot\n"
-	   "    - Show the current boot settings\n"
-	   "fsimage list [<addr>]\n"
-	   "    - List the content of the F&S image at <addr>\n"
-	   "fsimage load [-f] [uboot | nboot] [<addr>]\n"
-	   "    - Verify the current NBoot or U-Boot and load to <addr>\n"
-	   "fsimage save [-f] [-e <n>] [-b <n>]"
-#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	   " [-s]"
-#endif
-	   " [<addr>]\n"
-	   "    - Save the F&S image at the right place (NBoot, U-Boot)\n"
-	   "fsimage fuse [-f] [<addr> | stored]\n"
-	   "    - Program fuses according to the current BOARD-CFG.\n"
-	   "      WARNING: This is a one time option and cannot be undone.\n"
-	   "fsimage checksum [-t <type>] [<addr> | stored]\n"
-	   "    - Print the checksum of all headers or <type> if specified.\n"
-	   "      The NBoot first needs to be loaded with \"fsimage load\".\n"
-	   "\n"
-	   "If no addr is given, use loadaddr. Using -f forces the command to\n"
-	   "continue without showing any confirmation queries. This is meant\n"
-	   "for non-interactive installation procedures. Option -b also sets\n"
-	   "the eMMC hwpart to boot from: 0: User, 1: Boot1, 2: Boot2. This\n"
-	   "option is ignored on NAND. Option -e supports handling early\n"
-	   "NBoot versions. If the environment is not found when updating\n"
-	   "from a pre 2023.08 NBoot version, try increasing <n> until it\n"
-	   "works. Be careful when storing such an old NBoot, you need to\n"
-	   "know the right <n> or you will lose the environment.\n"
-#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	   "\nIf a User-ATF is present in an U-Boot image, this replaces the\n"
-	   "System-ATF from NBoot. From then on, ATF is ignored when saving\n"
-	   "new NBoot images and has to be handled by U-Boot updates. With\n"
-	   "option -s, this behavior can be reversed to prefer the System-ATF\n"
-	   "again. Which means when saving U-Boot, any User-ATF in the image\n"
-	   "is ignored, and when saving NBoot, the System-ATF included there\n"
-	   "is saved again. (Remark: opTee, if present, must be grouped with\n"
-	   "ATF and is handled with ATF in one go.)\n"
-#endif
+	   fsimage_usage
 );
