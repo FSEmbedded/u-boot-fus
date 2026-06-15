@@ -334,14 +334,14 @@ int fs_image_get_si(void *fdt, int offs, uint align, const char *type,
 
 	si->type = type;
 
-	/* Create the property name for nboot-info and get value */
+	/* Create the start property name for nboot-info and get value */
 	fs_image_build_nboot_info_name(name, type, "-start");
 
 	err = fs_image_get_fdt_val(fdt, offs, name, align, 2, si->start);
 	if (err)
 		return err;
 
-	/* Create the property name for nboot-info and get value */
+	/* Create the size property name for nboot-info and get value */
 	fs_image_build_nboot_info_name(name, type, "-size");
 
 	return fs_image_get_fdt_val(fdt, offs, name, align, 1, &si->size);
@@ -391,6 +391,32 @@ static int fs_image_get_nboot_info(struct flash_info *fi, void *fdt,
 				       early_support_index);
 }
 
+static void fs_image_print_crc32_status(const struct fs_header_v1_0 *fsh,
+					int err)
+{
+	char fsh_type[MAX_TYPE_LEN];
+	memcpy(&fsh_type, fsh->type, MAX_TYPE_LEN);
+
+	fsh_type[12] = 0;
+
+	switch (err) {
+	case 0:
+		debug("%s: (no CRC32)\n", fsh_type);
+		break;
+	case 1:
+		debug("%s: (CRC32 header only ok)\n", fsh_type);
+		break;
+	case 2:
+		debug("%s: (CRC32 image only ok)\n", fsh_type);
+		break;
+	case 3:
+		debug("%s: (CRC32 header+image ok)\n", fsh_type);
+		break;
+	default:
+		printf("%s: BAD CRC32\n", fsh_type);
+	}
+}
+
 static void fs_image_print_line(struct fs_header_v1_0 *fsh, uint offs, int level)
 {
 	char info[MAX_DESCR_LEN + 1];
@@ -431,9 +457,7 @@ static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent,
 		crc_valid = true;
 
 	/* Show info for this image */
-	printf("0x%08x ", *pcs);
-	crc_valid ? puts("okay") : puts("fail");
-	puts(" ");
+	printf("0x%08x %s ", *pcs, crc_valid ? "okay" : "fail");
 
 	for (i = 0; i < level; i++)
 		printf(" ");
@@ -843,38 +867,6 @@ static uint fs_image_region_add(struct region_info *ri,
 	return woffset + size;
 }
 
-/*
- * Add a single F&S header with given data to the region. Return offset for
- * next subimage or 0 in case of error.
- */
-static uint fs_image_region_add_fsh(struct region_info *ri,
-				    struct fs_header_v1_0 *fsh, const char *type,
-				    const char *descr, uint woffset)
-{
-	fs_image_set_header(fsh, type, descr, 0, 0);
-
-	return fs_image_region_add(ri, fsh, type, descr, woffset,
-				   SUB_HAS_FS_HEADER);
-}
-
-/*
- * Search the subimage with given type/descr and add it to the region. Return
- * offset for next image or 0 in case of error.
- */
-static uint fs_image_region_find_add(struct region_info *ri,
-				     struct fs_header_v1_0 *fsh,
-				     const char *type, const char *descr,
-				     uint woffset, uint flags)
-{
-	fsh = fs_image_find(fsh, type, descr, NULL);
-	if (!fsh) {
-		printf("No %s found for %s\n", type, descr);
-		return 0;
-	}
-
-	return fs_image_region_add(ri, fsh, type, descr, woffset, flags);
-}
-
 /* Show status after handling a subimage */
 void fs_image_show_sub_status(int err)
 {
@@ -1011,8 +1003,8 @@ static int fs_image_get_start_copy_uboot(void)
 #endif /* CONFIG_FS_BOOTROM */
 #endif /* __UBOOT__ */
 
-int fs_image_get_boot_dev(void *fdt, enum boot_device *boot_dev,
-			  const char **boot_dev_name)
+static int fs_image_get_boot_dev(void *fdt, enum boot_device *boot_dev,
+				 const char **boot_dev_name)
 {
 	int offs;
 	int rev_offs;
@@ -2140,6 +2132,39 @@ static void fs_image_put_flash_info(struct flash_info *fi)
 /* ------------- IVT Image Format (i.MX8M) --------------------------------- */
 
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+
+/*
+ * Search the subimage with given type/descr and add it to the region. Return
+ * offset for next image or 0 in case of error.
+ */
+static uint fs_image_region_find_add(struct region_info *ri,
+				     struct fs_header_v1_0 *fsh,
+				     const char *type, const char *descr,
+				     uint woffset, uint flags)
+{
+	fsh = fs_image_find(fsh, type, descr, NULL);
+	if (!fsh) {
+		printf("No %s found for %s\n", type, descr);
+		return 0;
+	}
+
+	return fs_image_region_add(ri, fsh, type, descr, woffset, flags);
+}
+
+/*
+ * Add a single F&S header with given data to the region. Return offset for
+ * next subimage or 0 in case of error.
+ */
+static uint fs_image_region_add_fsh(struct region_info *ri,
+				    struct fs_header_v1_0 *fsh,
+				    const char *type,
+				    const char *descr, uint woffset)
+{
+	fs_image_set_header(fsh, type, descr, 0, 0);
+
+	return fs_image_region_add(ri, fsh, type, descr, woffset,
+				   SUB_HAS_FS_HEADER);
+}
 
 static int fs_image_imx8m_load(ulong addr, bool load_uboot)
 {
@@ -3614,6 +3639,7 @@ int fs_image_do_boot(int argc, char * const argv[])
 
 	early_support_index = 0;
 
+	/* Output is actually done in fs_image_get_nboot_info() */
 	fdt = fs_image_get_cfg_fdt();
 	if (fs_image_get_flash_info(&fi, fdt)
 	    || fs_image_get_nboot_info(&fi, fdt, &ni, -1, true))

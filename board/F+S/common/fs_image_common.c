@@ -491,31 +491,6 @@ int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
 	return fs_image_check_crc32_offset(fsh, 0);
 }
 
-void fs_image_print_crc32_status(const struct fs_header_v1_0 *fsh, int err)
-{
-	char fsh_type[MAX_TYPE_LEN];
-	memcpy(&fsh_type, fsh->type, MAX_TYPE_LEN);
-
-	fsh_type[12] = 0;
-
-	switch (err) {
-	case 0:
-		debug("%s: (no CRC32)\n", fsh_type);
-		break;
-	case 1:
-		debug("%s: (CRC32 header only ok)\n", fsh_type);
-		break;
-	case 2:
-		debug("%s: (CRC32 image only ok)\n", fsh_type);
-		break;
-	case 3:
-		debug("%s: (CRC32 header+image ok)\n", fsh_type);
-		break;
-	default:
-		printf("%s: BAD CRC32\n", fsh_type);
-	}
-}
-
 /* Update size, flags and padsize, calculate CRC32 if requested */
 void fs_image_update_header(struct fs_header_v1_0 *fsh,
 				   uint size, uint fsh_flags)

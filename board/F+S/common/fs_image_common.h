@@ -169,8 +169,6 @@ int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh, unsigned int o
 /* Verify CRC32 of given image */
 int fs_image_check_crc32(const struct fs_header_v1_0 *fsh);
 
-void fs_image_print_crc32_status(const struct fs_header_v1_0 *fsh, int err);
-
 /* Make sure that BOARD-CFG in OCRAM is valid */
 bool fs_image_is_ocram_cfg_valid(void);
 
@@ -393,9 +391,6 @@ int fs_image_confirm(void);
 
 /* Determine first copy to modify depending on which SPL copy we booted */
 int fs_image_get_start_copy(void);
-
-int fs_image_get_boot_dev(void *fdt, enum boot_device *boot_dev,
-			  const char **boot_dev_name);
 
 /* Check boot device; Return 0: OK, 1: Not fused yet, <0: Error */
 int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action);

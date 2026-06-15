@@ -53,12 +53,6 @@
 
 #ifndef CONFIG_SPL_BUILD
 
-/* String used for system prompt */
-static char fs_sys_prompt[32];
-
-/* Store a pointer to the current board info */
-static const struct fs_board_info *current_bi;
-
 #ifdef CONFIG_FS_SELFTEST
 /* Store DRAM test result for bdinfo */
 static char dram_result[64] = "FAILED (Not run)";
@@ -237,6 +231,12 @@ int board_phys_sdram_size(phys_size_t *size)
 /* ------------- Generic functions ----------------------------------------- */
 
 #ifdef __UBOOT__ /* unused outside of u-boot and spl */
+/* String used for system prompt */
+static char fs_sys_prompt[32];
+
+/* Store a pointer to the current board info */
+static const struct fs_board_info *current_bi;
+
 /* Issue reset signal on up to three gpios (~0: gpio unused) */
 void fs_board_issue_reset(uint active_us, uint delay_us,
 			  uint gpio0, uint gpio1, uint gpio2)
