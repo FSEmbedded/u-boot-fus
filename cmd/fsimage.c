@@ -89,14 +89,14 @@ static struct cmd_tbl cmd_fsimage_sub[] = {
 	U_BOOT_CMD_MKENT(arch, 0, 1, do_fsimage_arch, "", ""),
 	U_BOOT_CMD_MKENT(board-id, 0, 1, do_fsimage_boardid, "", ""),
 #ifdef CONFIG_CMD_FDT
-	U_BOOT_CMD_MKENT(board-cfg, 1, 1, do_fsimage_boardcfg, "", ""),
+	U_BOOT_CMD_MKENT(board-cfg, 4, 1, do_fsimage_boardcfg, "", ""),
 #endif
-	U_BOOT_CMD_MKENT(boot, 1, 1, do_fsimage_boot, "", ""),
-	U_BOOT_CMD_MKENT(list, 1, 1, do_fsimage_list, "", ""),
-	U_BOOT_CMD_MKENT(load, 2, 1, do_fsimage_load, "", ""),
-	U_BOOT_CMD_MKENT(save, 4, 0, do_fsimage_save, "", ""),
-	U_BOOT_CMD_MKENT(fuse, 2, 0, do_fsimage_fuse, "", ""),
-	U_BOOT_CMD_MKENT(checksum, 3, 1, do_fsimage_checksum, "", ""),
+	U_BOOT_CMD_MKENT(boot, 0, 1, do_fsimage_boot, "", ""),
+	U_BOOT_CMD_MKENT(list, 4, 1, do_fsimage_list, "", ""),
+	U_BOOT_CMD_MKENT(load, 5, 1, do_fsimage_load, "", ""),
+	U_BOOT_CMD_MKENT(save, 8, 0, do_fsimage_save, "", ""),
+	U_BOOT_CMD_MKENT(fuse, 6, 0, do_fsimage_fuse, "", ""),
+	U_BOOT_CMD_MKENT(checksum, 6, 1, do_fsimage_checksum, "", ""),
 };
 
 static int do_fsimage(struct cmd_tbl *cmdtp, int flag, int argc,
@@ -149,7 +149,7 @@ static int do_fsimage(struct cmd_tbl *cmdtp, int flag, int argc,
 	return cp->cmd(cmdtp, flag, argc, argv);
 }
 
-U_BOOT_CMD(fsimage, 4, 1, do_fsimage,
+U_BOOT_CMD(fsimage, 9, 1, do_fsimage,
 	   "Handle F&S board configuration and F&S images, e.g. U-Boot, NBOOT",
 	   "arch\n"
 	   "    - Show F&S architecture\n"

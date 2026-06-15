@@ -142,6 +142,7 @@
 #include <command.h>
 #include <console.h>			/* confirm_yesno() */
 #include <fdt_support.h>		/* fdt_getprop_u32_default_node() */
+#include <fs.h>				/* fs_read(), fs_write(), ... */
 #include <fuse.h>			/* fuse_read() */
 #include <image.h>			/* parse_loadaddr() */
 #include <stdlib.h>			/* malloc() */
@@ -1460,33 +1461,146 @@ int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 	return ret;
 }
 
+#ifdef __UBOOT__
+/**
+ * fs_image_get_image_params() - Get parameters of image to process
+ * @argc:   Number of available command line arguments
+ * @argv:   Command line arguments
+ * @ip:     Pointer to fs_image_params for data to be filled in
+ * @def_fname: Filename to use if no name is given on command line
+ *
+ * Return: true: Success, false: Failure
+ *
+ * Parse a command line of the form:
+ *
+ *   [<addr> [<intf> <dev:[part]> [<file>] | <size>]]
+ *
+ * The first part is the address in RAM where the image is loaded to. If
+ * omitted, $loadaddr is used. The second part is either a filename spec
+ * (similar to the load command), or a size. If a filename spec is given, the
+ * file is loaded to <addr> first before processing starts. Otherwise it is
+ * assumend that the image is already present in RAM at <addr>.
+ *
+ * If <file> is missing in the filename spec, @def_fname is used. In
+ * case of fsimage load, the caller should set this according to the image type
+ * to be loaded, e.g. uboot.fs in case of U-Boot. Otherwise it can be NULL,
+ * which means "nboot.fs" is used.
+ *
+ * If <size> is given, it is used to limit the RAM region that is processed.
+ * This makes sure that no other F&S image that happens to be present in RAM
+ * exactly at the end of the image to accidently be included in processing. A
+ * typical usecase would be $filesize to limit the command to the size of the
+ * previously loaded file. When a filename spec is given, a <size> value is
+ * not needed because it is automatically set to the file's size.
+ *
+ * Examples (assuming that . can be used for $loadaddr):
+ *   fsimage save                     - Save the image at $loadaddr
+ *   fsimage save . $filesize         - Save the image at $loadaddr, limit size
+ *   fsimage save . mmc 0:2           - Load file nboot.fs from mmc and save
+ *   fsimage save . mmc 0:2 myfile.fs - Load file myfile.fs from mmc and save
+ */
 static bool fs_image_get_image_params(int argc, char *const argv[],
-				      struct fs_image_params *ip)
+				      struct fs_image_params *ip,
+				      const char *def_fname)
 {
 	ip->addr = 0;
 	ip->size = 0;
+	ip->fname = NULL;
 
-	if (argc > 2)
+	if (argc > 4)
 		return false;
 
+	/*
+	 * Get address. If a user forgets the <addr> argument when loading
+	 * from a filename spec, then <intf> is taken for <addr>, which
+	 * typically results in value zero, causing the board to hang
+	 * afterwards when trying to access this address. Avoid this error by
+	 * making sure that <addr> is not zero.
+	 */
 	if (argc > 0)
 		ip->addr = parse_loadaddr(argv[0], NULL);
 	else
 		ip->addr = get_loadaddr();
+	if (!ip->addr)
+		return false;
 
 	/* Get size */
-	if (argc > 1)
+	if (argc == 2) {
 		ip->size = hextoul(argv[1], NULL);
+		return true;
+	}
+
+	/* Get filename spec */
+	if (argc > 2) {
+		ip->interface = argv[1];
+		ip->devpart = argv[2];
+
+		if (!def_fname)
+			def_fname = "nboot.fs";
+		ip->fname = (argc > 3) ? argv[3] : def_fname;
+	}
 
 	return true;
 }
+
+/* Load image from file and fill in ip->size */
+static bool fs_image_provide_file(struct fs_image_params *ip)
+{
+	loff_t size;
+
+	set_fileaddr(ip->addr);
+
+	if (fs_set_blk_dev(ip->interface, ip->devpart, FS_TYPE_ANY))
+		return false;
+
+	/*
+	 * len=0 loads the whole file and returns the actually read bytes
+	 * This call outputs errors and info what is loaded.
+	 */
+	if (fs_read(ip->fname, ip->addr, 0, 0, &size))
+		return false;
+
+	/*
+	 * Remark: Each call to a filesystem function implicitly calls
+	 * fs_close() at the end. Thus if more than one function should be
+	 * used in a sequence, every single call has to be preceeded by a call
+	 * to fs_set_blk_dev().
+	 */
+
+	ip->size = size;
+	env_set_fileinfo(size);
+
+	return true;
+}
+
+static int fs_image_store_file(struct fs_image_params *ip)
+{
+	loff_t len;
+
+	if (fs_set_blk_dev(ip->interface, ip->devpart, FS_TYPE_ANY))
+		return -EACCES;
+
+	if ((fs_write(ip->fname, ip->addr, 0, ip->size, &len) < 0)
+	    || (len < ip->size))
+		return -EIO;
+
+	return 0;
+}
+#endif /* __UBOOT__ */
 
 static int fs_image_locate(int argc, char *const argv[], ulong *addr)
 {
 	struct fs_image_params ip;
 
-	if (!fs_image_get_image_params(argc, argv, &ip))
+	if (!fs_image_get_image_params(argc, argv, &ip, NULL))
 		return CMD_RET_USAGE;
+
+	if (ip.fname) {
+		printf("Reading image from %s\n  ", ip.fname);
+		if (!fs_image_provide_file(&ip))
+			return CMD_RET_FAILURE;
+		puts("\n");
+	}
 
 	/*
 	 * Clear a word at the end of the image to make sure that any data
@@ -1791,7 +1905,7 @@ static int fs_image_load_env(struct flash_info *fi, struct storage_info *si,
  * instead.
  */
 static int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
-			       void *addr, uint sub_flags)
+			       void *addr, uint sub_flags, ulong *size)
 {
 	struct sub_info sub;
 	struct fs_header_v1_0 *uboot_fsh = addr;
@@ -1857,6 +1971,9 @@ static int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
 	 * have loaded there before, e.g. a second copy of an image.
 	 */
 	*(u32 *)sub.img = 0;
+
+	if (size)
+		*size = (ulong)(sub.img - addr);
 
 	return 0;
 }
@@ -2191,7 +2308,7 @@ static uint fs_image_region_add_fsh(struct region_info *ri,
 				   SUB_HAS_FS_HEADER);
 }
 
-static int fs_image_imx8m_load(ulong addr, bool load_uboot)
+static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 {
 	struct sub_info sub;
 	struct fs_header_v1_0 *nboot_fsh, *board_info_fsh, *board_cfg_fsh;
@@ -2211,7 +2328,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot)
 	if (load_uboot) {
 		int err;
 
-		err = fs_image_load_uboot(&fi, &ni, (void *)addr, 0);
+		err = fs_image_load_uboot(&fi, &ni, (void *)addr, 0, im_size);
 		if (err)
 			return CMD_RET_FAILURE;
 
@@ -2329,6 +2446,9 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot)
 	 * have loaded there before, e.g. a second copy of an image.
 	 */
 	*(u32 *)sub.img = 0;
+
+	if (im_size)
+		*im_size = (ulong)sub.img - addr;
 
 	fs_image_put_flash_info(&fi);
 
@@ -2511,7 +2631,7 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 
 		uboot_addr = (void *)nboot_fsh;
 		uboot_addr += fs_image_get_size(uboot_addr, true);
-		if (fs_image_load_uboot(&fi, &ni_old, uboot_addr, 0))
+		if (fs_image_load_uboot(&fi, &ni_old, uboot_addr, 0, NULL))
 			return CMD_RET_FAILURE;
 
 		/* Create ATF region for U-ATF/U-TEE if present */
@@ -2982,7 +3102,8 @@ static uint get_nboot_cntr_size(struct _image_list *img_list)
  * to find images. All images including U-BOOT-INFO within 3MiB are searched
  * for.
  */
-static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
+static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
+			     ulong *im_size)
 {
 	struct fs_header_v1_0 *fsh = (void *)addr;
 	struct _image_list *img_list = NULL;
@@ -3019,7 +3140,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 			return CMD_RET_FAILURE;
 		}
 
-		ret = fs_image_load_uboot(&fi, &ni, (void *)addr, 0);
+		ret = fs_image_load_uboot(&fi, &ni, (void *)addr, 0, im_size);
 		if (ret) {
 			fs_image_put_flash_info(&fi);
 			return CMD_RET_FAILURE;
@@ -3124,6 +3245,10 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 
 	fs_image_put_flash_info(&fi);
 	free_image_list(img_list);
+
+	if (im_size)
+		*im_size = ram_offset - addr;
+
 	return CMD_RET_SUCCESS;
 }
 
@@ -3275,8 +3400,8 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	if (need_uboot) {
 		puts("Need to move U-BOOT-INFO\n");
 		uboot_addr = addr + (ulong)file_size;
-		ret = fs_image_load_uboot(fi, &ni_old,
-				(void *)uboot_addr, SUB_HAS_FS_HEADER);
+		ret = fs_image_load_uboot(fi, &ni_old, (void *)uboot_addr,
+					  SUB_HAS_FS_HEADER, NULL);
 		if (ret) {
 			free_image_list(img_list);
 			return -EIO;
@@ -3730,8 +3855,9 @@ int fs_image_do_load(int argc, char * const argv[])
 {
 	struct fs_header_v1_0 *fsh;
 	struct fs_image_params ip;
-	ulong addr;
 	bool load_uboot = false;
+	const char *def_fname = "nboot.fs";
+	int ret;
 
 	early_support_index = 0;
 
@@ -3743,6 +3869,7 @@ int fs_image_do_load(int argc, char * const argv[])
 
 		if (!strncmp(argv[0], "uboot", len)) {
 			load_uboot = true;
+			def_fname = "uboot.fs";
 			argv++;
 			argc--;
 		} else if (!strncmp(argv[0], "nboot", len)) {
@@ -3752,22 +3879,41 @@ int fs_image_do_load(int argc, char * const argv[])
 		}
 	}
 
-	if (!fs_image_get_image_params(argc, argv, &ip))
+	if (!fs_image_get_image_params(argc, argv, &ip, def_fname))
 		return CMD_RET_USAGE;
-	addr = ip.addr;
 
 	/* Invalidate any old image */
 	fsh = (struct fs_header_v1_0 *)ip.addr;
 	memset(fsh->info.magic, 0, 4);
 
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	if (!fsimage_cntr_load(addr, load_uboot, 1))
-		return CMD_RET_SUCCESS;
-
-	return fsimage_cntr_load(addr, load_uboot, 2);
+	ret = fsimage_cntr_load(ip.addr, load_uboot, 1, &ip.size);
+	if (ret)
+		ret = fsimage_cntr_load(ip.addr, load_uboot, 2, &ip.size);
 #else
-	return fs_image_imx8m_load(addr, load_uboot);
+	ret = fs_image_imx8m_load(ip.addr, load_uboot, &ip.size);
 #endif
+	if (ret)
+		return ret;
+
+#ifdef __UBOOT__
+	set_fileaddr(ip.addr);
+	env_set_fileinfo(ip.size);
+#endif
+
+	/* If a filename was given, write loaded image to the file */
+	if (ip.fname) {
+		printf("\nWriting final image to target file\n  ");
+		if (!ip.size) {
+			puts("Unknown image size; cannot write file\n");
+			return CMD_RET_FAILURE;
+		}
+
+		if (!fs_image_store_file(&ip))
+			return CMD_RET_FAILURE;
+	}
+
+	return CMD_RET_SUCCESS;
 }
 
 /* Save the F&S NBoot image to the boot device (NAND or MMC) */
