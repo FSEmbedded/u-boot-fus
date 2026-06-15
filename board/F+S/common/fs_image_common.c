@@ -46,13 +46,13 @@ static char board_id[MAX_DESCR_LEN + 1]; /* Current board-id */
 
 /* ------------- Functions in SPL and U-Boot ------------------------------- */
 
-#ifdef __UBOOT__
 /* Return the F&S architecture */
 const char *fs_image_get_arch(void)
 {
 	return CONFIG_SYS_BOARD;
 }
 
+#ifdef __UBOOT__
 /* Return the intended address of the board configuration in OCRAM */
 void *fs_image_get_regular_cfg_addr(void)
 {
@@ -537,11 +537,13 @@ void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh)
 	fs_image_update_header(cfg_fsh, size, cfg_fsh->info.flags);
 }
 
+#ifdef __UBOOT__
 /* Return the current BOARD-ID */
 const char *fs_image_get_board_id(void)
 {
 	return board_id;
 }
+#endif
 
 void fs_image_get_bcfg_name(char *bcfg_name, ulong len)
 {

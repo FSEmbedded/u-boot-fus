@@ -28,10 +28,6 @@
 
 /* ------------- MMC handling ---------------------------------------------- */
 
-#ifndef __UBOOT__
-static int current_boot_part = 0;	/* ### check if required */
-#endif
-
 #ifdef CONFIG_IMX8MM
 /* Info table for secondary SPL (MMC) */
 struct info_table {
@@ -71,32 +67,11 @@ static bool fs_image_check_for_nboot_mmc(struct flash_info *fi,
 			return true;
 	}
 #endif
+#else
+	/* ### TODO: Can we read fuses in Linux? */
+#endif /* __UBOOT__ */
 
 	return false;
-#else
-	printf("shortcut... not implemented yet...\n");
-	return true;
-#endif /* __UBOOT__ */
-}
-
-static int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
-				   const struct storage_info *si)
-{
-#ifdef __UBOOT__
-	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
-	int err;
-	uint hwpart = si->hwpart[copy];
-
-	err = blk_select_hwpart(fi->bdev, hwpart);
-	if (err)
-		printf("  Cannot switch to hwpart %d on mmc%d for %s (%d)\n",
-		       hwpart, bdesc->devnum, si->type, err);
-
-	return err;
-#else
-	current_boot_part = copy;
-	return 0;
-#endif /* __UBOOT__ */
 }
 
 /* Parse nboot-info for MMC settings and fill struct */
@@ -104,11 +79,6 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, void *fdt,
 				       int offs, struct nboot_info *ni,
 				       int boot_hwpart, bool show, uint index)
 {
-#ifdef __UBOOT__
-	struct udevice *mmc_dev = dev_get_parent(fi->bdev);
-	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(mmc_dev);
-	struct mmc *mmc = upriv->mmc;
-#endif /* __UBOOT__ */
 	int layout;
 	const char *layout_name;
 	int err;
@@ -158,10 +128,8 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, void *fdt,
 		ni->uboot.hwpart[0] = first;
 		ni->uboot.hwpart[1] = second;
 		/* Limit U-Boot size to boot part size */
-#ifdef __UBOOT__
-		if (ni->uboot.size > (u32)(mmc->capacity_boot))
-			ni->uboot.size = (u32)(mmc->capacity_boot);
-#endif /* __UBOOT__ */
+		if (ni->uboot.size > fi->boot_part_size)
+			ni->uboot.size = fi->boot_part_size;
 	} else {
 		ni->uboot.hwpart[0] = 0;
 		ni->uboot.hwpart[1] = 0;
@@ -248,51 +216,6 @@ static bool fs_image_si_differs_mmc(const struct storage_info *si1,
 		|| (si1->start[1] != si2->start[1]));
 }
 
-/* Read image at offset with given size */
-static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
-			     uint lim, uint flags, u8 *buf)
-{
-#ifdef __UBOOT__
-	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
-	ulong count;
-	ulong blksz = bdesc->blksz;
-	lbaint_t blk = offs / blksz;
-	lbaint_t blk_count = (size + blksz - 1) / blksz;
-
-	debug("  -> mmc_read from offs 0x%x (block 0x" LBAF ") size 0x%x\n",
-	      offs, blk, size);
-
-	count = blk_read(fi->bdev, blk, blk_count, buf);
-	if (count < blk_count)
-		return -EIO;
-	else if (IS_ERR_VALUE(count))
-		return (int)count;
-
-	return 0;
-#else
-	char devicename[32];
-	snprintf(devicename, 32, "/dev/mmcblk0boot%x", current_boot_part);
-	FILE *mmc = fopen(devicename, "rb");
-	if (!mmc) {
-		printf("Error opening %s, exiting...\n", devicename);
-		return -EINVAL;
-	}
-	int seek = fseek(mmc, offs, SEEK_SET);
-	if (seek != 0) {
-		printf("Error (0x%x) while seeking in %s, exiting...\n", seek,
-		       devicename);
-		return -EINVAL;
-	}
-	size_t bytes_read = fread(buf, 1, size, mmc);
-	if (bytes_read != size) {
-		printf("Error while reading %s, exiting...\n", devicename);
-		return -EINVAL;
-	}
-	fclose(mmc);
-	return 0;
-#endif /* __UBOOT__ */
-}
-
 /* Load the image of given type/descr from eMMC at given offset */
 static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 				   const struct storage_info *si,
@@ -360,11 +283,8 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 static int fs_image_load_extra_mmc(struct flash_info *fi,
 				   struct storage_info *spl, void *tempaddr)
 {
-#ifdef __UBOOT__
-	/* ### TODO: Implement this for Linux version of fsimage */
 #ifdef CONFIG_IMX8MM
-	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
-	ulong blksz = bdesc->blksz;
+	ulong blksz = fi->temp_size;
 	uint offs;
 	uint lim;
 	int err;
@@ -405,7 +325,6 @@ static int fs_image_load_extra_mmc(struct flash_info *fi,
 	}
 	memset(fi->temp, fi->temp_fill, fi->temp_size);
 #endif
-#endif /* __UBOOT__ */
 
 	return 0;
 }
@@ -430,54 +349,6 @@ static int fs_image_invalidate_mmc(struct flash_info *fi, int copy,
 	return err;
 }
 
-/* Save some data (only full pages) to NAND; return 1 if new bad block */
-static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
-			      uint lim, uint flags, u8 *buf)
-{
-#ifdef __UBOOT__
-	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
-	ulong count;
-	ulong blksz = bdesc->blksz;
-	lbaint_t blk = offs / blksz;
-	lbaint_t blk_count = (size + blksz - 1) / blksz;;
-
-	/* Bad block handling is done by eMMC controller */
-	debug("  -> mmc_write to offs 0x%x (block 0x" LBAF ") size 0x%x\n",
-	      offs, blk, size);
-
-	count = blk_write(fi->bdev, blk, blk_count, buf);
-	if (count < blk_count)
-		return -EIO;
-	else if (IS_ERR_VALUE(count))
-		return (int)count;
-#else
-	char devicename[32];
-	snprintf(devicename, 32, "/dev/mmcblk0boot%x", current_boot_part);
-	FILE *mmc = fopen(devicename, "w+b");
-	if (!mmc) {
-		printf("Error opening %s, exiting...\n", devicename);
-		return -EINVAL;
-	}
-
-	int seek = fseek(mmc, offs, SEEK_SET);
-	if (seek != 0) {
-		printf("Error (0x%x) while seeking in %s, exiting...\n",
-		       seek, devicename);
-		return -EINVAL;
-	}
-
-	size_t bytes_read = fwrite(buf, 1, size, mmc);
-	if (bytes_read != size) {
-		printf("Error (0x%lx) while writing %s, exiting...\n",
-		       bytes_read, devicename);
-		return -EINVAL;
-	}
-	fclose(mmc);
-#endif /* __UBOOT__ */
-
-	return 0;
-}
-
 /* Switch to partition where reion is located and show region info */
 static int fs_image_prepare_region_mmc(struct flash_info *fi, int copy,
 				       struct storage_info *si)
@@ -498,9 +369,7 @@ static int fs_image_prepare_region_mmc(struct flash_info *fi, int copy,
 static int fs_image_write_secondary_table(struct flash_info *fi, int copy,
 					  struct storage_info *si)
 {
-#ifdef __UBOOT__
-	struct blk_desc *bdesc = dev_get_uclass_plat(fi->bdev);
-	ulong blksz = bdesc->blksz;
+	ulong blksz = fi->temp_size;
 	uint offs;
 	uint lim;
 	int err;
@@ -536,10 +405,6 @@ static int fs_image_write_secondary_table(struct flash_info *fi, int copy,
 	fs_image_show_sub_status(err);
 
 	return err;
-#else
-	/* ### TODO: Implement this for Linux version of fsimage */
-	return 0;
-#endif /* __UBOOT__ */
 }
 
 #endif
@@ -659,9 +524,32 @@ static int fs_image_save_nboot_mmc(struct flash_info *fi,
 	return failed;
 }
 
+
+/* ------------- MMC low-level access in U-Boot backend --------------------- */
+
+#ifdef __UBOOT__
+
+static struct udevice *bdev;	       /* blkdev driver instance */
+static struct mmc *mmc;		       /* mmc instance */
+static u8 old_hwpart;		       /* Previous partition before command */
+
+/* Switch to a new hardware partition */
+static int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
+				   const struct storage_info *si)
+{
+	int err;
+	uint hwpart = si->hwpart[copy];
+
+	err = blk_select_hwpart(bdev, hwpart);
+	if (err)
+		printf("  Cannot switch to hwpart %d on %s for %s (%d)\n",
+		       hwpart, fi->devname, si->type, err);
+
+	return err;
+}
+
 static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 {
-#ifdef __UBOOT__
 	int err;
 
 	if ((boot_hwpart < 0) || (boot_hwpart == fi->boot_hwpart))
@@ -669,72 +557,108 @@ static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 
 	printf("\nSwitching %s to boot hwpart %d...", fi->devname, boot_hwpart);
 
-	err = blk_select_hwpart(fi->bdev, boot_hwpart);
+	err = blk_select_hwpart(bdev, boot_hwpart);
 
 	if (!err)
 		fi->boot_hwpart = boot_hwpart;
 
 	return err;
-#else
-	current_boot_part = boot_hwpart;
+}
+
+/* Read image at offset with given size */
+static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
+			     uint lim, uint flags, u8 *buf)
+{
+	ulong count;
+	ulong blksz = fi->temp_size;
+	lbaint_t blk = offs / blksz;
+	lbaint_t blk_count = (size + blksz - 1) / blksz;
+
+	debug("  -> mmc_read from offs 0x%x (block 0x" LBAF ") size 0x%x\n",
+	      offs, blk, size);
+
+	count = blk_read(bdev, blk, blk_count, buf);
+	if (count < blk_count)
+		return -EIO;
+	else if (IS_ERR_VALUE(count))
+		return (int)count;
+
 	return 0;
-#endif /* __UBOOT__ */
+}
+
+/* Save some data (only full blocks) to eMMC */
+static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
+			      uint lim, uint flags, u8 *buf)
+{
+	ulong count;
+	ulong blksz = fi->temp_size;
+	lbaint_t blk = offs / blksz;
+	lbaint_t blk_count = (size + blksz - 1) / blksz;;
+
+	/* Bad block handling is done by eMMC controller */
+	debug("  -> mmc_write to offs 0x%x (block 0x" LBAF ") size 0x%x\n",
+	      offs, blk, size);
+
+	count = blk_write(bdev, blk, blk_count, buf);
+	if (count < blk_count)
+		return -EIO;
+	else if (IS_ERR_VALUE(count))
+		return (int)count;
+
+	return 0;
 }
 
 static void fs_image_put_flash_mmc(struct flash_info *fi)
 {
-#ifdef __UBOOT__
-	if (blk_select_hwpart(fi->bdev, fi->old_hwpart)) {
-		printf("Cannot switch back to original hwpart %d\n",
-		       fi->old_hwpart);
-	}
-#else
-	current_boot_part = 0;
-#endif /* __UBOOT__ */
+	if (blk_select_hwpart(bdev, old_hwpart))
+		printf("Cannot switch back to original hwpart %d\n", old_hwpart);
 }
+#endif /* __UBOOT__ */
 
 struct flash_ops flash_ops_mmc = {
+	/* Generic access functions */
 	.check_for_uboot = fs_image_check_for_uboot_mmc,
 	.check_for_nboot = fs_image_check_for_nboot_mmc,
 	.get_nboot_info = fs_image_get_nboot_info_mmc,
 	.si_differs = fs_image_si_differs_mmc,
-	.read = fs_image_read_mmc,
 	.load_image = fs_image_load_image_mmc,
 	.load_extra = fs_image_load_extra_mmc,
 	.invalidate = fs_image_invalidate_mmc,
-	.write = fs_image_write_mmc,
 	.prepare_region = fs_image_prepare_region_mmc,
 	.save_nboot = fs_image_save_nboot_mmc,
+
+	/* Backend specific low-level access functions */
 	.set_hwpart = fs_image_set_hwpart_mmc,
 	.set_boot_hwpart = fs_image_set_boot_hwpart_mmc,
+	.read = fs_image_read_mmc,
+	.write = fs_image_write_mmc,
 	.put_flash = fs_image_put_flash_mmc,
 };
 
 /* ------------- Global access functions ----------------------------------- */
 
-int fs_image_get_flash_mmc(struct flash_info *fi, int devnum)
-{
 #ifdef __UBOOT__
+int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool rw)
+{
 	struct udevice *mmc_dev;
 	struct blk_desc *bdesc;
 	struct mmc_uclass_priv *upriv;
-	struct mmc *mmc;
 	int err;
 
-	err = blk_get_device(UCLASS_MMC, devnum, &fi->bdev);
+	err = blk_get_device(UCLASS_MMC, devnum, &bdev);
 	if (err) {
 		printf("blkdev %d not found\n", fi->boot_dev);
 		return -ENODEV;
 	}
 	fi->ops = &flash_ops_mmc;
 
-	mmc_dev = dev_get_parent(fi->bdev);
-	bdesc = dev_get_uclass_plat(fi->bdev);
+	mmc_dev = dev_get_parent(bdev);
+	bdesc = dev_get_uclass_plat(bdev);
 	upriv = dev_get_uclass_priv(mmc_dev);
 	mmc = upriv->mmc;
 
 	/* Determine hwpart (when command starts) and boot hwpart */
-	fi->old_hwpart = bdesc->hwpart;
+	old_hwpart = bdesc->hwpart;
 	fi->boot_hwpart = EXT_CSD_EXTRACT_BOOT_PART(mmc->part_config);
 	if (fi->boot_hwpart > 2)
 		fi->boot_hwpart = 0;
@@ -742,19 +666,15 @@ int fs_image_get_flash_mmc(struct flash_info *fi, int devnum)
 	/* Temporary buffer is for one block */
 	fi->temp_size = bdesc->blksz;
 
+	/* Size of a boot partition */
+	fi->boot_part_size = (u32)(mmc->capacity_boot);
+
 	/* Set device name */
-	sprintf(fi->devname, "mmc%d", bdesc->devnum);
-#else
-//TODO: DD Das muss implementiert werden
-	sprintf(fi->devname, "mmc%d", 0);
-	fi->temp_size = 0x200;
-	fi->old_hwpart = 0;
-	fi->boot_hwpart = 1;
-	printf("shortcut... cannot decide for flash info values dynamically at this time...\n");
-#endif /* __UBOOT__ */
+	sprintf(fi->devname, "mmc%d", devnum);
 
 	return 0;
 }
+#endif /* __UBOOT__ */
 
 /*
  * List of known environment positions before it was moved to nboot-info.

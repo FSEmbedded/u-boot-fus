@@ -304,6 +304,7 @@ struct flash_ops {
 	void (*put_flash)(struct flash_info *fi);
 };
 
+#define MAX_FI_DEVNAME 10
 struct flash_info {
 #ifdef CONFIG_NAND_MXS
 	struct mtd_info *mtd;		/* Handle to NAND */
@@ -311,11 +312,10 @@ struct flash_info {
 					   is from env-range */
 #endif
 #ifdef CONFIG_CMD_MMC
-	struct udevice *bdev;		/* blkdev driver instance */
 	u8 boot_hwpart;			/* HW partition we boot from (0..2) */
-	u8 old_hwpart;			/* Previous partition before command */
+	u32 boot_part_size;		/* Size of each boot partition */
 #endif
-	char devname[6];		/* Name of device (NAND, mmc<n>) */
+	char devname[MAX_FI_DEVNAME];	/* Name of device (NAND, mmc<n>) */
 	u8 *temp;			/* Buffer for one NAND page/MMC block */
 	uint temp_size;			/* Size of temp buffer */
 	uint base_offs;			/* Offset where temp will be written */
@@ -461,11 +461,23 @@ int fs_image_save_region(struct flash_info *fi, int copy,
 //###int fs_image_save_uboot(struct flash_info *fi, struct region_info *atf_ri,
 //###			struct region_info *uboot_ri);
 
+int fs_image_get_flash_nand(struct flash_info *fi, int devnum, bool rw);
 int fs_image_get_known_env_nand(uint index, uint start[2], uint *size);
+
+#ifndef __UBOOT__
+/* External functions for MMC handling that differ from U-Boot */
+int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
+			    const struct storage_info *si);
+int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart);
+int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
+		      uint lim, uint flags, u8 *buf);
+int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
+		       uint lim, uint flags, u8 *buf);
+void fs_image_put_flash_mmc(struct flash_info *fi);
+#endif /* !__UBOOT__ */
+int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool rw);
 int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size);
 
-int fs_image_get_flash_nand(struct flash_info *fi, int devnum);
-int fs_image_get_flash_mmc(struct flash_info *fi, int devnum);
 
 /* ------------- Command implementation ------------------------------------ */
 
