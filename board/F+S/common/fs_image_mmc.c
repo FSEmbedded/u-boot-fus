@@ -548,8 +548,11 @@ static int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
 	return err;
 }
 
+/* Set the hardware partition to boot from in the future */
 static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 {
+	u8 ack;
+	u8 access;
 	int err;
 
 	if ((boot_hwpart < 0) || (boot_hwpart == fi->boot_hwpart))
@@ -557,7 +560,12 @@ static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 
 	printf("\nSwitching %s to boot hwpart %d...", fi->devname, boot_hwpart);
 
-	err = blk_select_hwpart(bdev, boot_hwpart);
+	if (!boot_hwpart)
+		boot_hwpart = 7;
+
+	ack = EXT_CSD_EXTRACT_BOOT_ACK(mmc->part_config);
+	access = EXT_CSD_EXTRACT_PARTITION_ACCESS(mmc->part_config);
+ 	err = mmc_set_part_conf(mmc, ack, boot_hwpart, access);
 
 	if (!err)
 		fi->boot_hwpart = boot_hwpart;

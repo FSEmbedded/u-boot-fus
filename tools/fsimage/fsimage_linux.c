@@ -172,6 +172,29 @@ int read_extcsd(int fd)
 	return 0;
 }
 
+static void fill_switch_cmd(struct mmc_ioc_cmd *cmd, __u8 index, __u8 value)
+{
+	cmd->opcode = MMC_SWITCH;
+	cmd->write_flag = 1;
+	cmd->arg = (MMC_SWITCH_MODE_WRITE_BYTE << 24) | (index << 16) |
+		   (value << 8) | EXT_CSD_CMD_SET_NORMAL;
+	cmd->flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+}
+
+static int write_extcsd_value(int fd, u8 index, u8 value, uint timeout_ms)
+{
+	struct mmc_ioc_cmd idata = {};
+
+	fill_switch_cmd(&idata, index, value);
+
+	/* Kernel will set cmd_timeout_ms if 0 is set */
+	idata.cmd_timeout_ms = timeout_ms;
+
+	if (ioctl(fd, MMC_IOC_CMD, &idata) == -1)
+		return -errno;
+
+	return 0;
+}
 
 /* ------------- Functions needed to avoid large libraries ----------------- */
 
@@ -486,10 +509,25 @@ int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
 int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 {
 	struct mmc_ll_linux *ll = &mmc_ll_linux;
+	u8 value;
+	int err;
 
-	ll->hwpart = boot_hwpart;
+	if ((boot_hwpart < 0) || (boot_hwpart == fi->boot_hwpart))
+		return 0;
 
-	return 0;
+	printf("\nSwitching %s to boot hwpart %d...", fi->devname, boot_hwpart);
+
+	if (!boot_hwpart)
+		boot_hwpart = 7;
+
+	value = ext_csd[EXT_CSD_PART_CONFIG] & ~(7 << 3);
+	value |= boot_hwpart << 3;
+	err = write_extcsd_value(ll->fd[0], EXT_CSD_PART_CONFIG, value, 0);
+
+	if (!err)
+		fi->boot_hwpart = boot_hwpart;
+
+	return err;
 }
 
 /* Read image at offset with given size */
