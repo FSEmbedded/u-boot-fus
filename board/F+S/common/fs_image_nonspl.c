@@ -1460,42 +1460,67 @@ int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 	return ret;
 }
 
-#ifdef __UBOOT__ //### should be removed
-/* Get addr for image; 0 if "stored", <0: Error */
-static ulong fs_image_get_loadaddr(int argc, char * const argv[],
-				   bool use_stored_if_empty)
+static bool fs_image_get_image_params(int argc, char *const argv[],
+				      struct fs_image_params *ip)
 {
-	ulong addr;
-	const char *arch = fs_image_get_arch();
+	ip->addr = 0;
+	ip->size = 0;
 
-	if (argc > 1) {
-		if (!strncmp(argv[1], "stored", strlen(argv[1])))
-			return 0;
+	if (argc > 2)
+		return false;
 
-		addr = parse_loadaddr(argv[1], NULL);
-		use_stored_if_empty = false;
-	} else
-		addr = get_loadaddr();
+	if (argc > 0)
+		ip->addr = parse_loadaddr(argv[0], NULL);
+	else
+		ip->addr = get_loadaddr();
 
-	if (fs_image_match((void *)addr, "NBOOT", arch) ||
-			fs_image_match((void *)addr, "BOOT-INFO", arch))
-		return addr;
+	/* Get size */
+	if (argc > 1)
+		ip->size = hextoul(argv[1], NULL);
 
-	printf("No F&S NBoot image found at 0x%lx", addr);
+	return true;
+}
 
-	if (argc > 1) {
-		printf("\n");
-		return -ENOENT;
+static int fs_image_locate(int argc, char *const argv[], ulong *addr)
+{
+	struct fs_image_params ip;
+
+	if (!fs_image_get_image_params(argc, argv, &ip))
+		return CMD_RET_USAGE;
+
+	/*
+	 * Clear a word at the end of the image to make sure that any data
+	 * behind it is not misinterpreted as a concatenated further F&S
+	 * image.
+	 */
+	ip.size = (ip.size + 3) & ~3;
+	if (ip.size)
+		*(u32 *)(ip.addr + ip.size) = 0;
+
+	*addr = ip.addr;
+
+	return CMD_RET_SUCCESS;
+}
+
+#ifdef __UBOOT__
+static int fs_image_locate_nboot(int argc, char *const argv[], ulong *addr)
+{
+	const char *arch;
+	int ret;
+
+	ret = fs_image_locate(argc, argv, addr);
+	if (ret)
+		return ret;
+
+	arch = fs_image_get_arch();
+	if (!fs_image_match((void *)*addr, "NBOOT", arch)
+	    && !fs_image_match((void *)*addr, "BOOT-INFO", arch)) {
+		printf("No F&S NBoot image at 0x%lx, use 'stored'"
+		       " to refer to stored NBoot\n", *addr);
+		return CMD_RET_FAILURE;
 	}
 
-	if (!use_stored_if_empty) {
-		puts(", use 'stored' to refer to stored NBoot\n");
-		return -ENOENT;
-	}
-
-	puts(", switching to stored NBoot\n\n");
-
-	return 0;
+	return CMD_RET_SUCCESS;
 }
 #endif
 
@@ -3584,6 +3609,9 @@ put_fi:
 /* Show the F&S architecture */
 int fs_image_do_arch(int argc, char * const argv[])
 {
+	if (argc > 1)
+		return CMD_RET_USAGE;
+
 	printf("%s\n", fs_image_get_arch());
 
 	return CMD_RET_SUCCESS;
@@ -3592,12 +3620,15 @@ int fs_image_do_arch(int argc, char * const argv[])
 /* Show the current BOARD-ID */
 int fs_image_do_boardid(int argc, char * const argv[])
 {
+	if (argc > 1)
+		return CMD_RET_USAGE;
+
 	printf("%s\n", fs_image_get_board_id());
 
 	return CMD_RET_SUCCESS;
 }
 
-#ifdef __UBOOT__ //### should be removed
+#ifdef __UBOOT__
 #ifdef CONFIG_CMD_FDT
 /* Print FDT content of current BOARD-CFG */
 int fs_image_do_boardcfg(int argc, char * const argv[])
@@ -3607,17 +3638,21 @@ int fs_image_do_boardcfg(int argc, char * const argv[])
 	void *fdt = fs_image_get_cfg_fdt();
 	struct index_info cfg_info = {0};
 
-	addr = fs_image_get_loadaddr(argc, argv, true);
-	if (IS_ERR_VALUE(addr))
-		return CMD_RET_USAGE;
+	argv++;
+	argc--;
 
-	if (addr) {
+	if ((argc == 1) && !strncmp(argv[0], "stored", strlen(argv[0]))) {
+		cfg_info.fsh_idx_entry = fs_image_get_cfg_addr();
+	} else {
+		ret = fs_image_locate_nboot(argc, argv, &addr);
+		if (ret)
+			return ret;
+
 		ret = fs_image_find_board_cfg(addr, true, "show", &cfg_info,
 					      NULL);
 		if (ret <= 0)
 			return CMD_RET_FAILURE;
-	} else
-		cfg_info.fsh_idx_entry = fs_image_get_cfg_addr();
+	}
 
 	fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
 	if (!fdt)
@@ -3636,6 +3671,9 @@ int fs_image_do_boot(int argc, char * const argv[])
 	void *fdt;
 	struct flash_info fi;
 	struct nboot_info ni;
+
+	if (argc > 1)
+		return CMD_RET_USAGE;
 
 	early_support_index = 0;
 
@@ -3656,11 +3694,14 @@ int fs_image_do_list(int argc, char * const argv[])
 	ulong addr;
 	ulong offs = 0;
 	struct fs_header_v1_0 *fsh;
+	int ret;
 
-	if (argc > 1)
-		addr = parse_loadaddr(argv[1], NULL);
-	else
-		addr = get_loadaddr();
+	argv++;
+	argc--;
+
+	ret = fs_image_locate(argc, argv, &addr);
+	if (ret)
+		return ret;
 
 	fsh = (struct fs_header_v1_0 *)addr;
 	if (!fs_image_is_fs_image(fsh)) {
@@ -3688,50 +3729,35 @@ int fs_image_do_list(int argc, char * const argv[])
 int fs_image_do_load(int argc, char * const argv[])
 {
 	struct fs_header_v1_0 *fsh;
+	struct fs_image_params ip;
 	ulong addr;
-	bool force;
 	bool load_uboot = false;
 
 	early_support_index = 0;
 
-	if ((argc > 1) && (argv[1][0] == '-')) {
-		if (strcmp(argv[1], "-f"))
-			return CMD_RET_USAGE;
+	argv++;
+	argc--;
 
-		force = true;
-		argv++;
-		argc--;
-	}
+	if (argc > 0) {
+		size_t len = strlen(argv[0]);
 
-	if (argc > 1) {
-		size_t len = strlen(argv[1]);
-
-		if (!strncmp(argv[1], "uboot", len)) {
+		if (!strncmp(argv[0], "uboot", len)) {
 			load_uboot = true;
 			argv++;
 			argc--;
-		} else if (!strncmp(argv[1], "nboot", len)) {
+		} else if (!strncmp(argv[0], "nboot", len)) {
 			/* Accept "nboot", too, but it is the default anyway */
 			argv++;
 			argc--;
 		}
 	}
 
-	if (argc > 1)
-		addr = parse_loadaddr(argv[1], NULL);
-	else
-		addr = get_loadaddr();
-
-	/* Ask for confirmation if there is already an F&S image at addr */
-	fsh = (struct fs_header_v1_0 *)addr;
-	if (fs_image_is_fs_image(fsh)) {
-		printf("Warning! This will overwrite F&S image at RAM address"
-		       " 0x%lx\n", addr);
-		if (force && !fs_image_confirm())
-			return CMD_RET_FAILURE;
-	}
+	if (!fs_image_get_image_params(argc, argv, &ip))
+		return CMD_RET_USAGE;
+	addr = ip.addr;
 
 	/* Invalidate any old image */
+	fsh = (struct fs_header_v1_0 *)ip.addr;
 	memset(fsh->info.magic, 0, 4);
 
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
@@ -3757,34 +3783,37 @@ int fs_image_do_save(int argc, char * const argv[])
 
 	early_support_index = 0;
 
-	while ((argc > 1) && (argv[1][0] == '-')) {
-		if (!strcmp(argv[1], "-e")) {
-			if (argc <= 2) {
+	argv++;
+	argc--;
+
+	while ((argc > 0) && (argv[0][0] == '-')) {
+		if (!strcmp(argv[0], "-e")) {
+			if (argc < 2) {
 				puts("Missing argument for option -e\n");
 				return CMD_RET_USAGE;
 			}
-			early_support_index = simple_strtoul(argv[2], NULL, 0);
+			early_support_index = simple_strtoul(argv[1], NULL, 0);
 			argv += 2;
 			argc -= 2;
-		} else if (!strcmp(argv[1], "-b")) {
-			if (argc <= 2) {
+		} else if (!strcmp(argv[0], "-b")) {
+			if (argc < 2) {
 				puts("Missing argument for option -b\n");
 				return CMD_RET_USAGE;
 			}
-			boot_hwpart = simple_strtol(argv[2], NULL, 0);
+			boot_hwpart = simple_strtol(argv[1], NULL, 0);
 			if ((boot_hwpart < 0) || (boot_hwpart > 2)) {
 				printf("Invalid argument %s for option -b\n",
-				       argv[2]);
+				       argv[1]);
 				return CMD_RET_USAGE;
 			}
 			argv += 2;
 			argc -= 2;
-		} else if (!strcmp(argv[1], "-f")) {
+		} else if (!strcmp(argv[0], "-f")) {
 			force = true;
 			argv++;
 			argc--;
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-		} else if (!strcmp(argv[1], "-s")) {
+		} else if (!strcmp(argv[0], "-s")) {
 			system_atf = true;
 			argv++;
 			argc--;
@@ -3793,10 +3822,9 @@ int fs_image_do_save(int argc, char * const argv[])
 			return CMD_RET_USAGE;
 	}
 
-	if (argc > 1)
-		addr = parse_loadaddr(argv[1], NULL);
-	else
-		addr = get_loadaddr();
+	ret = fs_image_locate(argc, argv, &addr);
+	if (ret)
+		return ret;
 
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	ret = fsimage_cntr_save(addr, boot_hwpart, force);
@@ -3824,25 +3852,28 @@ int fs_image_do_fuse(int argc, char * const argv[])
 	ulong addr;
 	bool force = false;
 
-	if ((argc > 1) && (argv[1][0] == '-')) {
-		if (strcmp(argv[1], "-f"))
+	argv++;				/* Skip command keyword */
+	argc--;
+	if ((argc > 0) && (argv[0][0] == '-')) {
+		if (strcmp(argv[0], "-f"))
 			return CMD_RET_USAGE;
 		force = true;
 		argv++;
 		argc--;
 	}
 
-	addr = fs_image_get_loadaddr(argc, argv, false);
-	if (IS_ERR_VALUE(addr))
-		return CMD_RET_USAGE;
+	if ((argc == 1) && !strncmp(argv[0], "stored", strlen(argv[0]))) {
+		cfg_info.fsh_idx_entry = fs_image_get_cfg_addr();
+	} else {
+		ret = fs_image_locate_nboot(argc, argv, &addr);
+		if (ret)
+			return ret;
 
-	if (addr) {
-		ret = fs_image_find_board_cfg(addr, force, "fuse",
-					      &cfg_info, NULL);
+		ret = fs_image_find_board_cfg(addr, force, "fuse", &cfg_info,
+					      NULL);
 		if (ret <= 0)
 			return CMD_RET_FAILURE;
-	} else
-		cfg_info.fsh_idx_entry = fs_image_get_cfg_addr();
+	}
 
 	fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
 	if (fs_image_get_boot_dev(fdt, &boot_dev, &boot_dev_name)
@@ -3974,25 +4005,24 @@ int fs_image_do_checksum(int argc, char * const argv[])
 
 	early_support_index = 0;
 
-	if ((argc > 1) && (argv[1][0] == '-')) {
-		if (strcmp(argv[1], "-t"))
-			return CMD_RET_USAGE;
-		argv++;
-		argc--;
+	argv++;
+	argc--;
 
-		if (argc > 1) {
-			type = argv[1];
-			argv++;
-			argc--;
-		}
-		else
+	if ((argc > 0) && (argv[0][0] == '-')) {
+		if (strcmp(argv[0], "-t"))
 			return CMD_RET_USAGE;
+		if (argc < 2) {
+			puts("Missing argument for option -t\n");
+			return CMD_RET_USAGE;
+		}
+		type = argv[1];
+		argv += 2;
+		argc -= 2;
 	}
 
-	if (argc > 1)
-		addr = parse_loadaddr(argv[1], NULL);
-	else
-		addr = get_loadaddr();
+	ret = fs_image_locate(argc, argv, &addr);
+	if (ret)
+		return ret;
 
 	ret = fs_image_find_board_cfg(addr, false, "checksum", &cfg_info,
 				      &nboot_fsh);

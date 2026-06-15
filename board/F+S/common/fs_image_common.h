@@ -327,6 +327,11 @@ struct flash_info {
 	struct flash_ops *ops;		/* Access functions for NAND/MMC */
 };
 
+struct fs_image_params {
+	ulong addr;			/* Load address of image */
+	ulong size;			/* Size of image */
+};
+
 /* Get start[0..1] and size for a storage info */
 int fs_image_get_si(void *fdt, int offs, uint align, const char *type,
 		    struct storage_info *si);
