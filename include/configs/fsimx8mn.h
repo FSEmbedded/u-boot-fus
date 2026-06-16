@@ -119,7 +119,7 @@
 
 /* Offsets in eMMC where BOARD-CFG and FIRMWARE are stored */
 #define CONFIG_FUS_BOARDCFG_MMC0	0x00048000
-#define CONFIG_FUS_BOARDCFG_MMC1	0x00740000
+#define CONFIG_FUS_BOARDCFG_MMC1	0x00448000
 
 /* These addresses are hardcoded in ATF */
 #define CONFIG_SPL_USE_ATF_ENTRYPOINT
