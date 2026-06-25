@@ -24,7 +24,6 @@
 #include <linux/compiler_attributes.h>
 #include "linux_helpers.h"
 #include "../../board/F+S/common/fs_image_common.h"
-#include "../../board/F+S/common/fs_board_common.h" /* fs_board_get_boot_dev_from_name() */
 #include "../../include/imx_container.h"
 
 /* From kernel's linux/mmc/mmc.h */
@@ -887,13 +886,14 @@ int imx_hab_authenticate_image(uint32_t ddr_start, uint32_t image_size,
 	return -EINVAL;
 }
 
+#endif /* CONFIG_IMX_HAB */
+
 /* ### TODO: Read secure boot fuse from fuse bank */
-bool imx_hab_is_enabled(void)
+bool fs_board_is_closed(void)
 {
 	return false;
 }
 
-#endif /* CONFIG_IMX_HAB */
 
 
 /* ------------- Linux command line handling ------------------------------- */
@@ -975,7 +975,7 @@ static bool read_board_cfg(void)
 	if (!read_bdinfo(SYS_BOOT_DEV, boot_dev_name, 10))
 		return false;
 	fi.boot_dev_name = boot_dev_name;
-	fi.boot_dev = fs_board_get_boot_dev_from_name(boot_dev_name);
+	fi.boot_dev = fs_image_get_boot_dev_from_name(boot_dev_name);
 
 	/* Prepare flash information from where to load */
 	switch (fi.boot_dev) {

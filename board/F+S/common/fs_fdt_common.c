@@ -231,7 +231,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_u32str(fdt, offs, "nand_state", pargs->chECCstate, 1);
 #endif /* !CONFIG_FS_BOARD_CFG */
 	fs_fdt_set_string(fdt, offs, "boot_dev",
-		fs_board_get_name_from_boot_dev(fs_board_get_boot_dev()), 1);
+		fs_image_get_name_from_boot_dev(fs_board_get_boot_dev()), 1);
 	fs_fdt_set_string(fdt, offs, "board_name", get_board_name(), 0);
 	sprintf(rev, "%d.%02d", board_rev / 100, board_rev % 100);
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);

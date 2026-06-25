@@ -155,7 +155,6 @@
 #include <hang.h>
 #endif
 
-#include "fs_board_common.h"		/* fs_board_*() */
 #include "fs_image_common.h"		/* Own interface */
 #include "fs_cntr_common.h"
 

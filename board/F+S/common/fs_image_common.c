@@ -46,6 +46,48 @@ static char board_id[MAX_DESCR_LEN + 1]; /* Current board-id */
 
 /* ------------- Functions in SPL and U-Boot ------------------------------- */
 
+struct boot_dev_name {
+	enum boot_device boot_dev;
+	const char *name;
+};
+
+const struct boot_dev_name boot_dev_names[] = {
+	{USB_BOOT,  "USB"},
+	{USB2_BOOT, "USB2"},
+	{NAND_BOOT, "NAND"},
+	{MMC1_BOOT, "MMC1"},
+	{MMC2_BOOT, "MMC2"},
+	{MMC3_BOOT, "MMC3"},
+	{SD1_BOOT,  "SD1"},
+	{SD2_BOOT,  "SD2"},
+	{SD3_BOOT,  "SD3"},
+};
+
+/* Get the boot device number from the string */
+enum boot_device fs_image_get_boot_dev_from_name(const char *name)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(boot_dev_names); i++) {
+		if (!strcmp(boot_dev_names[i].name, name))
+			return boot_dev_names[i].boot_dev;
+	}
+	return UNKNOWN_BOOT;
+}
+
+/* Get the string from the boot device number */
+const char *fs_image_get_name_from_boot_dev(enum boot_device boot_dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(boot_dev_names); i++) {
+		if (boot_dev_names[i].boot_dev == boot_dev)
+			return boot_dev_names[i].name;
+	}
+
+	return "(unknown)";
+}
+
 /* Return the F&S architecture */
 const char *fs_image_get_arch(void)
 {
@@ -713,7 +755,7 @@ bool fs_image_is_ocram_cfg_valid(void)
 
 	/* Handle unsigned image */
 #ifdef CONFIG_FS_SECURE_BOOT
-	if (imx_hab_is_enabled()) {
+	if (fs_board_is_closed()) {
 		printf("\nError: Refusing unsigned %s on closed board\n", type);
 		return false;
 	}

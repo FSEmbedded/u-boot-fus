@@ -243,7 +243,7 @@ static void fs_setup_cfg_info(void)
 	info->board_type = i;
 
 	tmp = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
-	info->boot_dev = fs_board_get_boot_dev_from_name(tmp);
+	info->boot_dev = fs_image_get_boot_dev_from_name(tmp);
 
 	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 						"dram-chips", 1);

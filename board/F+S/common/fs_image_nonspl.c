@@ -163,8 +163,6 @@
 
 #include <u-boot/crc.h>			/* crc32() */
 #include <asm/mach-imx/hab.h>		/* struct ivt, ... */
-#include "fs_board_common.h"		/* fs_board_get_boot_dev_from_name()
-					   ### include should be dropped */
 #include "fs_image_common.h"		/* Own interface */
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 #include <imx_container.h>
@@ -1097,13 +1095,13 @@ static int fs_image_get_boot_dev(void *fdt, enum boot_device *boot_dev,
 		puts("Cannot find boot-dev in BOARD-CFG\n");
 		return -ENOENT;
 	}
-	*boot_dev = fs_board_get_boot_dev_from_name(boot_dev_prop);
+	*boot_dev = fs_image_get_boot_dev_from_name(boot_dev_prop);
 	if (*boot_dev == UNKNOWN_BOOT) {
 		printf("Unknown boot device %s in BOARD-CFG\n", boot_dev_prop);
 		return -EINVAL;
 	}
 
-	*boot_dev_name = fs_board_get_name_from_boot_dev(*boot_dev);
+	*boot_dev_name = fs_image_get_name_from_boot_dev(*boot_dev);
 
 	return 0;
 }
@@ -1123,8 +1121,8 @@ int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action)
 
 	printf("Error: New BOARD-CFG wants to boot from %s but board is\n"
 	       "already fused for %s. Refusing to %s this configuration.\n",
-	       fs_board_get_name_from_boot_dev(boot_dev),
-	       fs_board_get_name_from_boot_dev(boot_dev_fuses), action);
+	       fs_image_get_name_from_boot_dev(boot_dev),
+	       fs_image_get_name_from_boot_dev(boot_dev_fuses), action);
 
 	return -EINVAL;
 #else
@@ -1484,7 +1482,7 @@ int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 		new_id[MAX_DESCR_LEN] = '\0';
 		if (strncmp(new_id, old_id, MAX_DESCR_LEN)) {
 #if CONFIG_IS_ENABLED(FS_SECURE_BOOT) && CONFIG_IS_ENABLED(IMX_HAB)
-			if (imx_hab_is_enabled()) {
+			if (fs_board_is_closed()) {
 				printf("Error: Current board is %s and board"
 				       " is closed\nRefusing to %s for %s\n",
 				       old_id, action, new_id);

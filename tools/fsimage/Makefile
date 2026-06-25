@@ -17,7 +17,6 @@ hostprogs-y := fsimage
 
 lib-y += fsimage_linux.o fdt.o fdt_ro.o fdt_rw.o fdt_wip.o crc32.o
 
-lib-$(CONFIG_FS_BOARD_COMMON) += fs_board_common.o
 lib-$(CONFIG_FS_CNTR_COMMON) += fs_cntr_common.o
 lib-$(CONFIG_FS_IMAGE_COMMON) += \
 	fs_image_common.o fs_image_nonspl.o

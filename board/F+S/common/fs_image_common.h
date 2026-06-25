@@ -56,6 +56,12 @@ struct fs_header_v1_0 {			/* Size: 64 bytes */
 #define FSH_FLAGS_EXTRA 	0x0800	/* Extra offset sub-header in p32[7] */
 #define FSH_SIZE sizeof(struct fs_header_v1_0)
 
+/* Get the boot device number from the string */
+enum boot_device fs_image_get_boot_dev_from_name(const char *name);
+
+/* Get the string from the boot device number */
+const char *fs_image_get_name_from_boot_dev(enum boot_device boot_dev);
+
 /* Return the F&S architecture */
 const char *fs_image_get_arch(void);
 

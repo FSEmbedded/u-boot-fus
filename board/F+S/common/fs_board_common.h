@@ -101,14 +101,8 @@ struct fs_board_info {
 /* Get the configured boot device (also valid before fuses are programmed) */
 enum boot_device fs_board_get_boot_dev(void);
 
-/* Get the boot device number from the string */
-enum boot_device fs_board_get_boot_dev_from_name(const char *name);
-
 /* Get the boot device that is programmed in the fuses. */
 enum boot_device fs_board_get_boot_dev_from_fuses(void);
-
-/* Get the string from the boot device number */
-const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev);
 
 /* Get the board features */
 unsigned int fs_board_get_features(void);
