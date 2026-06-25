@@ -913,7 +913,7 @@ int do_fsimage(int argc, char *argv[])
 	if (!strcmp(argv[0], "board-id"))
 		return fs_image_do_boardid(argc, argv);
 
-#if 0 //### TODO
+#ifdef CONFIG_CMD_FDT
 	if (!strcmp(argv[0], "board-cfg"))
 		return fs_image_do_boardcfg(argc, argv);
 #endif

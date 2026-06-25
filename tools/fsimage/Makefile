@@ -22,6 +22,7 @@ lib-$(CONFIG_FS_IMAGE_COMMON) += \
 	fs_image_common.o fs_image_nonspl.o
 lib-$(CONFIG_CMD_NAND) += fs_image_nand.o
 lib-$(CONFIG_CMD_MMC) += fs_image_mmc.o
+lib-$(CONFIG_CMD_FDT) += fdt_print.o fdt_strerror.o
 
 fsimage-objs := $(lib-y)
 

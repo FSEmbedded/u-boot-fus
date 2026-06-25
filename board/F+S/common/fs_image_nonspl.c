@@ -193,11 +193,9 @@ const char fsimage_usage[] =
 	"    - Show F&S architecture\n"
 	"fsimage board-id\n"
 	"    - Show current BOARD-ID\n"
-#ifdef __UBOOT__
 #ifdef CONFIG_CMD_FDT
 	"fsimage board-cfg [stored | " IMAGE_SPEC "]\n"
 	"    - List contents of current BOARD-CFG\n"
-#endif
 #endif
 	"fsimage boot\n"
 	"    - Show the current boot settings\n"
@@ -1689,7 +1687,6 @@ static int fs_image_locate(int argc, char *const argv[], ulong *addr)
 	return CMD_RET_SUCCESS;
 }
 
-#ifdef __UBOOT__
 static int fs_image_locate_nboot(int argc, char *const argv[], ulong *addr)
 {
 	const char *arch;
@@ -1709,7 +1706,6 @@ static int fs_image_locate_nboot(int argc, char *const argv[], ulong *addr)
 
 	return CMD_RET_SUCCESS;
 }
-#endif
 
 /* Invalidate the temp buffer read cache */
 void fs_image_drop_temp(struct flash_info *fi)
@@ -2408,7 +2404,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 		if (err)
 			return CMD_RET_FAILURE;
 
-		printf("U-Boot successfully loaded to RAM\n");
+		puts("U-Boot successfully loaded to RAM\n");
 
 		return CMD_RET_SUCCESS;
 	}
@@ -2528,7 +2524,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 
 	fs_image_put_flash_info(&fi);
 
-	printf("NBoot successfully loaded to RAM\n");
+	puts("NBoot successfully loaded to RAM\n");
 
 	return CMD_RET_SUCCESS;
 }
@@ -3222,7 +3218,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
 			return CMD_RET_FAILURE;
 		}
 
-		printf("U-Boot successfully loaded to RAM\n", addr);
+		puts("U-Boot successfully loaded to RAM\n");
 		fs_image_put_flash_info(&fi);
 		return CMD_RET_SUCCESS;
 	}
@@ -3664,7 +3660,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 	ret = fs_image_save_uboot(&fi, NULL, &uboot_ri);
 	ret = fs_image_show_save_status(ret, "U-BOOT");
 
-	put_fi:
+put_fi:
 	fs_image_put_flash_info(&fi);
 	if (ret < 0) {
 		printf("Failed to Save U-BOOT: %d", ret);
@@ -3829,7 +3825,6 @@ int fs_image_do_boardid(int argc, char * const argv[])
 	return CMD_RET_SUCCESS;
 }
 
-#ifdef __UBOOT__
 #ifdef CONFIG_CMD_FDT
 /* Print FDT content of current BOARD-CFG */
 int fs_image_do_boardcfg(int argc, char * const argv[])
@@ -3861,9 +3856,8 @@ int fs_image_do_boardcfg(int argc, char * const argv[])
 
 	printf("FDT part of BOARD-CFG located at 0x%lx\n", (ulong)fdt);
 
-	return fdt_print(fdt, "/", NULL, 5);
+	return fdt_print(fdt, "/", NULL, 5, ULONG_MAX);
 }
-#endif
 #endif
 
 /* Show current boot settings */
