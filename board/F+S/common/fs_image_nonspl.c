@@ -3586,8 +3586,10 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	return CMD_RET_SUCCESS;
 }
 
+/* Update nboot-info of BOARD-CFG in OCRAM (U-Boot only) */
 static void update_board_cfg(struct nboot_info *ni)
 {
+#ifdef __UBOOT__
 	uint uboot_size, nboot_size, uboot_offset;
 	void *fdt = fs_image_get_cfg_fdt();
 	int offs;
@@ -3596,7 +3598,6 @@ static void update_board_cfg(struct nboot_info *ni)
 	uboot_offset = cpu_to_fdt32(ni->uboot.start[0]);
 	uboot_size = cpu_to_fdt32(ni->uboot.size);
 
-#if 1 //###
 	offs = fdt_path_offset(fdt, "/nboot-info/emmc-boot");
 	if (offs < 0)
 		return;
@@ -3604,14 +3605,7 @@ static void update_board_cfg(struct nboot_info *ni)
 	fdt_setprop(fdt, offs, "nboot-size", &nboot_size, sizeof(uint));
 	fdt_setprop(fdt, offs, "uboot-start", &uboot_offset, sizeof(uint));
 	fdt_setprop(fdt, offs, "uboot-size", &uboot_size, sizeof(uint));
-#else
-	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
-				"nboot-size", &nboot_size, sizeof(uint), 0);
-	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
-				"uboot-start", &uboot_offset, sizeof(uint), 0);
-	fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
-				"uboot-size", &uboot_size, sizeof(uint), 0);
-#endif //###
+#endif /* __UBOOT__ */
 }
 
 static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
