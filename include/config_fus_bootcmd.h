@@ -408,7 +408,6 @@
 
 #endif
 
-#if defined(CONFIG_FS_WINIOT_SUPPORT)
 #define FUS_WIN_BOOT 										\
 	"mmc_boot="										\
 		"if mmc dev ${devnum}; then "							\
@@ -422,8 +421,5 @@
 			"bootm ${loadaddr}; "							\
 		"fi;\0"										\
 
-#else
-#define FUS_WIN_BOOT
-#endif
 
 #endif /* _CONFIG_FUS_BOOTCMD */

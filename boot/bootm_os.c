@@ -32,25 +32,6 @@ static int do_bootm_standalone(int flag, struct bootm_info *bmi)
 	struct bootm_headers *images = bmi->images;
 	int (*appl)(int, char *const[]);
 
-#if CONFIG_IS_ENABLED(FS_WINIOT_SUPPORT)
-	/* 
-	 * Fixup for uefi.fit / tianocore boot
-	 *
-	 * Tianocore UEFI requires that the boot_jump_linux() is called before
-	 * jumping into UEFI code. Pretending that uefi.fit is a linux kernel
-	 * image no longer works. Instead detect uefi.fit by name and call
-	 * do_bootm_linux directly.
-	 */
-	if (!strncmp(bmi->images->fit_uname_os,"uefi",4)) {
-#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
-		// prepare fs_device
-		fs_deviceinfo_prepare();
-		fs_deviceinfo_assemble();
-#endif // CONFIG_FS_DEVICEINFO_COMMON
-		do_bootm_linux(BOOTM_STATE_OS_GO, bmi);
-	}
-#endif // CONFIG_FS_WINIOT_SUPPORT
-
 	if (!env_get_autostart()) {
 		set_fileaddr(images->os.image_start);
 		env_set_fileinfo(images->os.image_len);
@@ -60,6 +41,31 @@ static int do_bootm_standalone(int flag, struct bootm_info *bmi)
 	appl(bmi->argc, bmi->argv);
 	return 0;
 }
+
+#ifdef CONFIG_BOOTM_TIANOCORE
+static int do_bootm_tianocore(int flag, struct bootm_info *bmi)
+{
+	/*
+	 * Fixup for uefi.fit / tianocore boot
+	 *
+	 * Tianocore UEFI requires that the boot_jump_linux() is called before
+	 * jumping into UEFI code. Pretending that uefi.fit is a linux kernel
+	 * image no longer works. Instead we call do_bootm_linux directly.
+	 */
+	if (flag & (BOOTM_STATE_OS_GO | BOOTM_STATE_OS_FAKE_GO)) {
+#if CONFIG_IS_ENABLED(FS_DEVICEINFO_COMMON)
+		// prepare fs_device_info
+		fs_deviceinfo_prepare();
+		fs_deviceinfo_assemble();
+#endif // CONFIG_FS_DEVICEINFO_COMMON
+		debug("\n## Booting tianocore...\n");
+		/* Ensure that BOOTM_STATE is only OS_GO | OS_FAKE_GO */
+		flag = flag & (BOOTM_STATE_OS_GO | BOOTM_STATE_OS_FAKE_GO);
+		do_bootm_linux(flag, bmi);
+	}
+	return 0;
+}
+#endif // CONFIG_BOOTM_TIANOCORE
 
 /*******************************************************************/
 /* OS booting routines */
@@ -559,6 +565,9 @@ static boot_os_fn *boot_os[] = {
 #endif
 #ifdef CONFIG_BOOTM_EFI
 	[IH_OS_EFI] = do_bootm_efi,
+#endif
+#ifdef CONFIG_BOOTM_TIANOCORE
+	[IH_OS_TIANOCORE] = do_bootm_tianocore,
 #endif
 };
 
