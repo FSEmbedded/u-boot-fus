@@ -15,18 +15,6 @@
 #include <u-boot/crc.h>			/* crc32() */
 
 #include <asm/mach-imx/checkboot.h>
-#ifdef CONFIG_FS_SECURE_BOOT
-#endif
-
-#else
-
-#include <linux/kconfig.h>		/* Get kconfig macros only */
-#include <linux/libfdt.h>
-#include "linux_helpers.h"
-#include <asm/mach-imx/hab.h>		/* struct ivt, ... */
-#include <stdio.h>
-#include <errno.h>
-#include "crc32.h"
 #endif /* __UBOOT__ */
 
 #include "fs_board_common.h"		/* fs_board_is_closed() */
@@ -579,13 +567,11 @@ void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh)
 	fs_image_update_header(cfg_fsh, size, cfg_fsh->info.flags);
 }
 
-#ifdef __UBOOT__
 /* Return the current BOARD-ID */
 const char *fs_image_get_board_id(void)
 {
 	return board_id;
 }
-#endif
 
 void fs_image_get_bcfg_name(char *bcfg_name, ulong len)
 {

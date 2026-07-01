@@ -13,16 +13,8 @@
 #include <dm/device.h>
 #include <linux/err.h>
 #include "fs_board_common.h"		/* fs_board_*() */
-
-#else /* !__UBOOT__ */
-
-#include <linux/kconfig.h>		/* Get kconfig macros only */
-#include <linux/libfdt.h>
-#include <errno.h>
-#include <stdio.h>
-#include "linux_helpers.h"		/* fit_get_size(), confirm_yesno() ... */
-
 #endif
+
 #include "fs_image_common.h"		/* fs_image_*() */
 
 
@@ -616,6 +608,12 @@ static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 	return 0;
 }
 
+static int fs_image_read_board_cfg_mmc(struct flash_info *fi, int copy,
+				       void *board_cfg)
+{
+	return -EINVAL;
+}
+
 static void fs_image_put_flash_mmc(struct flash_info *fi)
 {
 	if (blk_select_hwpart(bdev, old_hwpart))
@@ -623,7 +621,7 @@ static void fs_image_put_flash_mmc(struct flash_info *fi)
 }
 #endif /* __UBOOT__ */
 
-struct flash_ops flash_ops_mmc = {
+static struct flash_ops flash_ops_mmc = {
 	/* Generic access functions */
 	.check_for_uboot = fs_image_check_for_uboot_mmc,
 	.check_for_nboot = fs_image_check_for_nboot_mmc,
@@ -640,6 +638,7 @@ struct flash_ops flash_ops_mmc = {
 	.set_boot_hwpart = fs_image_set_boot_hwpart_mmc,
 	.read = fs_image_read_mmc,
 	.write = fs_image_write_mmc,
+	.read_board_cfg = fs_image_read_board_cfg_mmc,
 	.put_flash = fs_image_put_flash_mmc,
 };
 

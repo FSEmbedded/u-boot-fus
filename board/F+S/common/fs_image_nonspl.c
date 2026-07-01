@@ -150,15 +150,6 @@
 #include <asm/mach-imx/checkboot.h>	/* struct boot_data */
 #include "fs_board_common.h"		/* fs_board_*() */
 #include <asm/global_data.h>		/* DECLARE_GLOBAL_DATA_PTR */
-
-#else
-
-#include <linux/kconfig.h>		/* Get kconfig macros only */
-#include <fdt_support.h>
-#include <linux/libfdt.h>
-#include <errno.h>			/* IS_ERR_VALUE() */
-#include <stdio.h>
-#include "linux_helpers.h"		/* fit_get_size(), confirm_yesno() ... */
 #endif /* __UBOOT__ */
 
 #include <u-boot/crc.h>			/* crc32() */

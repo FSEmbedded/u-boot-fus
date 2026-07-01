@@ -18,22 +18,6 @@
 #include <jffs2/jffs2.h>		/* struct mtd_device + part_info */
 #endif
 #include "fs_board_common.h"		/* fs_board_*() */
-
-#else /* !__UBOOT__ */
-
-//####TODO
-#include <linux/kconfig.h>		/* Get kconfig macros only */
-#include <linux/libfdt.h>
-#include <errno.h>
-#include <stdio.h>
-#include "linux_helpers.h"		/* fit_get_size(), confirm_yesno() ... */
-
-/* ### the following signatures are most probably not required in linux */
-//###int mtdparts_init(void);
-//###int mtd_id_parse(const char *id, const char **ret_id, u8 *dev_type, u8 *dev_num);
-//###int find_dev_and_part(const char *id, struct mtd_device **dev,
-//###                      u8 *part_num, struct part_info **part);
-
 #endif
 
 #include "fs_image_common.h"		/* fs_image_*() */
@@ -827,6 +811,12 @@ static int fs_image_set_boot_hwpart_nand(struct flash_info *fi, int boot_hwpart)
 }
 
 
+static int fs_image_read_board_cfg_nand(struct flash_info *fi, int copy,
+				       void *board_cfg)
+{
+	return -EINVAL;
+}
+
 static void fs_image_put_flash_nand(struct flash_info *fi)
 {
 	/* Nothing to be done in case of NAND */
@@ -846,6 +836,7 @@ struct flash_ops flash_ops_nand = {
 	.save_nboot = fs_image_save_nboot_nand,
 	.set_hwpart = fs_image_set_hwpart_nand,
 	.set_boot_hwpart = fs_image_set_boot_hwpart_nand,
+	.read_board_cfg = fs_image_read_board_cfg_nand,
 	.put_flash = fs_image_put_flash_nand,
 };
 

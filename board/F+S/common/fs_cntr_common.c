@@ -153,18 +153,6 @@
 
 #include "fs_dram_common.h"
 #include "fs_bootrom.h"
-
-#else
-
-#include <linux/kconfig.h>		/* Get kconfig macros only */
-#include <linux/libfdt.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
-#include "../../../include/u-boot/sha256.h"
-#include "../../../include/u-boot/sha512.h"
-#include "linux_helpers.h"
 #endif /* __UBOOT__ */
 
 #include <hash.h>
@@ -1386,15 +1374,10 @@ int fs_cntr_load_board_id()
 	fs_cntr_board_id_mmc();
 	return ret;
 }
-#endif /* CONFIG_SPL_BUILD */
-/* ------------------------------------------------------------------------- */
 
-/* ------------- Functions only in SPL, not U-Boot ------------------------- */
 /**
  *  The following Code is supposed to load U-BOOT-INFO as SPL Load Method
  */
-#if defined(CONFIG_SPL_BUILD)
-
 static int load_uboot(struct spl_image_info *spl_image)
 {
 	struct fsh_load_info *uboot_info;

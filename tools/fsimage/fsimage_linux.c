@@ -17,8 +17,6 @@
 #include <sys/stat.h>			/* fstat() */
 #include <linux/libfdt.h>
 #include <linux/kconfig.h>
-#include <linux/mmc/ioctl.h>		/* mmc_ioc_cmd_set_data(), ... */
-#include <sys/ioctl.h>			/* ioctl() */
 #include <command.h>
 #include <ctype.h>			/* tolower() */
 #include <linux/compiler_attributes.h>
@@ -26,47 +24,15 @@
 #include "../../board/F+S/common/fs_image_common.h"
 #include "../../include/imx_container.h"
 
-/* From kernel's linux/mmc/mmc.h */
-#define MMC_SWITCH                6   /* ac   [31:0] See below   R1b */
-#define MMC_SEND_EXT_CSD          8   /* adtc                    R1  */
-#define MMC_SWITCH_MODE_WRITE_BYTE      0x03    /* Set target to value */
-
-#define EXT_CSD_CMD_SET_NORMAL          (1<<0)
-#define EXT_CSD_PART_CONFIG             179     /* R/W */
-#define EXT_CSD_BOOT_MULT               226     /* RO */
-
-#define MMC_RSP_NONE	0			/* no response */
-#define MMC_RSP_PRESENT	(1 << 0)
-#define MMC_RSP_136	(1 << 1)		/* 136 bit response */
-#define MMC_RSP_CRC	(1 << 2)		/* expect valid crc */
-#define MMC_RSP_BUSY	(1 << 3)		/* card may send busy */
-#define MMC_RSP_OPCODE	(1 << 4)		/* response contains opcode */
-
-#define MMC_CMD_AC	(0 << 5)
-#define MMC_CMD_ADTC	(1 << 5)
-#define MMC_CMD_BC	(2 << 5)
-
-#define MMC_RSP_SPI_S1	(1 << 7)		/* one status byte */
-#define MMC_RSP_SPI_BUSY (1 << 10)		/* card may send busy */
-
-#define MMC_RSP_SPI_R1	(MMC_RSP_SPI_S1)
-#define MMC_RSP_SPI_R1B	(MMC_RSP_SPI_S1|MMC_RSP_SPI_BUSY)
-
-#define MMC_RSP_R1	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE)
-#define MMC_RSP_R1B	(MMC_RSP_PRESENT|MMC_RSP_CRC|MMC_RSP_OPCODE|MMC_RSP_BUSY)
-
-#define MAX_IMAGE_SIZE (4 * 1024 * 1024)
-#define MAX_BOARD_CFG_SIZE 0x2000
-
 #define SYS_BDINFO "/sys/bdinfo/"
 #define SYS_ARCH SYS_BDINFO "arch"
 #define SYS_BOARD_ID SYS_BDINFO "board-id"
 #define SYS_BOOT_DEV SYS_BDINFO "boot_dev"
+#define SYS_VERSION  SYS_BDINFO "nboot_version"
 
-static u8 image_ram[2*MAX_IMAGE_SIZE];
-static u8 board_cfg[MAX_BOARD_CFG_SIZE];
-static char board_id[MAX_DESCR_LEN + 1];
-static u8 ext_csd[512];
+static char bdinfo_board_id[MAX_DESCR_LEN + 1];
+static char nboot_version[20];
+static char boot_dev_name[10];
 
 #if 0 //###
 static int load_saved_nboot(void)
@@ -152,53 +118,12 @@ int extract_board_config(void)
 }
 #endif
 
-int read_extcsd(int fd)
-{
-	struct mmc_ioc_cmd idata = {};
-
-	memset(ext_csd, 0, sizeof(u8) * 512);
-	idata.write_flag = 0;
-	idata.opcode = MMC_SEND_EXT_CSD;
-	idata.arg = 0;
-	idata.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC;
-	idata.blksz = 512;
-	idata.blocks = 1;
-	mmc_ioc_cmd_set_data(idata, ext_csd);
-
-	if (ioctl(fd, MMC_IOC_CMD, &idata) == -1)
-		return errno;
-
-	return 0;
-}
-
-static void fill_switch_cmd(struct mmc_ioc_cmd *cmd, __u8 index, __u8 value)
-{
-	cmd->opcode = MMC_SWITCH;
-	cmd->write_flag = 1;
-	cmd->arg = (MMC_SWITCH_MODE_WRITE_BYTE << 24) | (index << 16) |
-		   (value << 8) | EXT_CSD_CMD_SET_NORMAL;
-	cmd->flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
-}
-
-static int write_extcsd_value(int fd, u8 index, u8 value, uint timeout_ms)
-{
-	struct mmc_ioc_cmd idata = {};
-
-	fill_switch_cmd(&idata, index, value);
-
-	/* Kernel will set cmd_timeout_ms if 0 is set */
-	idata.cmd_timeout_ms = timeout_ms;
-
-	if (ioctl(fd, MMC_IOC_CMD, &idata) == -1)
-		return -errno;
-
-	return 0;
-}
 
 /* ------------- Functions needed to avoid large libraries ----------------- */
 
+/* From boot/fdt_support.c */
 u32 fdt_getprop_u32_default_node(const void *fdt, int off, int cell,
-				const char *prop, const u32 dflt)
+				 const char *prop, const u32 dflt)
 {
 	const fdt32_t *val;
 	int len;
@@ -213,24 +138,25 @@ u32 fdt_getprop_u32_default_node(const void *fdt, int off, int cell,
 	if (len < ((cell + 1) * sizeof(uint32_t)))
 		return dflt;
 
-	return fdt32_to_cpu(*val);
+	return fdt32_to_cpu(val[cell]);
 }
 
-#ifdef DEBUG
-#define debug(fmt, ...) fprintf(stderr, "DEBUG: " fmt "\n", ##__VA_ARGS__)
-#else
-#define debug(fmt, ...) do {} while (0)
-#endif
-
+#define FIT_DATA_PROP		"data"
 #define FIT_DATA_SIZE_PROP	"data-size"
+#define FIT_DATA_OFFSET_PROP	"data-offset"
+#define FIT_DATA_POSITION_PROP	"data-position"
+
 /**
- * Get 'data-size' property from a given image node.
+ * fit_image_get_data_size() - Get 'data-size' property from image node
  *
  * @fit: pointer to the FIT image header
  * @noffset: component image node offset
  * @data_size: holds the data-size property
  *
- * returns:
+ * Context:
+ * This code is taken from boot/image-fit.c.
+ *
+ * Return:
  *     0, on success
  *     -ENOENT if the property could not be found
  */
@@ -247,15 +173,17 @@ int fit_image_get_data_size(const void *fit, int noffset, int *data_size)
 	return 0;
 }
 
-#define FIT_DATA_OFFSET_PROP	"data-offset"
 /**
- * Get 'data-offset' property from a given image node.
+ * fit_image_get_data_offset() - Get 'data-offset' property from image node
  *
  * @fit: pointer to the FIT image header
  * @noffset: component image node offset
  * @data_offset: holds the data-offset property
  *
- * returns:
+ * Context:
+ * This code is taken from boot/image-fit.c.
+ *
+ * Return:
  *     0, on success
  *     -ENOENT if the property could not be found
  */
@@ -273,18 +201,19 @@ int fit_image_get_data_offset(const void *fit, int noffset, int *data_offset)
 }
 
 /**
- * Get 'data-position' property from a given image node.
+ * fit_image_get_data_position() - Get 'data-position' property from image node
  *
  * @fit: pointer to the FIT image header
  * @noffset: component image node offset
  * @data_position: holds the data-position property
  *
- * returns:
+ * Context:
+ * This code is taken from boot/image-fit.c.
+ *
+ * Return:
  *     0, on success
  *     -ENOENT if the property could not be found
  */
-
-#define FIT_DATA_POSITION_PROP	"data-position"
 int fit_image_get_data_position(const void *fit, int noffset,
 				int *data_position)
 {
@@ -300,42 +229,23 @@ int fit_image_get_data_position(const void *fit, int noffset,
 }
 
 /**
- * fit_get_name - get FIT node name
- * @fit: pointer to the FIT format image header
- *
- * returns:
- *     NULL, on error
- *     pointer to node name, on success
- */
-static inline const char *fit_get_name(const void *fit_hdr,
-				       int noffset, int *len)
-{
-	return fdt_get_name(fit_hdr, noffset, len);
-}
-
-static void fit_get_debug(const void *fit, int noffset,
-			  char *prop_name, int err)
-{
-	debug("Can't get '%s' property from FIT 0x%08lx, node: offset %d, name %s (%s)\n",
-	      prop_name, (ulong)fit, noffset, fit_get_name(fit, noffset, NULL),
-	      fdt_strerror(err));
-}
-
-#define FIT_DATA_PROP		"data"
-/**
- * fit_image_get_data - get data property and its size for a given component image node
- * @fit: pointer to the FIT format image header
+ * fit_image_get_data() - Get 'data' property and its size from image node
+ * @fit: pointer to the FIT image header
  * @noffset: component image node offset
- * @data: double pointer to void, will hold data property's data address
- * @size: pointer to size_t, will hold data property's data size
+ * @data: holds the data property's data address
+ * @size: holds the data property's data size
+ *
+ * Context:
+ * This code is taken from boot/image-fit.c with debug code removed.
+ *
+ * Return:
+ *     0, on success
+ *     -1, on failure
  *
  * fit_image_get_data() finds data property in a given component image node.
  * If the property is found its data start address and size are returned to
  * the caller.
  *
- * returns:
- *     0, on success
- *     -1, on failure
  */
 int fit_image_get_data(const void *fit, int noffset,
 		       const void **data, size_t *size)
@@ -344,7 +254,6 @@ int fit_image_get_data(const void *fit, int noffset,
 
 	*data = fdt_getprop(fit, noffset, FIT_DATA_PROP, &len);
 	if (*data == NULL) {
-		fit_get_debug(fit, noffset, FIT_DATA_PROP, len);
 		*size = 0;
 		return -1;
 	}
@@ -353,67 +262,37 @@ int fit_image_get_data(const void *fit, int noffset,
 	return 0;
 }
 
-#if 0 //###
-// Digest is for compatibility between nboot and linux function signature,
-// always NULL when called and unused for Linux implementatiom.
-ulong parse_loadaddr(char *filename, void *digest) {
-	FILE *file = fopen(filename, "ro");
-	if(!file) {
-		printf("Error opening %s, exiting...\n", filename);
-		return -ENOENT;
-	}
-	size_t bytes_read = fread(nboot_buffer, 1, 4*1024*1024, file);
-	if(!bytes_read) {
-		printf("Error reading data from %s, exiting...\n", filename);
-		return -EINVAL;
-	}
-	fclose(file);
-	return (ulong)nboot_buffer;
-}
-
-ulong get_loadaddr(void){
-	return (ulong)saved_nboot_buffer;
-}
-#endif
-
-unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base) {
+unsigned long simple_strtoul(const char *cp, char **endp, unsigned int base)
+{
 	return strtoul(cp, endp, base);
 }
 
-long simple_strtol(const char *cp, char **endp, unsigned int base) {
+long simple_strtol(const char *cp, char **endp, unsigned int base)
+{
 	return strtol(cp, endp, base);
 }
 
-//TODO: DD klappt das??
-#define cpu_to_fdt32(x) __builtin_bswap32(x)
-
-#if 0 //### kann vermutlich weg
-/**
- * fdt_find_and_setprop: Find a node and set it's property
- *
- * @fdt: ptr to device tree
- * @node: path of node
- * @prop: property name
- * @val: ptr to new value
- * @len: length of new property value
- * @create: flag to create the property if it doesn't exist
- *
- * Convenience function to directly set a property given the path to the node.
- */
-int fdt_find_and_setprop(void *fdt, const char *node, const char *prop,
-			 const void *val, int len, int create)
+int confirm_yesno(void)
 {
-	int nodeoff = fdt_path_offset(fdt, node);
+	char input[8];
+	char *p;
 
-	if (nodeoff < 0)
-		return nodeoff;
+	if (!fgets(input, sizeof(input), stdin))
+		return 0;
 
-	if ((!create) && (fdt_get_property(fdt, nodeoff, prop, NULL) == NULL))
-		return 0; /* create flag not set; so exit quietly */
+	for (p = input; *p; ++p) {
+		if (*p == '\n') {
+			*p = '\0';
+			break;
+		}
+		*p = tolower((unsigned char) *p);
+	}
 
-	return fdt_setprop(fdt, nodeoff, prop, val, len);
+	return (!strcmp(input, "y") || !strcmp(input, "yes"));
 }
-#endif //###
+
+
+/* ------------- Container handling ---------------------------------------- */
 
 enum boot_stage_type {
 	BT_STAGE_PRIMARY = 0x6,
@@ -469,283 +348,38 @@ int get_container_size(ulong addr, u16 *header_length)
 	return max_offset;
 }
 
-int confirm_yesno(void) {
-	char input[8];
-	if(!fgets(input, sizeof(input), stdin)) {
-		return 0;
-	}
-	input[strcspn(input, "\n")] = '\0';
-	for(char *p = input; *p; ++p) {
-		*p = tolower((unsigned char) *p);
-	}
-	if((strcmp(input, "y") == 0) || (strcmp(input, "yes") == 0)) {
-		return 1;
-	}
-	return 0;
-}
-
-
-/* ------------- MMC low-level access in Linux backend ---------------------- */
-
-static struct mmc_ll_linux {
-	int hwpart;		      /* Current hardware partition */
-	bool rw;		      /* false: read-only, true: read/write */
-	int fd[3];		      /* Filedescriptors user/boot1/boot2 */
-} mmc_ll_linux;
-
-/* Switch to a new hardware partition */
-int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
-			    const struct storage_info *si)
+/* Check that the version of this BOARD-CFG is the same as the one booted from */
+bool check_board_cfg(struct fs_header_v1_0 *fsh)
 {
-	struct mmc_ll_linux *ll = &mmc_ll_linux;
+	const void *version;
+	int offs;
+	void *fdt = fs_image_find_cfg_fdt(fsh);
 
-	ll->hwpart = si->hwpart[copy];
+	if (!fdt)
+		return false;
 
-	return 0;
-}
-
-/* Set the hardware partition to boot from in the future */
-int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
-{
-	struct mmc_ll_linux *ll = &mmc_ll_linux;
-	u8 value;
-	int err;
-
-	if ((boot_hwpart < 0) || (boot_hwpart == fi->boot_hwpart))
-		return 0;
-
-	printf("\nSwitching %s to boot hwpart %d...", fi->devname, boot_hwpart);
-
-	if (!boot_hwpart)
-		boot_hwpart = 7;
-
-	value = ext_csd[EXT_CSD_PART_CONFIG] & ~(7 << 3);
-	value |= boot_hwpart << 3;
-	err = write_extcsd_value(ll->fd[0], EXT_CSD_PART_CONFIG, value, 0);
-
-	if (!err)
-		fi->boot_hwpart = boot_hwpart;
-
-	return err;
-}
-
-/* Read image at offset with given size */
-int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
-		      uint lim, uint flags, u8 *buf)
-{
-	struct mmc_ll_linux *ll = &mmc_ll_linux;
-	ssize_t count;
-	int fd;
-
-	debug("  -> mmc_read from offs 0x%x (block 0x%x) size 0x%x\n",
-	      offs, offs / fi->temp_size, size);
-
-	if (ll->hwpart < 0)
-		return -EINVAL;		/* No partition selected */
-
-	fd = ll->fd[ll->hwpart];
-	if (lseek(fd, offs, SEEK_SET) == (off_t)-1)
-		return -errno;		/* Seek error */
-
-	count = read(fd, buf, size);
-	if (count == -1)
-		return -errno;		/* Read error */
-
-	if (count != (ssize_t)size)
-		return -EIO;		/* EOF */
-
-	return 0;
-}
-
-/* Save some data (only full blocks) to eMMC */
-int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
-		       uint lim, uint flags, u8 *buf)
-{
-	struct mmc_ll_linux *ll = &mmc_ll_linux;
-	off_t seek;
-	ssize_t count;
-	int fd;
-
-	if (!ll->rw)
-		return -EROFS;		/* Read-only environment */
-
-	if (ll->hwpart < 0)
-		return -EINVAL;		/* No partition selected */
-
-	fd = ll->fd[ll->hwpart];
-	seek = lseek(fd, offs, SEEK_SET);
-	if (seek == (off_t)-1)
-		return -errno;		/* Seek error */
-
-	count = write(fd, buf, size);
-	if (count == -1)
-		return -errno;		/* Write error */
-	if (count != (ssize_t)size)
-		return -ENOSPC;		/* No space left */
-
-	return 0;
-}
-
-void fs_image_put_flash_mmc(struct flash_info *fi)
-{
-	struct mmc_ll_linux *ll = &mmc_ll_linux;
-
-	ll->hwpart = -1;
-	if (ll->fd[0] != -1)
-		close(ll->fd[0]);
-	if (ll->fd[1] != -1)
-		close(ll->fd[1]);
-	if (ll->fd[2] != -1)
-		close(ll->fd[2]);
-}
-
-extern struct flash_ops flash_ops_mmc;
-int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool rw)
-{
-	struct mmc_ll_linux *ll = &mmc_ll_linux;
-	int flags = rw ? O_RDWR : O_RDONLY;
-	char devname[32];
-
-	ll->rw = rw;
-	ll->hwpart = 0;
-	ll->fd[0] = -1;
-	ll->fd[1] = -1;
-	ll->fd[2] = -1;
-
-	/* Open main device */
-	snprintf(fi->devname, MAX_FI_DEVNAME, "mmcblk%d", devnum);
-	snprintf(devname, 32, "/dev/%s", fi->devname);
-	ll->fd[0] = open(devname, flags);
-	if (ll->fd[0] == -1)
-		goto err;
-
-	if (read_extcsd(ll->fd[0])) {
-		printf("Cannot read extcsd of %s\n", fi->devname);
-		goto put;
+	offs = fs_image_get_nboot_info_offs(fdt);
+	if (offs < 0) {
+		/* Very old BOARD-CFGs didn't have the nboot-info subnode */
+		offs = fs_image_get_board_cfg_offs(fdt);
+		if (offs < 0)
+			return false;
 	}
 
-	fi->boot_hwpart = (ext_csd[EXT_CSD_PART_CONFIG] >> 3) & 7;
-	if (fi->boot_hwpart > 2)
-		fi->boot_hwpart = 0;
-	fi->boot_part_size = ext_csd[EXT_CSD_BOOT_MULT] << 17;
-	fi->temp_size = 0x200;
+	version = fdt_getprop(fdt, offs, "version", NULL);
+	if (!version)
+		return false;
 
-	/* Open boot1/2 partitions */
-	snprintf(devname, 32, "/dev/%sboot0", fi->devname);
-	ll->fd[1] = open(devname, flags);
-	if (ll->fd[1] == -1)
-		goto err;
+	if (strcmp(version, nboot_version))
+		return false;
 
-	snprintf(devname, 32, "/dev/%sboot1", fi->devname);
-	ll->fd[2] = open(devname, flags);
-	if (ll->fd[2] == -1)
-		goto err;
+	return true;
 
-	fi->ops = &flash_ops_mmc;
-
-	return 0;
-
-err:
-	printf("Cannot open %s: %s\n", devname, strerror(errno));
-put:
-	fs_image_put_flash_mmc(fi);
-
-	return -1;
-}
-
-static int load_board_cfg_mmc(struct flash_info *fi, int copy)
-{
-	struct mmc_ll_linux *ll = &mmc_ll_linux;
-       	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)board_cfg;
-	ssize_t count;
-	size_t size;
-	int fd;
-	off_t offs;
-	off_t end;
-
-	if (fi->boot_hwpart) {
-		/* Booting from boot1/2 hwpart: use appropriate copy */
-		offs = 0;
-		end = fi->boot_part_size;
-		fd = ll->fd[!copy ? fi->boot_hwpart : 3 - fi->boot_hwpart];
-	} else {
-		/* Booting from User hwpart: search in first or second 4 MiB */
-		if (!copy) {
-			offs = 0x00008000; /* skip GPT in first 32KiB */
-			end = 0x00400000;
-		} else {
-			offs = 0x00400000;
-			end = 0x00800000;
-		}
-		fd = ll->fd[0];
-	}
-
-	if (lseek(fd, offs, SEEK_SET) == -1)
-		return -errno;
-
-	printf("  Searching BOARD-CFG... ");
-	/* Search for BOARD-CFG */
-	do {
-		/* Read F&S header */
-		count = read(fd, fsh, FSH_SIZE);
-		if (count == (ssize_t)-1)
-			return -errno;
-		if (count != FSH_SIZE)
-			return -EWOULDBLOCK;
-
-		/* If BOARD-CFG found, load it and return success */
-		if (fs_image_match(fsh, "BOARD-CFG", NULL)) {
-			printf("found at offset 0x%lx\n"
-			       "  Reading BOARD-CFG... ", offs);
-			size = fs_image_get_size(fsh, false);
-			count = read(fd, fsh + 1, size);
-			if (count == (ssize_t)-1)
-				return -errno;
-			if (count != (ssize_t)size)
-				return -EWOULDBLOCK;
-			return 0;
-		}
-		offs += FSH_SIZE;
-	} while (offs < end);
-
-	return -ENOENT;
 }
 
 /* ------------- Functions that differ from U-Boot ------------------------- */
 
-/* Return the address of the board configuration */
-void *fs_image_get_cfg_addr(void)
-{
-	return board_cfg;
-}
-
-const char *fs_image_get_board_id(void)
-{
-	return board_id;
-}
-
-int fs_image_get_start_copy(void)
-{
-	int start_copy = 1;
-
-	printf("TODO: Cannot determine SPL start copy, assuming Primary\n");
-	printf("Booted from %s SPL, so starting with copy %d\n", \
-	       start_copy ? "Primary" : "Secondary", start_copy);
-
-	return start_copy;
-}
-
-int fs_image_get_start_copy_uboot(void)
-{
-	int start_copy = 1;
-
-	printf("TODO: Cannot determine UBOOT start copy, assuming Primary\n");
-	printf("Booted from %s UBOOT, so starting with copy %d\n", \
-	       start_copy ? "Primary" : "Secondary", start_copy);
-
-	return start_copy;
-}
-
+#if 0 //###
 unsigned int fuse_read(int bank, int word, uint32_t *buf)
 {
 	const char *fname = "/sys/bus/nvmem/devices/fsb_s400_fuse0/nvmem";
@@ -760,122 +394,7 @@ unsigned int fuse_read(int bank, int word, uint32_t *buf)
 
 	return 0;
 }
-
-/* Simply get the filename */
-bool fs_image_get_image_params(int argc, char *const argv[],
-			       struct fs_image_params *ip,
-			       const char *def_fname)
-{
-	ip->addr = 0;
-	ip->size = 0;
-	ip->fname = NULL;
-
-	if (argc > 1)
-		return false;
-
-	if (!def_fname)
-		def_fname = "nboot.fs";
-	if (argc > 0)
-		ip->fname = argv[0];
-	else
-		ip->fname = def_fname;
-	ip->addr = (ulong)image_ram;
-
-	return true;
-}
-
-/* Load image from file ip->fname and fill in ip->size */
-bool fs_image_provide_file(struct fs_image_params *ip)
-{
-	int fd;
-	struct stat stat;
-	ssize_t count;
-	int err;
-
-	printf("Loading %s... ", ip->fname);
-	fd = open(ip->fname, O_RDONLY);
-	if (fd == -1)
-		goto err;
-
-	if (fstat(fd, &stat) == -1)
-		goto err;
-
-	if (stat.st_size > sizeof(image_ram)) {
-		err = EFBIG;
-		goto out;
-	}
-
-	count = read(fd, (char *)ip->addr, stat.st_size);
-	if (count == -1)
-		goto err;
-
-	if (count < stat.st_size) {
-		err = ENOMSG;
-		goto out;
-	}
-	if (close(fd) == -1) {
-		fd = -1;
-		goto err;
-	}
-
-	printf("done!\n");
-	ip->size = stat.st_size;
-
-	return true;
-
-err:
-	err = errno;
-out:
-	if (fd != -1)
-		close(fd);
-
-	printf("failed: %s\n", strerror(err));
-
-	return false;
-}
-
-/* Write image with ip->size to file ip->fname */
-bool fs_image_store_file(struct fs_image_params *ip)
-{
-	int fd = -1;
-	ssize_t count;
-	int err;
-
-	printf("Writing %s... ", ip->fname);
-	fd = open(ip->fname, O_WRONLY | O_CREAT | O_TRUNC, 0664);
-	if (fd == -1)
-		goto err;
-
-	count = write(fd, (char *)ip->addr, ip->size);
-	if (count == -1)
-		goto err;
-	if (count < ip->size) {
-		err = -EIO;
-		goto out;
-	}
-
-	if (fsync(fd) == -1)
-		goto err;
-
-	if (close(fd) == -1) {
-		fd = -1;
-		goto err;
-	}
-
-	printf("done!\n");
-
-	return true;
-
-err:
-	err = -errno;
-out:
-	if (fd != -1)
-		close(fd);
-
-	printf("failed: %s\n", strerror(err));
-
-	return false;
-}
+#endif //###
 
 #ifdef CONFIG_IMX_HAB
 
@@ -885,7 +404,6 @@ int imx_hab_authenticate_image(uint32_t ddr_start, uint32_t image_size,
 {
 	return -EINVAL;
 }
-
 #endif /* CONFIG_IMX_HAB */
 
 /* ### TODO: Read secure boot fuse from fuse bank */
@@ -966,64 +484,6 @@ static bool read_bdinfo(const char *name, char *value, uint size)
 	return true;
 }
 
-static bool read_board_cfg(void)
-{
-	struct flash_info fi;
-	char boot_dev_name[10];
-	int err;
-
-	if (!read_bdinfo(SYS_BOOT_DEV, boot_dev_name, 10))
-		return false;
-	fi.boot_dev_name = boot_dev_name;
-	fi.boot_dev = fs_image_get_boot_dev_from_name(boot_dev_name);
-
-	/* Prepare flash information from where to load */
-	switch (fi.boot_dev) {
-#if 0 //###def CONFIG_NAND_MXS
-	case NAND_BOOT:
-		err = fs_image_get_flash_nand(&fi, 0, rw);
-		break;
-#endif
-
-#ifdef CONFIG_MMC
-	case MMC1_BOOT:
-	case MMC2_BOOT:
-	case MMC3_BOOT:
-		err = fs_image_get_flash_mmc(&fi, fi.boot_dev - MMC1_BOOT, 0);
-		break;
-#endif
-	default:
-		printf("Cannot handle %s boot device\n", fi.boot_dev_name);
-		return false;
-	}
-
-	if (err)
-		return false;
-
-	/* Try to find a valid BOARD-CFG copy */
-	printf("Reading BOARD-CFG from %s\n", fi.devname);
-
-	if (load_board_cfg_mmc(&fi, 0)) {
-		int err = load_board_cfg_mmc(&fi, 1);
-		if (err) {
-			printf("failed: %s\n", strerror(-err));
-			fs_image_put_flash_mmc(&fi);
-			return false;
-		}
-	}
-
-	printf("done!\n");
-	fs_image_put_flash_mmc(&fi);
-
-	/*
-	 * Set the current board_id name and the compare_id that is used in
-	 * fs_image_find_board_cfg().
-	 */
-	fs_image_set_board_id_from_cfg();
-
-	return true;
-}
-
 /**
  * check_current_arch() - Verify F&S architecture
  *
@@ -1049,7 +509,7 @@ static bool check_current_arch(void)
 	return true;
 }
 
-
+extern bool read_board_cfg(const char *boot_dev_name);
 int main(int argc, char *argv[])
 {
 	int status;
@@ -1058,10 +518,21 @@ int main(int argc, char *argv[])
 	if (!check_current_arch())
 		return 1;
 
-	if (!read_bdinfo(SYS_BOARD_ID, board_id, MAX_DESCR_LEN + 1))
+	/* Read board-id from bdinfo */
+	if (!read_bdinfo(SYS_BOARD_ID, bdinfo_board_id, sizeof(bdinfo_board_id)))
+		return 1;
+	fs_image_set_compare_id(bdinfo_board_id);
+
+	/* Read NBoot version from bdinfo */
+	if (!read_bdinfo(SYS_VERSION, nboot_version, sizeof(nboot_version)))
 		return 1;
 
-	if (!read_board_cfg())
+	/* Read boot device */
+	if (!read_bdinfo(SYS_BOOT_DEV, boot_dev_name, sizeof(boot_dev_name)))
+		return 1;
+
+	/* Read BOARD-CFG from flash */
+	if (!read_board_cfg(boot_dev_name))
 		return 1;
 
 #if 0

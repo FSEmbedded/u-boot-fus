@@ -307,6 +307,7 @@ struct flash_ops {
 	int (*set_hwpart)(struct flash_info *fi, int copy,
 			  const struct storage_info *si);
 	int (*set_boot_hwpart)(struct flash_info *fi, int boot_hwpart);
+	int (*read_board_cfg)(struct flash_info *fi, int copy, void *board_cfg);
 	void (*put_flash)(struct flash_info *fi);
 };
 
@@ -476,31 +477,9 @@ int fs_image_check_env_crc32(void *env, uint size);
 int fs_image_save_region(struct flash_info *fi, int copy,
 			 struct region_info *ri);
 
-//###int fs_image_save_uboot(struct flash_info *fi, struct region_info *atf_ri,
-//###			struct region_info *uboot_ri);
-
 int fs_image_get_flash_nand(struct flash_info *fi, int devnum, bool rw);
 int fs_image_get_known_env_nand(uint index, uint start[2], uint *size);
 
-#ifndef __UBOOT__
-bool fs_image_get_image_params(int argc, char *const argv[],
-				      struct fs_image_params *ip,
-				      const char *default_filename);
-
-bool fs_image_provide_file(struct fs_image_params *ip);
-
-bool fs_image_store_file(struct fs_image_params *ip);
-
-/* External functions for MMC handling that differ from U-Boot */
-int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
-			    const struct storage_info *si);
-int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart);
-int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
-		      uint lim, uint flags, u8 *buf);
-int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
-		       uint lim, uint flags, u8 *buf);
-void fs_image_put_flash_mmc(struct flash_info *fi);
-#endif /* !__UBOOT__ */
 int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool rw);
 int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size);
 
