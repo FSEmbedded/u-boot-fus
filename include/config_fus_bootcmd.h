@@ -37,11 +37,11 @@
  */
 #ifdef CONFIG_CMD_MMC
 #define BOOT_FROM_MMC								\
-	".kernel_mmc=setenv kernel \"mmc rescan; "				\
-		" load mmc ${mmcdev} . ${bootfile}\"\0"				\
-	".fdt_mmc=setenv fdt \"mmc rescan; "					\
+	".kernel_mmc=setenv kernel \'mmc rescan; "				\
+		" load mmc ${mmcdev} . ${bootfile}\'\0"				\
+	".fdt_mmc=setenv fdt \'mmc rescan; "					\
 		"load mmc ${mmcdev} ${fdt_addr_r} ${fdtfile}; "			\
-		BOOT_WITH_FDT "\"\0"						\
+		BOOT_WITH_FDT "\'\0"						\
 	".rootfs_mmc=setenv root /dev/mmcblk${mmcdev}p2 rootwait\0"
 #else
 #define BOOT_FROM_MMC
@@ -49,26 +49,26 @@
 
 /* In case of USB, the layout is the same as on MMC. */
 #define BOOT_FROM_USB							\
-	".kernel_usb=setenv kernel \"usb start; "				\
-		"load usb 0 . ${bootfile}\"\0"				\
-	".fdt_usb=setenv fdt \"usb start; "				\
+	".kernel_usb=setenv kernel \'usb start; "				\
+		"load usb 0 . ${bootfile}\'\0"				\
+	".fdt_usb=setenv fdt \'usb start; "				\
 		"load usb 0 ${fdt_addr_r} ${fdtfile}; " 		\
-		BOOT_WITH_FDT "\"\0"					\
+		BOOT_WITH_FDT "\'\0"					\
 	".rootfs_usb=setenv root /dev/sda1 rootwait\0"
 
 /* In case of TFTP, kernel and device tree are loaded from TFTP server */
 #define BOOT_FROM_TFTP							\
-	".kernel_tftp=setenv kernel \"tftpboot . ${bootfile}\"\0"	\
-	".fdt_tftp=setenv fdt \"tftpboot ${fdt_addr_r} ${fdtfile}; " 	\
-		BOOT_WITH_FDT "\"\0"					\
+	".kernel_tftp=setenv kernel \'tftpboot . ${bootfile}\'\0"	\
+	".fdt_tftp=setenv fdt \'tftpboot ${fdt_addr_r} ${fdtfile}; " 	\
+		BOOT_WITH_FDT "\'\0"					\
 
 /* In case of NFS, kernel, device tree and rootfs are loaded from NFS server */
 #define BOOT_FROM_NFS							\
-	".kernel_nfs=setenv kernel \"nfs . "				\
-		"${serverip}:${rootpath}/${bootfile}\"\0"		\
-	".fdt_nfs=setenv fdt \"nfs ${fdt_addr_r} "			\
+	".kernel_nfs=setenv kernel \'nfs . "				\
+		"${serverip}:${rootpath}/${bootfile}\'\0"		\
+	".fdt_nfs=setenv fdt \'nfs ${fdt_addr_r} "			\
 		"${serverip}:${rootpath}/${fdtfile}; "			\
-		BOOT_WITH_FDT"\"\0"					\
+		BOOT_WITH_FDT"\'\0"					\
 	".rootfs_nfs=setenv root /dev/nfs "				\
 		"nfsroot=${serverip}:${rootpath},v3,tcp\0"
 
