@@ -773,9 +773,10 @@ static int board_cfg_ele_workaround(struct fsh_load_info *fsh_info, struct spl_i
 	}
 
 	debug("FSCNTR: FOUND %s (%s)\n", cfg_index[fsh_idx].type, cfg_index[fsh_idx].param.descr);
+	debug("Found at FSH Index %d\n", fsh_idx);
 
 	/* We need to skip images in stream */
-	cntr_idx = 1 + (fsh_idx / 4);
+	cntr_idx = 1 + ((fsh_idx - 1) / 4);
 	if(is_boot_from_stream_device()){
 		ret = fs_cntr_skip_streamed_images(&cfg_info,
 				cntr_info,
