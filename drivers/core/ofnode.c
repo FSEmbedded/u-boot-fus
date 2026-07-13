@@ -164,15 +164,20 @@ void *ofnode_lookup_fdt(ofnode node)
 
 void *ofnode_to_fdt(ofnode node)
 {
+	void *fdt;
+
 #ifdef OF_CHECKS
 	if (of_live_active())
-		return NULL;
+		panic("%s called with live tree in use!\n", __func__);
 #endif
 	if (CONFIG_IS_ENABLED(OFNODE_MULTI_TREE) && ofnode_valid(node))
-		return ofnode_lookup_fdt(node);
+		fdt = ofnode_lookup_fdt(node);
+	else
+		fdt = (void *)gd->fdt_blob;
 
-	/* Use the control FDT by default */
-	return (void *)gd->fdt_blob;
+	assert(fdt);
+
+	return fdt;
 }
 
 /**
@@ -1221,13 +1226,16 @@ int ofnode_decode_display_timing(ofnode parent, int index,
 	int ret = 0;
 
 	timings = ofnode_find_subnode(parent, "display-timings");
-	if (!ofnode_valid(timings))
-		return -EINVAL;
-
-	i = 0;
-	ofnode_for_each_subnode(node, timings) {
-		if (i++ == index)
-			break;
+	if (ofnode_valid(timings)) {
+		i = 0;
+		ofnode_for_each_subnode(node, timings) {
+			if (i++ == index)
+				break;
+		}
+	} else {
+		if (index != 0)
+			return -EINVAL;
+		node = ofnode_find_subnode(parent, "panel-timing");
 	}
 
 	if (!ofnode_valid(node))
@@ -1629,18 +1637,6 @@ bool ofnode_pre_reloc(ofnode node)
 	    ofnode_read_bool(node, "bootph-pre-sram"))
 		return gd->flags & GD_FLG_RELOC;
 
-	if (IS_ENABLED(CONFIG_OF_TAG_MIGRATE)) {
-		/* detect and handle old tags */
-		if (ofnode_read_bool(node, "u-boot,dm-pre-reloc") ||
-		    ofnode_read_bool(node, "u-boot,dm-pre-proper") ||
-		    ofnode_read_bool(node, "u-boot,dm-spl") ||
-		    ofnode_read_bool(node, "u-boot,dm-tpl") ||
-		    ofnode_read_bool(node, "u-boot,dm-vpl")) {
-			gd->flags |= GD_FLG_OF_TAG_MIGRATE;
-			return true;
-		}
-	}
-
 	return false;
 #endif
 }
@@ -1961,6 +1957,12 @@ int ofnode_read_bootscript_flash(u64 *bootscr_flash_offset,
 	ofnode uboot;
 
 	*bootscr_flash_offset = 0;
+
+	if (!bootscr_flash_size) {
+		dm_warn("bootscr-flash-size is zero. Ignoring properties!\n");
+		return -EINVAL;
+	}
+
 	*bootscr_flash_size = 0;
 
 	uboot = ofnode_path("/options/u-boot");
@@ -1978,12 +1980,6 @@ int ofnode_read_bootscript_flash(u64 *bootscr_flash_offset,
 			      bootscr_flash_size);
 	if (ret)
 		return -EINVAL;
-
-	if (!bootscr_flash_size) {
-		dm_warn("bootscr-flash-size is zero. Ignoring properties!\n");
-		*bootscr_flash_offset = 0;
-		return -EINVAL;
-	}
 
 	return 0;
 }

@@ -121,6 +121,7 @@ static struct pci_device_id e1000_supported[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I210_1000BASEKX) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I225_UNPROGRAMMED) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I225_IT) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_I225_V) },
 
 	{}
 };
@@ -1588,6 +1589,7 @@ e1000_set_mac_type(struct e1000_hw *hw)
 	case PCI_DEVICE_ID_INTEL_I210_1000BASEKX:
 	case PCI_DEVICE_ID_INTEL_I225_UNPROGRAMMED:
 	case PCI_DEVICE_ID_INTEL_I225_IT:
+	case PCI_DEVICE_ID_INTEL_I225_V:
 		hw->mac_type = e1000_igb;
 		break;
 	default:
@@ -4834,6 +4836,7 @@ static int e1000_set_phy_type (struct e1000_hw *hw)
 			hw->phy_type = e1000_phy_igp;
 			break;
 		}
+		fallthrough;
 	case IGP03E1000_E_PHY_ID:
 		hw->phy_type = e1000_phy_igp_3;
 		break;
@@ -4847,6 +4850,7 @@ static int e1000_set_phy_type (struct e1000_hw *hw)
 			hw->phy_type = e1000_phy_gg82563;
 			break;
 		}
+		fallthrough;
 	case BME1000_E_PHY_ID:
 		hw->phy_type = e1000_phy_bm;
 		break;
@@ -4854,6 +4858,7 @@ static int e1000_set_phy_type (struct e1000_hw *hw)
 		hw->phy_type = e1000_phy_igb;
 		break;
 	case I225_I_PHY_ID:
+	case I225_V_PHY_ID:
 	case I226_LM_PHY_ID:
 	case I226_I_PHY_ID:
 		hw->phy_type = e1000_phy_igc;
@@ -4966,6 +4971,8 @@ e1000_detect_gig_phy(struct e1000_hw *hw)
 		if (hw->phy_id == I210_I_PHY_ID)
 			match = true;
 		if (hw->phy_id == I225_I_PHY_ID)
+			match = true;
+		if (hw->phy_id == I225_V_PHY_ID)
 			match = true;
 		if (hw->phy_id == I226_LM_PHY_ID)
 			match = true;

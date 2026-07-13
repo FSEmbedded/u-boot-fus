@@ -67,17 +67,15 @@ int ft_add_optee_node(void *fdt, struct bd_info *bd)
 			return -1;
 	}
 
-	if (fdt_path_offset(fdt, "/firmware/optee") < 0) {
-		subpath = "optee";
-		offs = fdt_add_subnode(fdt, offs, subpath);
-		if (offs < 0) {
-			printf("Could not create %s node.\n", subpath);
-			return -1;
-		}
-
-		fdt_setprop_string(fdt, offs, "compatible", "linaro,optee-tz");
-		fdt_setprop_string(fdt, offs, "method", "smc");
+	subpath = "optee";
+	offs = fdt_find_or_add_subnode(fdt, offs, subpath);
+	if (offs < 0) {
+		printf("Could not create %s node.\n", subpath);
+		return -1;
 	}
+
+	fdt_setprop_string(fdt, offs, "compatible", "linaro,optee-tz");
+	fdt_setprop_string(fdt, offs, "method", "smc");
 
 	unsigned long flags = FDTDEC_RESERVED_MEMORY_NO_MAP;
 	struct fdt_memory carveout = {

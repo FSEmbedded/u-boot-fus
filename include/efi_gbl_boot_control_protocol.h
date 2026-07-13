@@ -34,7 +34,7 @@
 #include <efi_gbl_protocol_utils.h>
 
 static const uint64_t EFI_GBL_BOOT_CONTROL_PROTOCOL_REVISION = \
-			GBL_PROTOCOL_REVISION(0, 3);
+			GBL_PROTOCOL_REVISION(0, 256);
 extern const efi_guid_t efi_gbl_boot_control_guid;
 
 EFI_ENUM(efi_gbl_unbootable_reason, uint8_t,

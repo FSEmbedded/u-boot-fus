@@ -18,9 +18,9 @@
 
 #define PHYS_SDRAM_SIZE			0x70000000 /* 2GB - 256MB DDR */
 #ifdef CONFIG_TARGET_IMX95_15X15_EVK
-#define PHYS_SDRAM_2_SIZE 		0x180000000UL /* 6GB */
+#define PHYS_SDRAM_2_SIZE		0x180000000 /* 6GB (Totally 8GB) */
 #else
-#define PHYS_SDRAM_2_SIZE		0x380000000 /* 14GB */
+#define PHYS_SDRAM_2_SIZE		0x380000000 /* 14GB (Totally 16GB) */
 #endif
 
 #define CFG_SYS_SECURE_SDRAM_BASE	0x8A000000 /* Secure DDR region for A55, SPL could use first 2MB */

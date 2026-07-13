@@ -238,6 +238,10 @@ enum efi_reset_type {
 	EFI_GUID(0xcce33c35, 0x74ac, 0x4087, 0xbc, 0xe7, \
 		 0x8b, 0x29, 0xb0, 0x2e, 0xeb, 0x27)
 
+#define EFI_DEBUG_IMAGE_INFO_TABLE_GUID \
+	EFI_GUID(0x49152e77, 0x1ada, 0x4764, 0xb7, 0xa2, \
+		 0x7a, 0xfe, 0xfe, 0xd9, 0x5e, 0x8b)
+
 struct efi_conformance_profiles_table {
 	u16 version;
 	u16 number_of_profiles;
@@ -258,6 +262,22 @@ struct efi_capsule_result_variable_header {
 	struct efi_time capsule_processed;
 	efi_status_t capsule_status;
 } __packed;
+
+/**
+ * struct efi_system_table_pointer - struct to store the pointer of system
+ * table.
+ * @signature: The signature of this struct.
+ * @efi_system_table_base: The physical address of System Table.
+ * @crc32: CRC32 checksum
+ *
+ * This struct is design for hardware debugger to search through memory to
+ * get the address of EFI System Table.
+ */
+struct efi_system_table_pointer {
+	u64 signature;
+	efi_physical_addr_t efi_system_table_base;
+	u32 crc32;
+};
 
 struct efi_memory_range {
 	efi_physical_addr_t	address;
@@ -556,6 +576,57 @@ struct efi_loaded_image {
 	unsigned int image_code_type;
 	unsigned int image_data_type;
 	efi_status_t (EFIAPI *unload)(efi_handle_t image_handle);
+};
+
+#define EFI_DEBUG_IMAGE_INFO_UPDATE_IN_PROGRESS 0x01
+#define EFI_DEBUG_IMAGE_INFO_TABLE_MODIFIED     0x02
+
+#define EFI_DEBUG_IMAGE_INFO_TYPE_NORMAL  0x01
+
+/**
+ * struct efi_debug_image_info_normal - Store Debug Information for normal
+ * image.
+ * @image_info_type: the type of image info.
+ * @loaded_image_protocol_instance: the pointer to struct efi_loaded_image.
+ * @image_handle: the EFI handle of the image.
+ *
+ * This struct is created by efi_load_image() and store the information
+ * for debugging an normal image.
+ */
+struct efi_debug_image_info_normal {
+	u32 image_info_type;
+	struct efi_loaded_image *loaded_image_protocol_instance;
+	efi_handle_t image_handle;
+};
+
+/**
+ * union efi_debug_image_info - The union to store a pointer for EFI
+ * DEBUG IMAGE INFO.
+ * @image_info_type: the type of the image_info if it is not a normal image.
+ * @normal_image: The pointer to a normal image.
+ *
+ * This union is for a pointer that can point to the struct of normal_image.
+ * Or it points to an image_info_type.
+ */
+union efi_debug_image_info {
+	u32 *image_info_type;
+	struct efi_debug_image_info_normal *normal_image;
+};
+
+/**
+ * struct efi_debug_image_info_table_header - store the array of
+ * struct efi_debug_image_info.
+ * @update_status: Status to notify this struct is ready to use or not.
+ * @table_size: The number of elements of efi_debug_image_info_table.
+ * @efi_debug_image_info_table: The array of efi_debug_image_info.
+ *
+ * This struct stores the array of efi_debug_image_info. The
+ * number of elements is table_size.
+ */
+struct efi_debug_image_info_table_header {
+	volatile u32 update_status;
+	u32 table_size;
+	union efi_debug_image_info *efi_debug_image_info_table;
 };
 
 #define EFI_DEVICE_PATH_PROTOCOL_GUID \
@@ -1418,15 +1489,6 @@ struct efi_hii_config_access_protocol {
 #define EFI_GOT_RGBA8		0
 #define EFI_GOT_BGRA8		1
 #define EFI_GOT_BITMASK		2
-
-struct efi_gop_mode_info {
-	u32 version;
-	u32 width;
-	u32 height;
-	u32 pixel_format;
-	u32 pixel_bitmask[4];
-	u32 pixels_per_scanline;
-};
 
 struct efi_gop_mode {
 	u32 max_mode;
@@ -2414,5 +2476,13 @@ struct efi_disk {
 #define EFI_GBL_TIMESTAMP_GUID \
 	EFI_GUID(0xafbfde41, 0x2e6e, 0x4262, \
 		 0xba, 0x65, 0x62, 0xb9, 0x23, 0x6e, 0x54, 0x95)
+
+#define EFI_GBL_VENDOR_GUID \
+	EFI_GUID(0x5a6d92f3, 0xa2d0, 0x4083, \
+		 0x91, 0xa1, 0xa5, 0x0f, 0x6c, 0x3d, 0x98, 0x30)
+
+#define EFI_ERASE_BLOCK_PROTOCOL_GUID \
+	EFI_GUID(0x95a9a93e, 0xa86e, 0x4926, \
+		 0xaa, 0xef, 0x99, 0x18, 0xe7, 0x72, 0xd9, 0x87)
 
 #endif

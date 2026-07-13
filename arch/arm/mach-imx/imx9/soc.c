@@ -68,8 +68,8 @@ __weak int board_mmc_get_env_dev(int devno)
 	return devno;
 }
 
-#ifdef CONFIG_SYS_MMC_ENV_DEV
-#define IMX9_MMC_ENV_DEV CONFIG_SYS_MMC_ENV_DEV
+#ifdef CONFIG_ENV_MMC_DEVICE_INDEX
+#define IMX9_MMC_ENV_DEV CONFIG_ENV_MMC_DEVICE_INDEX
 #else
 #define IMX9_MMC_ENV_DEV 0
 #endif
@@ -310,6 +310,12 @@ void init_wdog(void)
 	disable_wdog((void __iomem *)WDG5_BASE_ADDR);
 }
 
+#if IS_ENABLED(CONFIG_IMX93)
+#define OCRAM_NONSECURE_SIZE 0x60000UL /* iMX93 384KB */
+#else
+#define OCRAM_NONSECURE_SIZE 0x18000UL /* iMX91 96KB */
+#endif
+
 static struct mm_region imx93_mem_map[] = {
 	{
 		/* ROM */
@@ -330,7 +336,7 @@ static struct mm_region imx93_mem_map[] = {
 		/* OCRAM */
 		.virt = 0x20480000UL,
 		.phys = 0x20480000UL,
-		.size = 0xA0000UL,
+		.size = OCRAM_NONSECURE_SIZE,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_OUTER_SHARE
 	}, {
@@ -734,12 +740,10 @@ static int low_drive_fdt_fix_clock(void *fdt, int node_off, u32 clk_index,
 #	define MEDIA_AXI_PARENT IMX93_CLK_SYS_PLL_PFD1
 #	define MEDIA_APB_PARENT IMX93_CLK_SYS_PLL_PFD1_DIV2
 
-static int low_drive_freq_update(void *blob)
+int low_drive_freq_update(void *blob)
 {
-	int nodeoff, ret;
-	int i;
+	int nodeoff, ret, i;
 
-	/* Update kernel dtb clocks for low drive mode */
 	struct low_drive_freq_entry table[] = {
 		{"/soc@0/lcd-controller@4ae30000", 2, 200000000, MEDIA_AXI_PARENT},
 		{"/soc@0/lcd-controller@4ae30000", 3, 133333334, MEDIA_APB_PARENT},
@@ -757,8 +761,8 @@ static int low_drive_freq_update(void *blob)
 		if (nodeoff >= 0) {
 			ret = low_drive_fdt_fix_clock(blob, nodeoff, table[i].clk,
 						      table[i].new_rate, table[i].new_parent);
-			if (!ret)
-				printf("%s freq updated\n", table[i].node_path);
+			if (ret)
+				printf("freq update failed for %s\n", table[i].node_path);
 		}
 	}
 
@@ -936,7 +940,7 @@ int timer_init(void)
 	return 0;
 }
 
-enum env_location env_get_location(enum env_operation op, int prio)
+enum env_location arch_env_get_location(enum env_operation op, int prio)
 {
 	enum boot_device dev = get_boot_device();
 
@@ -965,7 +969,13 @@ enum env_location env_get_location(enum env_operation op, int prio)
 			return ENVL_FAT;
 		return ENVL_NOWHERE;
 	default:
-		return ENVL_NOWHERE;
+		if (IS_ENABLED(CONFIG_ENV_IS_NOWHERE))
+			return ENVL_NOWHERE;
+		else if (IS_ENABLED(CONFIG_ENV_IS_IN_SPI_FLASH))
+			return ENVL_SPI_FLASH;
+		else if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
+			return ENVL_MMC;
+		return ENVL_UNKNOWN;
 	}
 }
 

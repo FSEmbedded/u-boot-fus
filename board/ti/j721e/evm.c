@@ -8,6 +8,7 @@
  */
 
 #include <efi_loader.h>
+#include <env.h>
 #include <generic-phy.h>
 #include <image.h>
 #include <net.h>
@@ -64,19 +65,6 @@ struct efi_capsule_update_info update_info = {
 	.num_images = ARRAY_SIZE(fw_images),
 	.images = fw_images,
 };
-
-#if IS_ENABLED(CONFIG_SET_DFU_ALT_INFO)
-void set_dfu_alt_info(char *interface, char *devstr)
-{
-	if (IS_ENABLED(CONFIG_EFI_HAVE_CAPSULE_SUPPORT))
-		env_set("dfu_alt_info", update_info.dfu_string);
-}
-#endif
-
-int board_init(void)
-{
-	return 0;
-}
 
 phys_addr_t board_get_usable_ram_top(phys_size_t total_size)
 {
@@ -139,7 +127,7 @@ static void __maybe_unused detect_enable_hyperflash(void *blob)
 
 #if defined(CONFIG_XPL_BUILD) && (defined(CONFIG_TARGET_J7200_A72_EVM) || defined(CONFIG_TARGET_J7200_R5_EVM) || \
 					defined(CONFIG_TARGET_J721E_A72_EVM) || defined(CONFIG_TARGET_J721E_R5_EVM))
-void spl_perform_fixups(struct spl_image_info *spl_image)
+void spl_perform_board_fixups(struct spl_image_info *spl_image)
 {
 	detect_enable_hyperflash(spl_image->fdt_addr);
 }
@@ -375,7 +363,7 @@ static struct ti_fdt_map ti_j721e_evm_fdt_map[] = {
 };
 static void setup_board_eeprom_env(void)
 {
-	char *name = "j721e";
+	char *name = NULL;
 
 	if (do_board_detect())
 		goto invalid_eeprom;
@@ -415,6 +403,19 @@ static void setup_serial(void)
 	env_set("serial#", serial_string);
 }
 
+static void qsgmii_daughtercard_env_update(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ext_cards); i++) {
+		if (!strcmp(ext_cards[i].card_name, "J7X-VSC8514-ETH") &&
+		    daughter_card_detect_flags[i]) {
+			env_set("do_main_cpsw0_qsgmii_phyinit", "1");
+			return;
+		}
+	}
+}
+
 int board_late_init(void)
 {
 	if (IS_ENABLED(CONFIG_TI_I2C_BOARD_DETECT)) {
@@ -424,6 +425,9 @@ int board_late_init(void)
 		/* Check for and probe any plugged-in daughtercards */
 		if (board_is_j721e_som() || board_is_j7200_som())
 			probe_daughtercards();
+
+		/* Update env for power-on-reset of the QSGMII Daughtercard */
+		qsgmii_daughtercard_env_update();
 	}
 
 	return 0;

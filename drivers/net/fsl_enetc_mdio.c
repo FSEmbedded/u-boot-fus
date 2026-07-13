@@ -11,10 +11,10 @@
 #include <asm/io.h>
 #include <asm/processor.h>
 #include <miiphy.h>
+#include <linux/delay.h>
 #include <power/regulator.h>
 
 #include "fsl_enetc.h"
-#include <linux/delay.h>
 
 static u32 enetc_read(struct enetc_mdio_priv *priv, u32 off)
 {
@@ -156,7 +156,7 @@ static int enetc_mdio_probe(struct udevice *dev)
 						  &supply);
 		if (ret && ret != -ENOENT) {
 			printf("%s: device_get_supply_regulator failed: %d\n",
-			      __func__, ret);
+			       __func__, ret);
 			return ret;
 		}
 

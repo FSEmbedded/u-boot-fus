@@ -12,7 +12,6 @@
 #include <spl_load.h>
 #include <linux/compiler.h>
 #include <errno.h>
-#include <errno.h>
 #include <mmc.h>
 #include <image.h>
 #include <imx_container.h>
@@ -118,7 +117,8 @@ static int spl_mmc_find_device(struct mmc **mmcp, int mmc_dev)
 	return 0;
 }
 
-#ifdef CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION
+#if defined(CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION) || \
+    defined(CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION_TYPE)
 static int mmc_load_image_raw_partition(struct spl_image_info *spl_image,
 					struct spl_boot_device *bootdev,
 					struct mmc *mmc, int partition,
@@ -148,11 +148,7 @@ static int mmc_load_image_raw_partition(struct spl_image_info *spl_image,
 		return ret;
 	}
 
-#ifdef CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_SECTOR
 	return mmc_load_image_raw_sector(spl_image, bootdev, mmc, info.start + sector);
-#else
-	return mmc_load_image_raw_sector(spl_image, bootdev, mmc, info.start);
-#endif
 }
 #endif
 
@@ -162,6 +158,16 @@ static int mmc_load_image_raw_os(struct spl_image_info *spl_image,
 				 struct mmc *mmc)
 {
 	int ret;
+
+	ret = mmc_load_image_raw_sector(spl_image, bootdev, mmc,
+		CONFIG_SYS_MMCSD_RAW_MODE_KERNEL_SECTOR);
+	if (ret)
+		return ret;
+
+	if (spl_image->os != IH_OS_LINUX && spl_image->os != IH_OS_TEE) {
+		puts("Expected image is not found. Trying to start U-Boot\n");
+		return -ENOENT;
+	}
 
 #if defined(CONFIG_SYS_MMCSD_RAW_MODE_ARGS_SECTOR)
 	unsigned long count;
@@ -175,16 +181,6 @@ static int mmc_load_image_raw_os(struct spl_image_info *spl_image,
 		return -EIO;
 	}
 #endif	/* CONFIG_SYS_MMCSD_RAW_MODE_ARGS_SECTOR */
-
-	ret = mmc_load_image_raw_sector(spl_image, bootdev, mmc,
-		CONFIG_SYS_MMCSD_RAW_MODE_KERNEL_SECTOR);
-	if (ret)
-		return ret;
-
-	if (spl_image->os != IH_OS_LINUX && spl_image->os != IH_OS_TEE) {
-		puts("Expected image is not found. Trying to start U-Boot\n");
-		return -ENOENT;
-	}
 
 	return 0;
 }
@@ -205,6 +201,46 @@ int spl_start_uboot(void)
 #endif
 
 #ifdef CONFIG_SYS_MMCSD_FS_BOOT
+static int spl_mmc_fs_load_os(struct spl_image_info *spl_image,
+			      struct spl_boot_device *bootdev,
+			      struct blk_desc *blk_dev, int part)
+{
+	int err = -ENOSYS;
+
+	if (CONFIG_IS_ENABLED(FS_FAT)) {
+		err = spl_load_image_fat_os(spl_image, bootdev, blk_dev, part);
+		if (!err)
+			return 0;
+	}
+	if (CONFIG_IS_ENABLED(FS_EXT4)) {
+		err = spl_load_image_ext_os(spl_image, bootdev, blk_dev, part);
+		if (!err)
+			return 0;
+	}
+
+	return err;
+}
+
+static int __maybe_unused spl_mmc_fs_load(struct spl_image_info *spl_image,
+			   struct spl_boot_device *bootdev,
+			   struct blk_desc *blk_dev, int part, const char *file)
+{
+	int err = -ENOENT;
+
+	if (CONFIG_IS_ENABLED(FS_FAT)) {
+		err = spl_load_image_fat(spl_image, bootdev, blk_dev, part, file);
+		if (!err)
+			return 0;
+	}
+	if (CONFIG_IS_ENABLED(FS_EXT4)) {
+		err = spl_load_image_ext(spl_image, bootdev, blk_dev, part, file);
+		if (!err)
+			return 0;
+	}
+
+	return err;
+}
+
 static int spl_mmc_do_fs_boot(struct spl_image_info *spl_image,
 			      struct spl_boot_device *bootdev,
 			      struct mmc *mmc,
@@ -236,42 +272,24 @@ static int spl_mmc_do_fs_boot(struct spl_image_info *spl_image,
 	}
 #endif
 
-#ifdef CONFIG_SPL_FS_FAT
 	if (!spl_start_uboot()) {
-		ret = spl_load_image_fat_os(spl_image, bootdev, mmc_get_blk_desc(mmc),
-					    partition);
+		ret = spl_mmc_fs_load_os(spl_image, bootdev,
+					 mmc_get_blk_desc(mmc), partition);
 		if (!ret)
 			return 0;
+		printf("%s, Failed to load falcon payload: %d\n", __func__,
+		       ret);
+		if (IS_ENABLED(CONFIG_SPL_OS_BOOT_SECURE))
+			return ret;
+		printf("Fallback to U-Boot\n");
 	}
-#ifdef CONFIG_SPL_FS_LOAD_PAYLOAD_NAME
-	ret = spl_load_image_fat(spl_image, bootdev, mmc_get_blk_desc(mmc),
-				 partition,
-				 filename);
-	if (!ret)
-		return ret;
-#endif
-#endif
-#ifdef CONFIG_SPL_FS_EXT4
-	if (!spl_start_uboot()) {
-		ret = spl_load_image_ext_os(spl_image, bootdev, mmc_get_blk_desc(mmc),
-					    partition);
-		if (!ret)
-			return 0;
-	}
-#ifdef CONFIG_SPL_FS_LOAD_PAYLOAD_NAME
-	ret = spl_load_image_ext(spl_image, bootdev, mmc_get_blk_desc(mmc),
-				 partition,
-				 filename);
-	if (!ret)
-		return 0;
-#endif
-#endif
 
-#if defined(CONFIG_SPL_FS_FAT) || defined(CONFIG_SPL_FS_EXT4)
-	ret = -ENOENT;
-#endif
-
+#ifdef CONFIG_SPL_FS_LOAD_PAYLOAD_NAME
+	return spl_mmc_fs_load(spl_image, bootdev, mmc_get_blk_desc(mmc),
+			       partition, filename);
+#else
 	return ret;
+#endif
 }
 #endif
 
@@ -411,19 +429,14 @@ int spl_mmc_load(struct spl_image_info *spl_image,
 			ret = mmc_load_image_raw_os(spl_image, bootdev, mmc);
 			if (!ret)
 				return 0;
+			if (IS_ENABLED(CONFIG_SPL_OS_BOOT_SECURE))
+				return ret;
 		}
 
 #ifndef CONFIG_DUAL_BOOTLOADER
 		raw_sect = spl_mmc_get_uboot_raw_sector(mmc, raw_sect);
 #endif
 
-#ifdef CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION
-		ret = mmc_load_image_raw_partition(spl_image, bootdev,
-						   mmc, raw_part,
-						   raw_sect);
-		if (!ret)
-			return 0;
-#endif
 #ifdef CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_SECTOR
 #ifdef CONFIG_DUAL_BOOTLOADER
 		ret = mmc_load_image_raw_sector_dual_uboot(spl_image, bootdev, mmc);
@@ -434,8 +447,16 @@ int spl_mmc_load(struct spl_image_info *spl_image,
 #endif
 		if (!ret)
 			return 0;
+#elif defined(CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION) || \
+      defined(CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION_TYPE)
+		ret = mmc_load_image_raw_partition(spl_image, bootdev,
+						   mmc, raw_part,
+						   raw_sect);
+		if (!ret)
+			return 0;
 #endif
 		/* If RAW mode fails, try FS mode. */
+		fallthrough;
 #ifdef CONFIG_SYS_MMCSD_FS_BOOT
 	case MMCSD_MODE_FS:
 		debug("spl: mmc boot mode: fs\n");

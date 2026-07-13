@@ -59,6 +59,7 @@ PLATFORM_CPPFLAGS += $(arch-y) $(tune-y)
 
 # Machine directory name.  This list is sorted alphanumerically
 # by CONFIG_* macro name.
+machine-$(CONFIG_ARCH_AIROHA)		+= airoha
 machine-$(CONFIG_ARCH_APPLE)		+= apple
 machine-$(CONFIG_ARCH_ASPEED)		+= aspeed
 machine-$(CONFIG_ARCH_AT91)		+= at91
@@ -82,7 +83,6 @@ machine-$(CONFIG_ARCH_MVEBU)		+= mvebu
 machine-$(CONFIG_ARCH_NEXELL)		+= nexell
 machine-$(CONFIG_ARCH_NPCM)             += npcm
 machine-$(CONFIG_ARCH_OMAP2PLUS)	+= omap2
-machine-$(CONFIG_ARCH_ORION5X)		+= orion5x
 machine-$(CONFIG_ARCH_OWL)		+= owl
 machine-$(CONFIG_ARCH_RENESAS)		+= renesas
 machine-$(CONFIG_ARCH_ROCKCHIP)		+= rockchip

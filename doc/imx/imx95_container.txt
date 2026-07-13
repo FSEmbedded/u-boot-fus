@@ -29,7 +29,7 @@ Figure 1:
           |         +--------------+--------------+--------------+--------------+
           |         |# of Images   |Fuse version  |SW version                   |
 Image     |         +--------------+--------------+--------------+--------------+
-Conatiner |         |Reserved                     |Signature Block Offset       |
+Container |         |Reserved                     |Signature Block Offset       |
 Header    | ------- +--------------+--------------+--------------+--------------+
           |       ^ |Image0: Offset, Size, LoadAddr, EntryPoint, Flags, Hash, IV|
           |       | +--------------+--------------+--------------+--------------+
@@ -76,7 +76,7 @@ i.MX95 Low Power Boot Image Sets Layout
                   | +--------------+--------------+--------------+--------------+
     ELE +         | |                 Padding for 1KB alignment                 |
     OEM           | +--------------+--------------+--------------+--------------+
-    Conatiner     | |                    2nd Container Header                   |
+    Container     | |                    2nd Container Header                   |
     Set           | +--------------+--------------+--------------+--------------+
     Header        | |                 Padding for 1KB alignment                 |
                   | +--------------+--------------+--------------+--------------+

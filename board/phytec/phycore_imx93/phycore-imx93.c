@@ -6,10 +6,7 @@
  * Copyright (C) 2024 PHYTEC Messtechnik GmbH
  */
 
-#include <asm/arch-imx9/ccm_regs.h>
 #include <asm/arch/sys_proto.h>
-#include <asm/arch-imx9/imx93_pins.h>
-#include <asm/arch/clock.h>
 #include <asm/global_data.h>
 #include <asm/mach-imx/boot_mode.h>
 #include <env.h>
@@ -23,7 +20,7 @@ DECLARE_GLOBAL_DATA_PTR;
 
 int board_init(void)
 {
-	int ret = phytec_eeprom_data_setup(NULL, 2, EEPROM_ADDR);
+	int ret = phytec_eeprom_data_setup(NULL, CONFIG_PHYTEC_EEPROM_BUS, EEPROM_ADDR);
 
 	if (ret)
 		printf("%s: EEPROM data init failed\n", __func__);
@@ -41,6 +38,8 @@ int board_late_init(void)
 	switch (get_boot_device()) {
 	case SD2_BOOT:
 		env_set_ulong("mmcdev", 1);
+		if (!env_get("boot_targets"))
+			env_set("boot_targets", "mmc1 mmc0 ethernet");
 		break;
 	case MMC1_BOOT:
 		env_set_ulong("mmcdev", 0);
@@ -82,12 +81,21 @@ int board_fix_fdt(void *blob)
 
 	emmc_fixup(blob, &data);
 
+	/* Update dtb clocks for low drive mode */
+	if (is_voltage_mode(VOLT_LOW_DRIVE))
+		low_drive_freq_update(blob);
+
 	return 0;
 }
 
 int ft_board_setup(void *blob, struct bd_info *bd)
 {
 	emmc_fixup(blob, NULL);
+
+	/**
+	 * NOTE: VOLT_LOW_DRIVE fixup is done by the ft_system_setup()
+	 * in arch/arm/mach-imx/imx9/soc.c for Linux device-tree.
+	 */
 
 	return 0;
 }

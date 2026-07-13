@@ -45,6 +45,7 @@
 #include <asm/gpio.h>
 #include <asm/io.h>
 #include <linux/delay.h>
+#include <linux/kernel.h>
 #include "dwc_eth_xgmac.h"
 
 static void *xgmac_alloc_descs(struct xgmac_priv *xgmac, unsigned int num)
@@ -139,9 +140,34 @@ static int xgmac_mdio_wait_idle(struct xgmac_priv *xgmac)
 				 XGMAC_TIMEOUT_100MS, true);
 }
 
+static u32 xgmac_set_clause(struct xgmac_priv *xgmac, int mdio_addr, int mdio_devad,
+			    int mdio_reg, bool is_c45)
+{
+	u32 hw_addr;
+	u32 val;
+
+	if (is_c45) {
+		val = readl(&xgmac->mac_regs->mdio_clause_22_port);
+		val &= ~BIT(mdio_addr);
+		writel(val, &xgmac->mac_regs->mdio_clause_22_port);
+		hw_addr = (mdio_addr << XGMAC_MAC_MDIO_ADDRESS_PA_SHIFT) |
+			   (mdio_reg & XGMAC_MAC_MDIO_REG_ADDR_C45P_MASK);
+		hw_addr |= mdio_devad << XGMAC_MAC_MDIO_ADDRESS_DA_SHIFT;
+	} else {
+		/* Set clause 22 format */
+		val = BIT(mdio_addr);
+		writel(val, &xgmac->mac_regs->mdio_clause_22_port);
+		hw_addr = (mdio_addr << XGMAC_MAC_MDIO_ADDRESS_PA_SHIFT) |
+			   (mdio_reg & XGMAC_MAC_MDIO_REG_ADDR_C22P_MASK);
+	}
+
+	return hw_addr;
+}
+
 static int xgmac_mdio_read(struct mii_dev *bus, int mdio_addr, int mdio_devad,
 			   int mdio_reg)
 {
+	bool is_c45 = (mdio_devad != MDIO_DEVAD_NONE);
 	struct xgmac_priv *xgmac = bus->priv;
 	u32 val;
 	u32 hw_addr;
@@ -158,19 +184,16 @@ static int xgmac_mdio_read(struct mii_dev *bus, int mdio_addr, int mdio_devad,
 		return ret;
 	}
 
-	/* Set clause 22 format */
-	val = BIT(mdio_addr);
-	writel(val, &xgmac->mac_regs->mdio_clause_22_port);
-
-	hw_addr = (mdio_addr << XGMAC_MAC_MDIO_ADDRESS_PA_SHIFT) |
-		   (mdio_reg & XGMAC_MAC_MDIO_REG_ADDR_C22P_MASK);
+	hw_addr = xgmac_set_clause(xgmac, mdio_addr, mdio_devad, mdio_reg, is_c45);
 
 	val = xgmac->config->config_mac_mdio <<
 	      XGMAC_MAC_MDIO_ADDRESS_CR_SHIFT;
 
-	val |= XGMAC_MAC_MDIO_ADDRESS_SADDR |
-	       XGMAC_MDIO_SINGLE_CMD_ADDR_CMD_READ |
-	       XGMAC_MAC_MDIO_ADDRESS_SBUSY;
+	if (!is_c45)
+		val |= XGMAC_MAC_MDIO_ADDRESS_SADDR;
+
+	val |= XGMAC_MDIO_SINGLE_CMD_ADDR_CMD_READ |
+		XGMAC_MAC_MDIO_ADDRESS_SBUSY;
 
 	ret = xgmac_mdio_wait_idle(xgmac);
 	if (ret) {
@@ -202,6 +225,7 @@ static int xgmac_mdio_read(struct mii_dev *bus, int mdio_addr, int mdio_devad,
 static int xgmac_mdio_write(struct mii_dev *bus, int mdio_addr, int mdio_devad,
 			    int mdio_reg, u16 mdio_val)
 {
+	bool is_c45 = (mdio_devad != MDIO_DEVAD_NONE);
 	struct xgmac_priv *xgmac = bus->priv;
 	u32 val;
 	u32 hw_addr;
@@ -218,21 +242,18 @@ static int xgmac_mdio_write(struct mii_dev *bus, int mdio_addr, int mdio_devad,
 		return ret;
 	}
 
-	/* Set clause 22 format */
-	val = BIT(mdio_addr);
-	writel(val, &xgmac->mac_regs->mdio_clause_22_port);
-
-	hw_addr = (mdio_addr << XGMAC_MAC_MDIO_ADDRESS_PA_SHIFT) |
-		   (mdio_reg & XGMAC_MAC_MDIO_REG_ADDR_C22P_MASK);
-
-	hw_addr |= (mdio_reg >> XGMAC_MAC_MDIO_ADDRESS_PA_SHIFT) <<
-		    XGMAC_MAC_MDIO_ADDRESS_DA_SHIFT;
+	hw_addr = xgmac_set_clause(xgmac, mdio_addr, mdio_devad, mdio_reg, is_c45);
 
 	val = (xgmac->config->config_mac_mdio <<
 	       XGMAC_MAC_MDIO_ADDRESS_CR_SHIFT);
 
-	val |= XGMAC_MAC_MDIO_ADDRESS_SADDR |
-		mdio_val | XGMAC_MDIO_SINGLE_CMD_ADDR_CMD_WRITE |
+	if (!is_c45) {
+		hw_addr |= (mdio_reg >> XGMAC_MAC_MDIO_ADDRESS_PA_SHIFT) <<
+			    XGMAC_MAC_MDIO_ADDRESS_DA_SHIFT;
+		val |= XGMAC_MAC_MDIO_ADDRESS_SADDR;
+	}
+
+	val |= mdio_val | XGMAC_MDIO_SINGLE_CMD_ADDR_CMD_WRITE |
 		XGMAC_MAC_MDIO_ADDRESS_SBUSY;
 
 	ret = xgmac_mdio_wait_idle(xgmac);
@@ -457,7 +478,7 @@ static int xgmac_start(struct udevice *dev)
 	int ret, i;
 	u32 val, tx_fifo_sz, rx_fifo_sz, tqs, rqs, pbl;
 	ulong last_rx_desc;
-	ulong desc_pad;
+	ulong desc_pad, address;
 
 	struct xgmac_desc *tx_desc = NULL;
 	struct xgmac_desc *rx_desc = NULL;
@@ -702,8 +723,11 @@ static int xgmac_start(struct udevice *dev)
 	for (i = 0; i < XGMAC_DESCRIPTORS_RX; i++) {
 		rx_desc = (struct xgmac_desc *)xgmac_get_desc(xgmac, i, true);
 
-		rx_desc->des0 = (uintptr_t)(xgmac->rx_dma_buf +
-					    (i * XGMAC_MAX_PACKET_SIZE));
+		address = (uintptr_t)(xgmac->rx_dma_buf +
+					(i * XGMAC_MAX_PACKET_SIZE));
+
+		rx_desc->des0 = lower_32_bits(address);
+		rx_desc->des1 = upper_32_bits(address);
 		rx_desc->des3 = XGMAC_DESC3_OWN;
 		/* Flush the cache to the memory */
 		mb();
@@ -713,13 +737,17 @@ static int xgmac_start(struct udevice *dev)
 						       XGMAC_MAX_PACKET_SIZE);
 	}
 
-	writel(0, &xgmac->dma_regs->ch0_txdesc_list_haddress);
-	writel((ulong)xgmac_get_desc(xgmac, 0, false),
+	address = (ulong)xgmac_get_desc(xgmac, 0, false);
+	writel(upper_32_bits(address),
+	       &xgmac->dma_regs->ch0_txdesc_list_haddress);
+	writel(lower_32_bits(address),
 	       &xgmac->dma_regs->ch0_txdesc_list_address);
 	writel(XGMAC_DESCRIPTORS_TX - 1,
 	       &xgmac->dma_regs->ch0_txdesc_ring_length);
-	writel(0, &xgmac->dma_regs->ch0_rxdesc_list_haddress);
-	writel((ulong)xgmac_get_desc(xgmac, 0, true),
+	address = (ulong)xgmac_get_desc(xgmac, 0, true);
+	writel(upper_32_bits(address),
+	       &xgmac->dma_regs->ch0_rxdesc_list_haddress);
+	writel(lower_32_bits(address),
 	       &xgmac->dma_regs->ch0_rxdesc_list_address);
 	writel(XGMAC_DESCRIPTORS_RX - 1,
 	       &xgmac->dma_regs->ch0_rxdesc_ring_length);
@@ -844,8 +872,8 @@ static int xgmac_send(struct udevice *dev, void *packet, int length)
 	xgmac->tx_desc_idx++;
 	xgmac->tx_desc_idx %= XGMAC_DESCRIPTORS_TX;
 
-	tx_desc->des0 = (ulong)xgmac->tx_dma_buf;
-	tx_desc->des1 = 0;
+	tx_desc->des0 = lower_32_bits((ulong)xgmac->tx_dma_buf);
+	tx_desc->des1 = upper_32_bits((ulong)xgmac->tx_dma_buf);
 	tx_desc->des2 = length;
 	/*
 	 * Make sure that if HW sees the _OWN write below, it will see all the
@@ -901,6 +929,7 @@ static int xgmac_free_pkt(struct udevice *dev, uchar *packet, int length)
 	u32 idx, idx_mask = xgmac->desc_per_cacheline - 1;
 	uchar *packet_expected;
 	struct xgmac_desc *rx_desc;
+	ulong address;
 
 	debug("%s(packet=%p, length=%d)\n", __func__, packet, length);
 
@@ -920,13 +949,15 @@ static int xgmac_free_pkt(struct udevice *dev, uchar *packet, int length)
 		     idx++) {
 			rx_desc = xgmac_get_desc(xgmac, idx, true);
 			rx_desc->des0 = 0;
+			rx_desc->des1 = 0;
 			/* Flush the cache to the memory */
 			mb();
 			xgmac->config->ops->xgmac_flush_desc(rx_desc);
 			xgmac->config->ops->xgmac_inval_buffer(packet, length);
-			rx_desc->des0 = (u32)(ulong)(xgmac->rx_dma_buf +
-					     (idx * XGMAC_MAX_PACKET_SIZE));
-			rx_desc->des1 = 0;
+			address = (ulong)(xgmac->rx_dma_buf +
+					(idx * XGMAC_MAX_PACKET_SIZE));
+			rx_desc->des0 = lower_32_bits(address);
+			rx_desc->des1 = upper_32_bits(address);
 			rx_desc->des2 = 0;
 			/*
 			 * Make sure that if HW sees the _OWN write below,
@@ -1091,7 +1122,7 @@ static int xgmac_probe(struct udevice *dev)
 	ret = xgmac->config->ops->xgmac_start_clks(dev);
 	if (ret < 0) {
 		pr_err("%s xgmac_start_clks() failed: %d\n", dev->name, ret);
-		return ret;
+		goto err_remove_resources_core;
 	}
 
 	if (IS_ENABLED(CONFIG_DM_ETH_PHY))

@@ -499,6 +499,9 @@ static int do_env_load(struct cmd_tbl *cmdtp, int flag, int argc,
 static int do_env_select(struct cmd_tbl *cmdtp, int flag, int argc,
 			 char *const argv[])
 {
+	if (argc < 2)
+		return CMD_RET_USAGE;
+
 	return env_select(argv[1]) ? 1 : 0;
 }
 #endif
@@ -1263,7 +1266,7 @@ U_BOOT_CMD_COMPLETE(
 	"      \"-rt\": set runtime attribute\n"
 	"      \"-at\": set time-based authentication attribute\n"
 	"      \"-a\": append-write\n"
-	"      \"-i addr,size\": use <addr,size> as variable's value\n"
+	"      \"-i addr:size\": use <addr,size> as variable's value\n"
 	"      \"-v\": verbose message\n"
 	"    - delete UEFI variable 'name' if 'value' not specified\n"
 #endif

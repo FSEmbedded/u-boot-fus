@@ -3,6 +3,7 @@
 
 #include <command.h>
 #include <console.h>
+#include <env.h>
 #include <lwip/dns.h>
 #include <lwip/timeouts.h>
 #include <net.h>
@@ -13,7 +14,6 @@
 
 struct dns_cb_arg {
 	ip_addr_t host_ipaddr;
-	const char *var;
 	bool done;
 };
 
@@ -25,55 +25,29 @@ static void do_dns_tmr(void *arg)
 static void dns_cb(const char *name, const ip_addr_t *ipaddr, void *arg)
 {
 	struct dns_cb_arg *dns_cb_arg = arg;
-	char *ipstr = ip4addr_ntoa(ipaddr);
 
 	dns_cb_arg->done = true;
 
-	if (!ipaddr) {
+	if (!ipaddr)
 		printf("DNS: host not found\n");
-		dns_cb_arg->host_ipaddr.addr = 0;
-		return;
-	}
 
-	if (dns_cb_arg->var)
-		env_set(dns_cb_arg->var, ipstr);
-
-	printf("%s\n", ipstr);
+	ip_addr_set(&dns_cb_arg->host_ipaddr, ipaddr);
 }
 
 static int dns_loop(struct udevice *udev, const char *name, const char *var)
 {
 	struct dns_cb_arg dns_cb_arg = { };
-	bool has_server = false;
 	struct netif *netif;
+	const char *ipstr;
 	ip_addr_t ipaddr;
-	ip_addr_t ns;
 	ulong start;
-	char *nsenv;
 	int ret;
-
-	dns_cb_arg.var = var;
 
 	netif = net_lwip_new_netif(udev);
 	if (!netif)
 		return CMD_RET_FAILURE;
 
-	dns_init();
-
-	nsenv = env_get("dnsip");
-	if (nsenv && ipaddr_aton(nsenv, &ns)) {
-		dns_setserver(0, &ns);
-		has_server = true;
-	}
-
-	nsenv = env_get("dnsip2");
-	if (nsenv && ipaddr_aton(nsenv, &ns)) {
-		dns_setserver(1, &ns);
-		has_server = true;
-	}
-
-	if (!has_server) {
-		log_err("No valid name server (dnsip/dnsip2)\n");
+	if (net_lwip_dns_init()) {
 		net_lwip_remove_netif(netif);
 		return CMD_RET_FAILURE;
 	}
@@ -91,7 +65,6 @@ static int dns_loop(struct udevice *udev, const char *name, const char *var)
 			net_lwip_rx(udev, netif);
 			if (dns_cb_arg.done)
 				break;
-			sys_check_timeouts();
 			if (ctrlc()) {
 				printf("\nAbort\n");
 				break;
@@ -102,8 +75,14 @@ static int dns_loop(struct udevice *udev, const char *name, const char *var)
 
 	net_lwip_remove_netif(netif);
 
-	if (dns_cb_arg.done && dns_cb_arg.host_ipaddr.addr != 0)
+	if (dns_cb_arg.done && !ip_addr_isany(&dns_cb_arg.host_ipaddr)) {
+		ipstr = ipaddr_ntoa(&dns_cb_arg.host_ipaddr);
+		if (var)
+			env_set(var, ipstr);
+		else
+			printf("%s\n", ipstr);
 		return CMD_RET_SUCCESS;
+	}
 
 	return CMD_RET_FAILURE;
 }
@@ -121,7 +100,8 @@ int do_dns(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	if (argc == 3)
 		var = argv[2];
 
-	net_lwip_set_current();
+	if (net_lwip_eth_start() < 0)
+		return CMD_RET_FAILURE;
 
 	return dns_loop(eth_get_dev(), name, var);
 }

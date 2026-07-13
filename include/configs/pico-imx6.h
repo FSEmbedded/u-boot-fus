@@ -38,11 +38,10 @@
 	"console=ttymxc0\0" \
 	"fdtfile=" CONFIG_DEFAULT_FDT_FILE "\0" \
 	BOOTMENU_ENV \
-	"fdt_high=0xffffffff\0" \
 	"initrd_high=0xffffffff\0" \
 	"fdt_addr_r=0x18000000\0" \
 	"fdt_addr=0x18000000\0" \
-	"mmcdev=" __stringify(CONFIG_SYS_MMC_ENV_DEV) "\0" \
+	"mmcdev=" __stringify(CONFIG_ENV_MMC_DEVICE_INDEX) "\0" \
 	CFG_DFU_ENV_SETTINGS \
 	"finduuid=part uuid mmc 0:1 uuid\0" \
 	"findfdt="\

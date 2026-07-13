@@ -289,6 +289,9 @@ struct spl_image_info {
 #if CONFIG_IS_ENABLED(LOAD_FIT) || CONFIG_IS_ENABLED(LOAD_FIT_FULL)
 	void *fdt_addr;
 #endif
+#if defined(CONFIG_BOOTM_OPTEE) && defined(CONFIG_ARM) && !defined(CONFIG_ARM64)
+	ulong optee_addr;
+#endif
 	u32 boot_device;
 	u32 offset;
 	u32 size;
@@ -308,11 +311,11 @@ struct spl_image_info {
 	uint *stack_prot;
 	ulong reloc_offset;
 #endif
-#ifdef CONFIG_IMX_TRUSTY_OS
-	uint64_t rbindex;
-#endif
 #if IS_ENABLED(CONFIG_IMX_CRRM)
 	bool recovery;
+#endif
+#ifdef CONFIG_IMX_TRUSTY_OS
+	uint64_t rbindex;
 #endif
 };
 
@@ -871,7 +874,7 @@ int spl_load_image_fat_os(struct spl_image_info *spl_image,
 			  struct spl_boot_device *bootdev,
 			  struct blk_desc *block_dev, int partition);
 
-void __noreturn jump_to_image_no_args(struct spl_image_info *spl_image);
+void __noreturn jump_to_image(struct spl_image_info *spl_image);
 
 /* SPL EXT image functions */
 int spl_load_image_ext(struct spl_image_info *spl_image,
@@ -1128,10 +1131,16 @@ int board_spl_fit_post_load(const void *fit, struct spl_image_info *spl_image);
 ulong board_spl_fit_size_align(ulong size);
 
 /**
- * spl_perform_fixups() - arch/board-specific callback before processing
- *                        the boot-payload
+ * spl_perform_arch_fixups() - arch specific callback before processing the
+ *                        boot-payload
  */
-void spl_perform_fixups(struct spl_image_info *spl_image);
+void spl_perform_arch_fixups(struct spl_image_info *spl_image);
+
+/**
+ * spl_perform_board_fixups() - board specific callback before processing the
+ *                        boot-payload
+ */
+void spl_perform_board_fixups(struct spl_image_info *spl_image);
 
 /*
  * spl_get_load_buffer() - get buffer for loading partial image data

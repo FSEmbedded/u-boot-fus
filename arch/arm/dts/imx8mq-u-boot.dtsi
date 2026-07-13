@@ -7,6 +7,11 @@
 	binman: binman {
 	};
 
+	imx8mq-cm4 {
+		compatible = "fsl,imx8mq-cm4";
+		syscon = <&src>;
+	};
+
 	aliases {
 		usb0 = &usb_dwc3_0;
 		usb1 = &usb_dwc3_1;
@@ -21,11 +26,6 @@
 		};
 	};
 #endif
-
-	imx8mq-cm4 {
-		compatible = "fsl,imx8mq-cm4";
-		syscon = <&src>;
-	};
 };
 
 &soc {
@@ -231,7 +231,6 @@
 					};
 #endif
 
-#ifdef CONFIG_OPTEE
 					tee: tee {
 						description = "OP-TEE";
 						type = "tee";
@@ -243,9 +242,9 @@
 
 						tee-os {
 							filename = "tee.bin";
+							optional;
 						};
 					};
-#endif
 
 					fdt {
 						compression = "none";
@@ -267,11 +266,7 @@
 						fdt = "fdt";
 						firmware = "uboot";
 #ifndef CONFIG_ARMV8_PSCI
-#ifdef CONFIG_OPTEE
 						loadables = "atf", "tee";
-#else
-						loadables = "atf";
-#endif
 #endif
 					};
 				};

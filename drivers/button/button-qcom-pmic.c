@@ -73,25 +73,25 @@ static const struct qcom_pmic_btn_data qcom_pmic_btn_data_table[] = {
 		.compatible = "qcom,pm8941-pwrkey",
 		.status_bit = PON_KPDPWR_N_SET,
 		.code = KEY_ENTER,
-		.label = "pwrkey",
+		.label = "Power Button",
 	},
 	{
 		.compatible = "qcom,pm8941-resin",
 		.status_bit = PON_RESIN_N_SET,
 		.code = KEY_DOWN,
-		.label = "vol_down",
+		.label = "Volume Down",
 	},
 	{
 		.compatible = "qcom,pmk8350-pwrkey",
 		.status_bit = PON_GEN3_KPDPWR_N_SET,
 		.code = KEY_ENTER,
-		.label = "pwrkey",
+		.label = "Power Button",
 	},
 	{
 		.compatible = "qcom,pmk8350-resin",
 		.status_bit = PON_GEN3_RESIN_N_SET,
 		.code = KEY_DOWN,
-		.label = "vol_down",
+		.label = "Volume Down",
 	},
 };
 
@@ -143,6 +143,21 @@ static int qcom_pwrkey_probe(struct udevice *dev)
 
 	priv->base = base;
 
+	ret = dev_read_u32(dev, "linux,code", &priv->code);
+	if (ret == 0) {
+		/* convert key, if read OK */
+		switch (priv->code) {
+		case KEY_VOLUMEDOWN:
+			priv->code = KEY_DOWN;
+			uc_plat->label = "Volume Down";
+			break;
+		case KEY_VOLUMEUP:
+			priv->code = KEY_UP;
+			uc_plat->label = "Volume Up";
+			break;
+		}
+	}
+
 	/* Do a sanity check */
 	ret = pmic_reg_read(priv->pmic, priv->base + REG_TYPE);
 	if (ret != 0x1 && ret != 0xb) {
@@ -180,8 +195,9 @@ static int button_qcom_pmic_bind(struct udevice *parent)
 			continue;
 		}
 
+		label = ofnode_get_name(node);
 		ret = device_bind_driver_to_node(parent, "qcom_pwrkey",
-						 ofnode_get_name(node),
+						 label,
 						 node, &dev);
 		if (ret) {
 			printf("Failed to bind %s! %d\n", label, ret);

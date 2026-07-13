@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2025 NXP
+ * Copyright 2025-2026 NXP
  *
  * Peng Fan <peng.fan@nxp.com>
  */
 
+#include <command.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/ddr.h>
 #include <asm/arch/sys_proto.h>
@@ -16,19 +17,20 @@
 #include <asm/system.h>
 #include <dm/uclass.h>
 #include <dm/device.h>
+#include <dm/ofnode.h>
 #include <env_internal.h>
 #include <linux/iopoll.h>
 #include <fuse.h>
 #include <imx_thermal.h>
-#include <thermal.h>
+#include <linux/bitfield.h>
+#include <linux/iopoll.h>
+#include <linux/bitops.h>
 #include <fdt_support.h>
 #include <scmi_agent.h>
 #include <scmi_nxp_protocols.h>
-#include <linux/bitops.h>
-#include <linux/bitfield.h>
 #include "common.h"
-#include <fdt_support.h>
 #include <time.h>
+#include <fdt_support.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -195,9 +197,12 @@ void disconnect_from_pc(void)
 {
 	enum boot_device bt_dev = get_boot_device();
 
-	if (bt_dev == USB_BOOT)
-		clrbits_le32(USB1_BASE_ADDR + 0xc704, (1 << 31));
-	else if (bt_dev == USB2_BOOT)
+	if (bt_dev == USB_BOOT) {
+		if (is_imx952())
+			writel(0x0, USB1_BASE_ADDR + 0x140);
+		else
+			clrbits_le32(USB1_BASE_ADDR + 0xc704, (1 << 31));
+	} else if (bt_dev == USB2_BOOT)
 		writel(0x0, USB2_BASE_ADDR + 0x140);
 
 	return;
@@ -215,7 +220,7 @@ int mmc_get_env_dev(void)
 	u16 boot_type;
 	u8 boot_instance;
 
-	volatile gd_t *pgd = gd;
+	gd_t *pgd = gd;
 	rom_passover_t *rdata;
 
 #if IS_ENABLED(CONFIG_XPL_BUILD)
@@ -232,7 +237,7 @@ int mmc_get_env_dev(void)
 		ret = scmi_get_rom_data(rdata);
 		if (ret != 0) {
 			puts("SCMI: failure at rom_boot_info\n");
-			return CONFIG_SYS_MMC_ENV_DEV;
+			return CONFIG_ENV_MMC_DEVICE_INDEX;
 		}
 	}
 	boot_type = rdata->boot_dev_type;
@@ -243,7 +248,7 @@ int mmc_get_env_dev(void)
 
 	/* If not boot from sd/mmc, use default value */
 	if (boot_type != BOOT_TYPE_SD && boot_type != BOOT_TYPE_MMC)
-		return env_get_ulong("mmcdev", 10, CONFIG_SYS_MMC_ENV_DEV);
+		return env_get_ulong("mmcdev", 10, CONFIG_ENV_MMC_DEVICE_INDEX);
 
 	return board_mmc_get_env_dev(boot_instance);
 }
@@ -299,6 +304,8 @@ u32 get_cpu_speed_grade_hz(void)
 
 	if (is_imx95())
 		max_speed = 2000000000;
+	if (is_imx952())
+		max_speed = 1700000000;
 
 	/* In case the fuse of speed grade not programmed */
 	if (speed > max_speed)
@@ -355,12 +362,13 @@ u32 get_cpu_rev(void)
 	return (SCMI_CPU << 12) | (CHIP_REV_1_0 + rev);
 }
 
-#define UNLOCK_WORD 0xD928C520 /* unlock word */
-#define REFRESH_WORD 0xB480A602 /* refresh word */
+#define UNLOCK_WORD 0xD928C520
+#define REFRESH_WORD 0xB480A602
 
 static void disable_wdog(void __iomem *wdog_base)
 {
 	u32 val_cs = readl(wdog_base + 0x00);
+	int ret = 0;
 
 	if (!(val_cs & 0x80))
 		return;
@@ -377,8 +385,9 @@ static void disable_wdog(void __iomem *wdog_base)
 	writel(0x400, (wdog_base + 0x08)); /* Set timeout to default 0x400 */
 	writel(0x2120, (wdog_base + 0x00)); /* Disable it and set update */
 
-	while (!(readl(wdog_base + 0x00) & 0x400))
-		;
+	ret = readl_poll_timeout(wdog_base, val_cs, val_cs & 0x400, 100000);
+	if (ret < 0)
+		debug("%s timeout\n", __func__);
 }
 
 static struct mm_region imx9_mem_map[] = {
@@ -501,6 +510,7 @@ static struct mm_region imx9_mem_map[] = {
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
 	}, {
+#if IS_ENABLED(CONFIG_IMX_SNPS_DDR_PHY_QB_GEN)
 		/* QB data */
 		.virt = CONFIG_SAVED_QB_STATE_BASE,
 		.phys = CONFIG_SAVED_QB_STATE_BASE,
@@ -508,6 +518,7 @@ static struct mm_region imx9_mem_map[] = {
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 			 PTE_BLOCK_OUTER_SHARE
 	}, {
+#endif /* CONFIG_IMX_SNPS_DDR_PHY_QB_GEN */
 		/* empty entry to split table entry 5 if needed when TEEs are used */
 		0,
 	}, {
@@ -642,7 +653,7 @@ int dram_init(void)
 		return ret;
 
 	/* rom_pointer[1] contains the size of TEE occupies */
-	if (rom_pointer[1] && (PHYS_SDRAM < (phys_addr_t)rom_pointer[0]))
+	if (rom_pointer[1] && PHYS_SDRAM < (phys_addr_t)rom_pointer[0])
 		gd->ram_size = sdram_size - rom_pointer[1];
 	else
 		gd->ram_size = sdram_size;
@@ -671,7 +682,7 @@ int dram_init_banksize(void)
 	}
 
 	gd->bd->bi_dram[bank].start = PHYS_SDRAM;
-	if (rom_pointer[1] && (PHYS_SDRAM < (phys_addr_t)rom_pointer[0])) {
+	if (rom_pointer[1] && PHYS_SDRAM < (phys_addr_t)rom_pointer[0]) {
 		phys_addr_t optee_start = (phys_addr_t)rom_pointer[0];
 		phys_size_t optee_size = (size_t)rom_pointer[1];
 
@@ -803,13 +814,25 @@ void imx_get_mac_from_fuse(int dev_id, unsigned char *mac)
 		 * | 8      |             | enetc1 pf                 |
 		 * | 9      |             | enetc2 pf                 |
 		 * | 10     | netc switch | swp2                      |
-		*/
+		 */
 		if (dev_id == 0)
 			eth_addr_add(mac, 2); /* enetc3 mac/swp0 */
 		if (dev_id == 1)
 			eth_addr_add(mac, 8); /* enetc1 */
 		if (dev_id == 2)
 			eth_addr_add(mac, 9); /* enetc2 */
+	} else if (is_imx952()) {
+		/*
+		* i.MX952 uses the following mac address offset list:
+		* | No. | Mac address user	|
+		* |-----|-------------------|
+		* | 0	| enetc mac pf0 	|
+		* | 1	| enetc mac vf0 	|
+		* | 2	| enetc mac pf1 	|
+		* | 3	| enetc mac vf1 	|
+		*/
+		if (dev_id == 1)
+			eth_addr_add(mac, 2);
 	} else {
 		if (dev_id == 1)
 			eth_addr_add(mac, 3);
@@ -817,8 +840,7 @@ void imx_get_mac_from_fuse(int dev_id, unsigned char *mac)
 			eth_addr_add(mac, 6);
 	}
 
-	debug("%s: MAC%d: %02x.%02x.%02x.%02x.%02x.%02x\n",
-	      __func__, dev_id, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	debug("%s: MAC%d: %pM\n", __func__, dev_id, mac);
 	return;
 err:
 	memset(mac, 0, 6);
@@ -873,7 +895,6 @@ static char *rst_string_imx94[32] = {
 	"por"
 };
 
-
 int get_reset_reason(bool sys, bool lm)
 {
 	struct scmi_imx_misc_reset_reason_in in = {
@@ -919,13 +940,13 @@ int get_reset_reason(bool sys, bool lm)
 			       FIELD_GET(MISC_BOOT_FLAG_ERR_ID, out.bootflags) : -1
 			       );
 		}
-		if (out.bootflags & MISC_SHUTDOWN_FLAG_VLD) {
+		if (out.shutdownflags & MISC_SHUTDOWN_FLAG_VLD) {
 			printf("SYS shutdown reason: %s, origin: %ld, errid: %ld\n",
-			       rst[out.bootflags & MISC_SHUTDOWN_FLAG_REASON],
-			       out.bootflags & MISC_SHUTDOWN_FLAG_ORG_VLD ?
-			       FIELD_GET(MISC_SHUTDOWN_FLAG_ORIGIN, out.bootflags) : -1,
-			       out.bootflags & MISC_SHUTDOWN_FLAG_ERR_VLD ?
-			       FIELD_GET(MISC_SHUTDOWN_FLAG_ERR_ID, out.bootflags) : -1
+			       rst[out.shutdownflags & MISC_SHUTDOWN_FLAG_REASON],
+			       out.shutdownflags & MISC_SHUTDOWN_FLAG_ORG_VLD ?
+			       FIELD_GET(MISC_SHUTDOWN_FLAG_ORIGIN, out.shutdownflags) : -1,
+			       out.shutdownflags & MISC_SHUTDOWN_FLAG_ERR_VLD ?
+			       FIELD_GET(MISC_SHUTDOWN_FLAG_ERR_ID, out.shutdownflags) : -1
 			       );
 		}
 	}
@@ -950,13 +971,13 @@ int get_reset_reason(bool sys, bool lm)
 			       );
 		}
 
-		if (out.bootflags & MISC_SHUTDOWN_FLAG_VLD) {
+		if (out.shutdownflags & MISC_SHUTDOWN_FLAG_VLD) {
 			printf("LM shutdown reason: %s, origin: %ld, errid: %ld\n",
-			       rst[out.bootflags & MISC_SHUTDOWN_FLAG_REASON],
-			       out.bootflags & MISC_SHUTDOWN_FLAG_ORG_VLD ?
-			       FIELD_GET(MISC_SHUTDOWN_FLAG_ORIGIN, out.bootflags) : -1,
-			       out.bootflags & MISC_SHUTDOWN_FLAG_ERR_VLD ?
-			       FIELD_GET(MISC_SHUTDOWN_FLAG_ERR_ID, out.bootflags) : -1
+			       rst[out.shutdownflags & MISC_SHUTDOWN_FLAG_REASON],
+			       out.shutdownflags & MISC_SHUTDOWN_FLAG_ORG_VLD ?
+			       FIELD_GET(MISC_SHUTDOWN_FLAG_ORIGIN, out.shutdownflags) : -1,
+			       out.shutdownflags & MISC_SHUTDOWN_FLAG_ERR_VLD ?
+			       FIELD_GET(MISC_SHUTDOWN_FLAG_ERR_ID, out.shutdownflags) : -1
 			       );
 		}
 	}
@@ -1035,7 +1056,81 @@ int power_on_m7(char *name)
 	return 0;
 }
 
-static char *get_cpu_variant_type_name(u32 type)
+#if IS_ENABLED(CONFIG_IMX952)
+int set_combo_phy_mode(struct udevice *dev, u32 mode)
+{
+	struct scmi_imx_misc_control_set_in in = { 0 };
+	s32 status = 0;
+	struct scmi_msg msg = {
+		.protocol_id = SCMI_PROTOCOL_ID_IMX_MISC,
+		.message_id = SCMI_IMX_MISC_CONTROL_SET,
+		.in_msg = (u8 *)&in,
+		.in_msg_sz = sizeof(in),
+		.out_msg = (u8 *)&status,
+		.out_msg_sz = sizeof(status),
+	};
+	int ret;
+
+	in.ctrlid = SCMI_MISC_CTRL_ID_COMBO_PHY;
+	in.numval = 1;
+
+	if (mode > 4)
+		return -EINVAL;
+	in.val[0] = mode;
+
+	ret = devm_scmi_process_msg(dev, &msg);
+	if (ret != 0 || status != 0) {
+		printf("Failed to comphy mod, scmi_err = %d, mode=%u\n", status, mode);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int do_comphy_mode(struct cmd_tbl *cmdtp, int flag, int argc,
+			  char *const argv[])
+{
+	struct udevice *dev;
+	u32 mode = 0;
+	int ret;
+
+	if (argc != 2)
+		return CMD_RET_USAGE;
+
+	mode = simple_strtoul(argv[1], NULL, 10);
+	if (mode > 4)
+		return CMD_RET_USAGE;
+
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret)
+		return ret;
+
+	ret = scmi_pwd_state_set(dev, 0, SCMI_PD(HSIO_TOP), 0);
+	if (ret) {
+		printf("Poweroff HSIO failed\n");
+		return -EIO;
+	}
+
+	set_combo_phy_mode(dev, mode);
+
+	ret = scmi_pwd_state_set(dev, 0, SCMI_PD(HSIO_TOP), 1);
+	if (ret) {
+		printf("Poweron HSIO failed\n");
+		return -EIO;
+	}
+
+	return 0;
+}
+
+U_BOOT_CMD(
+	comphymod, CONFIG_SYS_MAXARGS, 1, do_comphy_mode,
+	"set comphy mode",
+	"\n"
+	" - set comphymod pcie[0,1,2], netc(3,4) (default 0)\n"
+);
+#endif
+
+const char *get_cpu_variant_type_name(u32 type)
 {
 	u32 val, core_num, part_num;
 	int ret;
@@ -1049,38 +1144,44 @@ static char *get_cpu_variant_type_name(u32 type)
 	if (!part_num)
 		return NULL;
 
-	if (type == MXC_CPU_IMX95) {
+	if (type == MXC_CPU_IMX95 || type == MXC_CPU_IMX952) {
 		u32 segment;
-		static char *name = "9596";
+		static char name[8] = "95294";
+		char pn[2];
 
 		core_num = part_num & 0x3;
 		segment = (part_num >> 2) & 0xf;
 
 		switch (segment) {
 		case 0xa:
-			name[2] = 'T';
+			pn[0] = 'T';
 			break;
 		case 0xb:
-			name[2] = 'V';
+			pn[0] = 'V';
 			break;
 		case 0xc:
-			name[2] = 'C';
+			pn[0] = 'C';
 			break;
 		case 0xd:
-			name[2] = 'G';
+			pn[0] = 'G';
 			break;
 		case 0xe:
-			name[2] = 'I';
+			pn[0] = 'I';
 			break;
 		case 0xf:
-			name[2] = 'N';
+			pn[0] = 'N';
 			break;
 		default:
-			name[2] = segment + '0';
+			pn[0] = segment + '0';
 			break;
 		}
 
-		name[3] = core_num * 2 + '0';
+		pn[1] = core_num * 2 + '0';
+
+		if (type == MXC_CPU_IMX95)
+			sprintf(name, "95%c%c", pn[0], pn[1]);
+		else
+			sprintf(name, "952%c%c", pn[0], pn[1]);
 
 		return name;
 	} else if (type == MXC_CPU_IMX94) {
@@ -1110,83 +1211,6 @@ static char *get_cpu_variant_type_name(u32 type)
 	}
 
 	return NULL;
-}
-
-const char *get_imx_type(u32 imxtype)
-{
-	const char *name = get_cpu_variant_type_name(imxtype);
-
-	if (name)
-		return name;
-
-	switch (imxtype) {
-	case SCMI_CPU:
-		return IMX_PLAT_STR;
-	default:
-		return "??";
-	}
-}
-
-int print_cpuinfo(void)
-{
-	u32 cpurev, max_freq;
-	int minc, maxc;
-
-	cpurev = get_cpu_rev();
-
-	printf("CPU:   i.MX%s rev%d.%d",
-	       get_imx_type((cpurev & 0x1FF000) >> 12),
-	       (cpurev & 0x000F0) >> 4, (cpurev & 0x0000F) >> 0);
-
-	max_freq = get_cpu_speed_grade_hz();
-	if (!max_freq || max_freq == mxc_get_clock(MXC_ARM_CLK)) {
-		printf(" at %dMHz\n", mxc_get_clock(MXC_ARM_CLK) / 1000000);
-	} else {
-		printf(" %d MHz (running at %d MHz)\n", max_freq / 1000000,
-		       mxc_get_clock(MXC_ARM_CLK) / 1000000);
-	}
-
-	puts("CPU:   ");
-	switch (get_cpu_temp_grade(&minc, &maxc)) {
-	case TEMP_AUTOMOTIVE:
-		puts("Automotive temperature grade ");
-		break;
-	case TEMP_INDUSTRIAL:
-		puts("Industrial temperature grade ");
-		break;
-	case TEMP_EXTCOMMERCIAL:
-		puts("Extended Industrial temperature grade ");
-		break;
-	default:
-		puts("Consumer temperature grade ");
-		break;
-	}
-	printf("(%dC to %dC)", minc, maxc);
-
-#if defined(CONFIG_DM_THERMAL)
-	struct udevice *udev;
-	int ret, temp;
-
-	if (IS_ENABLED(CONFIG_IMX_TMU))
-		ret = uclass_get_device_by_name(UCLASS_THERMAL, "cpu-thermal", &udev);
-	else
-		ret = uclass_get_device(UCLASS_THERMAL, 0, &udev);
-	if (!ret) {
-		ret = thermal_get_temp(udev, &temp);
-
-		if (!ret)
-			printf(" at %dC", temp / 100);
-		else
-			debug(" - invalid sensor data\n");
-	} else {
-		debug(" - invalid sensor device\n");
-	}
-#endif
-	puts("\n");
-
-	get_reset_reason(false, true);
-
-	return 0;
 }
 
 void build_info(void)
@@ -1239,6 +1263,8 @@ void build_info(void)
 
 int arch_misc_init(void)
 {
+	get_reset_reason(false, true);
+
 	build_info();
 	return 0;
 }
@@ -1331,12 +1357,14 @@ static int get_cooling_device_list(void * blob, u32 nodeoff, const char *const p
 static void disable_thermal_vpu_node(void *blob, u32 disabled_cores, u32 gpu_disabled)
 {
 	static const char * const thermal_path[] = {
-		"/thermal-zones/ana/cooling-maps/map0"
+		"/thermal-zones/ana/cooling-maps/map0",
+		"/thermal-zones/ana-thermal/cooling-maps/map0",
 	};
-	u32 cooling_dev[24 - (disabled_cores * 3) - (gpu_disabled * 3)];
-	u32 array_cnt = 24 - (disabled_cores * 3) - (gpu_disabled * 3);
+	int num_cpus = (is_imx94() || is_imx952()) ? 4: 6;
+	u32 array_cnt = (num_cpus + 2) * 3 - (disabled_cores * 3) - (gpu_disabled * 3);
+	u32 cooling_dev[array_cnt];
 
-	int nodeoff, ret, i;
+	int nodeoff, ret, i, cnt;
 
 	for (i = 0; i < ARRAY_SIZE(thermal_path); i++) {
 		nodeoff = fdt_path_offset(blob, thermal_path[i]);
@@ -1344,7 +1372,11 @@ static void disable_thermal_vpu_node(void *blob, u32 disabled_cores, u32 gpu_dis
 			printf("path not found %s\n", thermal_path[i]);
 			continue; /* Not found, skip it */
 		}
-		get_cooling_device_list(blob, nodeoff, thermal_path[i], cooling_dev, array_cnt);
+
+		cnt = get_cooling_device_list(blob, nodeoff, thermal_path[i], cooling_dev, array_cnt);
+		/* VPU map does not exist in cooling dev*/
+		if (cnt <= ((num_cpus - disabled_cores) * 3 + (gpu_disabled ? 0 : 3)))
+			continue;
 
 		/* Remove  VPU it the last two nodes in the fdt ana blob */
 		ret = fdt_setprop(blob, nodeoff, "cooling-device", &cooling_dev,
@@ -1364,10 +1396,12 @@ static void disable_thermal_gpu_node(void *blob, u32 disabled_cores)
 {
 	static const char * const thermal_path[] = {
 		"/thermal-zones/ana/cooling-maps/map0",
+		"/thermal-zones/ana-thermal/cooling-maps/map0",
 	};
-	u32 cooling_dev[24 - (disabled_cores * 3)];
-	u32 array_cnt = 24 - (disabled_cores * 3);
-	int nodeoff, ret, i;
+	int num_cpus = (is_imx94() || is_imx952()) ? 4: 6;
+	u32 array_cnt = (num_cpus + 2) * 3 - (disabled_cores * 3);
+	u32 cooling_dev[array_cnt];
+	int nodeoff, ret, i, cnt;
 
 	for (i = 0; i < ARRAY_SIZE(thermal_path); i++) {
 		nodeoff = fdt_path_offset(blob, thermal_path[i]);
@@ -1375,7 +1409,10 @@ static void disable_thermal_gpu_node(void *blob, u32 disabled_cores)
 			printf("path not found %s\n", thermal_path[i]);
 			continue; /* Not found, skip it */
 		}
-		get_cooling_device_list(blob, nodeoff, thermal_path[i], cooling_dev, array_cnt);
+
+		cnt = get_cooling_device_list(blob, nodeoff, thermal_path[i], cooling_dev, array_cnt);
+		if (cnt <= (num_cpus - disabled_cores) * 3) /* GPU map does not exist in cooling dev*/
+			continue;
 
 		/* Remove GPU and VPU as these are the last two nodes in the fdt ana blob */
 		ret = fdt_setprop(blob, nodeoff, "cooling-device", &cooling_dev,
@@ -1387,14 +1424,16 @@ static void disable_thermal_gpu_node(void *blob, u32 disabled_cores)
 			continue;
 		}
 
-		/* Add VPU node back to ana thermal-zone. */
-		ret = fdt_appendprop(blob, nodeoff, "cooling-device", &cooling_dev[array_cnt - 3],
-				  sizeof(u32) * 3);
+		if (cnt == array_cnt) {
+			/* Add VPU node back to ana thermal-zone. */
+			ret = fdt_appendprop(blob, nodeoff, "cooling-device", &cooling_dev[array_cnt - 3],
+					  sizeof(u32) * 3);
 
-		if (ret < 0) {
-			printf("Warning: %s, cooling-device appendprop failed %d\n",
-			       thermal_path[i], ret);
-			continue;
+			if (ret < 0) {
+				printf("Warning: %s, cooling-device appendprop failed %d\n",
+				       thermal_path[i], ret);
+				continue;
+			}
 		}
 
 		printf("Update node %s, cooling-device prop\n", thermal_path[i]);
@@ -1408,10 +1447,11 @@ static void disable_thermal_cpu_nodes(void *blob, u32 disabled_cores)
 		"/thermal-zones/ana/cooling-maps/map0",
 		"/thermal-zones/a55/cooling-maps/map0",
 		"/thermal-zones/a55-thermal/cooling-maps/map0",
+		"/thermal-zones/ana-thermal/cooling-maps/map0",
 	};
 	u32 cooling_dev[24];
 	int nodeoff, ret, i, cnt;
-	int prop_size = 3 * ((is_imx94()) ? 4: 6);
+	int prop_size = 3 * ((is_imx94() || is_imx952()) ? 4: 6);
 
 	for (i = 0; i < ARRAY_SIZE(thermal_path); i++) {
 		nodeoff = fdt_path_offset(blob, thermal_path[i]);
@@ -1433,7 +1473,7 @@ static void disable_thermal_cpu_nodes(void *blob, u32 disabled_cores)
 		/* Add GPU and VPU nodes back to ana thermal-zone. */
 		if (cnt > prop_size)
 			ret = fdt_appendprop(blob, nodeoff, "cooling-device", &cooling_dev[prop_size],
-					  sizeof(u32) * 6);
+					  sizeof(u32) * (cnt - prop_size));
 
 		if (ret < 0) {
 			printf("Warning: %s, cooling-device appendprop failed %d\n",
@@ -1443,6 +1483,19 @@ static void disable_thermal_cpu_nodes(void *blob, u32 disabled_cores)
 
 		printf("Update node %s, cooling-device prop\n", thermal_path[i]);
 	}
+}
+
+static int disable_ld_node(void *blob)
+{
+	static const char * const nodes_path_ld[] = {
+		"/remoteproc",
+		"/disp-mu",
+		"/soc/syscon@4b070000",
+		"/soc/mailbox@4b080000",
+		"/soc/mailbox@4b090000",
+	};
+
+	return delete_fdt_nodes(blob, nodes_path_ld, ARRAY_SIZE(nodes_path_ld));
 }
 
 static int disable_npu_node(void *blob)
@@ -1463,7 +1516,7 @@ static int disable_arm_cpu_nodes(void *blob, u32 disabled_cores)
 	int rc;
 	int nodeoff;
 	char nodes_path[32];
-	int num_cpus = (is_imx94()) ? 4: 6;
+	int num_cpus = (is_imx94() || is_imx952()) ? 4: 6;
 
 	for (i = num_cpus; i > (num_cpus - disabled_cores); i--) {
 
@@ -1481,6 +1534,17 @@ static int disable_arm_cpu_nodes(void *blob, u32 disabled_cores)
 			       nodes_path, fdt_strerror(rc));
 		} else {
 			printf("Delete node %s\n", nodes_path);
+
+			/* Remove node from cpu-map/cluster0 */
+			sprintf(nodes_path, "/cpus/cpu-map/cluster0/core%u", i - 1);
+			nodeoff = fdt_path_offset(blob, nodes_path);
+			if (nodeoff < 0)
+				continue; /* Not found, skip it */
+
+			rc = fdt_del_node(blob, nodeoff);
+			if (rc < 0)
+				printf("Unable to delete node %s, err=%s\n",
+			       nodes_path, fdt_strerror(rc));
 		}
 	}
 
@@ -1540,20 +1604,52 @@ static int disable_vpu_node(void *blob, u32 num_a55_cores_disabled, u32 gpu_disa
 {
 	uint32_t ret = 0;
 
-	printf("Disable VPU nodes\n");
 	static const char * const nodes_path_vpu[] = {
 		"/soc/vpu-ctrl@4c4c0000",
+		"/soc/vpu-ctrl@4c4f0000",
 		"/soc/vpu@4c480000",
 		"/soc/vpu@4c490000",
 		"/soc/vpu@4c4a0000",
 		"/soc/vpu@4c4b0000",
+		"/soc/vpu@4c4c0000",
+		"/soc/vpu@4c4d0000",
+		"/soc/vpu@4c4e0000",
 		"/soc/jpegdec@4c500000",
 		"/soc/jpegenc@4c550000",
+		"/soc/vpuenc@4c460000",
 		"/soc/syscon@4c410000"
 	};
 
 	ret = delete_fdt_nodes(blob, nodes_path_vpu, ARRAY_SIZE(nodes_path_vpu));
 	disable_thermal_vpu_node(blob, num_a55_cores_disabled, gpu_disabled);
+	return ret;
+}
+
+static int disable_vpuenc_node(void *blob)
+{
+	uint32_t ret = 0;
+
+	static const char * const nodes_path_vpuenc[] = {
+		"/soc/vpuenc@4c460000",
+	};
+
+	ret = delete_fdt_nodes(blob, nodes_path_vpuenc, ARRAY_SIZE(nodes_path_vpuenc));
+	return ret;
+}
+
+static int disable_vpuwave511_node(void *blob)
+{
+	uint32_t ret = 0;
+
+	static const char * const nodes_path_vpu511[] = {
+		"/soc/vpu-ctrl@4c4f0000",
+		"/soc/vpu@4c4b0000",
+		"/soc/vpu@4c4c0000",
+		"/soc/vpu@4c4d0000",
+		"/soc/vpu@4c4e0000",
+	};
+
+	ret = delete_fdt_nodes(blob, nodes_path_vpu511, ARRAY_SIZE(nodes_path_vpu511));
 	return ret;
 }
 
@@ -1625,6 +1721,8 @@ int disable_mipidsi_node(void *blob)
 	static const char * const nodes_path_mipidsi[] = {
 		"/soc/dsi@4acf0000",
 		"/soc/syscon@4acf0000",
+		"/soc/dsi@4b060000",
+		"/soc/phy@4b110000",
 	};
 
 	return delete_fdt_nodes(blob, nodes_path_mipidsi, ARRAY_SIZE(nodes_path_mipidsi));
@@ -1641,11 +1739,14 @@ int disable_dpu_node(void *blob)
 		"/soc/display-controller@4b400000/ports/port@1/endpoint",
 		"/soc/display-controller@4b400000",
 		"/soc/syscon@4b010000/bridge@8/ports/port@0/endpoint",
+		"/soc/syscon@4b010000/bridge@8/ports/port@1/endpoint",
+		"/soc/syscon@4b010000/bridge@8/ports/port@2/endpoint@0",
 		"/soc/syscon@4b010000/bridge@8/ports/port@2/endpoint@1",
 		"/soc/syscon@4b010000/bridge@8/ports/port@3/endpoint@0",
 		"/soc/syscon@4b010000/bridge@8/ports/port@3/endpoint@1",
 		"/soc/syscon@4b010000/bridge@8",
 		"/soc/syscon@4b010000",
+		"/soc/syscon@4b0a0000",
 		"/soc/interrupt-controller@4b0b0000",
 		"/soc/bridge@4b0d0000"
 	};
@@ -1699,7 +1800,7 @@ int disable_cm71_node(void *blob)
 static int disable_smmu_node(void *blob)
 {
 	struct scmi_imx_misc_cfg_info_out out = { 0 };
-	struct scmi_msg msg = SCMI_MSG(SCMI_IMX_PROTOCOL_ID_MISC,
+	struct scmi_msg msg = SCMI_MSG(SCMI_PROTOCOL_ID_IMX_MISC,
 				       SCMI_IMX_MISC_CFG_INFO, out);
 	int ret, nodeoff;
 	bool disable_smmu_node = false;
@@ -1752,6 +1853,12 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 	u32 val = 0;
 	int num_a55_cores_disabled = 0;
 	int gpu_disabled = 0;
+
+	val = 0;
+	fuse_read(2, 1, &val);
+
+	if (val & BIT(30)) /* local dimming */
+		disable_ld_node(blob);
 
 	val = 0;
 	fuse_read(2, 2, &val);
@@ -1822,6 +1929,11 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 
 	if (val & BIT(24)) /* MIPI-DSI MIX */
 		disable_mipidsi_node(blob);
+
+	if (val & BIT(26)) /* VPUENC CODA980 */
+		disable_vpuenc_node(blob);
+	if (val & BIT(27)) /* VPU WAVE511 */
+		disable_vpuwave511_node(blob);
 
 	val = 0x0;
 	fuse_read(2, 4, &val);
@@ -1901,19 +2013,35 @@ static void gpio_reset(ulong gpio_base)
 	writel(0, gpio_base + 0x1c);
 }
 
+static int gpio_available(const char *nodes_path)
+{
+	ofnode gpio_node = ofnode_path(nodes_path);
+	const char *status;
+
+	if (!ofnode_valid(gpio_node))
+		return false;
+
+	status = ofnode_read_string(gpio_node, "status");
+
+	if (status && !strcmp(status, "disabled"))
+		return false;
+
+	return true;
+}
+
 int arch_cpu_init(void)
 {
 	if (IS_ENABLED(CONFIG_XPL_BUILD)) {
 		disable_wdog((void __iomem *)WDG3_BASE_ADDR);
 		disable_wdog((void __iomem *)WDG4_BASE_ADDR);
 
-		clock_init_early();
+		if (gpio_available("/soc/gpio@43810000"))
+			gpio_reset(GPIO2_BASE_ADDR);
 
-		gpio_reset(GPIO2_BASE_ADDR);
 		gpio_reset(GPIO3_BASE_ADDR);
 		gpio_reset(GPIO4_BASE_ADDR);
 		gpio_reset(GPIO5_BASE_ADDR);
-#if IS_ENABLED(CONFIG_IMX94)
+#ifdef CONFIG_IMX94
 		gpio_reset(GPIO6_BASE_ADDR);
 		gpio_reset(GPIO7_BASE_ADDR);
 #endif
@@ -2026,11 +2154,13 @@ int timer_init(void)
 		unsigned long freq = 24000000;
 
 		asm volatile("msr cntfrq_el0, %0" : : "r" (freq) : "memory");
-	    /* Clear the compare frame interrupt */
-	    unsigned long sctr_cmpcr_addr = SYSCNT_CMP_BASE_ADDR + 0x2c;
-	    unsigned long sctr_cmpcr = readl(sctr_cmpcr_addr);
-	    sctr_cmpcr &= ~0x1;
-	    writel(sctr_cmpcr, sctr_cmpcr_addr);
+
+		/* Clear the compare frame interrupt */
+		unsigned long sctr_cmpcr_addr = SYSCNT_CMP_BASE_ADDR + 0x2c;
+		unsigned long sctr_cmpcr = readl(sctr_cmpcr_addr);
+
+		sctr_cmpcr &= ~0x1;
+		writel(sctr_cmpcr, sctr_cmpcr_addr);
 	}
 
 	return 0;
@@ -2045,23 +2175,26 @@ enum env_location arch_env_get_location(enum env_operation op, int prio)
 		return env_loc;
 
 	switch (dev) {
-#if IS_ENABLED(CONFIG_ENV_IS_IN_SPI_FLASH)
 	case QSPI_BOOT:
-		env_loc = ENVL_SPI_FLASH;
+		if (IS_ENABLED(CONFIG_ENV_IS_IN_SPI_FLASH))
+			env_loc = ENVL_SPI_FLASH;
 		break;
-#endif
-#if IS_ENABLED(CONFIG_ENV_IS_IN_MMC)
 	case SD1_BOOT:
 	case SD2_BOOT:
 	case SD3_BOOT:
 	case MMC1_BOOT:
 	case MMC2_BOOT:
 	case MMC3_BOOT:
-		env_loc =  ENVL_MMC;
+		if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
+			env_loc =  ENVL_MMC;
 		break;
-#endif
 	default:
-		env_loc = ENVL_NOWHERE;
+		if (IS_ENABLED(CONFIG_ENV_IS_NOWHERE))
+			env_loc = ENVL_NOWHERE;
+		else if (IS_ENABLED(CONFIG_ENV_IS_IN_SPI_FLASH))
+			env_loc = ENVL_SPI_FLASH;
+		else if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
+			env_loc = ENVL_MMC;
 		break;
 	}
 
@@ -2090,7 +2223,7 @@ enum imx9_soc_voltage_mode soc_target_voltage_mode(void)
 #if IS_ENABLED(CONFIG_SCMI_FIRMWARE)
 enum boot_device get_boot_device(void)
 {
-	volatile gd_t *pgd = gd;
+	gd_t *pgd = gd;
 	int ret;
 	u16 boot_type;
 	u8 boot_instance;
@@ -2134,7 +2267,7 @@ enum boot_device get_boot_device(void)
 		break;
 	case BT_DEV_TYPE_USB:
 		boot_dev = boot_instance + USB_BOOT;
-		if (IS_ENABLED(CONFIG_IMX95) && is_imx95_a0())
+		if (is_imx95() && (soc_rev() < CHIP_REV_2_0))
 			boot_dev -= 3; //iMX95 usb instance start at 3
 		break;
 	default:
@@ -2147,10 +2280,11 @@ enum boot_device get_boot_device(void)
 
 bool arch_check_dst_in_secure(void *start, ulong size)
 {
-	ulong ns_end = CFG_SYS_SDRAM_BASE + PHYS_SDRAM_SIZE;
-#ifdef PHYS_SDRAM_2_SIZE
-	ns_end += PHYS_SDRAM_2_SIZE;
-#endif
+	ulong ns_end;
+	phys_size_t dram_size;
+
+	board_phys_sdram_size(&dram_size);
+	ns_end = CFG_SYS_SDRAM_BASE + dram_size;
 
 	if ((ulong)start < CFG_SYS_SDRAM_BASE || (ulong)start + size > ns_end)
 		return true;
@@ -2160,12 +2294,10 @@ bool arch_check_dst_in_secure(void *start, ulong size)
 
 void *arch_get_container_trampoline(void)
 {
-	return (void *)((ulong)CFG_SYS_SDRAM_BASE + PHYS_SDRAM_SIZE - SZ_16M);
-}
+	phys_size_t size;
+	board_phys_sdram_size(&size);
 
-#ifdef CONFIG_IMX95
-u32 container_hdr_alignment(void)
-{
-	return is_imx95_a0() ? 0x400: 0x4000;
+	size = (size > PHYS_SDRAM_SIZE) ? PHYS_SDRAM_SIZE : size;
+
+	return (void *)((ulong)CFG_SYS_SDRAM_BASE + size - SZ_16M);
 }
-#endif

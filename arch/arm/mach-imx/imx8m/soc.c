@@ -47,7 +47,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#if defined(CONFIG_IMX_HAB) || defined(CONFIG_AVB_ATX) || defined(CONFIG_IMX_TRUSTY_OS)
+#if IS_ENABLED(CONFIG_IMX_HAB) || IS_ENABLED(CONFIG_AVB_ATX) || IS_ENABLED(CONFIG_IMX_TRUSTY_OS)
 struct imx_fuse const imx_sec_config_fuse = {
 	.bank = 1,
 	.word = 3,
@@ -61,7 +61,7 @@ struct imx_fuse const imx_field_return_fuse = {
 
 int timer_init(void)
 {
-#ifdef CONFIG_XPL_BUILD
+#if IS_ENABLED(CONFIG_XPL_BUILD)
 	struct sctr_regs *sctr = (struct sctr_regs *)SYSCNT_CTRL_BASE_ADDR;
 	unsigned long freq = readl(&sctr->cntfid0);
 
@@ -119,7 +119,7 @@ void set_wdog_reset(struct wdog_regs *wdog)
 	setbits_le16(&wdog->wcr, WDOG_WDT_MASK | WDOG_WDZST_MASK);
 }
 
-#ifdef CONFIG_ARMV8_PSCI
+#if IS_ENABLED(CONFIG_ARMV8_PSCI)
 #define PTE_MAP_NS	PTE_BLOCK_NS
 #else
 #define PTE_MAP_NS	0
@@ -783,11 +783,11 @@ int arch_initr_trap(void)
 	return 0;
 }
 
-#if defined(CONFIG_IMX8MN) || defined(CONFIG_IMX8MP)
+#if IS_ENABLED(CONFIG_IMX8MN) || IS_ENABLED(CONFIG_IMX8MP)
 struct rom_api *g_rom_api = (struct rom_api *)0x980;
 #endif
 
-#if defined(CONFIG_IMX8M)
+#if IS_ENABLED(CONFIG_IMX8M)
 #include <spl.h>
 int imx8m_detect_secondary_image_boot(void)
 {
@@ -873,8 +873,8 @@ int boot_mode_getprisec(void)
 }
 #endif
 
-#if defined(CONFIG_IMX8MN) || defined(CONFIG_IMX8MP)
-#ifdef SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION
+#if IS_ENABLED(CONFIG_IMX8MN) || IS_ENABLED(CONFIG_IMX8MP)
+#if IS_ENABLED(CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION)
 #define IMG_CNTN_SET1_OFFSET	GENMASK(22, 19)
 unsigned long arch_spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
 						unsigned long raw_sect)
@@ -909,7 +909,7 @@ unsigned long arch_spl_mmc_get_uboot_raw_sector(struct mmc *mmc,
 
 	return raw_sect;
 }
-#endif /* SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION */
+#endif /* CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_USE_PARTITION */
 #endif
 
 bool is_usb_boot(void)
@@ -917,7 +917,7 @@ bool is_usb_boot(void)
 	return get_boot_device() == USB_BOOT;
 }
 
-#ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
+#if IS_ENABLED(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)
 void get_board_serial(struct tag_serialnr *serialnr)
 {
 	struct ocotp_regs *ocotp = (struct ocotp_regs *)OCOTP_BASE_ADDR;
@@ -930,7 +930,7 @@ void get_board_serial(struct tag_serialnr *serialnr)
 }
 #endif
 
-#ifdef CONFIG_OF_SYSTEM_SETUP
+#if IS_ENABLED(CONFIG_OF_SYSTEM_SETUP)
 bool check_fdt_new_path(void *blob)
 {
 	const char *soc_path = "/soc@0";
@@ -976,7 +976,7 @@ add_status:
 	return 0;
 }
 
-#ifdef CONFIG_IMX8MQ
+#if IS_ENABLED(CONFIG_IMX8MQ)
 bool check_dcss_fused(void)
 {
 	struct ocotp_regs *ocotp = (struct ocotp_regs *)OCOTP_BASE_ADDR;
@@ -1248,7 +1248,7 @@ int disable_media_blk_ctrl_mipi_phy2(void *blob)
 	return ret;
 }
 
-#ifdef CONFIG_IMX8MN_LOW_DRIVE_MODE
+#if IS_ENABLED(CONFIG_IMX8MN_LOW_DRIVE_MODE)
 static int low_drive_gpu_freq(void *blob)
 {
 	static const char *nodes_path_8mn[] = {
@@ -1441,7 +1441,7 @@ int disable_gpu_nodes(void *blob)
 {
 	static const char * const nodes_path_8mn[] = {
 		"/gpu@38000000",
-		"/soc@/gpu@38000000"
+		"/soc@0/gpu@38000000"
 	};
 
 	static const char * const nodes_path_8mp[] = {
@@ -1524,7 +1524,7 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 		"/cpus/cpu@3",
 	};
 
-#ifdef CONFIG_IMX8MQ
+#if IS_ENABLED(CONFIG_IMX8MQ)
 	int i = 0;
 	int rc;
 	int nodeoff;
@@ -1600,7 +1600,7 @@ usb_modify_speed:
 	if (is_imx8md())
 		disable_cpu_nodes(blob, nodes_path, 2, 4);
 
-#elif defined(CONFIG_IMX8MM)
+#elif IS_ENABLED(CONFIG_IMX8MM)
 	if (is_imx8mml() || is_imx8mmdl() ||  is_imx8mmsl())
 		disable_vpu_nodes(blob);
 
@@ -1609,10 +1609,10 @@ usb_modify_speed:
 	else if (is_imx8mms() || is_imx8mmsl())
 		disable_cpu_nodes(blob, nodes_path, 3, 4);
 
-#elif defined(CONFIG_IMX8MN)
+#elif IS_ENABLED(CONFIG_IMX8MN)
 	if (is_imx8mnl() || is_imx8mndl() ||  is_imx8mnsl())
 		disable_gpu_nodes(blob);
-#ifdef CONFIG_IMX8MN_LOW_DRIVE_MODE
+#if IS_ENABLED(CONFIG_IMX8MN_LOW_DRIVE_MODE)
 	else {
 		int ldm_gpu = low_drive_gpu_freq(blob);
 
@@ -1628,7 +1628,7 @@ usb_modify_speed:
 	else if (is_imx8mns() || is_imx8mnsl() || is_imx8mnus())
 		disable_cpu_nodes(blob, nodes_path, 3, 4);
 
-#elif defined(CONFIG_IMX8MP)
+#elif IS_ENABLED(CONFIG_IMX8MP)
 	if (is_imx8mpul()) {
 		/* Disable GPU */
 		disable_gpu_nodes(blob);
@@ -1757,7 +1757,7 @@ void reset_cpu(void)
 }
 #endif
 
-#if defined(CONFIG_ARCH_MISC_INIT)
+#if IS_ENABLED(CONFIG_ARCH_MISC_INIT)
 int arch_misc_init(void)
 {
 #if !defined(CONFIG_IMX_TRUSTY_OS) || defined(CONFIG_XPL_BUILD)
@@ -1859,8 +1859,8 @@ int imx8m_usb_power(int usb_id, bool on)
 	return 0;
 }
 
-#if defined(CONFIG_XPL_BUILD)
-#if defined(CONFIG_IMX8MQ) || defined(CONFIG_IMX8MM) || defined(CONFIG_IMX8MN)
+#if IS_ENABLED(CONFIG_XPL_BUILD)
+#if IS_ENABLED(CONFIG_IMX8MQ) || IS_ENABLED(CONFIG_IMX8MM) || IS_ENABLED(CONFIG_IMX8MN)
 bool serror_need_skip = true;
 
 void do_error(struct pt_regs *pt_regs)
@@ -1905,7 +1905,7 @@ uint32_t spl_nand_get_uboot_redund_raw_page(void)
 
 #endif
 
-#if defined(CONFIG_IMX8MN) || defined(CONFIG_IMX8MP)
+#if IS_ENABLED(CONFIG_IMX8MN) || IS_ENABLED(CONFIG_IMX8MP)
 enum env_location arch_env_get_location(enum env_operation op, int prio)
 {
 	enum boot_device dev = get_boot_device();
@@ -1943,7 +1943,7 @@ enum env_location arch_env_get_location(enum env_operation op, int prio)
 
 #endif
 
-#ifdef CONFIG_IMX_BOOTAUX
+#if IS_ENABLED(CONFIG_IMX_BOOTAUX)
 const struct rproc_att hostmap[] = {
 	/* aux core , host core,  size */
 	{ 0x00000000, 0x007e0000, 0x00020000 },

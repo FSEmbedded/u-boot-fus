@@ -4,6 +4,8 @@
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 
 obj-$(CONFIG_VIDEO_IPUV3) += mxc_ipuv3_fb.o ipu_common.o ipu_disp.o
+obj-$(CONFIG_IMX_LDB) += ldb.o
+obj-$(CONFIG_IMX_LCDIF) += lcdif.o
 obj-$(CONFIG_VIDEO_IMXDPUV1) += imxdpuv1.o imx8_dc.o
 obj-$(CONFIG_VIDEO_IMX6SX_LVDS) += imx6sx_ldb.o
 obj-$(CONFIG_VIDEO_IMX8_LVDS) += imx8_lvds.o
@@ -22,4 +24,5 @@ obj-$(CONFIG_VIDEO_IMX95_PIXEL_INTERLEAVER) += imx95-pixel-interleaver.o
 obj-$(CONFIG_VIDEO_IMX95_DPU) += imx95_dpu.o
 obj-$(CONFIG_VIDEO_IMX95_LVDS) += imx95-ldb.o
 obj-$(CONFIG_VIDEO_IMX95_DW_DSI) += dw_dsi_imx95.o
+obj-$(CONFIG_VIDEO_IMX952_MIPI_DSI2) += imx952-mipi-dsi2.o
 obj-y += hdmi/

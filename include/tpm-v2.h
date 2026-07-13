@@ -20,6 +20,7 @@
 #define __TPM_V2_H
 
 #include <tpm-common.h>
+#include <linux/errno.h>
 
 struct udevice;
 
@@ -266,6 +267,7 @@ enum tpm2_return_codes {
  * TPM2 algorithms.
  */
 enum tpm2_algorithms {
+	TPM2_ALG_INVAL		= -EINVAL,
 	TPM2_ALG_SHA1		= 0x04,
 	TPM2_ALG_XOR		= 0x0A,
 	TPM2_ALG_SHA256		= 0x0B,
@@ -343,6 +345,18 @@ static const struct digest_info hash_algo_list[] = {
 		false,
 #endif
 	},
+	{
+		"sm3_256",
+		TPM2_ALG_SM3_256,
+		TCG2_BOOT_HASH_ALG_SM3_256,
+		TPM2_SM3_256_DIGEST_SIZE,
+#if IS_ENABLED(CONFIG_SM3)
+		true,
+#else
+		false,
+#endif
+	},
+
 };
 
 /* NV index attributes */

@@ -30,11 +30,12 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
-#include <dm/pinctrl.h>
 #include <usb/ci_udc.h>
 #include <usb/ehci-ci.h>
 #include "../host/ehci.h"
 #include "ci_udc.h"
+#include <dm/device-internal.h>
+#include <dm/lists.h>
 
 /*
  * Check if the system has too long cachelines. If the cachelines are
@@ -292,8 +293,10 @@ ci_ep_alloc_request(struct usb_ep *ep, unsigned int gfp_flags)
 	if (ci_ep->desc)
 		num = ci_ep->desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 
-	if (num == 0 && controller.ep0_req)
+	if (num == 0 && controller.ep0_req) {
+		DBG("%s: already got controller.ep0_req = %p\n", __func__, controller.ep0_req);
 		return &controller.ep0_req->req;
+	}
 
 	ci_req = calloc(1, sizeof(*ci_req));
 	if (!ci_req)
@@ -315,6 +318,8 @@ static void ci_ep_free_request(struct usb_ep *ep, struct usb_request *req)
 
 	if (ci_ep->desc)
 		num = ci_ep->desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
+	else
+		DBG("%s: no endpoint %p descriptor\n", __func__, ci_ep);
 
 	if (num == 0) {
 		if (!controller.ep0_req)
@@ -325,6 +330,27 @@ static void ci_ep_free_request(struct usb_ep *ep, struct usb_request *req)
 	if (ci_req->b_buf)
 		free(ci_req->b_buf);
 	free(ci_req);
+}
+
+static void request_complete(struct usb_ep *ep, struct ci_req *req, int status)
+{
+	if (req->req.status == -EINPROGRESS)
+		req->req.status = status;
+
+	DBG("%s: req %p complete: status %d, actual %u\n",
+	    ep->name, req, req->req.status, req->req.actual);
+
+	req->req.complete(ep, &req->req);
+}
+
+static void request_complete_list(struct usb_ep *ep, struct list_head *list, int status)
+{
+	struct ci_req *req, *tmp_req;
+
+	list_for_each_entry_safe(req, tmp_req, list, queue) {
+		list_del_init(&req->queue);
+		request_complete(ep, req, status);
+	}
 }
 
 static void ep_enable(int num, int in, int type, int maxpacket)
@@ -354,6 +380,12 @@ static int ci_ep_enable(struct usb_ep *ep,
 	int num, in, type;
 	num = desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 	in = (desc->bEndpointAddress & USB_DIR_IN) != 0;
+
+	if (ci_ep->desc) {
+		DBG("%s: endpoint num %d in %d already enabled\n", __func__, num, in);
+		return -EBUSY;
+	}
+
 	type = usb_endpoint_type(desc);
 	ci_ep->desc = desc;
 	ep->desc = desc;
@@ -405,19 +437,32 @@ static int ep_disable(int num, int in)
 static int ci_ep_disable(struct usb_ep *ep)
 {
 	struct ci_ep *ci_ep = container_of(ep, struct ci_ep, ep);
+	LIST_HEAD(req_list);
 	int num, in, err;
+
+	if (!ci_ep->desc) {
+		DBG("%s: attempt to disable a not enabled yet endpoint\n", __func__);
+		err = -EBUSY;
+		goto nodesc;
+	}
 
 	num = ci_ep->desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 	in = (ci_ep->desc->bEndpointAddress & USB_DIR_IN) != 0;
+
+	list_splice_init(&ci_ep->queue, &req_list);
+	request_complete_list(ep, &req_list, -ESHUTDOWN);
 
 	err = ep_disable(num, in);
 	if (err)
 		return err;
 
 	ci_ep->desc = NULL;
+	err = 0;
+
+nodesc:
 	ep->desc = NULL;
 	ci_ep->req_primed = false;
-	return 0;
+	return err;
 }
 
 static int ci_bounce(struct ci_req *ci_req, int in)
@@ -604,8 +649,10 @@ static int ci_ep_dequeue(struct usb_ep *_ep, struct usb_request *_req)
 			break;
 	}
 
-	if (&ci_req->req != _req)
+	if (&ci_req->req != _req) {
+		DBG("%s: ci_req not found in the queue\n", __func__);
 		return -EINVAL;
+	}
 
 	list_del_init(&ci_req->queue);
 
@@ -625,6 +672,11 @@ static int ci_ep_queue(struct usb_ep *ep,
 	struct ci_req *ci_req = container_of(req, struct ci_req, req);
 	int in, ret;
 	int __maybe_unused num;
+
+	if (!ci_ep->desc) {
+		DBG("%s: ci_ep->desc == NULL, nothing to do!\n", __func__);
+		return -EINVAL;
+	}
 
 	num = ci_ep->desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 	in = (ci_ep->desc->bEndpointAddress & USB_DIR_IN) != 0;
@@ -647,6 +699,8 @@ static int ci_ep_queue(struct usb_ep *ep,
 	ret = ci_bounce(ci_req, in);
 	if (ret)
 		return ret;
+
+	req->status = -EINPROGRESS;
 
 	DBG("ept%d %s pre-queue req %p, buffer %p\n",
 	    num, in ? "in" : "out", ci_req, ci_req->hw_buf);
@@ -699,6 +753,17 @@ static void handle_ep_complete(struct ci_ep *ci_ep)
 	ci_invalidate_qtd(num);
 	ci_req = list_first_entry(&ci_ep->queue, struct ci_req, queue);
 
+	/* Check all dtd are completed, otherwise return for next irq process */
+	next_td = item;
+	for (j = 0; j < ci_req->dtd_count; j++) {
+		ci_invalidate_td(next_td);
+		if (next_td->info & INFO_ACTIVE)
+			return;
+		if (j != ci_req->dtd_count - 1)
+			next_td = (struct ept_queue_item *)(unsigned long)
+				next_td->next;
+	}
+
 	next_td = item;
 	len = 0;
 	for (j = 0; j < ci_req->dtd_count; j++) {
@@ -722,6 +787,7 @@ static void handle_ep_complete(struct ci_ep *ci_ep)
 		ci_ep_submit_next_request(ci_ep);
 
 	ci_req->req.actual = ci_req->req.length - len;
+	ci_req->req.status = 0;
 	ci_debounce(ci_req, in);
 
 	DBG("ept%d %s req %p, complete %x\n",
@@ -1274,10 +1340,9 @@ static int ci_udc_gadget_stop(struct usb_gadget *g)
 
 struct ci_udc_priv_data {
 	struct ehci_ctrl ctrl;
-	struct udevice otgdev;
+	struct udevice *otgdev;
 	struct clk_bulk		clks;
 	int phy_off;
-	struct power_domain otg_pd;
 	struct clk phy_clk;
 	struct power_domain phy_pd;
 	struct ehci_mx6_phy_data phy_data;
@@ -1419,7 +1484,7 @@ static int ci_udc_otg_phy_mode(struct udevice *dev)
 	struct ci_udc_priv_data *priv = dev_get_priv(dev);
 
 	void *__iomem phy_ctrl, *__iomem phy_status;
-	void *__iomem phy_base = (void *__iomem)devfdt_get_addr(&priv->otgdev);
+	void *__iomem phy_base = (void *__iomem)devfdt_get_addr(priv->otgdev);
 	u32 val;
 
 	if (is_mx6() || is_mx7ulp() || is_imx8() || is_imx8ulp()) {
@@ -1453,6 +1518,7 @@ static int ci_udc_otg_ofdata_to_platdata(struct udevice *dev)
 	struct ci_udc_priv_data *priv = dev_get_priv(dev);
 	int node = dev_of_offset(dev);
 	int usbotg_off;
+	int ret;
 
 	if (usb_get_dr_mode(dev_ofnode(dev)) != USB_DR_MODE_PERIPHERAL) {
 		dev_dbg(dev, "Invalid mode\n");
@@ -1464,10 +1530,11 @@ static int ci_udc_otg_ofdata_to_platdata(struct udevice *dev)
 					   "chipidea,usb");
 	if (usbotg_off < 0)
 		return -EINVAL;
-	dev_set_ofnode(&priv->otgdev, offset_to_ofnode(usbotg_off));
-	priv->otgdev.parent = dev->parent;
 
-	return 0;
+	ret = device_bind_driver_to_node(dev->parent, "ci-udc-ctrl", "otgdev",
+		offset_to_ofnode(usbotg_off), &priv->otgdev);
+
+	return ret;
 }
 
 static int ci_udc_otg_probe(struct udevice *dev)
@@ -1476,11 +1543,7 @@ static int ci_udc_otg_probe(struct udevice *dev)
 	struct usb_ehci *ehci;
 	int ret;
 
-	ehci = (struct usb_ehci *)devfdt_get_addr(&priv->otgdev);
-
-	ret = pinctrl_select_state(&priv->otgdev, "default");
-	if (ret)
-		printf("Failed to configure default pinctrl\n");
+	ehci = (struct usb_ehci *)devfdt_get_addr(priv->otgdev);
 
 #if defined(CONFIG_MX6)
 	if (usb_fused((u32)ehci)) {
@@ -1489,24 +1552,23 @@ static int ci_udc_otg_probe(struct udevice *dev)
 	}
 #endif
 
+	ret = device_probe(priv->otgdev);
+	if (ret) {
+		printf("Failed to probe otgdev %d\n", ret);
+		return ret;
+	}
+
 	ret = board_usb_init(dev_seq(dev), USB_INIT_DEVICE);
 	if (ret) {
 		printf("Failed to initialize board for USB\n");
 		return ret;
 	}
 
-#if CONFIG_IS_ENABLED(POWER_DOMAIN)
-	if (!power_domain_get(&priv->otgdev, &priv->otg_pd)) {
-		if (power_domain_on(&priv->otg_pd))
-			return -EINVAL;
-	}
-#endif
-
-	ret = ci_udc_phy_setup(&priv->otgdev, priv);
+	ret = ci_udc_phy_setup(priv->otgdev, priv);
 	if (ret)
 		return ret;
 
-	ret = ci_udc_otg_clk_init(&priv->otgdev, &priv->clks);
+	ret = ci_udc_otg_clk_init(priv->otgdev, &priv->clks);
 	if (ret)
 		return ret;
 
@@ -1541,14 +1603,8 @@ static int ci_udc_otg_remove(struct udevice *dev)
 	clk_release_bulk(&priv->clks);
 #endif
 	ci_udc_phy_shutdown(priv);
-#if CONFIG_IS_ENABLED(POWER_DOMAIN)
-	if (priv->otg_pd.dev) {
-		if (power_domain_off(&priv->otg_pd)) {
-			printf("Power down USB controller failed!\n");
-			return -EINVAL;
-		}
-	}
-#endif
+
+	device_remove(priv->otgdev, DM_REMOVE_NORMAL);
 	board_usb_cleanup(dev_seq(dev), USB_INIT_DEVICE);
 
 	controller.ctrl = NULL;
@@ -1573,6 +1629,11 @@ U_BOOT_DRIVER(ci_udc_otg) = {
 	.remove = ci_udc_otg_remove,
 	.ops	= &ci_udc_gadget_ops,
 	.priv_auto = sizeof(struct ci_udc_priv_data),
+};
+
+U_BOOT_DRIVER(ci_udc_ctrl) = {
+	.name		= "ci-udc-ctrl",
+	.id		= UCLASS_NOP,
 };
 
 #endif /* !CONFIG_IS_ENABLED(DM_USB_GADGET) */

@@ -20,9 +20,9 @@
 		     "xlnx,zynqmp-sk-kr260", "xlnx,zynqmp";
 	model = "ZynqMP KR260 revB";
 
-	ina260-u14 {
-		compatible = "iio-hwmon";
-		io-channels = <&u14 0>, <&u14 1>, <&u14 2>;
+	aliases {
+		ethernet0 = "/axi/ethernet@ff0b0000"; /* &gem0 */
+		ethernet1 = "/axi/ethernet@ff0c0000"; /* &gem1 */
 	};
 
 	clk_125: clock0 { /* u87 - GEM0/1 */
@@ -91,7 +91,6 @@
 
 	u14: ina260@40 { /* u14 */
 		compatible = "ti,ina260";
-		#io-channel-cells = <1>;
 		label = "ina260-u14";
 		reg = <0x40>;
 	};
@@ -152,7 +151,7 @@
 	assigned-clock-rates = <27000000>, <25000000>, <300000000>;
 
 	ports {
-		port@5 {
+		out_dp: port@5 {
 			dpsub_dp_out: endpoint {
 				remote-endpoint = <&dpcon_in>;
 			};

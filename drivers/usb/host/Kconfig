@@ -121,8 +121,9 @@ config USB_XHCI_DRA7XX_INDEX
 
 config USB_XHCI_FSL
 	bool "Support for NXP Layerscape on-chip xHCI USB controller"
-	default y if ARCH_LS1021A || FSL_LSCH3 || FSL_LSCH2
+	depends on ARCH_LS1021A || FSL_LSCH3 || FSL_LSCH2
 	depends on !SPL_NO_USB
+	default y
 	help
 	  Enables support for the on-chip xHCI controller on NXP Layerscape SoCs.
 
@@ -143,8 +144,8 @@ config USB_XHCI_IMX8
 
 config USB_XHCI_IMX8M
 	bool "XHCI support for imx8M(mscale)"
-	depends on ARCH_IMX8M || IMX95 || IMX94
-	select MISC if IMX8MP || IMX95 || IMX94
+	depends on ARCH_IMX8M || IMX95
+	select MISC if IMX8MP || IMX95
 	default y
 	help
 	  Enables support for the on-chip xHCI controller on imx8m(mscale) SoC.
@@ -203,7 +204,7 @@ config USB_EHCI_EXYNOS
 
 config USB_EHCI_MARVELL
 	bool "Support for Marvell on-chip EHCI USB controller"
-	depends on ARCH_MVEBU || ARCH_KIRKWOOD || ARCH_ORION5X
+	depends on ARCH_MVEBU || ARCH_KIRKWOOD
 	default y
 	select USB_EHCI_IS_TDI if !ARM64
 	select USB_EHCI_IS_TDI if ALLEYCAT_5
@@ -279,7 +280,7 @@ endif
 config USB_EHCI_MSM
 	bool "Support for Qualcomm on-chip EHCI USB controller"
 	depends on DM_USB
-	select USB_ULPI_VIEWPORT
+	select USB_ULPI
 	select MSM8916_USB_PHY
 	---help---
 	  Enables support for the on-chip EHCI controller on Qualcomm
@@ -287,6 +288,7 @@ config USB_EHCI_MSM
 
 config USB_EHCI_PCI
 	bool "Support for PCI-based EHCI USB controller"
+	depends on PCI
 	default y if X86
 	help
 	  Enables support for the PCI-based EHCI controller.
@@ -296,11 +298,15 @@ config USB_EHCI_TEGRA
 	depends on ARCH_TEGRA
 	select USB_EHCI_IS_TDI
 	---help---
-	  Enable support for Tegra on-chip EHCI USB controller
+	  Enable support for Tegra on-chip EHCI USB controller. If you enable
+	  ULPI and your PHY needs a different reference clock than the standard
+	  24 MHz then you have to define CFG_ULPI_REF_CLK to the appropriate
+	  value in Hz.
 
 config USB_EHCI_ZYNQ
 	bool "Support for Xilinx Zynq on-chip EHCI USB controller"
-	default y if ARCH_ZYNQ
+	depends on ARCH_ZYNQ
+	default y
 	select USB_EHCI_IS_TDI
 	---help---
 	  Enable support for Zynq on-chip EHCI USB controller
@@ -317,6 +323,7 @@ config EHCI_HCD_INIT_AFTER_RESET
 
 config USB_EHCI_FSL
 	bool  "Support for FSL on-chip EHCI USB controller"
+	depends on PPC
 	select EHCI_HCD_INIT_AFTER_RESET
 	select SYS_FSL_USB_INTERNAL_UTMI_PHY if MPC85xx && \
 		!(ARCH_B4860 || ARCH_B4420 || ARCH_P4080 || ARCH_P1020 || ARCH_P2020)
@@ -376,6 +383,8 @@ config USB_OHCI_GENERIC
 
 config USB_OHCI_DA8XX
 	bool "Support for da850 OHCI USB controller"
+	depends on ARCH_DAVINCI
+	select DEVRES
 	help
 	  Enable support for the da850 USB controller.
 

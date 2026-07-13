@@ -164,7 +164,7 @@ int dm_gpio_lookup_name(const char *name, struct gpio_desc *desc)
 	for (uclass_first_device(UCLASS_GPIO, &dev);
 	     dev;
 	     uclass_next_device(&dev)) {
-		int len;
+		int len, ret;
 
 		uc_priv = dev_get_uclass_priv(dev);
 		if (numeric != -1) {
@@ -188,6 +188,15 @@ int dm_gpio_lookup_name(const char *name, struct gpio_desc *desc)
 		 */
 		if (!dm_gpio_lookup_label(name, uc_priv, &offset))
 			break;
+
+		/* Also search the "gpio-line-names" property in DT for a match. */
+		if (CONFIG_IS_ENABLED(DM_GPIO_LOOKUP_LINE_NAME)) {
+			ret = dev_read_stringlist_search(dev, "gpio-line-names", name);
+			if (ret >= 0) {
+				offset = ret;
+				break;
+			}
+		}
 	}
 
 	if (!dev)
@@ -378,7 +387,7 @@ U_BOOT_DRIVER(gpio_hog) = {
 #else
 int gpio_hog_lookup_name(const char *name, struct gpio_desc **desc)
 {
-	return 0;
+	return -ENODEV;
 }
 #endif
 

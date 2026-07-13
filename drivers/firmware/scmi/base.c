@@ -276,7 +276,7 @@ static int scmi_base_discover_list_protocols_int(struct udevice *dev,
 	if (ret)
 		return ret;
 
-	out_size = sizeof(*out) + sizeof(u32) * (1 + (num_protocols - 1) / 4);
+	out_size = sizeof(*out) + sizeof(u32) * (1 + num_protocols / 4);
 	out = calloc(1, out_size);
 	if (!out)
 		return -ENOMEM;

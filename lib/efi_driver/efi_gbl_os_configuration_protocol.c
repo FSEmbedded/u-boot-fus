@@ -13,6 +13,7 @@
 #include <asm/setup.h>
 #include <asm/bootm.h>
 #include <mmc.h>
+#include <env.h>
 #include "../../drivers/fastboot/fb_fsl/fastboot_lock_unlock.h"
 
 const efi_guid_t efi_gbl_os_config_guid =

@@ -2,10 +2,8 @@
 /*
  * (C) Copyright 2022 - Analog Devices, Inc.
  *
- * Written and/or maintained by Timesys Corporation
+ * Written by Timesys Corporation
  *
- * Contact: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
- * Contact: Greg Malysa <greg.malysa@timesys.com>
  */
 
 #include <asm/arch-adi/sc5xx/sc5xx.h>
@@ -170,42 +168,6 @@ void fixup_dp83867_phy(struct phy_device *phydev)
 
 	if (IS_ENABLED(CONFIG_ADI_BUG_EZKHW21))
 		phy_write(phydev, MDIO_DEVAD_NONE, 0, 0x3100);
-}
-
-extern char __bss_start, __bss_end;
-extern char __rel_dyn_end;
-
-void bss_clear(void)
-{
-	char *bss_start = &__bss_start;
-	char *bss_end = &__bss_end;
-	char *rel_dyn_end = &__rel_dyn_end;
-
-	char *start;
-
-	if (rel_dyn_end >= bss_start && rel_dyn_end <= bss_end)
-		start = rel_dyn_end;
-	else
-		start = bss_start;
-
-	u32 *pt;
-	size_t sz = bss_end - start;
-
-	for (int i = 0; i < sz; i += 4) {
-		pt = (u32 *)(start + i);
-		*pt = 0;
-	}
-}
-
-int board_early_init_f(void)
-{
-	bss_clear();
-	return 0;
-}
-
-int board_init(void)
-{
-	return 0;
 }
 
 int dram_init(void)

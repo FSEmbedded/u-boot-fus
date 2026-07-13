@@ -34,7 +34,7 @@
 #include <efi_gbl_protocol_utils.h>
 
 static const uint64_t EFI_GBL_OS_CONFIGURATION_PROTOCOL_REVISION = \
-			GBL_PROTOCOL_REVISION(0, 2);
+			GBL_PROTOCOL_REVISION(0, 256);
 
 enum GBL_EFI_DEVICE_TREE_TYPE {
 	// HLOS device tree.

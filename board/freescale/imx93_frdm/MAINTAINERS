@@ -1,5 +1,0 @@
-i.MX93 FRDM BOARD
-S:	Maintained
-F:	board/freescale/imx93_frdm/
-F:	include/configs/imx93_frdm.h
-F:	configs/imx93_11x11_frdm_defconfig

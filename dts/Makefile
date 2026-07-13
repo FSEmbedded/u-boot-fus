@@ -3,7 +3,7 @@
 # Copyright (c) 2011 The Chromium OS Authors.
 
 # This Makefile builds the internal U-Boot fdt if CONFIG_OF_CONTROL is
-# enabled. See doc/README.fdt-control for more details.
+# enabled. See doc/develop/devicetree/control.rst for more details.
 
 DEVICE_TREE ?= $(CONFIG_DEFAULT_DEVICE_TREE:"%"=%)
 ifeq ($(DEVICE_TREE),)
@@ -41,7 +41,7 @@ $(obj)/dt.dtb: $(DTB) $(objtree)/tools/fdtgrep FORCE
 	$(call if_changed,fdt_rm_props)
 else
 $(obj)/dt.dtb: $(DTB) FORCE
-	$(call if_changed,shipped)
+	$(call if_changed,copy)
 endif
 
 targets += dt.dtb

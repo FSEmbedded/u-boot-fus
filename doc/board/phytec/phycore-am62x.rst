@@ -60,7 +60,8 @@ Set the variables corresponding to this platform:
  $ # we don't use any extra TFA parameters
  $ unset TFA_EXTRA_ARGS
  $ export OPTEE_PLATFORM=k3-am62x
- $ export OPTEE_EXTRA_ARGS="CFG_WITH_SOFTWARE_PRNG=y"
+ $ # we dont use any extra OPTEE parameters
+ $ unset OPTEE_EXTRA_ARGS
 
 .. include::  ../ti/am62x_sk.rst
     :start-after: .. am62x_evm_rst_include_start_build_steps
@@ -175,6 +176,8 @@ Boot switches should be changed with power off.
    * - USB DFU
      - 11001010
      - 00100000
+
+.. include:: k3-common.rst
 
 Further Information
 -------------------

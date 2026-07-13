@@ -12,9 +12,11 @@
 #include <image.h>
 #include <dm/ofnode_decl.h>
 #include <linux/list.h>
+#include <linux/build_bug.h>
 
 struct bootstd_priv;
 struct expo;
+struct scene;
 
 enum {
 	BOOTFLOW_MAX_USED_DEVS	= 16,
@@ -160,6 +162,7 @@ struct bootflow_img {
  * before using it
  * @BOOTFLOWIF_ALL: Return bootflows with errors as well
  * @BOOTFLOWIF_HUNT: Hunt for new bootdevs using the bootdrv hunters
+ * @BOOTFLOWIF_ONLY_BOOTABLE: Only consider partitions marked 'bootable'
  *
  * Internal flags:
  * @BOOTFLOWIF_SINGLE_DEV: (internal) Just scan one bootdev
@@ -176,6 +179,7 @@ enum bootflow_iter_flags_t {
 	BOOTFLOWIF_SHOW			= 1 << 1,
 	BOOTFLOWIF_ALL			= 1 << 2,
 	BOOTFLOWIF_HUNT			= 1 << 3,
+	BOOTFLOWIF_ONLY_BOOTABLE	= BIT(4),
 
 	/*
 	 * flags used internally by standard boot - do not set these when
@@ -208,6 +212,10 @@ enum bootflow_meth_flags_t {
 	BOOTFLOW_METHF_PXE_ONLY		= 1 << 1,
 	BOOTFLOW_METHF_SINGLE_DEV	= 1 << 2,
 	BOOTFLOW_METHF_SINGLE_UCLASS	= 1 << 3,
+};
+
+enum {
+	BOOTMETH_MAX_COUNT	= 32,
 };
 
 /**
@@ -247,14 +255,21 @@ enum bootflow_meth_flags_t {
  * @cur_label: Current label being processed
  * @num_methods: Number of bootmeth devices in @method_order
  * @cur_method: Current method number, an index into @method_order
- * @first_glob_method: First global method, if any, else -1
+ * @first_glob_method: Index of first global method within @method_order[], if
+ * any, else -1
  * @cur_prio: Current priority being scanned
  * @method_order: List of bootmeth devices to use, in order. The normal methods
  *	appear first, then the global ones, if any
+ * @have_global: true if we have global bootmeths in @method_order[]
  * @doing_global: true if we are iterating through the global bootmeths (which
- *	happens before the normal ones)
+ *	generally happens before the normal ones)
  * @method_flags: flags controlling which methods should be used for this @dev
  * (enum bootflow_meth_flags_t)
+ * @methods_done: indicates which methods have been processed, one bit for
+ * each method in @method_order[]
+ * @pending_bootdev: if non-NULL, bootdev which will be used when the global
+ * bootmeths are done
+ * @pending_method_flags: method flags which will be used with @pending_bootdev
  */
 struct bootflow_iter {
 	int flags;
@@ -274,8 +289,12 @@ struct bootflow_iter {
 	int first_glob_method;
 	enum bootdev_prio_t cur_prio;
 	struct udevice **method_order;
+	bool have_global;
 	bool doing_global;
 	int method_flags;
+	uint methods_done;
+	struct udevice *pending_bootdev;
+	int pending_method_flags;
 };
 
 /**
@@ -486,10 +505,38 @@ int bootflow_iter_check_system(const struct bootflow_iter *iter);
 /**
  * bootflow_menu_new() - Create a new bootflow menu
  *
+ * This is initially empty. Call bootflow_menu_add_all() to add all the
+ * bootflows to it.
+ *
  * @expp: Returns the expo created
  * Returns 0 on success, -ve on error
  */
 int bootflow_menu_new(struct expo **expp);
+
+/**
+ * bootflow_menu_add_all() - Add all bootflows to a menu
+ *
+ * Loops through all bootflows and adds them to the menu
+ *
+ * @exp: Menu to update
+ * Return 0 on success, -ve on error
+ */
+int bootflow_menu_add_all(struct expo *exp);
+
+/**
+ * bootflow_menu_add() - Add a bootflow to a menu
+ *
+ * Adds a new bootflow to the end of a menu. The caller must be careful to pass
+ * seq=0 for the first bootflow added, 1 for the second, etc.
+ *
+ * @exp: Menu to update
+ * @bflow: Bootflow to add
+ * @seq: Sequence number of this bootflow (0 = first)
+ * @scnp: Returns a pointer to the scene
+ * Return 0 on success, -ve on error
+ */
+int bootflow_menu_add(struct expo *exp, struct bootflow *bflow, int seq,
+		      struct scene **scnp);
 
 /**
  * bootflow_menu_apply_theme() - Apply a theme to a bootmenu
@@ -499,18 +546,6 @@ int bootflow_menu_new(struct expo **expp);
  * Returns 0 on success, -ve on error
  */
 int bootflow_menu_apply_theme(struct expo *exp, ofnode node);
-
-/**
- * bootflow_menu_run() - Create and run a menu of available bootflows
- *
- * @std: Bootstd information
- * @text_mode: Uses a text-based menu suitable for a serial port
- * @bflowp: Returns chosen bootflow (set to NULL if nothing is chosen)
- * @return 0 if an option was chosen, -EAGAIN if nothing was chosen, -ve on
- * error
- */
-int bootflow_menu_run(struct bootstd_priv *std, bool text_mode,
-		      struct bootflow **bflowp);
 
 #define BOOTFLOWCL_EMPTY	((void *)1)
 
@@ -635,5 +670,41 @@ struct bootflow_img *bootflow_img_add(struct bootflow *bflow, const char *fname,
  * Return: Sequence number of bootflow (0 = first)
  */
 int bootflow_get_seq(const struct bootflow *bflow);
+
+/**
+ * bootflow_menu_setup() - Set up a menu for bootflows
+ *
+ * Set up the expo, initially empty
+ *
+ * @std: bootstd information
+ * @text_mode: true to show the menu in text mode, false to use video display
+ * @expp: Returns the expo created, on success
+ * Return: 0 if OK, -ve on error
+ */
+int bootflow_menu_setup(struct bootstd_priv *std, bool text_mode,
+			struct expo **expp);
+
+/**
+ * bootflow_menu_start() - Start up a menu for bootflows
+ *
+ * Set up the expo and add items
+ *
+ * @std: bootstd information
+ * @text_mode: true to show the menu in text mode, false to use video display
+ * @expp: Returns the expo created, on success
+ * Return: 0 if OK, -ve on error
+ */
+int bootflow_menu_start(struct bootstd_priv *std, bool text_mode,
+			struct expo **expp);
+
+/**
+ * bootflow_menu_poll() - Poll a menu for user action
+ *
+ * @exp: Expo to poll
+ * @seqp: Returns the bootflow chosen or currently pointed to (numbered from 0)
+ * Return: 0 if a bootflow was chosen, -EAGAIN if nothing is chosen yet, -EPIPE
+ *	if the user quit, -ERESTART if the expo needs refreshing
+ */
+int bootflow_menu_poll(struct expo *exp, int *seqp);
 
 #endif

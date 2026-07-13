@@ -207,12 +207,11 @@ int ele_return_lifecycle_update(ulong signed_msg_blk, u32 *response);
 int ele_start_rng(void);
 int ele_write_shadow_fuse(u32 fuse_id, u32 fuse_val, u32 *response);
 int ele_read_shadow_fuse(u32 fuse_id, u32 *fuse_val, u32 *response);
-int ele_v2x_get_state(struct v2x_get_state *state, u32 *response);
 int ele_volt_change_start_req(void);
 int ele_volt_change_finish_req(void);
+int ele_v2x_get_state(struct v2x_get_state *state, u32 *response);
 int ele_message_call(struct ele_msg *msg);
 int ele_set_gmid(u32 *response);
-int ele_get_hw_unique_key(uint8_t *hwkey, size_t key_size, uint8_t *ctx, size_t ctx_size);
 int ele_get_trng_state(void);
 int ele_get_random(u32 src_paddr, size_t len);
 
@@ -226,4 +225,5 @@ int ele_crrm_set_boot_mode(enum CRRM_BOOT_MODE *boot_mode, u32 *response);
 int ele_crrm_refresh_awdt(u8 timer_id, u8 pub_key, u32 data_addr, u32 data_size, u32 *response);
 int ele_crrm_get_status(u8 timer_id, u32 status_addr, u32 *status_size, u32 *response);
 int ele_crrm_get_nonce(u8 timer_id, u32 nonce_buf, u32 *buf_size, u32 *response);
+int ele_get_hw_unique_key(uint8_t *hwkey, size_t key_size, uint8_t *ctx, size_t ctx_size);
 #endif

@@ -688,7 +688,6 @@ static int eqos_start(struct udevice *dev)
 	int ret, i;
 	ulong rate;
 	u32 val, tx_fifo_sz, rx_fifo_sz, tqs, rqs, pbl;
-	ulong last_rx_desc;
 	ulong desc_pad;
 	ulong addr64;
 
@@ -896,11 +895,11 @@ static int eqos_start(struct udevice *dev)
 			EQOS_MAC_RXQ_CTRL0_RXQ0EN_SHIFT);
 
 	/* Multicast and Broadcast Queue Enable */
-	setbits_le32(&eqos->mac_regs->unused_0a4,
-		     0x00100000);
-	/* enable promise mode */
-	setbits_le32(&eqos->mac_regs->unused_004[1],
-		     0x1);
+	setbits_le32(&eqos->mac_regs->rxq_ctrl1,
+		     EQOS_MAC_RXQ_CTRL1_MCBCQEN);
+	/* Promiscuous Mode Enable */
+	setbits_le32(&eqos->mac_regs->packet_filter,
+		     EQOS_MAC_PACKET_FILTER_PR);
 
 	/* Set TX flow control parameters */
 	/* Set Pause Time */
@@ -1009,6 +1008,21 @@ static int eqos_start(struct udevice *dev)
 	writel(EQOS_DESCRIPTORS_RX - 1,
 	       &eqos->dma_regs->ch0_rxdesc_ring_length);
 
+	/*
+	 * Point TX tail pointer at the first descriptor, implying no descriptor
+	 * are owned by the DMA. We advance the tail pointer when we need to TX
+	 * a packet in eqos_send().
+	 */
+	addr64 = (ulong)eqos_get_desc(eqos, 0, false);
+	writel(lower_32_bits(addr64), &eqos->dma_regs->ch0_txdesc_tail_pointer);
+
+	/*
+	 * Point RX tail pointer at the last descriptor, implying all
+	 * descriptors are owned by the DMA.
+	 */
+	addr64 = (ulong)eqos_get_desc(eqos, EQOS_DESCRIPTORS_RX - 1, true);
+	writel(lower_32_bits(addr64), &eqos->dma_regs->ch0_rxdesc_tail_pointer);
+
 	/* Enable everything */
 	setbits_le32(&eqos->dma_regs->ch0_tx_control,
 		     EQOS_DMA_CH0_TX_CONTROL_ST);
@@ -1016,16 +1030,6 @@ static int eqos_start(struct udevice *dev)
 		     EQOS_DMA_CH0_RX_CONTROL_SR);
 	setbits_le32(&eqos->mac_regs->configuration,
 		     EQOS_MAC_CONFIGURATION_TE | EQOS_MAC_CONFIGURATION_RE);
-
-	/* TX tail pointer not written until we need to TX a packet */
-	/*
-	 * Point RX tail pointer at last descriptor. Ideally, we'd point at the
-	 * first descriptor, implying all descriptors were available. However,
-	 * that's not distinguishable from none of the descriptors being
-	 * available.
-	 */
-	last_rx_desc = (ulong)eqos_get_desc(eqos, EQOS_DESCRIPTORS_RX - 1, true);
-	writel(last_rx_desc, &eqos->dma_regs->ch0_rxdesc_tail_pointer);
 
 	eqos->started = true;
 
@@ -1121,8 +1125,8 @@ static int eqos_send(struct udevice *dev, void *packet, int length)
 	tx_desc->des3 = EQOS_DESC3_OWN | EQOS_DESC3_FD | EQOS_DESC3_LD | length;
 	eqos->config->ops->eqos_flush_desc(tx_desc);
 
-	writel((ulong)eqos_get_desc(eqos, eqos->tx_desc_idx, false),
-		&eqos->dma_regs->ch0_txdesc_tail_pointer);
+	writel(lower_32_bits((ulong)eqos_get_desc(eqos, eqos->tx_desc_idx, false)),
+	       &eqos->dma_regs->ch0_txdesc_tail_pointer);
 
 	for (i = 0; i < 1000000; i++) {
 		eqos->config->ops->eqos_inval_desc(tx_desc);
@@ -1178,7 +1182,7 @@ static int eqos_free_pkt(struct udevice *dev, uchar *packet, int length)
 
 	eqos->config->ops->eqos_inval_buffer(packet, length);
 
-	if ((eqos->rx_desc_idx & idx_mask) == idx_mask) {
+	if (eqos->started && (eqos->rx_desc_idx & idx_mask) == idx_mask) {
 		for (idx = eqos->rx_desc_idx - idx_mask;
 		     idx <= eqos->rx_desc_idx;
 		     idx++) {
@@ -1203,7 +1207,8 @@ static int eqos_free_pkt(struct udevice *dev, uchar *packet, int length)
 			rx_desc->des3 = EQOS_DESC3_OWN | EQOS_DESC3_BUF1V;
 			eqos->config->ops->eqos_flush_desc(rx_desc);
 		}
-		writel((ulong)rx_desc, &eqos->dma_regs->ch0_rxdesc_tail_pointer);
+		writel(lower_32_bits((ulong)rx_desc),
+		       &eqos->dma_regs->ch0_rxdesc_tail_pointer);
 	}
 
 	eqos->rx_desc_idx++;
@@ -1604,6 +1609,10 @@ static const struct udevice_id eqos_ids[] = {
 		.compatible = "st,stm32mp1-dwmac",
 		.data = (ulong)&eqos_stm32mp15_config
 	},
+	{
+		.compatible = "st,stm32mp25-dwmac",
+		.data = (ulong)&eqos_stm32mp25_config
+	},
 #endif
 #if IS_ENABLED(CONFIG_DWC_ETH_QOS_IMX)
 	{
@@ -1621,7 +1630,15 @@ static const struct udevice_id eqos_ids[] = {
 #endif
 #if IS_ENABLED(CONFIG_DWC_ETH_QOS_ROCKCHIP)
 	{
+		.compatible = "rockchip,rk3528-gmac",
+		.data = (ulong)&eqos_rockchip_config
+	},
+	{
 		.compatible = "rockchip,rk3568-gmac",
+		.data = (ulong)&eqos_rockchip_config
+	},
+	{
+		.compatible = "rockchip,rk3576-gmac",
 		.data = (ulong)&eqos_rockchip_config
 	},
 	{
@@ -1639,6 +1656,12 @@ static const struct udevice_id eqos_ids[] = {
 	{
 		.compatible = "starfive,jh7110-dwmac",
 		.data = (ulong)&eqos_jh7110_config
+	},
+#endif
+#if IS_ENABLED(CONFIG_DWC_ETH_QOS_ADI)
+	{
+		.compatible = "adi,sc59x-dwmac-eqos",
+		.data = (ulong)&eqos_adi_config
 	},
 #endif
 	{ }

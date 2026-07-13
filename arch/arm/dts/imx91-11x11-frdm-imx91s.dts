@@ -6,7 +6,7 @@
 /dts-v1/;
 
 #include <dt-bindings/usb/pd.h>
-#include <../../../dts/upstream/src/arm64/freescale/imx91.dtsi>
+#include <../dts/upstream/src/arm64/freescale/imx91.dtsi>
 
 / {
 	model = "NXP FRDM-IMX91S";
@@ -15,6 +15,7 @@
 	aliases {
 		ethernet0 = &eqos;
 		rtc0 = &pcf2131;
+		mmc1 = &usdhc2;
 	};
 
 	chosen {

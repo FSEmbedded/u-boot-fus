@@ -63,6 +63,7 @@ struct imx_rproc {
 /* M4 own area. Can be mapped at probe */
 #define ATT_OWN         BIT(31)
 #define ATT_IOMEM       BIT(30)
+#define ATT_ECC         BIT(29)
 
 static int imx_rproc_arm_smc_start(struct udevice *dev)
 {
@@ -280,6 +281,8 @@ static void *imx_rproc_device_to_virt(struct udevice *dev, ulong da, ulong size,
 static int imx_rproc_load(struct udevice *dev, ulong addr, ulong size)
 {
 	struct imx_rproc *priv = dev_get_priv(dev);
+	const struct imx_rproc_dcfg *dcfg = priv->dcfg;
+	int i;
 
 	if (IS_ENABLED(CONFIG_IMX_SM_LMM)) {
 		if (!(priv->flags & (IMX_RPROC_FLAGS_SM_LMM_AVAIL | IMX_RPROC_FLAGS_SM_CPU_OP)))
@@ -288,6 +291,22 @@ static int imx_rproc_load(struct udevice *dev, ulong addr, ulong size)
 
 	/* Only used for SM based System */
 	priv->reset_vector = rproc_elf_get_boot_addr(dev, addr) & GENMASK(31, 16);
+
+	/*
+	 * Before loading elf, need do ECC initialization by clearing the memory
+	 * region, if ATT_ECC is set.
+	 */
+	for (i = 0; i < dcfg->att_size; i++) {
+		const struct imx_rproc_att *att = &dcfg->att[i];
+
+		if (!(att->flags & ATT_ECC))
+			continue;
+
+		if (att->flags & ATT_IOMEM)
+			memset_io((void __iomem *)(long)att->sa, 0, att->size);
+		else
+			memset((void *)(long)att->sa, 0, att->size);
+	}
 
 	return rproc_elf_load_image(dev, addr, size);
 }
@@ -324,7 +343,7 @@ static int imx_rproc_probe(struct udevice *dev)
 		if (IS_ENABLED(CONFIG_IMX_SM_LMM)) {
 			struct udevice *lmm_dev;
 
-			ret = uclass_get_device_by_name(UCLASS_MISC, "protocol@80", &lmm_dev);
+			ret = uclass_get_device_by_name(UCLASS_SCMI_BASE, "protocol@80", &lmm_dev);
 			if (ret) {
 				dev_err(dev, "Failed to get SM LMM protocol dev\n");
 				return ret;
@@ -356,7 +375,7 @@ static int imx_rproc_probe(struct udevice *dev)
 		if (IS_ENABLED(CONFIG_IMX_SM_CPU)) {
 			struct udevice *cpu_dev;
 
-			ret = uclass_get_device_by_name(UCLASS_MISC, "protocol@82", &cpu_dev);
+			ret = uclass_get_device_by_name(UCLASS_SCMI_BASE, "protocol@82", &cpu_dev);
 			if (ret) {
 				dev_err(dev, "Failed to get SM LMM protocol dev\n");
 				return ret;
@@ -487,10 +506,10 @@ static const struct imx_rproc_dcfg imx_rproc_cfg_imx93 = {
 static const struct imx_rproc_att imx_rproc_att_imx95_m7[] = {
 	/* dev addr , sys addr  , size	    , flags */
 	/* TCM CODE NON-SECURE */
-	{ 0x00000000, 0x203C0000, 0x00040000, ATT_OWN | ATT_IOMEM },
+	{ 0x00000000, 0x203C0000, 0x00040000, ATT_OWN | ATT_IOMEM | ATT_ECC },
 
 	/* TCM SYS NON-SECURE*/
-	{ 0x20000000, 0x20400000, 0x00040000, ATT_OWN | ATT_IOMEM },
+	{ 0x20000000, 0x20400000, 0x00040000, ATT_OWN | ATT_IOMEM | ATT_ECC },
 
 	/* DDR */
 	{ 0x80000000, 0x80000000, 0x50000000, 0 },

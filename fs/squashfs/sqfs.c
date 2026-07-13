@@ -178,6 +178,11 @@ static int sqfs_frag_lookup(u32 inode_fragment_index,
 		goto out;
 	}
 
+	if (SQFS_METADATA_SIZE(header) > SQFS_METADATA_BLOCK_SIZE) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 	entries = malloc(SQFS_METADATA_BLOCK_SIZE);
 	if (!entries) {
 		ret = -ENOMEM;
@@ -255,10 +260,14 @@ static char *sqfs_concat_tokens(char **token_list, int token_count)
 {
 	char *result;
 	int i, length = 0, offset = 0;
+	size_t alloc;
 
 	length = sqfs_get_tokens_length(token_list, token_count);
 
-	result = malloc(length + 1);
+	if (__builtin_add_overflow(length, 1, &alloc))
+		return 0;
+
+	result = malloc(alloc);
 	if (!result)
 		return NULL;
 
@@ -949,7 +958,7 @@ static int sqfs_opendir_nest(const char *filename, struct fs_dir_stream **dirsp)
 		goto out;
 	}
 
-	token_list = malloc(token_count * sizeof(char *));
+	token_list = calloc(token_count, sizeof(char *));
 	if (!token_list) {
 		ret = -EINVAL;
 		goto out;
@@ -987,9 +996,11 @@ static int sqfs_opendir_nest(const char *filename, struct fs_dir_stream **dirsp)
 	*dirsp = (struct fs_dir_stream *)dirs;
 
 out:
-	for (j = 0; j < token_count; j++)
-		free(token_list[j]);
-	free(token_list);
+	if (token_list) {
+		for (j = 0; j < token_count; j++)
+			free(token_list[j]);
+		free(token_list);
+	}
 	free(pos_list);
 	free(path);
 	if (ret) {
@@ -1582,8 +1593,10 @@ static int sqfs_read_nest(const char *filename, void *buf, loff_t offset,
 	table_offset = frag_entry.start - (start * ctxt.cur_dev->blksz);
 	n_blks = DIV_ROUND_UP(table_size + table_offset, ctxt.cur_dev->blksz);
 
-	if (__builtin_mul_overflow(n_blks, ctxt.cur_dev->blksz, &buf_size))
-		return -EINVAL;
+	if (__builtin_mul_overflow(n_blks, ctxt.cur_dev->blksz, &buf_size)) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	fragment = malloc_cache_aligned(buf_size);
 

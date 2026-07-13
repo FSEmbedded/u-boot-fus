@@ -43,12 +43,6 @@
 #include <asm/mach-imx/sys_proto.h>
 #endif
 
-#ifndef ESDHCI_QUIRK_BROKEN_TIMEOUT_VALUE
-#ifdef CONFIG_FSL_USDHC
-#define ESDHCI_QUIRK_BROKEN_TIMEOUT_VALUE	1
-#endif
-#endif
-
 DECLARE_GLOBAL_DATA_PTR;
 
 #define SDHCI_IRQ_EN_BITS		(IRQSTATEN_CC | IRQSTATEN_TC | \
@@ -109,6 +103,33 @@ struct fsl_esdhc {
 	uint    sddirctl;	/* SD direction control register */
 	char    reserved11[712];/* reserved */
 	uint    scr;		/* eSDHC control register */
+};
+
+struct fsl_esdhc_cq {
+	uint cqver;
+	uint cqcap;
+	uint cqcfg;
+	uint cqctl;
+	uint cqis;
+	uint cqiste;
+	uint cqisge;
+	uint cqic;
+	uint cqtdlba;
+	uint cqtdlbau;
+	uint cqtdbr;
+	uint cqtcn;
+	uint cqdqs;
+	uint cqdpt;
+	uint cqtclr;
+	uint reserved1;
+	uint cqssc1;
+	uint cqssc2;
+	uint cqcrdct;
+	uint reserved2;
+	uint cqrmem;
+	uint cqterri;
+	uint cqcri;
+	uint cqcra;
 };
 
 struct fsl_esdhc_plat {
@@ -379,7 +400,7 @@ static int esdhc_setup_data(struct fsl_esdhc_priv *priv, struct mmc *mmc,
 	    (timeout == 4 || timeout == 8 || timeout == 12))
 		timeout++;
 
-	if (IS_ENABLED(ESDHCI_QUIRK_BROKEN_TIMEOUT_VALUE))
+	if (IS_ENABLED(CONFIG_ESDHCI_QUIRK_BROKEN_TIMEOUT_VALUE))
 		timeout = 0xE;
 
 	esdhc_clrsetbits32(&regs->sysctl, SYSCTL_TIMEOUT_MASK, timeout << 16);
@@ -1098,6 +1119,35 @@ static int esdhc_wait_dat0_common(struct fsl_esdhc_priv *priv, int state,
 	return ret;
 }
 
+#define CQHCI_HALT_TIMEOUT 20000 /*us*/
+#define CQHCI_CLEAR_TIMEOUT 20000
+
+static void esdhc_cq_reset(struct fsl_esdhc *regs)
+{
+	int err;
+	u32 tmp;
+	struct fsl_esdhc_cq *cq_regs = (void *)regs + 0x100;
+
+	tmp = esdhc_read32(&cq_regs->cqcfg);
+	if (tmp & CQCFG_CQUE) {
+		/* When CQ is enabled, firstly halt the CQ, then clear all tasks on host */
+		esdhc_setbits32(&cq_regs->cqctl, CQCTL_HALT);
+		err = readx_poll_timeout(esdhc_read32, &cq_regs->cqctl,
+					 tmp, tmp & CQCTL_HALT, CQHCI_HALT_TIMEOUT);
+		if (err)
+			pr_warn("cq halt timeout.\n");
+
+		esdhc_setbits32(&cq_regs->cqctl, CQCTL_CLEAR);
+		err = readx_poll_timeout(esdhc_read32, &cq_regs->cqctl,
+					 tmp, !(tmp & CQCTL_CLEAR), CQHCI_CLEAR_TIMEOUT);
+		if (err)
+			pr_warn("cq clear all tasks timeout.\n");
+
+		/* Disable the CQ */
+		esdhc_write32(&cq_regs->cqcfg, 0);
+	}
+}
+
 static int esdhc_reset(struct fsl_esdhc *regs)
 {
 	ulong start;
@@ -1175,6 +1225,10 @@ static int fsl_esdhc_init(struct fsl_esdhc_priv *priv,
 		return -EINVAL;
 
 	regs = priv->esdhc_regs;
+
+	/* Reset Command Queue Engine before esdhc reset */
+	if (priv->flags & ESDHC_FLAG_CQHCI)
+		esdhc_cq_reset(regs);
 
 	/* First reset the eSDHC controller */
 	ret = esdhc_reset(regs);
@@ -1572,7 +1626,7 @@ static int fsl_esdhc_probe(struct udevice *dev)
 	init_clk_usdhc(dev_seq(dev));
 
 	priv->sdhc_clk = mxc_get_clock(MXC_ESDHC_CLK + dev_seq(dev));
-	if (priv->sdhc_clk <= 0) {
+	if (!priv->sdhc_clk || IS_ERR_VALUE(priv->sdhc_clk)) {
 		dev_err(dev, "Unable to get clk for %s\n", dev->name);
 		return -EINVAL;
 	}
@@ -1688,6 +1742,13 @@ static struct esdhc_soc_data usdhc_imx8qm_data = {
 		ESDHC_FLAG_HS400 | ESDHC_FLAG_HS400_ES,
 };
 
+static struct esdhc_soc_data usdhc_imx952_data = {
+	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_STD_TUNING |
+		ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200 |
+		ESDHC_FLAG_HS400 | ESDHC_FLAG_HS400_ES |
+		ESDHC_FLAG_CQHCI,
+};
+
 static const struct udevice_id fsl_esdhc_ids[] = {
 	{ .compatible = "fsl,imx51-esdhc", },
 	{ .compatible = "fsl,imx53-esdhc", },
@@ -1702,6 +1763,7 @@ static const struct udevice_id fsl_esdhc_ids[] = {
 	{ .compatible = "fsl,imx8mn-usdhc", .data = (ulong)&usdhc_imx8qm_data,},
 	{ .compatible = "fsl,imx8mp-usdhc", .data = (ulong)&usdhc_imx8qm_data,},
 	{ .compatible = "fsl,imx8mq-usdhc", .data = (ulong)&usdhc_imx8qm_data,},
+	{ .compatible = "fsl,imx952-usdhc", .data = (ulong)&usdhc_imx952_data,},
 	{ .compatible = "fsl,imxrt-usdhc", },
 	{ .compatible = "fsl,esdhc", },
 	{ /* sentinel */ }

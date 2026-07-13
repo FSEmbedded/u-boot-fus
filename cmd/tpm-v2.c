@@ -113,7 +113,7 @@ static int do_tpm2_pcr_extend(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 	if (argc == 4) {
 		algo = tpm2_name_to_algorithm(argv[3]);
-		if (algo < 0)
+		if (algo == TPM2_ALG_INVAL)
 			return CMD_RET_FAILURE;
 	}
 	algo_len = tpm2_algorithm_to_len(algo);
@@ -157,7 +157,7 @@ static int do_tpm_pcr_read(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 	if (argc == 4) {
 		algo = tpm2_name_to_algorithm(argv[3]);
-		if (algo < 0)
+		if (algo == TPM2_ALG_INVAL)
 			return CMD_RET_FAILURE;
 	}
 	algo_len = tpm2_algorithm_to_len(algo);
@@ -288,7 +288,7 @@ static int do_tpm2_pcrallocate(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_USAGE;
 
 	algo = tpm2_name_to_algorithm(argv[1]);
-	if (algo == -EINVAL)
+	if (algo == TPM2_ALG_INVAL)
 		return CMD_RET_USAGE;
 
 	ret = get_tpm(&dev);
@@ -589,6 +589,7 @@ U_BOOT_CMD(tpm2, CONFIG_SYS_MAXARGS, 1, do_tpm, "Issue a TPMv2.x command",
 "        * sha256\n"
 "        * sha384\n"
 "        * sha512\n"
+"        * sm3_256\n"
 "    <on|off> is one of:\n"
 "        * on  - Select all available PCRs associated with the specified\n"
 "                algorithm (bank)\n"

@@ -7,6 +7,7 @@
  *
  */
 
+#include <dm.h>
 #include <efi_loader.h>
 #include <init.h>
 #include <spl.h>
@@ -40,21 +41,8 @@ struct efi_capsule_update_info update_info = {
 	.images = fw_images,
 };
 
-#if IS_ENABLED(CONFIG_SET_DFU_ALT_INFO)
-void set_dfu_alt_info(char *interface, char *devstr)
-{
-	if (IS_ENABLED(CONFIG_EFI_HAVE_CAPSULE_SUPPORT))
-		env_set("dfu_alt_info", update_info.dfu_string);
-}
-#endif
-
-int board_init(void)
-{
-	return 0;
-}
-
 #if defined(CONFIG_XPL_BUILD)
-void spl_perform_fixups(struct spl_image_info *spl_image)
+void spl_perform_board_fixups(struct spl_image_info *spl_image)
 {
 	if (IS_ENABLED(CONFIG_K3_DDRSS)) {
 		if (IS_ENABLED(CONFIG_K3_INLINE_ECC))
@@ -75,4 +63,27 @@ int board_late_init(void)
 
 void spl_board_init(void)
 {
+	struct udevice *dev;
+	int ret;
+
+	if (IS_ENABLED(CONFIG_ESM_K3)) {
+		const char * const esms[] = {"esm@700000", "esm@40800000", "esm@42080000"};
+
+		for (int i = 0; i < ARRAY_SIZE(esms); ++i) {
+			ret = uclass_get_device_by_name(UCLASS_MISC, esms[i],
+							&dev);
+			if (ret) {
+				printf("MISC init for %s failed: %d\n", esms[i], ret);
+				break;
+			}
+		}
+	}
+
+	if (IS_ENABLED(CONFIG_ESM_PMIC) && ret == 0) {
+		ret = uclass_get_device_by_driver(UCLASS_MISC,
+						  DM_DRIVER_GET(pmic_esm),
+						  &dev);
+		if (ret)
+			printf("ESM PMIC init failed: %d\n", ret);
+	}
 }

@@ -83,6 +83,19 @@ int mmc_wait_dat0(struct mmc *mmc, int state, int timeout_us)
 	return dm_mmc_wait_dat0(mmc->dev, state, timeout_us);
 }
 
+void dm_mmc_send_init_stream(struct udevice *dev)
+{
+	struct dm_mmc_ops *ops = mmc_get_ops(dev);
+
+	if (ops->send_init_stream)
+		ops->send_init_stream(dev);
+}
+
+void mmc_send_init_stream(struct mmc *mmc)
+{
+	dm_mmc_send_init_stream(mmc->dev);
+}
+
 static int dm_mmc_get_wp(struct udevice *dev)
 {
 	struct dm_mmc_ops *ops = mmc_get_ops(dev);
@@ -230,8 +243,12 @@ int mmc_of_parse(struct udevice *dev, struct mmc_config *cfg)
 		return -EINVAL;
 	}
 
-	/* f_max is obtained from the optional "max-frequency" property */
-	dev_read_u32(dev, "max-frequency", &cfg->f_max);
+	/*
+	 * Maximum frequency is obtained from the optional "max-frequency" DT property.
+	 * Use dev_read_u32_default() to preserve the driver-set f_max value when
+	 * "max-frequency" is not present, ensuring the controller's default is used.
+	 */
+	cfg->f_max = dev_read_u32_default(dev, "max-frequency", cfg->f_max);
 
 	if (dev_read_bool(dev, "cap-sd-highspeed"))
 		cfg->host_caps |= MMC_CAP(SD_HS);
@@ -498,22 +515,12 @@ static int mmc_blk_probe(struct udevice *dev)
 		return ret;
 	}
 
-	ret = device_probe(dev);
-	if (ret) {
-		debug("Probing %s failed (err=%d)\n", dev->name, ret);
-
-		mmc_deinit(mmc);
-
-		return ret;
-	}
-
 	return 0;
 }
 
-static int mmc_blk_remove(struct udevice *dev)
+static int mmc_remove(struct udevice *dev)
 {
-	struct udevice *mmc_dev = dev_get_parent(dev);
-	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(mmc_dev);
+	struct mmc_uclass_priv *upriv = dev_get_uclass_priv(dev);
 	struct mmc *mmc = upriv->mmc;
 
 	return mmc_deinit(mmc);
@@ -533,7 +540,6 @@ U_BOOT_DRIVER(mmc_blk) = {
 	.id		= UCLASS_BLK,
 	.ops		= &mmc_blk_ops,
 	.probe		= mmc_blk_probe,
-	.remove		= mmc_blk_remove,
 	.flags		= DM_FLAG_OS_PREPARE,
 };
 #endif /* CONFIG_BLK */
@@ -543,4 +549,5 @@ UCLASS_DRIVER(mmc) = {
 	.name		= "mmc",
 	.flags		= DM_UC_FLAG_SEQ_ALIAS,
 	.per_device_auto	= sizeof(struct mmc_uclass_priv),
+	.pre_remove	= mmc_remove,
 };

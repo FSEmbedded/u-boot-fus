@@ -20,10 +20,11 @@ DECLARE_GLOBAL_DATA_PTR;
 #define JH7110_CLK_CPU_ROOT_SHIFT		24
 #define JH7110_CLK_CPU_ROOT_MASK		GENMASK(29, 24)
 
-void spl_perform_fixups(struct spl_image_info *spl_image)
+void spl_perform_board_fixups(struct spl_image_info *spl_image)
 {
 	/* Update the memory size which read from eeprom or DT */
-	fdt_fixup_memory(spl_image->fdt_addr, 0x40000000, gd->ram_size);
+	if (spl_image->fdt_addr)
+		fdt_fixup_memory(spl_image->fdt_addr, 0x40000000, gd->ram_size);
 }
 
 static void jh7110_jtag_init(void)
@@ -103,6 +104,9 @@ void board_init_f(ulong dummy)
 			JH7110_CLK_CPU_ROOT_MASK,
 			BIT(JH7110_CLK_CPU_ROOT_SHIFT));
 
+	/* Set USB overcurrent overflow pin disable */
+	SYS_IOMUX_DIN_DISABLED(2);
+
 	ret = spl_board_init_f();
 	if (ret) {
 		debug("spl_board_init_f init failed: %d\n", ret);
@@ -113,25 +117,28 @@ void board_init_f(ulong dummy)
 #if CONFIG_IS_ENABLED(LOAD_FIT)
 int board_fit_config_name_match(const char *name)
 {
-	const char *product_id;
-	u8 version;
-
-	product_id = get_product_id_from_eeprom();
-
-	if (!strncmp(product_id, "VF7110", 6)) {
-		version = get_pcb_revision_from_eeprom();
-		if ((version == 'b' || version == 'B') &&
-		    !strcmp(name, "jh7110-starfive-visionfive-2-v1.3b"))
-			return 0;
-
-		if ((version == 'a' || version == 'A') &&
-		    !strcmp(name, "jh7110-starfive-visionfive-2-v1.2a"))
-			return 0;
-	} else if (!strncmp(product_id, "MARS", 4) &&
-		   !strcmp(name, "jh7110-milkv-mars")) {
+	if (!strcmp(name, "starfive/jh7110-deepcomputing-fml13v01") &&
+		    !strncmp(get_product_id_from_eeprom(), "FML13V01", 8)) {
 		return 0;
-	} else if (!strncmp(product_id, "STAR64", 6) &&
-		   !strcmp(name, "jh7110-pine64-star64")) {
+	} else if (!strcmp(name, "starfive/jh7110-milkv-mars") &&
+		    !strncmp(get_product_id_from_eeprom(), "MARS", 4)) {
+		return 0;
+	} else if (!strcmp(name, "starfive/jh7110-milkv-marscm-emmc") &&
+		    !strncmp(get_product_id_from_eeprom(), "MARC", 4) &&
+		    get_mmc_size_from_eeprom()) {
+		return 0;
+	} else if (!strcmp(name, "starfive/jh7110-milkv-marscm-lite") &&
+		    !strncmp(get_product_id_from_eeprom(), "MARC", 4) &&
+		    !get_mmc_size_from_eeprom()) {
+		return 0;
+	} else if (!strcmp(name, "starfive/jh7110-pine64-star64") &&
+		    !strncmp(get_product_id_from_eeprom(), "STAR64", 6)) {
+		return 0;
+	} else if (!strcmp(name, "starfive/jh7110-starfive-visionfive-2-v1.2a") &&
+		    !strncmp(get_product_id_from_eeprom(), "VF7110A", 7)) {
+		return 0;
+	} else if (!strcmp(name, "starfive/jh7110-starfive-visionfive-2-v1.3b") &&
+		    !strncmp(get_product_id_from_eeprom(), "VF7110B", 7)) {
 		return 0;
 	}
 

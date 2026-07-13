@@ -1,23 +1,24 @@
 /*
  * SPDX-License-Identifier:     GPL-2.0+
  *
- * Copyright 2025 NXP
+ * Copyright 2026 NXP
  *
  */
 
 #ifndef __FSL_GBL_H__
 #define __FSL_GBL_H__
 
-// Check gbl_signtool.py for the signed GBL image layout
-
 /* Magic values for validation */
 #define GBL0_MAGIC "GBL0\0"
-#define GBLF_MAGIC "GBLf\0"
 
 /* Fixed sizes and offsets */
 #define RSA4096_SIG_LEN 512
-#define FOOTER_OFFSET_FROM_END 512
 #define ROLLBACK_INDEX_SLOT_MAX (32)
+
+/* Path to GBL image file in android_esp partition */
+#define GBL_EFI_PATH        "/EFI/BOOT/BOOTAA64.EFI"
+/* Path to GBL metadata file in android_esp partition */
+#define GBL_METADATA_PATH "/EFI/BOOT/gbl_metadata.bin"
 
 typedef struct gbl_metadata {
 	/* GBL0_MAGIC */
@@ -30,18 +31,12 @@ typedef struct gbl_metadata {
 	uint32_t rollback_index;
 } gbl_metadata;
 
-typedef struct gbl_footer {
-	/* GBLF_MAGIC */
-	char magic[8];
-	/* Offset of the metadata struct */
-	uint32_t metadata_offset;
-	/* Size of signed GBL image including the signature */
-	uint32_t image_size;
-} gbl_footer;
-
-int verify_gbl_footer(struct gbl_footer *footer);
-int verify_gbl_metadata(struct gbl_metadata *metadata,
-			struct gbl_footer *footer);
-int verify_gbl_signature(uint8_t *gbl, struct gbl_footer *footer);
-int verify_gbl(uint8_t *gbl, struct gbl_footer *footer);
+int load_file_from_android_esp(char *part_name, const char *file_path,
+			       uint8_t **buf_out, loff_t *size_out);
+int verify_gbl_metadata(struct gbl_metadata *metadata);
+int verify_gbl_signature(uint8_t *gbl, uint32_t gbl_size,
+			 uint8_t *metadata, uint32_t metadata_size,
+			 uint8_t *signature, uint32_t sig_size);
+int verify_gbl(uint8_t *gbl, uint32_t gbl_size,
+	       uint8_t *metadata_buf, uint32_t metadata_buf_size);
 #endif

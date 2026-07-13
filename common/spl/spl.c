@@ -120,8 +120,13 @@ int __weak booti_setup(ulong image, ulong *relocated_addr, ulong *size, bool for
 }
 #endif
 
-/* Weak default function for arch/board-specific fixups to the spl_image_info */
-void __weak spl_perform_fixups(struct spl_image_info *spl_image)
+/* Weak default function for arch specific fixups to the spl_image_info */
+void __weak spl_perform_arch_fixups(struct spl_image_info *spl_image)
+{
+}
+
+/* Weak default function for board specific fixups to the spl_image_info */
+void __weak spl_perform_board_fixups(struct spl_image_info *spl_image)
 {
 }
 
@@ -278,8 +283,8 @@ void spl_set_header_raw_uboot(struct spl_image_info *spl_image)
 	} else {
 		spl_image->entry_point = CONFIG_SYS_UBOOT_START;
 		spl_image->load_addr = CONFIG_TEXT_BASE;
-		log_debug("Default load addr %x (u_boot_pos=%lx)\n",
-			  CONFIG_TEXT_BASE, u_boot_pos);
+		log_debug("Default load addr %lx (u_boot_pos=%lx)\n",
+			  spl_image->load_addr, u_boot_pos);
 	}
 	spl_image->os = IH_OS_U_BOOT;
 	spl_image->name = xpl_name(xpl_next_phase());
@@ -335,7 +340,7 @@ int spl_parse_image_header(struct spl_image_info *spl_image,
 		panic("** no mkimage signature but raw image not supported");
 	}
 
-	if (CONFIG_IS_ENABLED(OS_BOOT) && IS_ENABLED(CONFIG_CMD_BOOTI)) {
+	if (IS_ENABLED(CONFIG_SPL_OS_BOOT) && IS_ENABLED(CONFIG_SPL_BOOTI)) {
 		ulong start, size;
 
 		if (!booti_setup((ulong)header, &start, &size, 0)) {
@@ -349,7 +354,8 @@ int spl_parse_image_header(struct spl_image_info *spl_image,
 			      spl_image->load_addr, spl_image->size);
 			return 0;
 		}
-	} else if (CONFIG_IS_ENABLED(OS_BOOT) && IS_ENABLED(CONFIG_CMD_BOOTZ)) {
+	} else if (IS_ENABLED(CONFIG_SPL_OS_BOOT) &&
+		   IS_ENABLED(CONFIG_SPL_BOOTZ)) {
 		ulong start, end;
 
 		if (!bootz_setup((ulong)header, &start, &end)) {
@@ -392,7 +398,7 @@ int spl_load(struct spl_image_info *spl_image,
 }
 #endif
 
-__weak void __noreturn jump_to_image_no_args(struct spl_image_info *spl_image)
+__weak void __noreturn jump_to_image(struct spl_image_info *spl_image)
 {
 	typedef void __noreturn (*image_entry_noargs_t)(void);
 
@@ -634,29 +640,29 @@ static int boot_from_devices(struct spl_image_info *spl_image,
 		if (CONFIG_IS_ENABLED(SHOW_ERRORS))
 			ret = -ENXIO;
 		for (loader = drv; loader != drv + n_ents; loader++) {
-			if (bootdev != loader->boot_device)
+			if (loader && bootdev != loader->boot_device)
 				continue;
 			if (!CONFIG_IS_ENABLED(SILENT_CONSOLE)) {
-				if (loader)
-					printf("Trying to boot from %s\n",
-					       spl_loader_name(loader));
-				else if (CONFIG_IS_ENABLED(SHOW_ERRORS)) {
-					printf(PHASE_PROMPT
-					       "Unsupported Boot Device %d\n",
-					       bootdev);
-				} else {
-					puts(PHASE_PROMPT
-					     "Unsupported Boot Device!\n");
-				}
+				printf("Trying to boot from %s\n",
+				       spl_loader_name(loader));
 			}
-			if (loader) {
-				ret = spl_load_image(spl_image, loader);
-				if (!ret) {
-					spl_image->boot_device = bootdev;
-					return 0;
-				}
-				printf("Error: %d\n", ret);
+
+			ret = spl_load_image(spl_image, loader);
+			if (!ret) {
+				spl_image->boot_device = bootdev;
+				return 0;
 			}
+			printf("Error: %d\n", ret);
+		}
+
+		if (!CONFIG_IS_ENABLED(SILENT_CONSOLE)) {
+			if (CONFIG_IS_ENABLED(SHOW_ERRORS))
+				printf(PHASE_PROMPT
+				       "Unsupported Boot Device %d\n",
+				       bootdev);
+			else
+				printf(PHASE_PROMPT
+				       "Unsupported Boot Device!\n");
 		}
 	}
 
@@ -689,9 +695,10 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		BOOT_DEVICE_NONE,
 		BOOT_DEVICE_NONE,
 	};
-	spl_jump_to_image_t jump_to_image = &jump_to_image_no_args;
+	spl_jump_to_image_t jumper = &jump_to_image;
 	struct spl_image_info spl_image;
 	int ret, os;
+	void *fdt;
 
 	debug(">>" PHASE_PROMPT "board_init_r()\n");
 
@@ -775,7 +782,8 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		hang();
 	}
 
-	spl_perform_fixups(&spl_image);
+	spl_perform_arch_fixups(&spl_image);
+	spl_perform_board_fixups(&spl_image);
 
 	os = spl_image.os;
 	if (os == IH_OS_U_BOOT) {
@@ -783,20 +791,24 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 	} else if (CONFIG_IS_ENABLED(ATF) && os == IH_OS_ARM_TRUSTED_FIRMWARE) {
 		debug("Jumping to U-Boot via ARM Trusted Firmware\n");
 		spl_fixup_fdt(spl_image_fdt_addr(&spl_image));
-		jump_to_image = &spl_invoke_atf;
+		jumper = &spl_invoke_atf;
 	} else if (CONFIG_IS_ENABLED(OPTEE_IMAGE) && os == IH_OS_TEE) {
 		debug("Jumping to U-Boot via OP-TEE\n");
 		spl_board_prepare_for_optee(spl_image_fdt_addr(&spl_image));
-		jump_to_image = &jump_to_image_optee;
+		jumper = &jump_to_image_optee;
 	} else if (CONFIG_IS_ENABLED(OPENSBI) && os == IH_OS_OPENSBI) {
 		debug("Jumping to U-Boot via RISC-V OpenSBI\n");
-		jump_to_image = &spl_invoke_opensbi;
+		jumper = &spl_invoke_opensbi;
 	} else if (CONFIG_IS_ENABLED(OS_BOOT) && os == IH_OS_LINUX) {
 		debug("Jumping to Linux\n");
-		if (IS_ENABLED(CONFIG_SPL_OS_BOOT))
-			spl_fixup_fdt((void *)SPL_PAYLOAD_ARGS_ADDR);
+		if (CONFIG_IS_ENABLED(OS_BOOT_ARGS))
+			fdt = (void *)SPL_PAYLOAD_ARGS_ADDR;
+		else
+			fdt = spl_image_fdt_addr(&spl_image);
+		spl_fixup_fdt(fdt);
 		spl_board_prepare_for_linux();
-		jump_to_image = &jump_to_image_linux;
+		spl_image.arg = fdt;
+		jumper = &jump_to_image_linux;
 	} else {
 		debug("Unsupported OS image.. Jumping nevertheless..\n");
 	}
@@ -848,7 +860,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 	if (CONFIG_IS_ENABLED(RELOC_LOADER)) {
 		int ret;
 
-		ret = spl_reloc_jump(&spl_image, jump_to_image);
+		ret = spl_reloc_jump(&spl_image, jumper);
 		if (ret) {
 			if (xpl_phase() == PHASE_VPL)
 				printf("jump failed %d\n", ret);
@@ -856,7 +868,7 @@ void board_init_r(gd_t *dummy1, ulong dummy2)
 		}
 	}
 
-	jump_to_image(&spl_image);
+	jumper(&spl_image);
 }
 
 /*

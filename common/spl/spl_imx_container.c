@@ -10,18 +10,18 @@
 #include <log.h>
 #include <mapmem.h>
 #include <spl.h>
-#include <u-boot/lz4.h>
 #include <cpu_func.h>
 #ifdef CONFIG_AHAB_BOOT
 #include <asm/mach-imx/ahab.h>
 #endif
+#if IS_ENABLED(CONFIG_IMX_CRRM)
+#define IMG_TYPE_RECOVERY		0x09
+#endif
+#include <u-boot/lz4.h>
 #ifdef CONFIG_IMX_TRUSTY_OS
 #define TEE_DEST_SIZE   0x04000000
 #define LZ4_MAGIC_NUM	0x184D2204
 #define LZ4_OFFSET	0x00800000
-#endif
-#if IS_ENABLED(CONFIG_IMX_CRRM)
-#define IMG_TYPE_RECOVERY		0x09
 #endif
 
 __weak bool arch_check_dst_in_secure(void *start, ulong size)
@@ -88,15 +88,14 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 		}
 
 		if (info->read(info, offset, size, trampoline) < images[image_index].size) {
-			printf("%s wrong\n", __func__);
+			printf("%s: failed to load image to a trampoline buffer\n", __func__);
 			return NULL;
 		}
 
 		memcpy(buf, trampoline, images[image_index].size);
 	} else {
-		if (info->read(info, offset, size, buf) <
-		    images[image_index].size) {
-			printf("%s wrong\n", __func__);
+		if (info->read(info, offset, size, buf) < images[image_index].size) {
+				printf("%s: failed to load image to a non-secure region\n", __func__);
 			return NULL;
 		}
 	}
@@ -138,9 +137,8 @@ static int read_auth_container(struct spl_image_info *spl_image,
 	struct container_hdr *authhdr;
 	u16 length;
 	int i, size, ret = 0;
-	u16 ctnr_hdr_align = container_hdr_alignment();
 
-	size = ALIGN(ctnr_hdr_align, spl_get_bl_len(info));
+	size = ALIGN(CONTAINER_HDR_ALIGNMENT, spl_get_bl_len(info));
 
 	/*
 	 * It will not override the ATF code, so safe to use it here,
@@ -153,7 +151,7 @@ static int read_auth_container(struct spl_image_info *spl_image,
 	debug("%s: container: %p offset: %lu size: %u\n", __func__,
 	      container, offset, size);
 	if (info->read(info, offset, size, container) <
-	    ctnr_hdr_align) {
+	    CONTAINER_HDR_ALIGNMENT) {
 		ret = -EIO;
 		goto end;
 	}
@@ -173,7 +171,7 @@ static int read_auth_container(struct spl_image_info *spl_image,
 	length = container->length_lsb + (container->length_msb << 8);
 	debug("Container length %u\n", length);
 
-	if (length > ctnr_hdr_align) {
+	if (length > CONTAINER_HDR_ALIGNMENT) {
 		size = ALIGN(length, spl_get_bl_len(info));
 
 		free(container);

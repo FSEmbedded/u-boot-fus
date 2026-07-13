@@ -52,6 +52,7 @@
 #include "fb_fsl_common.h"
 
 #ifdef CONFIG_IMX_ANDROID_GBL
+#include <fs.h>
 #include <../lib/avb/fsl/fsl_gbl.h>
 #endif
 
@@ -187,7 +188,7 @@ U_BOOT_CMD(
 #endif
 
 #ifdef CONFIG_FLASH_MCUFIRMWARE_SUPPORT
-#if defined (CONFIG_IMX95) || defined(CONFIG_ARCH_IMX8M)
+#if defined (CONFIG_IMX95) || defined (CONFIG_IMX952) || defined(CONFIG_ARCH_IMX8M)
 static int do_bootmcu(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[])
 {
 	int ret;
@@ -228,6 +229,8 @@ U_BOOT_CMD(
 #endif
 
 #ifdef CONFIG_CMD_BOOTA
+
+char* slot_suffixes[2] = {"_a", "_b"};
 
 /* Section for Android bootimage format support */
 
@@ -294,7 +297,6 @@ static int sha256_concatenation(uint8_t *hash_buf, uint8_t *vbh, uint8_t *image_
  */
 static int vbh_bootloader(uint8_t *image_hash)
 {
-	char* slot_suffixes[2] = {"_a", "_b"};
 	char partition_name[20];
 	AvbABData ab_data;
 	uint8_t *image_buf = NULL;
@@ -608,7 +610,6 @@ int get_boot_header_version(void)
 #ifdef CONFIG_ANDROID_AB_SUPPORT
 	int target_slot;
 	struct bootloader_control ab_data;
-	char* slot_suffixes[2] = {"_a", "_b"};
 
 	if (fsl_avb_ab_ops.read_ab_metadata(&fsl_avb_ab_ops, &ab_data) !=
 					    AVB_IO_RESULT_OK) {
@@ -660,52 +661,42 @@ bool __weak is_power_key_pressed(void) {
 }
 
 #ifdef CONFIG_IMX_ANDROID_GBL
+
 static int do_boota(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[]) {
-	gbl_footer footer;
 	gbl_metadata *metadata = NULL;
 	uint8_t *gbl = NULL;
-	size_t num_read = 0;
-	char part_name[8];
+	uint8_t *metadata_buf = NULL;
+	loff_t gbl_size = 0;
+	loff_t metadata_size = 0;
+	char part_name[24];
 	char command[64];
+	int slot = 0;
 	int ret = 0;
 
-	/* Load and verify GBL image */
-	int slot = 0;
-	char* slot_suffixes[2] = {"_a", "_b"};
 	slot = current_slot();
 	if (slot == -1) {
 		printf("failed to get current slot!\n");
-		goto fail;
+		return -1;
 	}
-	snprintf(part_name, sizeof(part_name), "efisp%s", slot_suffixes[slot]);
+	snprintf(part_name, sizeof(part_name), "android_esp%s", slot_suffixes[slot]);
 
-	/* Load the footer to get metadata and signature */
-	ret = read_from_partition_multi(part_name, 0 - sizeof(footer),
-					sizeof(footer), &footer, &num_read);
-	if (ret != 0 || (num_read != sizeof(footer))) {
-		printf("failed to load gbl footer!\n");
-		goto fail;
-	}
-	if(verify_gbl_footer(&footer)) {
+	/* Load GBL image */
+	ret = load_file_from_android_esp(part_name, GBL_EFI_PATH, &gbl, &gbl_size);
+	if (ret != 0) {
+		printf("Failed to load GBL from android_esp!\n");
 		goto fail;
 	}
 
-	gbl = malloc(footer.image_size);
-	if (gbl == NULL) {
-		printf("failed to allocate memory to load GBL!\n");
-		goto fail;
-	}
-	ret = read_from_partition_multi(part_name, 0,
-					footer.image_size,
-					gbl, &num_read);
-	if (ret != 0 || num_read != footer.image_size) {
-		printf("failed to load GBL image!\n");
+	/* Load GBL metadata and signature image */
+	ret = load_file_from_android_esp(part_name, GBL_METADATA_PATH, &metadata_buf, &metadata_size);
+	if (ret != 0) {
+		printf("Failed to load GBL metadata from android_esp!\n");
 		goto fail;
 	}
 
 	/* Only verify the GBL image when Trusty OS is enabled */
 #ifdef CONFIG_IMX_TRUSTY_OS
-	ret = verify_gbl(gbl, &footer);
+	ret = verify_gbl(gbl, (uint32_t)gbl_size, metadata_buf, (uint32_t)metadata_size);
 	if (ret != 0) {
 		/* GBL signature verify fail, but we still
 		 * allow boot when the device is unlocked.
@@ -715,14 +706,14 @@ static int do_boota(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv
 			printf("GBL verify fail and device is locked.\n");
 			goto fail;
 		}
+		printf("GBL verify fail but device is unlocked, continue boot.\n");
 	}
 #endif
 
-	/* Sanity check the GBL image size */
-	metadata = (gbl_metadata *)(gbl + footer.metadata_offset);
-	if (metadata->original_gbl_size == 0 || \
-	    metadata->original_gbl_size != footer.metadata_offset) {
-		printf("Invalid gbl metadata data!\n");
+	metadata = (gbl_metadata *)metadata_buf;
+	if (metadata->original_gbl_size == 0 ||
+	    metadata->original_gbl_size != (uint32_t)gbl_size) {
+		printf("Invalid gbl metadata: size mismatch!\n");
 		goto fail;
 	}
 
@@ -735,11 +726,12 @@ static int do_boota(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv
 fail:
 	if (gbl)
 		free(gbl);
+	if (metadata_buf)
+		free(metadata_buf);
 
 	printf("boota: failed to load GBL!\n");
 	do_reset(NULL, 0, 0, NULL);
 
-	/* We should not get here */
 	return 1;
 }
 #else
@@ -1199,9 +1191,10 @@ int do_boota(struct cmd_tbl *cmdtp, int flag, int argc, char * const argv[]) {
 	/* Combine cmdline */
 	if (boot_header_version == 4) {
 		android_image_get_kernel_v3((struct boot_img_hdr_v3 *)hdr_v4,
-						(struct vendor_boot_img_hdr_v3 *)vendor_boot_hdr_v4, true);
+					    (struct vendor_boot_img_hdr_v3 *)vendor_boot_hdr_v4,
+					    (void *)(ulong)fdt_addr, true);
 	} else if (boot_header_version == 3) {
-		android_image_get_kernel_v3(hdr_v3, vendor_boot_hdr_v3, false);
+		android_image_get_kernel_v3(hdr_v3, vendor_boot_hdr_v3, (void *)(ulong)fdt_addr, false);
 	} else {
 		if (check_image_arm64) {
 			android_image_get_kernel(hdr, NULL, 0, NULL, NULL);

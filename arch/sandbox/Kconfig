@@ -27,14 +27,17 @@ config SANDBOX_RAM_SIZE_MB
 
 config SANDBOX_SPL
 	bool "Enable SPL for sandbox"
+	depends on !COMPILE_TEST
 	select SUPPORT_SPL
 
 config SANDBOX_TPL
 	bool "Enable TPL for sandbox"
+	depends on !COMPILE_TEST
 	select SUPPORT_TPL
 
 config SANDBOX_VPL
 	bool "Enable VPL for sandbox"
+	depends on !COMPILE_TEST
 	select SUPPORT_VPL
 
 config SYS_CONFIG_NAME
@@ -77,7 +80,7 @@ config SANDBOX_BITS_PER_LONG
 
 config SYS_FDT_LOAD_ADDR
 	hex "Address at which to load devicetree"
-	default 0x100
+	default 0x1000
 	help
 	  With sandbox the devicetree is loaded into the emulated RAM. This sets
 	  the address that is used. There must be enough space at this address

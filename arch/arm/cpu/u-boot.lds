@@ -153,7 +153,7 @@ SECTIONS
 		__efi_runtime_rel_stop = .;
 	}
 
-	. = ALIGN(4);
+	. = ALIGN(8);
 	__image_copy_end = .;
 
 #ifdef CONFIG_IMX_M4_BIND
@@ -174,25 +174,17 @@ SECTIONS
 
 	/*
 	 * if CONFIG_USE_ARCH_MEMSET is not selected __bss_end - __bss_start
-	 * needs to be a multiple of 4 and we overlay .bss with .rel.dyn
+	 * needs to be a multiple of 8 and we overlay .bss with .rel.dyn
 	 */
-	.rel.dyn ALIGN(4) : {
+	.rel.dyn ALIGN(8) : {
 		__rel_dyn_start = .;
 		*(.rel*)
 		__rel_dyn_end = .;
+		. = ALIGN(8);
 	}
 
 	_end = .;
 	_image_binary_end = .;
-
-	/*
-	 * Deprecated: this MMU section is used by pxa at present but
-	 * should not be used by new boards/CPUs.
-	 */
-	. = ALIGN(4096);
-	.mmutable : {
-		*(.mmutable)
-	}
 
 /*
  * These sections occupy the same memory, but their lifetimes do
@@ -206,14 +198,17 @@ SECTIONS
 		__bss_end = .;
 	}
 
-	.dynsym _image_binary_end : { *(.dynsym) }
-	.dynbss : { *(.dynbss) }
-	.dynstr : { *(.dynstr*) }
-	.dynamic : { *(.dynamic*) }
-	.plt : { *(.plt*) }
-	.interp : { *(.interp*) }
-	.gnu.hash : { *(.gnu.hash) }
-	.gnu : { *(.gnu*) }
-	.ARM.exidx : { *(.ARM.exidx*) }
-	.gnu.linkonce.armexidx : { *(.gnu.linkonce.armexidx.*) }
+	/DISCARD/ : { *(.dynsym) }
+	/DISCARD/ : { *(.dynbss) }
+	/DISCARD/ : { *(.dynstr*) }
+	/DISCARD/ : { *(.dynamic*) }
+	/DISCARD/ : { *(.plt*) }
+	/DISCARD/ : { *(.interp*) }
+	/DISCARD/ : { *(.gnu.hash) }
+	/DISCARD/ : { *(.gnu*) }
+	/DISCARD/ : { *(.ARM.exidx*) }
+	/DISCARD/ : { *(.gnu.linkonce.armexidx.*) }
 }
+
+ASSERT(_image_binary_end % 8 == 0, \
+       "_image_binary_end must be 8-byte aligned for device tree");

@@ -12,6 +12,7 @@
 #include <asm/mach-imx/ele_api.h>
 #include <asm/mach-imx/sys_proto.h>
 #include <asm/arch-imx/cpu.h>
+#include <asm/arch/imx-regs.h>
 #include <asm/arch/sys_proto.h>
 #include <console.h>
 #include <cpu_func.h>
@@ -414,7 +415,7 @@ static int do_authenticate(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-#if IS_ENABLED(CONFIG_IMX95) || IS_ENABLED(CONFIG_IMX94)
+#if IS_ENABLED(CONFIG_IMX95) || IS_ENABLED(CONFIG_IMX94) || IS_ENABLED(CONFIG_IMX952)
 #define FSB_LC_OFFSET 0x414
 #define LC_OEM_OPEN 0x10
 #define LC_OEM_CLOSED 0x40
@@ -770,114 +771,6 @@ static int do_ahab_commit(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	return 0;
 }
-
-static uint decode_digit(int ch)
-{
-	ch = tolower(ch);
-	bool is_digit = ('0' <= ch && ch <= '9') || ('a' <= ch && ch <= 'f');
-
-  if (!is_digit)
-		return 256;
-
-	return ch <= '9' ? ch - '0' : ch - 'a' + 0xa;
-}
-
-u8 hexstring_to_byte(const char *data)
-{
-	return decode_digit(data[0]) << 4 | decode_digit(data[1]);
-}
-
-u32 hexstring_to_word(const char *data)
-{
-	return hexstring_to_byte(data)
-	| hexstring_to_byte(data + 2) << 8
-	| hexstring_to_byte(data + 4) << 16
-	| hexstring_to_byte(data + 6) << 24;
-}
-
-int decode_ele_message(struct ele_msg *msg, const char *data)
-{
-	u32 arglen = strlen(data);
-
-	if (arglen < 8) {
-		printf("Message lacks ELE header\n");
-		return 1;
-	}
-
-	/* ELE header */
-	msg->version = hexstring_to_byte(data + 0);
-	msg->size    = hexstring_to_byte(data + 2);
-	msg->command = hexstring_to_byte(data + 4);
-	msg->tag     = hexstring_to_byte(data + 6);
-
-	/* Number of words expected has to match number of received hex characters */
-	if (arglen != msg->size * 8) {
-		printf("Argument size %d bytes does not match the expected size %d bytes \n",
-		       arglen, msg->size * 8);
-		return 1;
-	}
-
-	/* Parse the remaining size - 1 words */
-	for (u32 i = 0; i < msg->size - 1; i++)
-		msg->data[i] = hexstring_to_word(data + (i + 1) * 8);
-
-	return 0;
-}
-
-void print_as_hexstring(char *msg, u32 size)
-{
-	for (u32 i = 0; i < size; i++)
-		printf("%02x", msg[i]);
-}
-
-void print_ele_message(struct ele_msg *msg)
-{
-	print_as_hexstring((char *) msg, msg->size * sizeof(u32));
-}
-
-static int do_ele_message(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char *const argv[])
-{
-	struct ele_msg msg = { 0 };
-	int ret;
-
-	if (argc < 4)
-		return CMD_RET_USAGE;
-
-	ulong ele_buffer_address = hextoul(argv[1], NULL);
-	ulong ele_buffer_size    = hextoul(argv[2], NULL);
-
-	/* We parse the ELE message encoded as hex string */
-	ret = decode_ele_message(&msg, argv[3]);
-	if (ret) {
-		printf("Decode ELE message error\n");
-		return CMD_RET_FAILURE;
-	}
-
-	flush_cache(ele_buffer_address, ele_buffer_size);
-
-	/* We send the message to ELE and receive back the response */
-	ret = ele_message_call(&msg);
-	if (ret) {
-		printf("Call ELE message error %d\n", ret);
-		return CMD_RET_FAILURE;
-	}
-
-	invalidate_dcache_range(ele_buffer_address, ele_buffer_size);
-
-	/* ELE reponse is a message too */
-	print_ele_message(&msg);
-
-	return CMD_RET_SUCCESS;
-}
-
-U_BOOT_CMD(ele_message, CONFIG_SYS_MAXARGS, 4, do_ele_message,
-		"Send RAW message to ELE",
-		"<addr> <size> <msg>\n"
-		"addr - ELE Buffer start address\n"
-		"size - ELE Buffer size in bytes\n"
-		"msg  - RAW message encoded as hexstring\n"
-);
 
 U_BOOT_CMD(auth_cntr, CONFIG_SYS_MAXARGS, 1, do_authenticate,
 	   "autenticate OS container via AHAB",

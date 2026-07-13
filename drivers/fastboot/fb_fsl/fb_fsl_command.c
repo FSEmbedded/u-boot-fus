@@ -421,7 +421,7 @@ static int partition_table_valid(void)
 	return (status == 0);
 }
 
-static void wipe_all_userdata(void)
+void wipe_all_userdata(void)
 {
 	char response[FASTBOOT_RESPONSE_LEN];
 

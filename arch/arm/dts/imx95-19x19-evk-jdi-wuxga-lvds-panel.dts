@@ -52,7 +52,7 @@
 
 	lvds_backlight: backlight {
 		compatible = "gpio-backlight";
-		gpios = <&adp5585gpio 3 GPIO_ACTIVE_HIGH>;
+		gpios = <&adp5585 3 GPIO_ACTIVE_HIGH>;
 	};
 };
 

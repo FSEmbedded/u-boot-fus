@@ -8,7 +8,7 @@
 #include <fdt_support.h>
 #include <asm/arch/clock.h>
 #include <usb.h>
-#include "../../freescale/common/tcpc.h"
+#include "../../nxp/common/tcpc.h"
 #include <dwc3-uboot.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
@@ -200,7 +200,6 @@ void netc_init(void)
 	udelay(10000);
 	netc_regulator_enable("regulator-aqr-stby", true);
 
-	pci_init();
 }
 int board_init(void)
 {

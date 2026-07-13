@@ -21,12 +21,11 @@
 	"splashpos=m,m\0" \
 	"splashimage=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" \
 	"fdtfile=undefined\0" \
-	"fdt_high=0xffffffff\0" \
 	"initrd_high=0xffffffff\0" \
 	"fdt_addr_r=0x18000000\0" \
 	"fdt_addr=0x18000000\0" \
 	"ip_dyn=yes\0" \
-	"mmcdev=" __stringify(CONFIG_SYS_MMC_ENV_DEV) "\0" \
+	"mmcdev=" __stringify(CONFIG_ENV_MMC_DEVICE_INDEX) "\0" \
 	"finduuid=part uuid mmc 0:1 uuid\0" \
 	"update_sd_firmware_filename=u-boot.imx\0" \
 	"update_sd_firmware=" \

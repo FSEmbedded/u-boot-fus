@@ -18,6 +18,7 @@
 #include <asm/hwcap.h>
 #include <asm/cpufeature.h>
 #include <asm/cache.h>
+#include <asm/global_data.h>
 #include <dm/uclass-internal.h>
 #include <linux/bitops.h>
 #include <linux/log2.h>
@@ -462,7 +463,7 @@ static void riscv_parse_isa_string(const char *isa)
 		switch (*ext) {
 		case 'x':
 		case 'X':
-			log_warning("Vendor extensions are ignored in riscv,isa. Use riscv,isa-extensions instead.");
+			log_warning("Vendor extensions are ignored in riscv,isa. Use riscv,isa-extensions instead.\n");
 			/*
 			 * To skip an extension, we find its end.
 			 * As multi-letter extensions must be split from other multi-letter
@@ -607,14 +608,14 @@ static inline bool supports_extension(char ext)
 
 static int riscv_cpu_probe(void)
 {
-#ifdef CONFIG_CPU
-	int ret;
+	if (CONFIG_IS_ENABLED(CPU)) {
+		int ret;
 
-	/* probe cpus so that RISC-V timer can be bound */
-	ret = cpu_probe_all();
-	if (ret)
-		return log_msg_ret("RISC-V cpus probe failed\n", ret);
-#endif
+		/* probe cpus so that RISC-V timer can be bound */
+		ret = cpu_probe_all();
+		if (ret)
+			return log_msg_ret("RISC-V cpus probe failed\n", ret);
+	}
 
 	return 0;
 }
@@ -745,4 +746,9 @@ __weak int cleanup_before_linux(void)
 	cache_flush();
 
 	return 0;
+}
+
+void arch_setup_gd(gd_t *new_gd)
+{
+	set_gd(new_gd);
 }

@@ -6,17 +6,17 @@
 /dts-v1/;
 
 #include <dt-bindings/usb/pd.h>
-#include <../../../dts/upstream/src/arm64/freescale/imx91.dtsi>
+#include "imx91.dtsi"
 
 / {
-	model = "NXP FRDM-IMX91";
 	compatible = "fsl,imx91-11x11-frdm", "fsl,imx91";
+	model = "NXP i.MX91 11X11 FRDM Board";
 
 	aliases {
 		ethernet0 = &fec;
 		ethernet1 = &eqos;
 		rtc0 = &pcf2131;
-	 };
+	};
 
 	chosen {
 		stdout-path = &lpuart1;
@@ -39,6 +39,8 @@
 		regulator-name = "VSD_3V3";
 		gpio = <&gpio3 7 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	reg_vdd_12v: regulator-vdd-12v {
@@ -50,21 +52,21 @@
 		enable-active-high;
 	};
 
-	reg_vrpi_3v3: regulator-vrpi-3v3 {
+	reg_vexp_3v3: regulator-vexp-3v3 {
 		compatible = "regulator-fixed";
 		regulator-max-microvolt = <3300000>;
 		regulator-min-microvolt = <3300000>;
-		regulator-name = "VRPI_3V3";
+		regulator-name = "VEXP_3V3";
 		vin-supply = <&buck4>;
 		gpio = <&pcal6524 2 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
-	reg_vrpi_5v: regulator-vrpi-5v {
+	reg_vexp_5v: regulator-vexp-5v {
 		compatible = "regulator-fixed";
 		regulator-max-microvolt = <5000000>;
 		regulator-min-microvolt = <5000000>;
-		regulator-name = "VRPI_5V";
+		regulator-name = "VEXP_5V";
 		gpio = <&pcal6524 8 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
@@ -82,11 +84,41 @@
 			linux,cma-default;
 		};
 	};
+
+	soc@0 {
+		bootph-all;
+		bootph-pre-ram;
+	};
 };
 
 &adc1 {
 	vref-supply = <&reg_vref_1v8>;
 	status = "okay";
+};
+
+&aips1 {
+	bootph-pre-ram;
+	bootph-all;
+};
+
+&aips2 {
+	bootph-pre-ram;
+	bootph-some-ram;
+};
+
+&aips3 {
+	bootph-pre-ram;
+	bootph-some-ram;
+};
+
+&clk {
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&clk_ext1 {
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &eqos {
@@ -106,6 +138,9 @@
 		ethphy1: ethernet-phy@1 {
 			reg = <1>;
 			eee-broken-1000t;
+			reset-gpios = <&pcal6524 15 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <15000>;
+			reset-deassert-us = <100000>;
 		};
 	};
 };
@@ -127,19 +162,36 @@
 		ethphy2: ethernet-phy@2 {
 			reg = <2>;
 			eee-broken-1000t;
+			reset-gpios = <&pcal6524 16 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <15000>;
+			reset-deassert-us = <100000>;
 		};
 	};
 };
 
-/*
- * When add, delete or change any target device setting in &lpi2c1,
- * please synchronize the changes to the &i3c1 bus in imx91-11x11-evk-i3c.dts.
- */
+&gpio1 {
+	bootph-pre-ram;
+	bootph-some-ram;
+};
+
+&gpio2 {
+	bootph-pre-ram;
+	bootph-some-ram;
+};
+
+&gpio3 {
+	bootph-pre-ram;
+	bootph-some-ram;
+};
+
+&gpio4 {
+	bootph-pre-ram;
+	bootph-some-ram;
+};
+
 &lpi2c1 {
-	clock-frequency = <400000>;
-	pinctrl-0 = <&pinctrl_lpi2c1>;
-	pinctrl-names = "default";
-	status = "okay";
+	bootph-pre-ram;
+	bootph-some-ram;
 };
 
 &lpi2c2 {
@@ -149,14 +201,33 @@
 	pinctrl-0 = <&pinctrl_lpi2c2>;
 	pinctrl-names = "default";
 	status = "okay";
+	bootph-pre-ram;
+	bootph-some-ram;
+
+	pcal6524: gpio@22 {
+		compatible = "nxp,pcal6524";
+		reg = <0x22>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+		interrupt-parent = <&gpio3>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+		#gpio-cells = <2>;
+		gpio-controller;
+		pinctrl-0 = <&pinctrl_pcal6524>;
+		pinctrl-names = "default";
+	};
 
 	pmic@25 {
 		compatible = "nxp,pca9451a";
 		reg = <0x25>;
 		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-parent = <&pcal6524>;
+		bootph-pre-ram;
+		bootph-some-ram;
 
 		regulators {
+			bootph-pre-ram;
+			bootph-some-ram;
 
 			buck1: BUCK1 {
 				regulator-always-on;
@@ -226,19 +297,6 @@
 		};
 	};
 
-	pcal6524: gpio@22 {
-		compatible = "nxp,pcal6524";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_pcal6524>;
-		reg = <0x22>;
-		gpio-controller;
-		#gpio-cells = <2>;
-		interrupt-controller;
-		#interrupt-cells = <2>;
-		interrupt-parent = <&gpio3>;
-		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
-	};
-
 	eeprom: at24c256@50 {
 		compatible = "atmel,24c256";
 		reg = <0x50>;
@@ -253,14 +311,8 @@
 	pinctrl-0 = <&pinctrl_lpi2c3>;
 	pinctrl-names = "default";
 	status = "okay";
-
-	pcf2131: rtc@53 {
-		compatible = "nxp,pcf2131";
-		reg = <0x53>;
-		interrupt-parent = <&pcal6524>;
-		interrupts = <1 IRQ_TYPE_LEVEL_LOW>;
-		status = "okay";
-	};
+	bootph-pre-ram;
+	bootph-some-ram;
 
 	ptn5110: tcpc@50 {
 		compatible = "nxp,ptn5110", "tcpci";
@@ -287,6 +339,7 @@
 
 				port@0 {
 					reg = <0>;
+
 					typec1_dr_sw: endpoint {
 						remote-endpoint = <&usb1_drd_sw>;
 					};
@@ -294,18 +347,38 @@
 			};
 		};
 	};
+
+	pcf2131: rtc@53 {
+		compatible = "nxp,pcf2131";
+		reg = <0x53>;
+		interrupts = <1 IRQ_TYPE_EDGE_FALLING>;
+		interrupt-parent = <&pcal6524>;
+		status = "okay";
+	};
 };
 
 &lpuart1 {
 	pinctrl-0 = <&pinctrl_uart1>;
 	pinctrl-names = "default";
 	status = "okay";
+	bootph-pre-ram;
+	bootph-some-ram;
 };
 
 &lpuart5 {
 	pinctrl-0 = <&pinctrl_uart5>;
 	pinctrl-names = "default";
 	status = "okay";
+};
+
+&osc_32k {
+	bootph-all;
+	bootph-pre-ram;
+};
+
+&osc_24m {
+	bootph-all;
+	bootph-pre-ram;
 };
 
 &usbotg1 {
@@ -327,10 +400,10 @@
 };
 
 &usbotg2 {
-	dr_mode = "host";
 	disable-over-current;
-	samsung,picophy-pre-emp-curr-control = <3>;
+	dr_mode = "host";
 	samsung,picophy-dc-vol-level-adjust = <7>;
+	samsung,picophy-pre-emp-curr-control = <3>;
 	status = "okay";
 };
 
@@ -342,6 +415,8 @@
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	status = "okay";
+	bootph-pre-ram;
+	bootph-some-ram;
 };
 
 &usdhc2 {
@@ -364,6 +439,9 @@
 };
 
 &iomuxc {
+	bootph-pre-ram;
+	bootph-some-ram;
+
 	pinctrl_eqos: eqosgrp {
 		fsl,pins = <
 			MX91_PAD_ENET1_MDC__ENET1_MDC				0x57e
@@ -482,6 +560,8 @@
 			MX91_PAD_I2C1_SCL__LPI2C1_SCL			0x40000b9e
 			MX91_PAD_I2C1_SDA__LPI2C1_SDA			0x40000b9e
 		>;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	pinctrl_lpi2c2: lpi2c2grp {
@@ -489,6 +569,8 @@
 			MX91_PAD_I2C2_SCL__LPI2C2_SCL			0x40000b9e
 			MX91_PAD_I2C2_SDA__LPI2C2_SDA			0x40000b9e
 		>;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	pinctrl_lpi2c3: lpi2c3grp {
@@ -496,6 +578,8 @@
 			MX91_PAD_GPIO_IO28__LPI2C3_SDA			0x40000b9e
 			MX91_PAD_GPIO_IO29__LPI2C3_SCL			0x40000b9e
 		>;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	pinctrl_pcal6524: pcal6524grp {
@@ -508,6 +592,7 @@
 		fsl,pins = <
 			MX91_PAD_SD2_RESET_B__GPIO3_IO7	0x31e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_uart1: uart1grp {
@@ -515,6 +600,8 @@
 			MX91_PAD_UART1_RXD__LPUART1_RX			0x31e
 			MX91_PAD_UART1_TXD__LPUART1_TX			0x31e
 		>;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	pinctrl_uart5: uart5grp {
@@ -572,6 +659,8 @@
 			MX91_PAD_SD1_DATA7__USDHC1_DATA7	0x1382
 			MX91_PAD_SD1_STROBE__USDHC1_STROBE	0x1582
 		>;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	pinctrl_usdhc2_100mhz: usdhc2-100mhzgrp {
@@ -602,6 +691,8 @@
 		fsl,pins = <
 			MX91_PAD_SD2_CD_B__GPIO3_IO0		0x31e
 		>;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	pinctrl_usdhc2_gpio_sleep: usdhc2gpiosleepgrp {
@@ -620,6 +711,8 @@
 			MX91_PAD_SD2_DATA3__USDHC2_DATA3	0x1382
 			MX91_PAD_SD2_VSELECT__USDHC2_VSELECT	0x51e
 		>;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	pinctrl_usdhc2_sleep: usdhc2sleepgrp {

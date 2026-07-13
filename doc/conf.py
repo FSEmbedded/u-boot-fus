@@ -34,6 +34,8 @@ if os.environ.get("READTHEDOCS", "") == "True":
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('sphinx'))
+sys.path.append(os.path.abspath('../test/py/tests'))
+sys.path.append(os.path.abspath('../test/py'))
 from load_config import loadConfig
 
 # -- General configuration ------------------------------------------------
@@ -47,7 +49,8 @@ needs_sphinx = '2.4.4'
 extensions = ['kerneldoc', 'rstFlatTable', 'kernel_include',
               'kfigure', 'sphinx.ext.ifconfig', # 'automarkup',
               'maintainers_include', 'sphinx.ext.autosectionlabel',
-              'kernel_abi', 'kernel_feat', 'sphinx-prompt']
+              'kernel_abi', 'kernel_feat', 'sphinx-prompt',
+              'sphinx_reredirects', 'sphinx.ext.autodoc' ]
 
 #
 # cdomain is badly broken in Sphinx 3+.  Leaving it out generates *most*
@@ -147,6 +150,11 @@ master_doc = 'index'
 project = 'Das U-Boot'
 copyright = 'The U-Boot development community'
 author = 'The U-Boot development community'
+
+# Pages we have moved after being heavily referenced externally
+redirects = {
+    "develop/py_testing": "pytest/usage.html"
+}
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
