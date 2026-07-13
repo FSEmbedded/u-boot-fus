@@ -3,7 +3,6 @@
  * Copyright (C) 2011
  * Corscience GmbH & Co. KG - Simon Schwarz <schwarz@corscience.de>
  */
-#include <common.h>
 #include <config.h>
 #include <fdt_support.h>
 #include <image.h>
@@ -21,6 +20,13 @@ uint32_t __weak spl_nand_get_uboot_raw_page(void)
 {
 	return CONFIG_SYS_NAND_U_BOOT_OFFS;
 }
+
+#ifdef CONFIG_SYS_NAND_U_BOOT_OFFS_REDUND
+uint32_t __weak spl_nand_get_uboot_redund_raw_page(void)
+{
+	return CONFIG_SYS_NAND_U_BOOT_OFFS_REDUND;
+}
+#endif
 
 #if defined(CONFIG_SPL_NAND_RAW_ONLY)
 static int spl_nand_load_image(struct spl_image_info *spl_image,
@@ -72,9 +78,7 @@ static int spl_nand_load_element(struct spl_image_info *spl_image,
 {
 	struct spl_load_info load;
 
-	load.priv = &offset;
-	spl_set_bl_len(&load, 1);
-	load.read = spl_nand_read;
+	spl_load_init(&load, spl_nand_read, &offset, 1);
 	return spl_load(spl_image, bootdev, &load, 0, offset);
 }
 
@@ -149,7 +153,7 @@ static int spl_nand_load_image(struct spl_image_info *spl_image,
 #if CONFIG_SYS_NAND_U_BOOT_OFFS != CONFIG_SYS_NAND_U_BOOT_OFFS_REDUND
 	if (err)
 		err = spl_nand_load_element(spl_image, bootdev,
-					    CONFIG_SYS_NAND_U_BOOT_OFFS_REDUND);
+					    spl_nand_get_uboot_redund_raw_page());
 #endif
 #endif
 	nand_deselect();

@@ -6,7 +6,7 @@
  * (C) Copyright 2007 Pengutronix, Sascha Hauer <s.hauer@pengutronix.de>
  * (C) Copyright 2007 Pengutronix, Juergen Beisert <j.beisert@pengutronix.de>
  */
-#include <common.h>
+
 #include <cpu_func.h>
 #include <dm.h>
 #include <env.h>
@@ -160,7 +160,7 @@ static int fec_get_clk_rate(void *udev, int idx)
 	}
 }
 
-static void fec_mii_setspeed(struct ethernet_regs *eth, int idx)
+static void fec_mii_setspeed(struct udevice *dev, struct ethernet_regs *eth, int idx)
 {
 	/*
 	 * Set MII_SPEED = (1/(mii_speed * 2)) * System Clock
@@ -182,7 +182,7 @@ static void fec_mii_setspeed(struct ethernet_regs *eth, int idx)
 	u32 hold;
 	int ret;
 
-	ret = fec_get_clk_rate(NULL, idx);
+	ret = fec_get_clk_rate(dev, idx);
 	if (ret < 0) {
 		printf("Can't find FEC0 clk rate: %d\n", ret);
 		return;
@@ -581,7 +581,7 @@ static int fecmxc_init(struct udevice *dev)
 	fec_reg_setup(fec);
 
 	if (fec->xcv_type != SEVENWIRE)
-		fec_mii_setspeed(fec->bus->priv, fec->dev_id);
+		fec_mii_setspeed(dev, fec->bus->priv, fec->dev_id);
 
 	/* Set Opcode/Pause Duration Register */
 	writel(0x00010020, &fec->eth->op_pause);	/* FIXME 0xffff0020; */
@@ -615,8 +615,7 @@ static int fecmxc_init(struct udevice *dev)
 	if (fec->xcv_type != SEVENWIRE)
 		miiphy_restart_aneg(dev);
 #endif
-	fec_open(dev);
-	return 0;
+	return fec_open(dev);
 }
 
 /**
@@ -997,7 +996,7 @@ static void fec_free_descs(struct fec_priv *fec)
 	free(fec->tbd_base);
 }
 
-struct mii_dev *fec_get_miibus(ulong base_addr, int dev_id)
+struct mii_dev *fec_get_miibus(struct udevice *dev, ulong base_addr, int dev_id)
 {
 	struct ethernet_regs *eth = (struct ethernet_regs *)base_addr;
 	struct mii_dev *bus;
@@ -1019,7 +1018,7 @@ struct mii_dev *fec_get_miibus(ulong base_addr, int dev_id)
 		free(bus);
 		return NULL;
 	}
-	fec_mii_setspeed(eth, dev_id);
+	fec_mii_setspeed(dev, eth, dev_id);
 	return bus;
 }
 
@@ -1163,6 +1162,7 @@ static int fec_phy_init(struct fec_priv *priv, struct udevice *dev)
 {
 	struct phy_device *phydev = NULL;
 	int addr;
+	int ret;
 
 	addr = device_get_phy_addr(priv, dev);
 #ifdef CFG_FEC_MXC_PHYADDR
@@ -1175,6 +1175,17 @@ static int fec_phy_init(struct fec_priv *priv, struct udevice *dev)
 		phydev = phy_connect(priv->bus, addr, dev, priv->interface);
 	if (!phydev)
 		return -ENODEV;
+
+	switch (priv->interface) {
+	case PHY_INTERFACE_MODE_MII:
+	case PHY_INTERFACE_MODE_RMII:
+		ret = phy_set_supported(phydev, SPEED_100);
+		if (ret)
+			return ret;
+		break;
+	default:
+		break;
+	}
 
 	priv->phydev = phydev;
 	priv->phydev->node = priv->phy_of_node;
@@ -1385,10 +1396,10 @@ static int fecmxc_probe(struct udevice *dev)
 	if (!bus) {
 		dm_mii_bus = false;
 #ifdef CONFIG_FEC_MXC_MDIO_BASE
-		bus = fec_get_miibus((ulong)CONFIG_FEC_MXC_MDIO_BASE,
+		bus = fec_get_miibus(dev, (ulong)CONFIG_FEC_MXC_MDIO_BASE,
 				     dev_seq(dev));
 #else
-		bus = fec_get_miibus((ulong)priv->eth, dev_seq(dev));
+		bus = fec_get_miibus(dev, (ulong)priv->eth, dev_seq(dev));
 #endif
 	}
 	if (!bus) {
@@ -1523,4 +1534,5 @@ U_BOOT_DRIVER(fecmxc_gem) = {
 	.ops	= &fecmxc_ops,
 	.priv_auto	= sizeof(struct fec_priv),
 	.plat_auto	= sizeof(struct eth_pdata),
+	.flags = DM_FLAG_ACTIVE_DMA,
 };

@@ -33,6 +33,10 @@ config TARGET_PAZ00
 	bool "Paz00 board"
 	select BOARD_LATE_INIT
 
+config TARGET_PICASSO
+	bool "Acer Tegra20 Picasso board"
+	select BOARD_LATE_INIT
+
 config TARGET_PLUTUX
 	bool "Avionic Design Plutux board"
 	select BOARD_LATE_INIT
@@ -45,6 +49,10 @@ config TARGET_SEABOARD
 
 config TARGET_TEC
 	bool "Avionic Design Tamonten Evaluation Carrier"
+	select BOARD_LATE_INIT
+
+config TARGET_TRANSFORMER_T20
+	bool "Asus Tegra20 Transformer board"
 	select BOARD_LATE_INIT
 
 config TARGET_TRIMSLICE
@@ -69,9 +77,11 @@ config SYS_SOC
 source "board/nvidia/harmony/Kconfig"
 source "board/avionic-design/medcom-wide/Kconfig"
 source "board/compal/paz00/Kconfig"
+source "board/acer/picasso/Kconfig"
 source "board/avionic-design/plutux/Kconfig"
 source "board/nvidia/seaboard/Kconfig"
 source "board/avionic-design/tec/Kconfig"
+source "board/asus/transformer-t20/Kconfig"
 source "board/compulab/trimslice/Kconfig"
 source "board/nvidia/ventana/Kconfig"
 source "board/toradex/colibri_t20/Kconfig"

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier:     GPL-2.0+
  */
 
-#include <common.h>
+#include <config.h>
 #include <part.h>
 #include <stdlib.h>
 

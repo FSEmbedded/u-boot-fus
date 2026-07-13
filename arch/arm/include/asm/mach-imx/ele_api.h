@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright 2021 NXP
+ * Copyright 2021, 2025 NXP
  */
 
 #ifndef __ELE_API_H__
@@ -10,6 +10,12 @@
 #define ELE_VERSION_FW 0x7
 #define ELE_CMD_TAG    0x17
 #define ELE_RESP_TAG   0xe1
+
+/* ELE BLOB CONSTRUCTS */
+#define ELE_BLOB_MSG_SIZE 0xC
+#define ELE_BLOB_SHIFT 24
+#define ELE_BLOB_ENCAP_MODE 0x55
+#define ELE_BLOB_DECAP_MODE 0xAA
 
 /* ELE commands */
 #define ELE_PING_REQ (0x01)
@@ -29,10 +35,11 @@
 #define ELE_GET_EVENTS_REQ (0xA2)
 #define ELE_COMMIT_REQ (0xA8)
 #define ELE_START_RNG (0xA3)
+#define ELE_CMD_DERIVE_KEY (0xA9)
 #define ELE_GET_TRNG_STATE (0xA4)
-#define ELE_CMD_DERIVE_KEY    (0xA9)
 #define ELE_GENERATE_DEK_BLOB (0xAF)
 #define ELE_V2X_GET_STATE_REQ (0xB2)
+#define ELE_BLOB (0xBF)
 #define ELE_ENABLE_PATCH_REQ (0xC3)
 #define ELE_RELEASE_RDC_REQ (0xC4)
 #define ELE_GET_FW_STATUS_REQ (0xC5)
@@ -54,6 +61,7 @@
 #define ELE_ATTEST_REQ (0xDB)
 #define ELE_RELEASE_PATCH_REQ (0xDC)
 #define ELE_OTP_SEQ_SWITH_REQ (0xDD)
+#define ELE_SET_GMID_REQ (0xE4)
 #define ELE_WRITE_SHADOW_REQ (0xF2)
 #define ELE_READ_SHADOW_REQ (0xF3)
 
@@ -122,6 +130,9 @@
 #define ELE_SUCCESS_IND (0xD6)
 #define ELE_FAILURE_IND (0x29)
 
+/* ELE max accessible memory address */
+#define ELE_MAX_ADDR (0xE0000000)
+
 enum ELE_AUX_ID {
 	ELE_RTC = 0x1,
 	ELE_APC = 0x2,
@@ -147,6 +158,8 @@ struct ele_get_info_data {
 	u32 sha_fw[8];
 	u32 oem_srkh[16];
 	u32 state;
+	u32 oem_pqc_srkh[16];
+	u32 reserved[8];
 };
 
 struct v2x_get_state {
@@ -165,7 +178,10 @@ int ele_read_common_fuse(u16 fuse_id, u32 *fuse_words, u32 fuse_num, u32 *respon
 int ele_release_caam(u32 core_did, u32 *response);
 int ele_get_fw_version(u32 *fw_version, u32 *sha1, u32 *response);
 int ele_get_events(u32 *events, u32 *events_cnt, u32 *response);
+int ele_derive_huk(u8 *key, size_t key_size, u8 *ctx, size_t seed_size);
+int ele_commit(u16 fuse_id, u32 *response, u32 *info_type);
 int ele_generate_dek_blob(u32 key_id, u32 src_paddr, u32 dst_paddr, u32 max_output_size);
+int ele_blob(u32 key_id, u32 src, u32 in_size, u32 dst, u32 out_size, int wrap_blob);
 int ele_dump_buffer(u32 *buffer, u32 buffer_length);
 int ele_get_info(struct ele_get_info_data *info, u32 *response);
 int ele_get_fw_status(u32 *status, u32 *response);
@@ -173,14 +189,14 @@ int ele_release_m33_trout(void);
 int ele_write_secure_fuse(ulong signed_msg_blk, u32 *response);
 int ele_return_lifecycle_update(ulong signed_msg_blk, u32 *response);
 int ele_start_rng(void);
-int ele_commit(u16 fuse_id, u32 *response, u32 *info_type);
+int ele_write_shadow_fuse(u32 fuse_id, u32 fuse_val, u32 *response);
+int ele_read_shadow_fuse(u32 fuse_id, u32 *fuse_val, u32 *response);
 int ele_v2x_get_state(struct v2x_get_state *state, u32 *response);
 int ele_volt_change_start_req(void);
 int ele_volt_change_finish_req(void);
 int ele_message_call(struct ele_msg *msg);
+int ele_set_gmid(u32 *response);
 int ele_get_hw_unique_key(uint8_t *hwkey, size_t key_size, uint8_t *ctx, size_t ctx_size);
-int ele_write_shadow_fuse(u32 fuse_id, u32 fuse_val, u32 *response);
-int ele_read_shadow_fuse(u32 fuse_id, u32 *fuse_val, u32 *response);
 int ele_get_trng_state(void);
 int ele_get_random(u32 src_paddr, size_t len);
 #endif

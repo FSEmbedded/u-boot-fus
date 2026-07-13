@@ -3,7 +3,6 @@
  * Copyright 2019 NXP
  */
 
-#include <common.h>
 #include <asm/mach-imx/sys_proto.h>
 #include <fb_fsl.h>
 #include <fastboot.h>
@@ -80,7 +79,7 @@ char *fastboot_common_var[] = {
 /* at-vboot-state variable list */
 #ifdef CONFIG_AVB_ATX
 #define AT_VBOOT_STATE_VAR_NUM 6
-extern struct imx_sec_config_fuse_t const imx_sec_config_fuse;
+extern struct imx_fuse const imx_sec_config_fuse;
 extern int fuse_read(u32 bank, u32 word, u32 *val);
 
 char *fastboot_at_vboot_state_var[AT_VBOOT_STATE_VAR_NUM] = {
@@ -298,8 +297,8 @@ static int get_single_var(char *cmd, char *response)
 	else if (!strcmp_l1("bootloader-locked", cmd)) {
 
 		/* Below is basically copied from is_hab_enabled() */
-		struct imx_sec_config_fuse_t *fuse =
-			(struct imx_sec_config_fuse_t *)&imx_sec_config_fuse;
+		struct imx_fuse *fuse =
+			(struct imx_fuse *)&imx_sec_config_fuse;
 		uint32_t reg;
 		int ret;
 

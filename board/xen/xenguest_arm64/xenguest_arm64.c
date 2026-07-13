@@ -7,7 +7,6 @@
  * (C) 2020 EPAM Systems Inc
  */
 
-#include <common.h>
 #include <log.h>
 #include <cpu_func.h>
 #include <dm.h>
@@ -31,6 +30,9 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#define GUEST_VIRTIO_MMIO_BASE	0x2000000
+#define GUEST_VIRTIO_MMIO_SIZE	0x100000
+
 int board_init(void)
 {
 	return 0;
@@ -42,14 +44,14 @@ int board_init(void)
  * x0 is the physical address of the device tree blob (dtb) in system RAM.
  * This is stored in rom_pointer during low level init.
  */
-void *board_fdt_blob_setup(int *err)
+int board_fdt_blob_setup(void **fdtp)
 {
-	*err = 0;
-	if (fdt_magic(rom_pointer[0]) != FDT_MAGIC) {
-		*err = -ENXIO;
-		return NULL;
-	}
-	return (void *)rom_pointer[0];
+	if (fdt_magic(rom_pointer[0]) != FDT_MAGIC)
+		return -ENXIO;
+
+	*fdtp = (void *)rom_pointer[0];
+
+	return 0;
 }
 
 /*
@@ -212,6 +214,15 @@ static int setup_mem_map(void)
 				PTE_BLOCK_INNER_SHARE);
 	i++;
 
+	if (CONFIG_IS_ENABLED(VIRTIO_MMIO)) {
+		xen_mem_map[i].virt = GUEST_VIRTIO_MMIO_BASE;
+		xen_mem_map[i].phys = GUEST_VIRTIO_MMIO_BASE;
+		xen_mem_map[i].size = GUEST_VIRTIO_MMIO_SIZE;
+		xen_mem_map[i].attrs = (PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
+					PTE_BLOCK_NON_SHARE);
+		i++;
+	}
+
 	mem = get_next_memory_node(blob, -1);
 	if (mem < 0) {
 		printf("%s: Missing /memory node\n", __func__);
@@ -219,6 +230,11 @@ static int setup_mem_map(void)
 	}
 
 	for (; i < MAX_MEM_MAP_REGIONS; i++) {
+		if (CONFIG_IS_ENABLED(VIRTIO_MMIO)) {
+			ret = fdt_node_check_compatible(blob, mem, "virtio,mmio");
+			if (!ret)
+				continue;
+		}
 		ret = fdt_get_resource(blob, mem, "reg", reg++, &res);
 		if (ret == -FDT_ERR_NOTFOUND) {
 			reg = 0;

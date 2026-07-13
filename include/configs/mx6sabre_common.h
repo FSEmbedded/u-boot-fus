@@ -11,7 +11,7 @@
 
 #include <linux/stringify.h>
 #include "mx6_common.h"
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 /* MMC Configs */
 #define CFG_SYS_FSL_ESDHC_ADDR      0

@@ -1,39 +1,26 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2025 NXP
  */
 
-#include <common.h>
 #include <env.h>
 #include <init.h>
-#include <asm/global_data.h>
-#include <asm/arch-imx9/ccm_regs.h>
-#include <asm/arch/clock.h>
 #include <fdt_support.h>
+#include <asm/arch/clock.h>
 #include <usb.h>
 #include "../../freescale/common/tcpc.h"
 #include <dwc3-uboot.h>
-#include <asm/io.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
-#include <miiphy.h>
-#include <netdev.h>
 #include <asm/gpio.h>
+#include <power/regulator.h>
+#include <scmi_agent.h>
+#include "../dts/upstream/src/arm64/freescale/imx95-power.h"
 #include <asm/arch/sys_proto.h>
-#include <i2c.h>
 #include <dm/uclass.h>
 #include <dm/uclass-internal.h>
 #include <power/regulator.h>
-
-#ifdef CONFIG_SCMI_FIRMWARE
-#include <scmi_agent.h>
-#include <scmi_protocols.h>
-#include <dt-bindings/clock/fsl,imx95-clock.h>
-#include <dt-bindings/power/fsl,imx95-power.h>
-#endif
-
-DECLARE_GLOBAL_DATA_PTR;
 
 extern int board_fix_fdt_fuse(void *fdt);
 
@@ -53,6 +40,7 @@ struct tcpc_port_config port_config = {
 	.port_type = TYPEC_PORT_DRP,
 	.disable_pd = true,
 };
+
 ulong tca_base;
 
 void tca_mux_select(enum typec_cc_polarity pol)
@@ -133,7 +121,7 @@ static void setup_typec(void)
 #define PHY_CTRL6_ALT_CLK_SEL		BIT(0)
 
 static struct dwc3_device dwc3_device_data = {
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 	.maximum_speed = USB_SPEED_HIGH,
 #else
 	.maximum_speed = USB_SPEED_SUPER,
@@ -143,12 +131,6 @@ static struct dwc3_device dwc3_device_data = {
 	.index = 0,
 	.power_down_scale = 2,
 };
-
-int dm_usb_gadget_handle_interrupts(struct udevice *dev)
-{
-	dwc3_uboot_handle_interrupt(dev);
-	return 0;
-}
 
 static void dwc3_nxp_usb_phy_init(struct dwc3_device *dwc3)
 {
@@ -188,7 +170,14 @@ static void dwc3_nxp_usb_phy_init(struct dwc3_device *dwc3)
 
 static int imx9_scmi_power_domain_enable(u32 domain, bool enable)
 {
-	return scmi_pwd_state_set(gd->arch.scmi_dev, 0, domain, enable ? 0 : BIT(30));
+	struct udevice *dev;
+	int ret;
+
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret)
+		return ret;
+
+	return scmi_pwd_state_set(dev, 0, domain, enable ? 0 : BIT(30));
 }
 
 int board_usb_init(int index, enum usb_init_type init)
@@ -297,8 +286,6 @@ void netc_init(void)
 		return;
 	}
 
-	set_clk_netc(ENET_125MHZ);
-
 	netc_phy_rst();
 
 	/* Enable in SW count */
@@ -317,16 +304,6 @@ void netc_init(void)
 
 	pci_init();
 }
-
-#if CONFIG_IS_ENABLED(NET)
-int board_phy_config(struct phy_device *phydev)
-{
-	if (phydev->drv->config)
-		phydev->drv->config(phydev);
-	return 0;
-}
-#endif
-
 int board_init(void)
 {
 	int ret;
@@ -342,16 +319,15 @@ int board_init(void)
 
 	netc_init();
 
-	power_on_m7("mx95alt");
+	power_on_m7("mx95evkrpmsg");
 
 	return 0;
 }
 
 int board_late_init(void)
 {
-#ifdef CONFIG_ENV_IS_IN_MMC
-	board_late_mmc_env_init();
-#endif
+	if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
+		board_late_mmc_env_init();
 
 	env_set("sec_boot", "no");
 #ifdef CONFIG_AHAB_BOOT

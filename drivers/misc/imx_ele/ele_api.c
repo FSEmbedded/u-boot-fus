@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2020, 2023 NXP
+ * Copyright 2020, 2023, 2025 NXP
+ * Copyright 2024 Mathieu Othacehe <othacehe@gnu.org>
  *
  */
 
-#include <common.h>
-#include <hang.h>
-#include <malloc.h>
 #include <asm/io.h>
-#include <dm.h>
+#include <asm/mach-imx/sys_proto.h>
 #include <asm/mach-imx/ele_api.h>
+#include <dm.h>
+#include <malloc.h>
+#include <memalign.h>
 #include <misc.h>
 #include <memalign.h>
 #include <linux/delay.h>
+#include <time.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -206,7 +208,7 @@ int ele_read_common_fuse(u16 fuse_id, u32 *fuse_words, u32 fuse_num, u32 *respon
 		return -EINVAL;
 	}
 
-	if (fuse_num != 1 && !(fuse_id == 1 && fuse_num == 4)) {
+	if (is_imx8ulp() && ((fuse_id != 1 && fuse_num != 1) || (fuse_id == 1 && fuse_num != 4))) {
 		printf("Invalid fuse number parameter\n");
 		return -EINVAL;
 	}
@@ -226,7 +228,7 @@ int ele_read_common_fuse(u16 fuse_id, u32 *fuse_words, u32 fuse_num, u32 *respon
 		*response = msg.data[0];
 
 	fuse_words[0] = msg.data[1];
-	if (fuse_id == 1 && fuse_num == 4) {
+	if (fuse_id == 1 && is_imx8ulp()) {
 		/* OTP_UNIQ_ID */
 		fuse_words[1] = msg.data[2];
 		fuse_words[2] = msg.data[3];
@@ -622,6 +624,113 @@ int ele_start_rng(void)
 	return ret;
 }
 
+int ele_derive_huk(u8 *key, size_t key_size, u8 *seed, size_t seed_size)
+{
+	struct udevice *dev = gd->arch.ele_dev;
+	struct ele_msg msg;
+	int msg_size = sizeof(struct ele_msg);
+	u8 *seed_aligned, *key_aligned;
+	int ret, size;
+
+	if (!dev) {
+		printf("ele dev is not initialized\n");
+		return -ENODEV;
+	}
+
+	if (key_size != 16 && key_size != 32) {
+		printf("key size can only be 16 or 32\n");
+		return -EINVAL;
+	}
+
+	if (seed_size >= (1U << 16) - 1) {
+		printf("seed size is too large\n");
+		return -EINVAL;
+	}
+
+	seed_aligned = memalign(ARCH_DMA_MINALIGN, seed_size);
+	if (!seed_aligned) {
+		printf("failed to alloc memory\n");
+		return -EINVAL;
+	}
+	memcpy(seed_aligned, seed, seed_size);
+
+	key_aligned = memalign(ARCH_DMA_MINALIGN, key_size);
+	if (!key_aligned) {
+		printf("failed to alloc memory\n");
+		ret = -EINVAL;
+		goto ret_seed;
+	}
+
+	size = ALIGN(seed_size, ARCH_DMA_MINALIGN);
+	flush_dcache_range((ulong)seed_aligned,
+			   (ulong)seed_aligned + size);
+
+	size = ALIGN(key_size, ARCH_DMA_MINALIGN);
+	invalidate_dcache_range((ulong)key_aligned,
+				(ulong)key_aligned + size);
+
+	msg.version = ELE_VERSION;
+	msg.tag = ELE_CMD_TAG;
+	msg.size = 7;
+	msg.command = ELE_CMD_DERIVE_KEY;
+	msg.data[0] = upper_32_bits((ulong)key_aligned);
+	msg.data[1] = lower_32_bits((ulong)key_aligned);
+	msg.data[2] = upper_32_bits((ulong)seed_aligned);
+	msg.data[3] = lower_32_bits((ulong)seed_aligned);
+	msg.data[4] = seed_size << 16 | key_size;
+	msg.data[5] = compute_crc(&msg);
+
+	ret = misc_call(dev, false, &msg, msg_size, &msg, msg_size);
+	if (ret) {
+		printf("Error: %s: ret %d, response 0x%x\n",
+		       __func__, ret, msg.data[0]);
+		goto ret_key;
+	}
+
+	invalidate_dcache_range((ulong)key_aligned,
+				(ulong)key_aligned + size);
+	memcpy(key, key_aligned, key_size);
+
+ret_key:
+	free(key_aligned);
+ret_seed:
+	free(seed_aligned);
+
+	return ret;
+}
+
+int ele_commit(u16 fuse_id, u32 *response, u32 *info_type)
+{
+	struct udevice *dev = gd->arch.ele_dev;
+	int size = sizeof(struct ele_msg);
+	struct ele_msg msg;
+	int ret = 0;
+
+	if (!dev) {
+		printf("ele dev is not initialized\n");
+		return -ENODEV;
+	}
+
+	msg.version = ELE_VERSION;
+	msg.tag = ELE_CMD_TAG;
+	msg.size = 2;
+	msg.command = ELE_COMMIT_REQ;
+	msg.data[0] = fuse_id;
+
+	ret = misc_call(dev, false, &msg, size, &msg, size);
+	if (ret)
+		printf("Error: %s: ret %d, fuse_id 0x%x, response 0x%x\n",
+		       __func__, ret, fuse_id, msg.data[0]);
+
+	if (response)
+		*response = msg.data[0];
+
+	if (info_type)
+		*info_type = msg.data[1];
+
+	return ret;
+}
+
 int ele_write_secure_fuse(ulong signed_msg_blk, u32 *response)
 {
 	struct udevice *dev = gd->arch.ele_dev;
@@ -684,38 +793,6 @@ int ele_return_lifecycle_update(ulong signed_msg_blk, u32 *response)
 	return ret;
 }
 
-int ele_commit(u16 fuse_id, u32 *response, u32 *info_type)
-{
-	struct udevice *dev = gd->arch.ele_dev;
-	int size = sizeof(struct ele_msg);
-	struct ele_msg msg;
-	int ret = 0;
-
-	if (!dev) {
-		printf("ele dev is not initialized\n");
-		return -ENODEV;
-	}
-
-	msg.version = ELE_VERSION;
-	msg.tag = ELE_CMD_TAG;
-	msg.size = 2;
-	msg.command = ELE_COMMIT_REQ;
-	msg.data[0] = fuse_id;
-
-	ret = misc_call(dev, false, &msg, size, &msg, size);
-	if (ret)
-		printf("Error: %s: ret %d, fuse_id 0x%x, response 0x%x\n",
-		       __func__, ret, fuse_id, msg.data[0]);
-
-	if (response)
-		*response = msg.data[0];
-
-	if (info_type)
-		*info_type = msg.data[1];
-
-	return ret;
-}
-
 int ele_generate_dek_blob(u32 key_id, u32 src_paddr, u32 dst_paddr, u32 max_output_size)
 {
 	struct udevice *dev = gd->arch.ele_dev;
@@ -745,6 +822,44 @@ int ele_generate_dek_blob(u32 key_id, u32 src_paddr, u32 dst_paddr, u32 max_outp
 		printf("Error: %s: ret 0x%x, response 0x%x\n",
 		       __func__, ret, msg.data[0]);
 
+	return ret;
+}
+
+int ele_blob(u32 key_id, u32 src, u32 in_size, u32 dst, u32 out_size, int wrap_blob)
+{
+	struct udevice *dev = gd->arch.ele_dev;
+	int size = sizeof(struct ele_msg);
+	struct ele_msg msg = {0};
+	int ret = 0;
+
+	if (!dev) {
+		printf("ele dev is not initialized\n");
+		return -ENODEV;
+	}
+
+	msg.version = ELE_VERSION;
+	msg.tag = ELE_CMD_TAG;
+	msg.size = ELE_BLOB_MSG_SIZE;
+	msg.command = ELE_BLOB;
+	msg.data[0] = upper_32_bits(src);
+	msg.data[1] = lower_32_bits(src);
+	msg.data[2] = upper_32_bits(dst);
+	msg.data[3] = lower_32_bits(dst);
+	msg.data[4] = 0;
+	msg.data[5] = 0;
+	msg.data[6] = in_size;
+	msg.data[7] = out_size;
+	msg.data[8] = 0;
+	if (wrap_blob)
+		msg.data[9] = (ELE_BLOB_ENCAP_MODE << ELE_BLOB_SHIFT);
+	else
+		msg.data[9] = (ELE_BLOB_DECAP_MODE << ELE_BLOB_SHIFT);
+	msg.data[10] = compute_crc(&msg);
+
+	ret = misc_call(dev, false, &msg, size, &msg, size);
+	if (ret)
+		printf("Error: %s: ret 0x%x, response 0x%x\n",
+		       __func__, ret, msg.data[0]);
 	return ret;
 }
 
@@ -846,6 +961,34 @@ int ele_message_call(struct ele_msg *msg)
 	if (ret)
 		printf("Error: %s: ret 0x%x, response 0x%x\n",
 		       __func__, ret, msg->data[0]);
+
+	return ret;
+}
+
+int ele_set_gmid(u32 *response)
+{
+	struct udevice *dev = gd->arch.ele_dev;
+	int size = sizeof(struct ele_msg);
+	struct ele_msg msg = {};
+	int ret;
+
+	if (!dev) {
+		printf("ele dev is not initialized\n");
+		return -ENODEV;
+	}
+
+	msg.version = ELE_VERSION;
+	msg.tag = ELE_CMD_TAG;
+	msg.size = 1;
+	msg.command = ELE_SET_GMID_REQ;
+
+	ret = misc_call(dev, false, &msg, size, &msg, size);
+	if (ret)
+		printf("Error: %s: ret %d, response 0x%x\n",
+		       __func__, ret, msg.data[0]);
+
+	if (response)
+		*response = msg.data[0];
 
 	return ret;
 }

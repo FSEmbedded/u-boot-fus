@@ -8,13 +8,12 @@
 #ifndef __MX6ULLEVK_CONFIG_H
 #define __MX6ULLEVK_CONFIG_H
 
-
 #include <asm/arch/imx-regs.h>
 #include <linux/sizes.h>
 #include <linux/stringify.h>
 #include "mx6_common.h"
 #include <asm/mach-imx/gpio.h>
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #define is_mx6ull_9x9_evk()	CONFIG_IS_ENABLED(TARGET_MX6ULL_9X9_EVK)
 

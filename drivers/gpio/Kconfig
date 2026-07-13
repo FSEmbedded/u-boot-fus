@@ -157,6 +157,20 @@ config ASPEED_GPIO
 	  is found in the AST2400, AST2500 and AST2600 BMC SoCs and
 	  provides access to over 200 GPIOs on each chip.
 
+config ASPEED_SGPIO
+	bool "Aspeed SGPIO Driver"
+	help
+	  Say yes here to support the Aspeed serial GPIO driver. The controller
+	  is found in the AST2400, AST2500 and AST2600 BMC SoCs and
+	  provides access to generate serial GPIO signal.
+
+config ASPEED_G7_GPIO
+	bool "Aspeed G7 GPIO Driver"
+	help
+	  Say yes here to support the Aspeed G7 GPIO driver. The controller
+	  is found in the AST2700 BMC SoCs and provides access to over 200
+	  GPIOs on each chip.
+
 config DA8XX_GPIO
 	bool "DA8xx GPIO Driver"
 	help
@@ -256,6 +270,9 @@ config MCP230XX_GPIO
 	   - MCP23008
 	   - MCP23017
 	   - MCP23018
+	   - MCP23S08
+	   - MCP23S17
+	   - MCP23S18
 
 config MSCC_SGPIO
 	bool "Microsemi Serial GPIO driver"
@@ -298,6 +315,15 @@ config NPCM_GPIO
 	  Support GPIO controllers on Nuvovon NPCM SoCs.
 	  NPCM7xx/NPCM8xx contain 8 GPIO banks, each bank contains 32 pins.
 
+config NPCM_SGPIO
+	bool "Nuvoton NPCM SGPIO driver"
+	depends on DM_GPIO
+	help
+	  Support Nuvoton BMC NPCM7xx/NPCM8xx sgpio driver support.
+	  Nuvoton NPCM SGPIO module is combine serial to parallel IC (HC595)
+	  and parallel to serial IC (HC165).
+	  BMC can use this driver to increase 64 GPI pins and 64 GPO pins to use.
+
 config OMAP_GPIO
 	bool "TI OMAP GPIO driver"
 	depends on ARCH_OMAP2PLUS
@@ -332,10 +358,10 @@ config PCF8575_GPIO
 	 chips are from NXP and TI.
 
 config RCAR_GPIO
-	bool "Renesas RCar GPIO driver"
+	bool "Renesas R-Car GPIO driver"
 	depends on DM_GPIO && ARCH_RENESAS
 	help
-	  This driver supports the GPIO banks on Renesas RCar SoCs.
+	  This driver supports the GPIO banks on Renesas R-Car SoCs.
 
 config RZA1_GPIO
 	bool "Renesas RZ/A1 GPIO driver"
@@ -484,13 +510,13 @@ config MVEBU_GPIO
 config ZYNQ_GPIO
 	bool "Zynq GPIO driver"
 	depends on DM_GPIO
-	default y if ARCH_ZYNQ || ARCH_ZYNQMP || ARCH_VERSAL
+	default y if ARCH_ZYNQ || ARCH_ZYNQMP || ARCH_VERSAL || ARCH_VERSAL2
 	help
 	  Supports GPIO access on Zynq SoC.
 
 config DM_74X164
 	bool "74x164 serial-in/parallel-out 8-bits shift register"
-	depends on DM_GPIO
+	depends on DM_GPIO && DM_SPI
 	help
 	  Driver for 74x164 compatible serial-in/parallel-out 8-outputs
 	  shift registers, such as 74lv165, 74hc595.
@@ -636,7 +662,7 @@ config NOMADIK_GPIO
 
 config ZYNQMP_GPIO_MODEPIN
 	bool "ZynqMP gpio modepin"
-	depends on DM_GPIO
+	depends on DM_GPIO && ZYNQMP_FIRMWARE
 	help
 	  This config enables the ZynqMP gpio modepin driver. ZynqMP modepin
 	  driver will set and get the status of PS_MODE pins. These modepins
@@ -661,13 +687,6 @@ config SLG7XL45106_I2C_GPO
 	   Support for slg7xl45106 i2c gpo expander. It is an i2c based
 	   8-bit gpo expander, all gpo lines are controlled by writing
 	   value into data register.
-
-config TURRIS_OMNIA_MCU
-	bool "Turris Omnia MCU GPIO driver"
-	depends on DM_GPIO
-	default y if TARGET_TURRIS_OMNIA
-	help
-	   Support for GPIOs on MCU connected to Turris Omnia via i2c.
 
 config FTGPIO010
 	bool "Faraday Technology FTGPIO010 driver"

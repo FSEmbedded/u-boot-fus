@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2022 NXP
+ * Copyright 2024 NXP
  */
 
-#include <common.h>
 #include <command.h>
 #include <cpu_func.h>
 #include <hang.h>
@@ -14,14 +13,14 @@
 #include <asm/global_data.h>
 #include <asm/io.h>
 #include <asm/arch/imx93_pins.h>
+#include <asm/arch/mu.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
-#include <asm/arch/mu.h>
 #include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/mxc_i2c.h>
 #include <asm/arch-mx7ulp/gpio.h>
-#include <asm/mach-imx/syscounter.h>
 #include <asm/mach-imx/ele_api.h>
+#include <asm/mach-imx/syscounter.h>
 #include <asm/sections.h>
 #include <dm/uclass.h>
 #include <dm/device.h>
@@ -46,11 +45,11 @@ void spl_board_init(void)
 {
 	int ret;
 
-	puts("Normal Boot\n");
-
 	ret = ele_start_rng();
 	if (ret)
 		printf("Fail to start RNG: %d\n", ret);
+
+	puts("Normal Boot\n");
 }
 
 void spl_dram_init(void)
@@ -66,7 +65,7 @@ int power_init_board(void)
 {
 	struct udevice *dev;
 	int ret;
-	unsigned int val, buck_val;
+	unsigned int val = 0, buck_val;
 
 	ret = pmic_get("pmic@25", &dev);
 	if (ret == -ENODEV) {
@@ -85,17 +84,17 @@ int power_init_board(void)
 	ret = pmic_reg_read(dev, PCA9450_PWR_CTRL);
 	if (ret < 0)
 		return ret;
-	else
-		val = ret;
+
+	val = ret;
 
 	if (is_voltage_mode(VOLT_LOW_DRIVE)) {
-		buck_val = 0x0c; /* 0.8v for Low drive mode */
+		buck_val = 0x0c; /* 0.8V for Low drive mode */
 		printf("PMIC: Low Drive Voltage Mode\n");
 	} else if (is_voltage_mode(VOLT_NOMINAL_DRIVE)) {
-		buck_val = 0x10; /* 0.85v for Nominal drive mode */
+		buck_val = 0x10; /* 0.85V for Nominal drive mode */
 		printf("PMIC: Nominal Voltage Mode\n");
 	} else {
-		buck_val = 0x14; /* 0.9v for Over drive mode */
+		buck_val = 0x14; /* 0.9V for Over drive mode */
 		printf("PMIC: Over Drive Voltage Mode\n");
 	}
 

@@ -7,7 +7,6 @@
  *	Lokesh Vutla <lokeshvutla@ti.com>
  */
 
-#include <common.h>
 #include <dm.h>
 #include <errno.h>
 #include <log.h>
@@ -16,6 +15,7 @@
 #include <dm/device.h>
 #include <dm/device_compat.h>
 #include <dm/devres.h>
+#include <dm/lists.h>
 #include <linux/bitops.h>
 #include <linux/compat.h>
 #include <linux/err.h>
@@ -138,7 +138,6 @@ static struct ti_sci_xfer *ti_sci_setup_one_xfer(struct ti_sci_info *info,
 		dev_err(info->dev, "TI-SCI message transfer size not sane\n");
 		return ERR_PTR(-ERANGE);
 	}
-
 
 	info->seq = ~info->seq;
 	xfer->tx_message.buf = buf;
@@ -2451,6 +2450,12 @@ fail:
 	return ret;
 }
 
+static int ti_sci_cmd_rm_udmap_rx_flow_cfg_noop(const struct ti_sci_handle *handle,
+						const struct ti_sci_msg_rm_udmap_flow_cfg *params)
+{
+	return 0;
+}
+
 /**
  * ti_sci_cmd_set_fwl_region() - Request for configuring a firewall region
  * @handle:    pointer to TI SCI handle
@@ -2840,6 +2845,12 @@ static int ti_sci_probe(struct udevice *dev)
 
 	INIT_LIST_HEAD(&info->dev_list);
 
+	if (IS_ENABLED(CONFIG_SYSRESET_TI_SCI)) {
+		ret = device_bind_driver(dev, "ti-sci-sysreset", "sysreset", NULL);
+		if (ret)
+			dev_warn(dev, "cannot bind SYSRESET (ret = %d)\n", ret);
+	}
+
 	return 0;
 }
 
@@ -2890,7 +2901,7 @@ static __maybe_unused int ti_sci_dm_probe(struct udevice *dev)
 	udmap_ops = &ops->rm_udmap_ops;
 	udmap_ops->tx_ch_cfg = ti_sci_cmd_rm_udmap_tx_ch_cfg;
 	udmap_ops->rx_ch_cfg = ti_sci_cmd_rm_udmap_rx_ch_cfg;
-	udmap_ops->rx_flow_cfg = ti_sci_cmd_rm_udmap_rx_flow_cfg;
+	udmap_ops->rx_flow_cfg = ti_sci_cmd_rm_udmap_rx_flow_cfg_noop;
 
 	return ret;
 }
@@ -3066,6 +3077,7 @@ U_BOOT_DRIVER(ti_sci) = {
 	.of_match = ti_sci_ids,
 	.probe = ti_sci_probe,
 	.priv_auto	= sizeof(struct ti_sci_info),
+	.flags = DM_FLAG_PRE_RELOC,
 };
 
 #if IS_ENABLED(CONFIG_K3_DM_FW)

@@ -6,9 +6,9 @@
  * Copyright 2017 NXP
  */
 
-#include <common.h>
 #include <env.h>
 #include <image.h>
+#include <time.h>
 #include <image-android-dt.h>
 #include <android_image.h>
 #include <malloc.h>
@@ -29,6 +29,7 @@
 #include <rng.h>
 
 #define ANDROID_IMAGE_DEFAULT_KERNEL_ADDR	0x10008000
+#define ANDROID_IMAGE_DEFAULT_RAMDISK_ADDR	0x11000000
 #define COMMANDLINE_LENGTH          2048
 #define BOOTCONFIG_MAGIC "#BOOTCONFIG\n"
 #define BOOTCONFIG_MAGIC_SIZE 12
@@ -37,6 +38,11 @@
 #define BOOTCONFIG_TRAILER_SIZE BOOTCONFIG_MAGIC_SIZE + \
 				BOOTCONFIG_SIZE_SIZE + \
 				BOOTCONFIG_CHECKSUM_SIZE
+
+/* Reserve space to insert 'rng-seed' node */
+#define RNG_SEED_DTB_RESERVE (64)
+/* Generate 24 bytes (out of 32 bytes) rng seed */
+#define RNG_SEED_LENGTH (24)
 
 static char andr_tmp_str[ANDR_BOOT_ARGS_SIZE + 1];
 
@@ -128,6 +134,11 @@ static ulong add_trailer(ulong bootconfig_start_addr, ulong bootconfig_size)
 	return BOOTCONFIG_TRAILER_SIZE;
 }
 
+__weak ulong get_avendor_bootimg_addr(void)
+{
+	return -1;
+}
+
 static void android_boot_image_v3_v4_parse_hdr(const struct andr_boot_img_hdr_v3 *hdr,
 					       struct andr_image_data *data)
 {
@@ -135,7 +146,6 @@ static void android_boot_image_v3_v4_parse_hdr(const struct andr_boot_img_hdr_v3
 
 	data->kcmdline = hdr->cmdline;
 	data->header_version = hdr->header_version;
-	data->ramdisk_ptr = env_get_ulong("ramdisk_addr_r", 16, 0);
 
 	/*
 	 * The header takes a full page, the remaining components are aligned
@@ -146,6 +156,7 @@ static void android_boot_image_v3_v4_parse_hdr(const struct andr_boot_img_hdr_v3
 	data->kernel_ptr = end;
 	data->kernel_size = hdr->kernel_size;
 	end += ALIGN(hdr->kernel_size, ANDR_GKI_PAGE_SIZE);
+	data->ramdisk_ptr = end;
 	data->ramdisk_size = hdr->ramdisk_size;
 	data->boot_ramdisk_size = hdr->ramdisk_size;
 	end += ALIGN(hdr->ramdisk_size, ANDR_GKI_PAGE_SIZE);
@@ -244,6 +255,51 @@ static void android_boot_image_v0_v1_v2_parse_hdr(const struct andr_boot_img_hdr
 	data->boot_img_total_size = end - (ulong)hdr;
 }
 
+bool android_image_get_bootimg_size(const void *hdr, u32 *boot_img_size)
+{
+	struct andr_image_data data;
+
+	if (!hdr || !boot_img_size) {
+		printf("hdr or boot_img_size can't be NULL\n");
+		return false;
+	}
+
+	if (!is_android_boot_image_header(hdr)) {
+		printf("Incorrect boot image header\n");
+		return false;
+	}
+
+	if (((struct andr_boot_img_hdr_v0 *)hdr)->header_version <= 2)
+		android_boot_image_v0_v1_v2_parse_hdr(hdr, &data);
+	else
+		android_boot_image_v3_v4_parse_hdr(hdr, &data);
+
+	*boot_img_size = data.boot_img_total_size;
+
+	return true;
+}
+
+bool android_image_get_vendor_bootimg_size(const void *hdr, u32 *vendor_boot_img_size)
+{
+	struct andr_image_data data;
+
+	if (!hdr || !vendor_boot_img_size) {
+		printf("hdr or vendor_boot_img_size can't be NULL\n");
+		return false;
+	}
+
+	if (!is_android_vendor_boot_image_header(hdr)) {
+		printf("Incorrect vendor boot image header\n");
+		return false;
+	}
+
+	android_vendor_boot_image_v3_v4_parse_hdr(hdr, &data);
+
+	*vendor_boot_img_size = data.vendor_boot_img_total_size;
+
+	return true;
+}
+
 bool android_image_get_data(const void *boot_hdr, const void *vendor_boot_hdr,
 			    struct andr_image_data *data)
 {
@@ -275,7 +331,8 @@ bool android_image_get_data(const void *boot_hdr, const void *vendor_boot_hdr,
 	return true;
 }
 
-static ulong android_image_get_kernel_addr(struct andr_image_data *img_data)
+static ulong android_image_get_kernel_addr(struct andr_image_data *img_data,
+					   ulong comp)
 {
 	/*
 	 * All the Android tools that generate a boot.img use this
@@ -288,8 +345,11 @@ static ulong android_image_get_kernel_addr(struct andr_image_data *img_data)
 	 *
 	 * Otherwise, we will return the actual value set by the user.
 	 */
-	if (img_data->kernel_addr  == ANDROID_IMAGE_DEFAULT_KERNEL_ADDR)
-		return img_data->kernel_ptr;
+	if (img_data->kernel_addr  == ANDROID_IMAGE_DEFAULT_KERNEL_ADDR) {
+		if (comp == IH_COMP_NONE)
+			return img_data->kernel_ptr;
+		return env_get_ulong("kernel_addr_r", 16, 0);
+	}
 
 	/*
 	 * abootimg creates images where all load addresses are 0
@@ -380,40 +440,75 @@ static int append_androidboot_args(char *args, uint32_t *len, void *fdt_addr)
 			return -1;
 		}
 
+#ifdef CONFIG_DM_RNG
 #if defined(CONFIG_ANDROID_SUPPORT) || defined(CONFIG_ANDROID_AUTO_SUPPORT)
-#if defined(CONFIG_IMX8ULP) || defined(CONFIG_IMX95)
 		/* set the value of the /chosen/rng-seed property */
 		offset = fdt_path_offset(fdt_addr, "/chosen");
 		if (offset > 0) {
 			int prop_len = 0, ret = 0;
-			struct fdt_property *prop;
+			void *rand_buf = NULL;
+			struct udevice *dev = NULL;
 
-			prop = fdt_get_property_w(fdt_addr, offset, "rng-seed", &prop_len);
-			if (prop) {
-				void *rand_buf = memalign(ARCH_DMA_MINALIGN, prop_len);
-				struct udevice *dev;
+			do {
+				/*
+				 * Delete the hardcode node which exists on some legacy
+				 * kernel dts, bootloader can handle the node without
+				 * inserting placeholder.
+				 */
+				if (fdt_get_property(fdt_addr, offset, "rng-seed", &prop_len) != NULL) {
+					printf("'rng-seed' node already exist, delete it\n");
+					fdt_delprop(fdt_addr, offset, "rng-seed");
+				}
 
-				ret =  uclass_get_device(UCLASS_RNG, 0, &dev);
+				/*
+				 * Don't pass bootloader randomness if no reliable
+				 * RNG driver found.
+				 */
+				ret = uclass_get_device(UCLASS_RNG, 0, &dev);
+				if (ret != 0 || !dev) {
+					printf("no RNG driver found! ret: %d\n", ret);
+					ret = 0;
+					break;
+				}
 
-				if (!rand_buf || ret || !dev || dm_rng_read(dev, rand_buf, prop_len) || \
-					fdt_setprop(fdt_addr, offset, "rng-seed", rand_buf, prop_len)) {
-					printf("failed to generate random, delete the 'rng-seed' node.\n");
-					ret = fdt_delprop(fdt_addr, offset, "rng-seed");
+				ret = fdt_increase_size(fdt_addr, RNG_SEED_DTB_RESERVE);
+				if (ret != 0) {
+					printf("failed to increase the fdt size! ret: %d", ret);
+					break;
 				}
-				if (rand_buf) {
-					memset(rand_buf, 0, prop_len);
-					free(rand_buf);
+
+				rand_buf = memalign(ARCH_DMA_MINALIGN, RNG_SEED_LENGTH);
+				if (!rand_buf) {
+					printf("failed to allocate memory!\n");
+					ret = -1;
+					break;
 				}
-				if (ret) {
-					printf("fail to delete the /chosen/rng-seed property, the kernel crng may be compromised\n");
-					return -1;
+
+				ret = dm_rng_read(dev, rand_buf, RNG_SEED_LENGTH);
+				if (ret != 0) {
+					printf("failed to generate random! ret: %d\n", ret);
+					break;
 				}
+
+				ret = fdt_setprop(fdt_addr, offset, "rng-seed", rand_buf, RNG_SEED_LENGTH);
+				if (ret != 0) {
+					printf("failed to set 'rng-seed' node in device tree! ret: %d\n", ret);
+					break;
+				}
+			} while(0);
+
+			if (rand_buf) {
+				memset(rand_buf, 0, RNG_SEED_LENGTH);
+				free(rand_buf);
+			}
+			if (ret) {
+				return -1;
 			}
 		} else {
 			printf("the device tree may not have the /chosen node\n");
 		}
-#endif
-#endif
+#endif /* CONFIG_ANDROID_SUPPORT || CONFIG_ANDROID_AUTO_SUPPORT */
+#endif /* CONFIG_DM_RNG */
 	}
 
 	/* boot metric variables */
@@ -568,13 +663,16 @@ int android_image_get_kernel(const void *hdr,
 {
 	u32 len;
 	struct andr_image_data img_data = {0};
-	u32 kernel_addr;
+	ulong kernel_addr;
 	const struct legacy_img_hdr *ihdr;
+	ulong comp;
 
 	if (!android_image_get_data(hdr, vendor_boot_img, &img_data))
 		return -EINVAL;
 
-	kernel_addr = android_image_get_kernel_addr(&img_data);
+	comp = android_image_get_kcomp(hdr, vendor_boot_img);
+
+	kernel_addr = android_image_get_kernel_addr(&img_data, comp);
 	ihdr = (const struct legacy_img_hdr *)img_data.kernel_ptr;
 
 	/*
@@ -587,7 +685,7 @@ int android_image_get_kernel(const void *hdr,
 	if (strlen(andr_tmp_str))
 		printf("Android's image name: %s\n", andr_tmp_str);
 
-	printf("Kernel load addr 0x%08x size %u KiB\n",
+	printf("Kernel load addr 0x%08lx size %u KiB\n",
 	       kernel_addr, DIV_ROUND_UP(img_data.kernel_size, 1024));
 
 	char commandline[COMMANDLINE_LENGTH] = {0};
@@ -774,11 +872,14 @@ ulong android_image_get_kload(const void *hdr,
 			      const void *vendor_boot_img)
 {
 	struct andr_image_data img_data;
+	ulong comp;
 
 	if (!android_image_get_data(hdr, vendor_boot_img, &img_data))
 		return -EINVAL;
 
-	return android_image_get_kernel_addr(&img_data);
+	comp = android_image_get_kcomp(hdr, vendor_boot_img);
+
+	return android_image_get_kernel_addr(&img_data, comp);
 }
 
 ulong android_image_get_kcomp(const void *hdr,
@@ -808,30 +909,53 @@ int android_image_get_ramdisk(const void *hdr, const void *vendor_boot_img,
 	if (!android_image_get_data(hdr, vendor_boot_img, &img_data))
 		return -EINVAL;
 
-	if (!img_data.ramdisk_size) {
-		*rd_data = *rd_len = 0;
-		return -1;
-	}
+	if (!img_data.ramdisk_size)
+		return -ENOENT;
+	/*
+	 * Android tools can generate a boot.img with default load address
+	 * or 0, even though it doesn't really make a lot of sense, and it
+	 * might be valid on some platforms, we treat that address as
+	 * the default value for this field, and try to pass ramdisk
+	 * in place if possible.
+	 */
 	if (img_data.header_version > 2) {
-		ramdisk_ptr = img_data.ramdisk_ptr;
+		/* Ramdisk can't be used in-place, copy it to ramdisk_addr_r */
+		if (img_data.ramdisk_addr == ANDROID_IMAGE_DEFAULT_RAMDISK_ADDR) {
+			ramdisk_ptr = env_get_ulong("ramdisk_addr_r", 16, 0);
+			if (!ramdisk_ptr) {
+				printf("Invalid ramdisk_addr_r to copy ramdisk into\n");
+				return -EINVAL;
+			}
+		} else {
+			ramdisk_ptr = img_data.ramdisk_addr;
+		}
+		*rd_data = ramdisk_ptr;
 		memcpy((void *)(ramdisk_ptr), (void *)img_data.vendor_ramdisk_ptr,
 		       img_data.vendor_ramdisk_size);
-		memcpy((void *)(ramdisk_ptr + img_data.vendor_ramdisk_size),
-		       (void *)img_data.ramdisk_ptr,
+		ramdisk_ptr += img_data.vendor_ramdisk_size;
+		memcpy((void *)(ramdisk_ptr), (void *)img_data.ramdisk_ptr,
 		       img_data.boot_ramdisk_size);
+		ramdisk_ptr += img_data.boot_ramdisk_size;
 		if (img_data.bootconfig_size) {
 			memcpy((void *)
-			       (ramdisk_ptr + img_data.vendor_ramdisk_size +
-			       img_data.boot_ramdisk_size),
-			       (void *)img_data.bootconfig_addr,
+			       (ramdisk_ptr), (void *)img_data.bootconfig_addr,
 			       img_data.bootconfig_size);
+		}
+	} else {
+		/* Ramdisk can be used in-place, use current ptr */
+		if (img_data.ramdisk_addr == 0 ||
+		    img_data.ramdisk_addr == ANDROID_IMAGE_DEFAULT_RAMDISK_ADDR) {
+			*rd_data = img_data.ramdisk_ptr;
+		} else {
+			ramdisk_ptr = img_data.ramdisk_addr;
+			*rd_data = ramdisk_ptr;
+			memcpy((void *)(ramdisk_ptr), (void *)img_data.ramdisk_ptr,
+			       img_data.ramdisk_size);
 		}
 	}
 
 	printf("RAM disk load addr 0x%08lx size %u KiB\n",
-	       img_data.ramdisk_ptr, DIV_ROUND_UP(img_data.ramdisk_size, 1024));
-
-	*rd_data = img_data.ramdisk_ptr;
+	       *rd_data, DIV_ROUND_UP(img_data.ramdisk_size, 1024));
 
 	*rd_len = img_data.ramdisk_size;
 	return 0;
@@ -1028,7 +1152,10 @@ bool android_image_get_dtb_by_index(ulong hdr_addr, ulong vendor_boot_img,
 	ulong dtb_addr;		/* address of DTB blob with specified index  */
 	u32 i;			/* index iterator */
 
-	android_image_get_dtb_img_addr(hdr_addr, vendor_boot_img, &dtb_img_addr);
+	if (!android_image_get_dtb_img_addr(hdr_addr, vendor_boot_img,
+					    &dtb_img_addr))
+		return false;
+
 	/* Check if DTB area of boot image is in DTBO format */
 	if (android_dt_check_header(dtb_img_addr)) {
 		return android_dt_get_fdt_by_index(dtb_img_addr, index, addr,
@@ -1069,7 +1196,7 @@ bool android_image_get_dtb_by_index(ulong hdr_addr, ulong vendor_boot_img,
 	return false;
 }
 
-#if !defined(CONFIG_SPL_BUILD)
+#if !defined(CONFIG_XPL_BUILD)
 /**
  * android_print_contents - prints out the contents of the Android format image
  * @hdr: pointer to the Android format image header

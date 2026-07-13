@@ -6,7 +6,6 @@
  *
  */
 
-#include <common.h>
 #include <dm.h>
 #include <errno.h>
 #include <asm/io.h>
@@ -16,6 +15,7 @@
 #include <asm/gpio.h>
 #include <dm/pinctrl.h>
 #include <linux/bitops.h>
+#include <linux/bug.h>
 #include <mach/gpio.h>
 
 #include "pinctrl-qcom.h"
@@ -28,15 +28,25 @@ struct msm_pinctrl_priv {
 #define GPIO_CONFIG_REG(priv, x) \
 	(qcom_pin_offset((priv)->data->pin_data.pin_offsets, x))
 
-#define TLMM_GPIO_PULL_MASK GENMASK(1, 0)
-#define TLMM_FUNC_SEL_MASK GENMASK(5, 2)
-#define TLMM_DRV_STRENGTH_MASK GENMASK(8, 6)
-#define TLMM_GPIO_DISABLE BIT(9)
+#define GPIO_IN_OUT_REG(priv, x) \
+	(GPIO_CONFIG_REG(priv, x) + 0x4)
+
+#define TLMM_GPIO_PULL_MASK	GENMASK(1, 0)
+#define TLMM_FUNC_SEL_MASK	GENMASK(5, 2)
+#define TLMM_DRV_STRENGTH_MASK	GENMASK(8, 6)
+#define TLMM_GPIO_OUTPUT_MASK	BIT(1)
+#define TLMM_GPIO_OE_MASK	BIT(9)
+
+/* GPIO register shifts. */
+#define GPIO_OUT_SHIFT		1
 
 static const struct pinconf_param msm_conf_params[] = {
 	{ "drive-strength", PIN_CONFIG_DRIVE_STRENGTH, 2 },
 	{ "bias-disable", PIN_CONFIG_BIAS_DISABLE, 0 },
 	{ "bias-pull-up", PIN_CONFIG_BIAS_PULL_UP, 3 },
+	{ "bias-pull-down", PIN_CONFIG_BIAS_PULL_UP, 1 },
+	{ "output-high", PIN_CONFIG_OUTPUT, 1, },
+	{ "output-low", PIN_CONFIG_OUTPUT, 0, },
 };
 
 static int msm_get_functions_count(struct udevice *dev)
@@ -82,10 +92,48 @@ static int msm_pinmux_set(struct udevice *dev, unsigned int pin_selector,
 			  unsigned int func_selector)
 {
 	struct msm_pinctrl_priv *priv = dev_get_priv(dev);
+	u32 func = priv->data->get_function_mux(pin_selector, func_selector);
+
+	/* Always NOP for special pins, assume they're in the correct state */
+	if (qcom_is_special_pin(&priv->data->pin_data, pin_selector))
+		return 0;
 
 	clrsetbits_le32(priv->base + GPIO_CONFIG_REG(priv, pin_selector),
-			TLMM_FUNC_SEL_MASK | TLMM_GPIO_DISABLE,
-			priv->data->get_function_mux(func_selector) << 2);
+			TLMM_FUNC_SEL_MASK | TLMM_GPIO_OE_MASK, func << 2);
+	return 0;
+}
+
+static int msm_pinconf_set_special(struct msm_pinctrl_priv *priv, unsigned int pin_selector,
+				   unsigned int param, unsigned int argument)
+{
+	unsigned int offset = pin_selector - priv->data->pin_data.special_pins_start;
+	const struct msm_special_pin_data *data;
+
+	if (!priv->data->pin_data.special_pins_data)
+		return 0;
+
+	data = &priv->data->pin_data.special_pins_data[offset];
+
+	switch (param) {
+	case PIN_CONFIG_DRIVE_STRENGTH:
+		argument = (argument / 2) - 1;
+		clrsetbits_le32(priv->base + data->ctl_reg,
+				GENMASK(2, 0) << data->drv_bit,
+				argument << data->drv_bit);
+		break;
+	case PIN_CONFIG_BIAS_DISABLE:
+		clrbits_le32(priv->base + data->ctl_reg,
+			     TLMM_GPIO_PULL_MASK << data->pull_bit);
+		break;
+	case PIN_CONFIG_BIAS_PULL_UP:
+		clrsetbits_le32(priv->base + data->ctl_reg,
+				TLMM_GPIO_PULL_MASK << data->pull_bit,
+				argument << data->pull_bit);
+		break;
+	default:
+		return 0;
+	}
+
 	return 0;
 }
 
@@ -93,6 +141,9 @@ static int msm_pinconf_set(struct udevice *dev, unsigned int pin_selector,
 			   unsigned int param, unsigned int argument)
 {
 	struct msm_pinctrl_priv *priv = dev_get_priv(dev);
+
+	if (qcom_is_special_pin(&priv->data->pin_data, pin_selector))
+		return msm_pinconf_set_special(priv, pin_selector, param, argument);
 
 	switch (param) {
 	case PIN_CONFIG_DRIVE_STRENGTH:
@@ -107,6 +158,12 @@ static int msm_pinconf_set(struct udevice *dev, unsigned int pin_selector,
 	case PIN_CONFIG_BIAS_PULL_UP:
 		clrsetbits_le32(priv->base + GPIO_CONFIG_REG(priv, pin_selector),
 				TLMM_GPIO_PULL_MASK, argument);
+		break;
+	case PIN_CONFIG_OUTPUT:
+		writel(argument << GPIO_OUT_SHIFT,
+		       priv->base + GPIO_IN_OUT_REG(priv, pin_selector));
+		setbits_le32(priv->base + GPIO_CONFIG_REG(priv, pin_selector),
+			     TLMM_GPIO_OE_MASK);
 		break;
 	default:
 		return 0;
@@ -135,6 +192,9 @@ int msm_pinctrl_bind(struct udevice *dev)
 	struct udevice *pinctrl_dev;
 	const char *name;
 	int ret;
+
+	if (!data->pin_data.special_pins_start)
+		dev_warn(dev, "Special pins start index not defined!\n");
 
 	drv = lists_driver_lookup_name("pinctrl_qcom");
 	if (!drv)

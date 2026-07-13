@@ -4,7 +4,6 @@
  *
  * Peng Fan <Peng.Fan@freescale.com>
  */
-#include <common.h>
 #include <linux/err.h>
 #include <linux/types.h>
 #include <malloc.h>
@@ -13,6 +12,7 @@
 #include <cpu_func.h>
 #include <env.h>
 #include <asm/cache.h>
+#include <vsprintf.h>
 
 #define is_digit(c)	((c) >= '0' && (c) <= '9')
 __weak int mmc_get_env_devno(void)

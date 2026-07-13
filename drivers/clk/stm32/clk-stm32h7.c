@@ -6,7 +6,6 @@
 
 #define LOG_CATEGORY UCLASS_CLK
 
-#include <common.h>
 #include <clk-uclass.h>
 #include <dm.h>
 #include <log.h>
@@ -18,6 +17,9 @@
 #include <linux/bitops.h>
 
 #include <dt-bindings/clock/stm32h7-clks.h>
+
+/* must be equal to last peripheral clock index */
+#define LAST_PERIF_BANK SYSCFG_CK
 
 /* RCC CR specific definitions */
 #define RCC_CR_HSION			BIT(0)

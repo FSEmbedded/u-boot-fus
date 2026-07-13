@@ -12,7 +12,7 @@ import u_boot_utils as util
 TMPDIR = '/tmp/test_trace'
 
 # Decode a function-graph line
-RE_LINE = re.compile(r'.*0\.\.\.\.\. \s*([0-9.]*): func.*[|](\s*)(\S.*)?([{};])$')
+RE_LINE = re.compile(r'.*0\.\.\.\.\.? \s*([0-9.]*): func.*[|](\s*)(\S.*)?([{};])$')
 
 
 def collect_trace(cons):
@@ -68,6 +68,32 @@ def collect_trace(cons):
     out = cons.run_command(
         'host save hostfs - %x %s ${profoffset}' % (addr, fname))
     return fname, int(dm_f_time[0])
+
+
+def wipe_and_collect_trace(cons):
+    """Pause and wipe traces, return the number of calls (should be zero)
+
+    Args:
+        cons (ConsoleBase): U-Boot console
+
+    Returns:
+        int: the number of traced function calls reported by 'trace stats'
+    """
+    cons.run_command('trace pause')
+    cons.run_command('trace wipe')
+    out = cons.run_command('trace stats')
+
+    # The output is something like this:
+    # 117,221 function sites
+    #       0 function calls
+    #       0 untracked function calls
+    #       0 traced function calls
+
+    # Get a dict of values from the output
+    lines = [line.split(maxsplit=1) for line in out.splitlines() if line]
+    vals = {key: val.replace(',', '') for val, key in lines}
+
+    return int(vals['traced function calls'])
 
 
 def check_function(cons, fname, proftool, map_fname, trace_dat):
@@ -175,7 +201,7 @@ def check_funcgraph(cons, fname, proftool, map_fname, trace_dat):
     # Then look for this:
     #  u-boot-1     0.....   282.101375: funcgraph_exit:         0.006 us   |      }
     # Then check for this:
-    #  u-boot-1     0.....   282.101375: funcgraph_entry:        0.000 us   |    initcall_is_event();
+    #  u-boot-1     0.....   282.101375: funcgraph_entry:        0.000 us   |    calc_reloc_ofs();
 
     expected_indent = None
     found_start = False
@@ -199,7 +225,7 @@ def check_funcgraph(cons, fname, proftool, map_fname, trace_dat):
 
     # The next function after initf_bootstage() exits should be
     # initcall_is_event()
-    assert upto == 'initcall_is_event()'
+    assert upto == 'calc_reloc_ofs()'
 
     # Now look for initf_dm() and dm_timer_init() so we can check the bootstage
     # time
@@ -304,3 +330,7 @@ def test_trace(u_boot_console):
     # This allows for CI being slow to run
     diff = abs(fg_time - dm_f_time)
     assert diff / dm_f_time < 0.3
+
+    # Check that the trace buffer can be wiped
+    numcalls = wipe_and_collect_trace(cons)
+    assert numcalls == 0

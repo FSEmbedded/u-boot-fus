@@ -7,7 +7,6 @@
  */
 
 #include <bootm.h>
-#include <common.h>
 #include <dm.h>
 #include <init.h>
 #include <log.h>
@@ -40,7 +39,7 @@ u32 get_imx_reset_cause(void)
 	if (reset_cause == -1) {
 		reset_cause = readl(&src_regs->srsr);
 /* preserve the value for U-Boot proper */
-#if !defined(CONFIG_SPL_BUILD) && !defined(CONFIG_ANDROID_BOOT_IMAGE)
+#if !defined(CONFIG_XPL_BUILD) && !defined(CONFIG_ANDROID_BOOT_IMAGE)
 		/* We will read the ssrs states later for android so we don't
 		 * clear the states here.
 		 */
@@ -51,7 +50,7 @@ u32 get_imx_reset_cause(void)
 	return reset_cause;
 }
 
-#if defined(CONFIG_DISPLAY_CPUINFO) && !defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_DISPLAY_CPUINFO) && !defined(CONFIG_XPL_BUILD)
 static char *get_reset_cause(void)
 {
 	switch (get_imx_reset_cause()) {
@@ -107,7 +106,7 @@ void get_reboot_reason(char *ret)
 #endif
 #endif
 
-#if defined(CONFIG_DISPLAY_CPUINFO) && !defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_DISPLAY_CPUINFO) && !defined(CONFIG_XPL_BUILD)
 
 const char *get_imx_type(u32 imxtype)
 {

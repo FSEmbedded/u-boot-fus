@@ -23,7 +23,6 @@
 #include <env.h>
 #include <linux/delay.h>
 #include <linux/sizes.h>
-#include <common.h>
 #include <fsl_esdhc_imx.h>
 #include <mmc.h>
 #include <i2c.h>
@@ -35,7 +34,6 @@
 #include <usb.h>
 #include <usb/ehci-ci.h>
 #include <asm/mach-imx/video.h>
-#include <power/regulator.h>
 
 #ifdef CONFIG_IMX_RDC
 #include <asm/mach-imx/rdc-sema.h>
@@ -725,10 +723,6 @@ int board_init(void)
 	 * as GPIO mux firstly here to workaround it.
 	 */
 	imx_iomux_v3_setup_pad(wdog_b_pad);
-
-#if defined(CONFIG_DM_REGULATOR)
-	regulators_enable_boot_on(false);
-#endif
 
 #ifdef CONFIG_SYS_I2C_LEGACY
 	setup_i2c(0, CONFIG_SYS_I2C_SPEED, 0x7f, &i2c_pad_info1);

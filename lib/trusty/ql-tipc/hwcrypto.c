@@ -28,7 +28,7 @@
 #include <trusty/trusty_ipc.h>
 #include <trusty/util.h>
 #include <memalign.h>
-#include "common.h"
+#include <config.h>
 #include <cpu_func.h>
 #include <hang.h>
 #include <trusty/keymaster_serializable.h>

@@ -1,68 +1,58 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2025 NXP
  *
  * Peng Fan <peng.fan@nxp.com>
  */
 
-#include <common.h>
-#include <cpu_func.h>
-#include <init.h>
-#include <log.h>
-#include <asm/arch/imx-regs.h>
-#include <asm/global_data.h>
-#include <asm/io.h>
 #include <asm/arch/clock.h>
-#include <asm/arch/ccm_regs.h>
+#include <asm/arch/ddr.h>
 #include <asm/arch/sys_proto.h>
-#include <asm/arch/trdc.h>
-#include <asm/mach-imx/boot_mode.h>
-#include <asm/mach-imx/syscounter.h>
 #include <asm/armv8/mmu.h>
+#include <asm/mach-imx/boot_mode.h>
+#include <asm/mach-imx/optee.h>
+#include <asm/mach-imx/ele_api.h>
+#include <asm/setup.h>
 #include <dm/uclass.h>
 #include <dm/device.h>
-#include <env.h>
 #include <env_internal.h>
-#include <errno.h>
-#include <fdt_support.h>
-#include <linux/bitops.h>
-#include <linux/bitfield.h>
-#include <asm/setup.h>
-#include <asm/bootm.h>
-#include <asm/arch-imx/cpu.h>
-#include <asm/mach-imx/ele_api.h>
-#include <asm/mach-imx/optee.h>
-#include <linux/delay.h>
+#include <linux/iopoll.h>
 #include <fuse.h>
 #include <imx_thermal.h>
 #include <thermal.h>
-#include <imx_sip.h>
-#include <linux/arm-smccc.h>
-#include <asm/arch/ddr.h>
-#ifdef CONFIG_SCMI_FIRMWARE
+#include <fdt_support.h>
 #include <scmi_agent.h>
-#include <scmi_protocols.h>
 #include <scmi_nxp_protocols.h>
-#include <dt-bindings/power/fsl,imx95-power.h>
-#endif
-#include <spl.h>
-#include <mmc.h>
-#include <kaslr.h>
-
+#include <linux/bitops.h>
+#include <linux/bitfield.h>
+#include "common.h"
+#include <fdt_support.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
-rom_passover_t rom_passover_data = {0};
+static rom_passover_t rom_passover_data = {0};
 
 uint32_t scmi_get_rom_data(rom_passover_t *rom_data)
 {
 	/* Read ROM passover data */
 	struct scmi_rom_passover_get_out out;
-	struct scmi_msg msg = SCMI_MSG(SCMI_PROTOCOL_ID_MISC, SCMI_MISC_ROM_PASSOVER_GET, out);
+	struct scmi_msg msg = {
+		.protocol_id = SCMI_PROTOCOL_ID_IMX_MISC,
+		.message_id = SCMI_MISC_ROM_PASSOVER_GET,
+		.in_msg = (u8 *)NULL,
+		.in_msg_sz = 0,
+		.out_msg = (u8 *)&out,
+		.out_msg_sz = sizeof(out),
+	};
 	int ret;
+	struct udevice *dev;
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
-	if(ret == 0 && out.status == 0) {
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret)
+		return ret;
+
+	ret = devm_scmi_process_msg(dev, &msg);
+	if (ret == 0 && out.status == 0) {
 		memcpy(rom_data, (struct rom_passover_t *)out.passover, sizeof(rom_passover_t));
 	} else {
 		printf("Failed to get ROM passover data, scmi_err = %d, size_of(out) = %ld\n",
@@ -84,14 +74,14 @@ void disconnect_from_pc(void)
 	enum boot_device bt_dev = get_boot_device();
 
 	if (bt_dev == USB_BOOT)
-		writel(0x0, USB1_BASE_ADDR + 0x140);
+		clrbits_le32(USB1_BASE_ADDR + 0xc704, (1 << 31));
 	else if (bt_dev == USB2_BOOT)
 		writel(0x0, USB2_BASE_ADDR + 0x140);
 
 	return;
 }
 
-#ifdef CONFIG_ENV_IS_IN_MMC
+#if IS_ENABLED(CONFIG_ENV_IS_IN_MMC)
 __weak int board_mmc_get_env_dev(int devno)
 {
 	return devno;
@@ -105,13 +95,15 @@ int mmc_get_env_dev(void)
 
 	volatile gd_t *pgd = gd;
 	rom_passover_t *rdata;
-#ifdef CONFIG_SPL_BUILD
+
+#if IS_ENABLED(CONFIG_XPL_BUILD)
 	rdata = &rom_passover_data;
 #else
 	rom_passover_t rom_data = {0};
-	if (!pgd->reloc_off) {
+
+	if (!pgd->reloc_off)
 		rdata = &rom_data;
-	} else
+	else
 		rdata = &rom_passover_data;
 #endif
 	if (rdata->tag == 0) {
@@ -159,7 +151,7 @@ u32 get_cpu_speed_grade_hz(void)
 	word = 17;
 	offset = 14;
 
-	ret = fuse_read((word / 8), (word % 8), &val);
+	ret = fuse_read(word / 8, word % 8, &val);
 	if (ret)
 		val = 0; /* If read fuse failed, return as blank fuse */
 
@@ -187,7 +179,7 @@ u32 get_cpu_temp_grade(int *minc, int *maxc)
 	word = 17;
 	offset = 12;
 
-	ret = fuse_read((word / 8), (word % 8), &val);
+	ret = fuse_read(word / 8, word % 8, &val);
 	if (ret)
 		val = 0; /* If read fuse failed, return as blank fuse */
 
@@ -223,7 +215,7 @@ u32 get_cpu_rev(void)
 {
 	u32 rev = (gd->arch.soc_rev >> 24) - 0xa0;
 
-	return (MXC_CPU_IMX95 << 12) | (CHIP_REV_1_0 + rev);
+	return (SCMI_CPU << 12) | (CHIP_REV_1_0 + rev);
 }
 
 #define UNLOCK_WORD 0xD928C520 /* unlock word */
@@ -262,6 +254,36 @@ static struct mm_region imx9_mem_map[] = {
 			 PTE_BLOCK_NON_SHARE |
 			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
 	},
+#ifdef CONFIG_IMX94
+	{
+		/* M71 TCM */
+		.virt = 0x202c0000UL,
+		.phys = 0x202c0000UL,
+		.size = 0x80000UL,
+		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
+			 PTE_BLOCK_NON_SHARE |
+			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+	},
+	{
+		/* M33S TCM */
+		.virt = 0x209c0000UL,
+		.phys = 0x209c0000UL,
+		.size = 0x80000UL,
+		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
+			 PTE_BLOCK_NON_SHARE |
+			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+	},
+	/* 644K netc ocram for rpmsg buffer */
+	{
+		/* M33S NETC OCRAM */
+		.virt = 0x20800000UL,
+		.phys = 0x20800000UL,
+		.size = 0xa1000UL,
+		.attrs = PTE_BLOCK_MEMTYPE(MT_DEVICE_NGNRNE) |
+			 PTE_BLOCK_NON_SHARE |
+			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
+	},
+#endif
 	{
 		/* OCRAM */
 		.virt = 0x20480000UL,
@@ -292,9 +314,9 @@ static struct mm_region imx9_mem_map[] = {
 		.size = PHYS_SDRAM_SIZE,
 		.attrs = PTE_BLOCK_MEMTYPE(MT_NORMAL) |
 #ifdef CONFIG_IMX_TRUSTY_OS
-			 PTE_BLOCK_INNER_SHARE
+				 PTE_BLOCK_INNER_SHARE
 #else
-			 PTE_BLOCK_OUTER_SHARE
+				 PTE_BLOCK_OUTER_SHARE
 #endif
 	}, {
 #ifdef PHYS_SDRAM_2_SIZE
@@ -358,8 +380,8 @@ void enable_caches(void)
 	dcache_enable();
 }
 
-__weak int board_phys_sdram_size(phys_size_t *size){
-
+__weak int board_phys_sdram_size(phys_size_t *size)
+{
 	phys_size_t start, end;
 	phys_size_t val;
 
@@ -458,14 +480,14 @@ phys_size_t get_effective_memsize(void)
 	int ret;
 	phys_size_t sdram_size;
 	phys_size_t sdram_b1_size;
+
 	ret = board_phys_sdram_size(&sdram_size);
 	if (!ret) {
 		/* Bank 1 can't cross over 4GB space */
-		if (sdram_size > 0x80000000) {
+		if (sdram_size > 0x80000000)
 			sdram_b1_size = 0x100000000UL - PHYS_SDRAM;
-		} else {
+		else
 			sdram_b1_size = sdram_size;
-		}
 
 		if (rom_pointer[1]) {
 			/* We will relocate u-boot to Top of dram1. Tee position has three cases:
@@ -487,12 +509,16 @@ void imx_get_mac_from_fuse(int dev_id, unsigned char *mac)
 {
 	u32 val[2] = {};
 	int ret, num_of_macs;
+	u32 bank = 40;
 
-	ret = fuse_read(40, 5, &val[0]);
+	if (is_imx94())
+		bank = 66;
+
+	ret = fuse_read(bank, 5, &val[0]);
 	if (ret)
 		goto err;
 
-	ret = fuse_read(40, 6, &val[1]);
+	ret = fuse_read(bank, 6, &val[1]);
 	if (ret)
 		goto err;
 
@@ -508,10 +534,32 @@ void imx_get_mac_from_fuse(int dev_id, unsigned char *mac)
 	mac[3] = (val[0] >> 24) & 0xff;
 	mac[4] = val[1] & 0xff;
 	mac[5] = (val[1] >> 8) & 0xff;
-	if (dev_id == 1)
-		mac[5] = mac[5] + 3;
-	if (dev_id == 2)
-		mac[5] = mac[5] + 6;
+
+	if (is_imx94()) {
+		/*
+		 * i.MX94 uses the following mac address offset list:
+		 * | No.    | Module      | Mac address user          |
+		 * |--------|-------------|---------------------------|
+		 * | 0 ~ 1  | ethercat    | port0/port1               |
+		 * | 2      | netc switch | internal enetc3 mac/swp0  |
+		 * | 3 ~ 6  |             | enetc3 vf1~3/swp1         |
+		 * | 7      | enetc mac   | enetc0 pf                 |
+		 * | 8      |             | enetc1 pf                 |
+		 * | 9      |             | enetc2 pf                 |
+		 * | 10     | netc switch | swp2                      |
+		*/
+		if (dev_id == 0)
+			mac[5] = mac[5] + 2; /* enetc3 mac/swp0 */
+		if (dev_id == 1)
+			mac[5] = mac[5] + 8; /* enetc1 */
+		if (dev_id == 2)
+			mac[5] = mac[5] + 9; /* enetc2 */
+	} else {
+		if (dev_id == 1)
+			mac[5] = mac[5] + 3;
+		if (dev_id == 2)
+			mac[5] = mac[5] + 6;
+	}
 
 	debug("%s: MAC%d: %02x.%02x.%02x.%02x.%02x.%02x\n",
 	      __func__, dev_id, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -552,13 +600,24 @@ int get_reset_reason(bool sys, bool lm)
 	};
 
 	struct scmi_imx_misc_reset_reason_out out = { 0 };
-	struct scmi_msg msg = SCMI_MSG_IN(SCMI_IMX_PROTOCOL_ID_MISC,
-					  SCMI_IMX_MISC_RESET_REASON,
-					  in, out);
+	struct scmi_msg msg = {
+		.protocol_id = SCMI_PROTOCOL_ID_IMX_MISC,
+		.message_id = SCMI_IMX_MISC_RESET_REASON,
+		.in_msg = (u8 *)&in,
+		.in_msg_sz = sizeof(in),
+		.out_msg = (u8 *)&out,
+		.out_msg_sz = sizeof(out),
+	};
 	int ret;
 
+	struct udevice *dev;
+
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret)
+		return ret;
+
 	if (sys) {
-		ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
+		ret = devm_scmi_process_msg(dev, &msg);
 		if (out.status) {
 			printf("%s:%d for SYS\n", __func__, out.status);
 			return ret;
@@ -588,7 +647,7 @@ int get_reset_reason(bool sys, bool lm)
 		in.flags = 0;
 		memset(&out, 0, sizeof(struct scmi_imx_misc_reset_reason_out));
 
-		ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
+		ret = devm_scmi_process_msg(dev, &msg);
 		if (out.status) {
 			printf("%s:%d for LM\n", __func__, out.status);
 			return ret;
@@ -622,11 +681,22 @@ int get_reset_reason(bool sys, bool lm)
 int power_on_m7(char *name)
 {
 	struct scmi_imx_misc_cfg_info_out out = { 0 };
-	struct scmi_msg msg = SCMI_MSG(SCMI_IMX_PROTOCOL_ID_MISC,
-				       SCMI_IMX_MISC_CFG_INFO, out);
+	struct scmi_msg msg = {
+		.protocol_id = SCMI_PROTOCOL_ID_IMX_MISC,
+		.message_id = SCMI_IMX_MISC_CFG_INFO,
+		.in_msg = (u8 *)NULL,
+		.in_msg_sz = 0,
+		.out_msg = (u8 *)&out,
+		.out_msg_sz = sizeof(out),
+	};
 	int ret;
+	struct udevice *dev;
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret)
+		return ret;
+
+	ret = devm_scmi_process_msg(dev, &msg);
 	if (out.status) {
 		printf("%s:%d fail\n", __func__, out.status);
 		return ret;
@@ -637,16 +707,43 @@ int power_on_m7(char *name)
 		return -EINVAL;
 	}
 
-	/* Power up M7MIX */
-	ret = scmi_pwd_state_set(gd->arch.scmi_dev, 0, IMX95_PD_M7, 0);
-	if (ret) {
-		printf("Power M7 failed\n");
-		return -EIO;
+	if (!arch_auxiliary_core_check_up(1)) {
+		/* Power up M7MIX */
+		ret = scmi_pwd_state_set(dev, 0, SCMI_PD(M70), 0);
+		if (ret) {
+			printf("Power M7 failed\n");
+			return -EIO;
+		}
+
+		/* In case OEI not init ECC, do it here */
+		memset_io((void *)0x203c0000, 0, 0x40000);
+		memset_io((void *)0x20400000, 0, 0x40000);
 	}
 
-	/* In case OEI not init ECC, do it here */
-	memset_io((void *)0x203c0000, 0, 0x40000);
-	memset_io((void *)0x20400000, 0, 0x40000);
+#ifdef CONFIG_IMX94
+	if (!arch_auxiliary_core_check_up(7)) {
+		ret = scmi_pwd_state_set(dev, 0, SCMI_PD(M71), 0);
+		if (ret) {
+			printf("Power M71 failed\n");
+			return -EIO;
+		}
+
+		memset_io((void *)0x202c0000, 0, 0x40000);
+		memset_io((void *)0x20300000, 0, 0x40000);
+	}
+
+	if (!arch_auxiliary_core_check_up(8)) {
+		ret = scmi_pwd_state_set(dev, 0, SCMI_PD(NETC), 0);
+		if (ret) {
+			printf("Power M33S failed\n");
+			return -EIO;
+		}
+
+		memset_io((void *)0x209c0000, 0, 0x40000);
+		memset_io((void *)0x20A00000, 0, 0x40000);
+		memset_io((void *)0x20800000, 0, 0xa1000);
+	}
+#endif
 
 	return 0;
 }
@@ -654,8 +751,8 @@ int power_on_m7(char *name)
 const char *get_imx_type(u32 imxtype)
 {
 	switch (imxtype) {
-	case MXC_CPU_IMX95:
-		return "95";/* iMX95 FULL */
+	case SCMI_CPU:
+		return IMX_PLAT_STR;
 	default:
 		return "??";
 	}
@@ -669,8 +766,8 @@ int print_cpuinfo(void)
 	cpurev = get_cpu_rev();
 
 	printf("CPU:   i.MX%s rev%d.%d",
-		get_imx_type((cpurev & 0x1FF000) >> 12),
-		(cpurev & 0x000F0) >> 4, (cpurev & 0x0000F) >> 0);
+	       get_imx_type((cpurev & 0x1FF000) >> 12),
+	       (cpurev & 0x000F0) >> 4, (cpurev & 0x0000F) >> 0);
 
 	max_freq = get_cpu_speed_grade_hz();
 	if (!max_freq || max_freq == mxc_get_clock(MXC_ARM_CLK)) {
@@ -731,12 +828,23 @@ void build_info(void)
 	u32 fw_version, sha1, res = 0, status;
 	int ret;
 	struct scmi_imx_misc_build_info_out out = { 0 };
-	struct scmi_msg msg = SCMI_MSG(SCMI_IMX_PROTOCOL_ID_MISC,
-				       SCMI_IMX_MISC_BUILD_INFO, out);
+	struct scmi_msg msg = {
+		.protocol_id = SCMI_PROTOCOL_ID_IMX_MISC,
+		.message_id = SCMI_IMX_MISC_BUILD_INFO,
+		.in_msg = (u8 *)NULL,
+		.in_msg_sz = 0,
+		.out_msg = (u8 *)&out,
+		.out_msg_sz = sizeof(out),
+	};
+	struct udevice *dev;
+
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret)
+		return;
 
 	printf("\nBuildInfo:\n");
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
+	ret = devm_scmi_process_msg(dev, &msg);
 	if (ret || out.status)
 		printf("%s:%d:%d fail to get build info\n", __func__, ret, out.status);
 	else
@@ -891,6 +999,7 @@ static void disable_thermal_cpu_nodes(void *blob, u32 disabled_cores)
 		"/thermal-zones/pf53_arm/cooling-maps/map0",
 		"/thermal-zones/ana/cooling-maps/map0",
 		"/thermal-zones/a55/cooling-maps/map0",
+		"/thermal-zones/a55-thermal/cooling-maps/map0",
 	};
 	u32 cooling_dev[24];
 
@@ -938,14 +1047,14 @@ static int disable_npu_node(void *blob)
 	return delete_fdt_nodes(blob, nodes_path_npu, ARRAY_SIZE(nodes_path_npu));
 }
 
-static int disable_cpu_nodes(void *blob, u32 disabled_cores)
+static int disable_arm_cpu_nodes(void *blob, u32 disabled_cores)
 {
 	u32 i = 0;
 	int rc;
 	int nodeoff;
 	char nodes_path[32];
 
-	printf("disable_cpu_nodes, num_disabled_cores = %d\n", disabled_cores);
+	printf("disable_arm_cpu_nodes, num_disabled_cores = %d\n", disabled_cores);
 	for (i = 6; i > (6 - disabled_cores); i--) {
 
 		sprintf(nodes_path, "/cpus/cpu@%u00", i - 1);
@@ -1060,7 +1169,8 @@ static int disable_gpu_node(void *blob, uint32_t num_a55_cores_disabled)
 static int disable_pciea_node(void *blob)
 {
 	static const char * const nodes_path_pciea[] = {
-		"/soc/pcie@4c300000"
+		"/soc/pcie@4c300000",
+		"/soc/pcie-ep@4c300000"
 	};
 
 	return delete_fdt_nodes(blob, nodes_path_pciea, ARRAY_SIZE(nodes_path_pciea));
@@ -1069,33 +1179,11 @@ static int disable_pciea_node(void *blob)
 static int disable_pcieb_node(void *blob)
 {
 	static const char * const nodes_path_pcieb[] = {
-		"/soc/pcie@4c380000"
+		"/soc/pcie@4c380000",
+		"/soc/pcie-ep@4c380000"
 	};
 
 	return delete_fdt_nodes(blob, nodes_path_pcieb, ARRAY_SIZE(nodes_path_pcieb));
-}
-
-static int disable_m7_node(void *blob)
-{
-	static const char * const nodes_path_m7[] = {
-		"/imx95-cm7"
-	};
-
-	return delete_fdt_nodes(blob, nodes_path_m7, ARRAY_SIZE(nodes_path_m7));
-}
-
-static bool is_m7_off(void)
-{
-	u32 state = 0;
-	int ret;
-	ret = scmi_pwd_state_get(gd->arch.scmi_dev, IMX95_PD_M7, &state);
-	if (ret)
-		printf("scmi_pwd_state_get Failed %d for M7\n", ret);
-
-	if (state == BIT(30))
-		return true;
-	else
-		return false;
 }
 
 int disable_enet10g_node(void *blob)
@@ -1104,6 +1192,7 @@ int disable_enet10g_node(void *blob)
 		"/pcie@4ca00000/ethernet@10,0",
 		"/soc/pcie@4ca00000/ethernet@10,0",
 		"/soc/syscon@4ca00000/ethernet@10,0",
+		"/soc/netc-blk-ctrl@4cde0000/pcie@4ca00000/ethernet@10,0",
 	};
 
 	return delete_fdt_nodes(blob, nodes_path_enet10g, ARRAY_SIZE(nodes_path_enet10g));
@@ -1120,7 +1209,6 @@ int disable_mipidsi_node(void *blob)
 	return delete_fdt_nodes(blob, nodes_path_mipidsi, ARRAY_SIZE(nodes_path_mipidsi));
 }
 
-
 int disable_lvds_node(void *blob)
 {
 	static const char * const nodes_path_lvds[] = {
@@ -1133,6 +1221,56 @@ int disable_lvds_node(void *blob)
 	return delete_fdt_nodes(blob, nodes_path_lvds, ARRAY_SIZE(nodes_path_lvds));
 }
 
+static int disable_smmu_node(void *blob)
+{
+	struct scmi_imx_misc_cfg_info_out out = { 0 };
+	struct scmi_msg msg = SCMI_MSG(SCMI_IMX_PROTOCOL_ID_MISC,
+				       SCMI_IMX_MISC_CFG_INFO, out);
+	int ret, nodeoff;
+	bool disable_smmu_node = false;
+	const char *status = "disabled";
+	struct udevice *dev;
+
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret) {
+		printf("%s:%d fail to get protocol@14\n", __func__, ret);
+		return ret;
+	}
+
+	ret = devm_scmi_process_msg(dev, &msg);
+	if (out.status) {
+		printf("%s:%d fail\n", __func__, out.status);
+		return ret;
+	}
+
+	if (!strncmp(out.cfgname, "mx95alt", MISC_MAX_CFGNAME))
+		disable_smmu_node = true;
+
+	if ((gd->arch.soc_rev >> 28) == 0xa)
+		disable_smmu_node = true;
+
+	if (!disable_smmu_node)
+		return 0;
+
+	puts("disabling SMMU\n");
+
+	ret = fdt_increase_size(blob, 256);
+	if (ret) {
+		printf("Unable to increase fdt size, err=%s\n", fdt_strerror(ret));
+		return ret;
+	}
+	nodeoff = fdt_path_offset(blob, "/soc/bus@49000000/iommu@490d0000");
+	if (nodeoff > 0) {
+		ret = fdt_setprop(blob, nodeoff, "status", status,
+				  strlen(status) + 1);
+		if (ret) {
+			printf("Unable to disable SMMU, err=%s\n", fdt_strerror(ret));
+			return ret;
+		}
+	}
+
+	return 0;
+}
 
 int ft_system_setup(void *blob, struct bd_info *bd)
 {
@@ -1160,7 +1298,7 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 			num_a55_cores_disabled++;
 
 		if (num_a55_cores_disabled > 0)
-			disable_cpu_nodes(blob, num_a55_cores_disabled);
+			disable_arm_cpu_nodes(blob, num_a55_cores_disabled);
 
 		if (val & BIT(27)) /* LVDS */
 			disable_lvds_node(blob);
@@ -1201,14 +1339,12 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 
 		if (val & BIT(12)) /* Disable 10G */
 			disable_enet10g_node(blob);
+
+		disable_smmu_node(blob);
 	}
 
-	if (is_imx95() && is_m7_off()) {
-		disable_m7_node(blob);
-	}
-
-	if (IS_ENABLED(CONFIG_KASLR)) {
-		ret = do_generate_kaslr(blob);
+	if (IS_ENABLED(CONFIG_DM_RNG)) {
+		ret = fdt_kaslrseed(blob, true);
 		if (ret)
 			printf("Unable to set property %s, err=%s\n",
 				"kaslr-seed", fdt_strerror(ret));
@@ -1241,7 +1377,7 @@ int board_fix_fdt_fuse(void *fdt)
 	return 0;
 }
 
-#if defined(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)
+#if IS_ENABLED(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)
 void get_board_serial(struct tag_serialnr *serialnr)
 {
 	printf("UID: %08x%08x%08x%08x\n", __be32_to_cpu(gd->arch.uid[0]),
@@ -1263,7 +1399,7 @@ static void gpio_reset(ulong gpio_base)
 
 int arch_cpu_init(void)
 {
-	if (IS_ENABLED(CONFIG_SPL_BUILD)) {
+	if (IS_ENABLED(CONFIG_XPL_BUILD)) {
 		disable_wdog((void __iomem *)WDG3_BASE_ADDR);
 		disable_wdog((void __iomem *)WDG4_BASE_ADDR);
 
@@ -1273,6 +1409,10 @@ int arch_cpu_init(void)
 		gpio_reset(GPIO3_BASE_ADDR);
 		gpio_reset(GPIO4_BASE_ADDR);
 		gpio_reset(GPIO5_BASE_ADDR);
+#if IS_ENABLED(CONFIG_IMX94)
+		gpio_reset(GPIO6_BASE_ADDR);
+		gpio_reset(GPIO7_BASE_ADDR);
+#endif
 	}
 
 	return 0;
@@ -1297,13 +1437,11 @@ int imx9_probe_mu(void)
 	if (ret)
 		return ret;
 
-	gd->arch.scmi_dev = dev;
-
 	ret = uclass_get_device_by_name(UCLASS_PINCTRL, "protocol@19", &dev);
 	if (ret)
 		return ret;
 
-#if defined(CONFIG_IMX_TRUSTY_OS) && defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_XPL_BUILD)
 	ret = uclass_get_device_by_name(UCLASS_MISC, "mailbox@47530000", &dev);
 #else
 	ret = uclass_get_device_by_name(UCLASS_MISC, "mailbox@47550000", &dev);
@@ -1322,25 +1460,72 @@ int imx9_probe_mu(void)
 
 	return 0;
 }
+
 EVENT_SPY_SIMPLE(EVT_DM_POST_INIT_F, imx9_probe_mu);
 EVENT_SPY_SIMPLE(EVT_DM_POST_INIT_R, imx9_probe_mu);
+
+#ifdef CONFIG_XPL_BUILD
+int disable_smmuv3(void)
+{
+	/*
+	 * Disable SMMU in case kernel force reset, not check whether SMMU
+	 * is already disabled, because there is chance that when SMMU
+	 * is being dsiable in linux, while linux got reset. So disable SMMU
+	 * no matter SMMU is disabled or enabled.
+	 */
+	if (IS_ENABLED(CONFIG_IMX95)) {
+		int ret;
+		u32 reg, val, __iomem *gbpa = (void __iomem *)SMMU_BASE_ADDR + SMMU_GBPA;
+
+		ret = readl_relaxed_poll_timeout(gbpa, reg, !(reg & GBPA_UPDATE),
+						 ARM_SMMU_POLL_TIMEOUT_US);
+
+		if (ret) {
+			printf("GBPA updating waiting timeout\n");
+			return ret;
+		}
+
+		/* Use incoming SHCFG attributes */
+		reg = BIT(12);
+
+		writel_relaxed(reg | GBPA_UPDATE, gbpa);
+		ret = readl_relaxed_poll_timeout(gbpa, reg, !(reg & GBPA_UPDATE),
+						 ARM_SMMU_POLL_TIMEOUT_US);
+
+		if (ret) {
+			printf("GBPA not responding to update\n");
+			return ret;
+		}
+
+		val = 0;
+		writel_relaxed(val, SMMU_BASE_ADDR + SMMU_CR0);
+		ret = readl_relaxed_poll_timeout(SMMU_BASE_ADDR + SMMU_CR0_ACK, reg, reg == val,
+						 ARM_SMMU_POLL_TIMEOUT_US);
+		if (ret) {
+			printf("CR0 not updated\n");
+			return ret;
+		}
+	}
+
+	return 0;
+}
+#endif
 
 int timer_init(void)
 {
 	gd->arch.tbl = 0;
 	gd->arch.tbu = 0;
 
-#ifdef CONFIG_SPL_BUILD
-	unsigned long freq = 24000000;
-	asm volatile("msr cntfrq_el0, %0" : : "r" (freq) : "memory");
+	if (IS_ENABLED(CONFIG_XPL_BUILD)) {
+		unsigned long freq = 24000000;
 
-	/* Clear the compare frame interrupt */
-	unsigned long sctr_cmpcr_addr = SYSCNT_CMP_BASE_ADDR + 0x2c;
-	unsigned long sctr_cmpcr = readl(sctr_cmpcr_addr);
-
-	sctr_cmpcr &= ~0x1;
-	writel(sctr_cmpcr, sctr_cmpcr_addr);
-#endif
+		asm volatile("msr cntfrq_el0, %0" : : "r" (freq) : "memory");
+	    /* Clear the compare frame interrupt */
+	    unsigned long sctr_cmpcr_addr = SYSCNT_CMP_BASE_ADDR + 0x2c;
+	    unsigned long sctr_cmpcr = readl(sctr_cmpcr_addr);
+	    sctr_cmpcr &= ~0x1;
+	    writel(sctr_cmpcr, sctr_cmpcr_addr);
+	}
 
 	return 0;
 }
@@ -1354,26 +1539,19 @@ enum env_location env_get_location(enum env_operation op, int prio)
 		return env_loc;
 
 	switch (dev) {
-#if defined(CONFIG_ENV_IS_IN_SPI_FLASH)
 	case QSPI_BOOT:
 		env_loc = ENVL_SPI_FLASH;
 		break;
-#endif
-#if defined(CONFIG_ENV_IS_IN_MMC)
 	case SD1_BOOT:
 	case SD2_BOOT:
 	case SD3_BOOT:
 	case MMC1_BOOT:
 	case MMC2_BOOT:
 	case MMC3_BOOT:
-	case FLEXSPI_NAND_BOOT:
 		env_loc =  ENVL_MMC;
 		break;
-#endif
 	default:
-#if defined(CONFIG_ENV_IS_NOWHERE)
 		env_loc = ENVL_NOWHERE;
-#endif
 		break;
 	}
 
@@ -1409,7 +1587,7 @@ enum boot_device get_boot_device(void)
 	enum boot_device boot_dev = 0;
 	rom_passover_t *rdata;
 
-#ifdef CONFIG_SPL_BUILD
+#if IS_ENABLED(CONFIG_XPL_BUILD)
 	rdata = &rom_passover_data;
 #else
 	rom_passover_t rom_data = {0};
@@ -1446,9 +1624,8 @@ enum boot_device get_boot_device(void)
 		break;
 	case BT_DEV_TYPE_USB:
 		boot_dev = boot_instance + USB_BOOT;
-#ifdef CONFIG_IMX95
-		boot_dev -= 3; //iMX95 usb instance start at 3
-#endif
+		if (IS_ENABLED(CONFIG_IMX95) && is_imx95_a0())
+			boot_dev -= 3; //iMX95 usb instance start at 3
 		break;
 	default:
 		break;
@@ -1458,40 +1635,27 @@ enum boot_device get_boot_device(void)
 }
 #endif
 
-ulong h_spl_load_read(struct spl_load_info *load, ulong off,
-		      ulong size, void *buf)
+bool arch_check_dst_in_secure(void *start, ulong size)
 {
-	struct blk_desc *bd = load->priv;
-	lbaint_t sector = off >> bd->log2blksz;
-	lbaint_t count = size >> bd->log2blksz;
-	ulong trampoline_sz = SZ_16M;
-	void *trampoline = (void *)((ulong)CFG_SYS_SDRAM_BASE + PHYS_SDRAM_SIZE - trampoline_sz);
-	ulong ns_ddr_end = CFG_SYS_SDRAM_BASE + PHYS_SDRAM_SIZE;
-	ulong read_count, trampoline_cnt = trampoline_sz >> bd->log2blksz, actual, total;
-
+	ulong ns_end = CFG_SYS_SDRAM_BASE + PHYS_SDRAM_SIZE;
 #ifdef PHYS_SDRAM_2_SIZE
-	ns_ddr_end += PHYS_SDRAM_2_SIZE;
+	ns_end += PHYS_SDRAM_2_SIZE;
 #endif
 
-	/* Check if the buf is in non-secure world, otherwise copy from trampoline */
-	if ((ulong)buf < CFG_SYS_SDRAM_BASE || (ulong)buf + (count * sector) > ns_ddr_end) {
-		total = 0;
-		while (count) {
-			read_count = trampoline_cnt > count ? count : trampoline_cnt;
-			actual = blk_dread(bd, sector, read_count, trampoline);
-			if (actual != read_count) {
-				printf("Error in blk_dread, %lu, %lu\n", read_count, actual);
-				return 0;
-			}
-			memcpy(buf, trampoline, actual * 512);
-			buf += actual * 512;
-			sector += actual;
-			total += actual;
-			count -= actual;
-		}
+	if ((ulong)start < CFG_SYS_SDRAM_BASE || (ulong)start + size > ns_end)
+		return true;
 
-		return total << bd->log2blksz;
-	}
-
-	return blk_dread(bd, sector, count, buf) << bd->log2blksz;
+	return false;
 }
+
+void *arch_get_container_trampoline(void)
+{
+	return (void *)((ulong)CFG_SYS_SDRAM_BASE + PHYS_SDRAM_SIZE - SZ_16M);
+}
+
+#ifdef CONFIG_IMX95
+u32 container_hdr_alignment(void)
+{
+	return is_imx95_a0() ? 0x400: 0x4000;
+}
+#endif

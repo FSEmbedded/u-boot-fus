@@ -7,7 +7,6 @@
  *
  */
 
-#include <common.h>
 #include <stdlib.h>
 #include <linux/string.h>
 #include <mmc.h>

@@ -3,7 +3,6 @@
  * Copyright 2020 NXP
  */
 
-#include <common.h>
 #include <efi_loader.h>
 #include <env.h>
 #include <init.h>
@@ -191,9 +190,9 @@ int board_usb_init(int index, enum usb_init_type init)
 	imx8m_usb_power(index, true);
 
 	if (init == USB_INIT_HOST)
-		tcpc_setup_dfp_mode(&port1);
+		ret = tcpc_setup_dfp_mode(&port1);
 	else
-		tcpc_setup_ufp_mode(&port1);
+		ret = tcpc_setup_ufp_mode(&port1);
 
 	return ret;
 }
@@ -229,10 +228,6 @@ int board_ehci_usb_phy_mode(struct udevice *dev)
 
 int board_init(void)
 {
-#ifdef CONFIG_DM_REGULATOR
-	regulators_enable_boot_on(false);
-#endif
-
 #ifdef CONFIG_USB_TCPC
 	setup_typec();
 #endif

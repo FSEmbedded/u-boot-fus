@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright 2024 NXP
- *
  */
 
 #ifndef __ASM_ARCH_IMX91_PINS_H__

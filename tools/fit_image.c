@@ -137,7 +137,7 @@ static int fdt_property_file(struct image_tool_params *params,
 	int ret;
 	int fd;
 
-	fd = open(fname, O_RDWR | O_BINARY);
+	fd = open(fname, O_RDONLY | O_BINARY);
 	if (fd < 0) {
 		fprintf(stderr, "%s: Can't open %s: %s\n",
 			params->cmdname, fname, strerror(errno));
@@ -876,7 +876,7 @@ static int fit_image_extract(
 	int ret;
 
 	/* get the data address and size of component at offset "image_noffset" */
-	ret = fit_image_get_data_and_size(fit, image_noffset, &file_data, &file_size);
+	ret = fit_image_get_data(fit, image_noffset, &file_data, &file_size);
 	if (ret) {
 		fprintf(stderr, "Could not get component information\n");
 		return ret;

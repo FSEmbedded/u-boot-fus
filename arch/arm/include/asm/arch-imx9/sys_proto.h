@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2022-2023 NXP
+ * Copyright (C) 2022 NXP
  */
 
 #ifndef __ARCH_IMX9_SYS_PROTO_H
@@ -19,11 +19,14 @@ void soc_power_init(void);
 bool m33_is_rom_kicked(void);
 int m33_prepare(void);
 bool is_usb_boot(void);
+
 enum imx9_soc_voltage_mode soc_target_voltage_mode(void);
 int get_reset_reason(bool sys, bool lm);
 
 int power_on_m7(char *name);
 
-#define is_voltage_mode(mode) (soc_target_voltage_mode() == mode)
+int disable_smmuv3(void);
+
+#define is_voltage_mode(mode) (soc_target_voltage_mode() == (mode))
 
 #endif

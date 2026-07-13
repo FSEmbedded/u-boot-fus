@@ -3,7 +3,6 @@
  * Copyright (C) 2015-2016 Freescale Semiconductor, Inc.
  */
 
-#include <common.h>
 #include <g_dnl.h>
 #include "bcb.h"
 

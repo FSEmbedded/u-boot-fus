@@ -9,7 +9,7 @@
 #define __CONFIG_H
 
 #include "mx6_common.h"
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #define CFG_MXC_UART_BASE		UART1_BASE
 
@@ -181,15 +181,6 @@
 
 /* NAND stuff */
 #define CFG_SYS_NAND_BASE           0x40000000
-
-/* DMA stuff, needed for GPMI/MXS NAND support */
-
-/* Network */
-
-#ifdef CONFIG_CMD_USB
-#define CFG_MXC_USB_PORTSC  (PORT_PTS_UTMI | PORT_PTS_PTW)
-#define CFG_MXC_USB_FLAGS   0
-#endif
 
 #define CFG_SYS_FSL_USDHC_NUM	2
 

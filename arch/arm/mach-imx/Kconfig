@@ -1,6 +1,8 @@
 config MACH_IMX
 	bool
 
+if MACH_IMX
+
 config HAS_CAAM
 	bool
 
@@ -106,7 +108,7 @@ config CSF_SIZE
 config CMD_QB
 	bool "Support the 'qb' command"
 	default y
-	depends on IMX_SNPS_DDR_PHY_QB_GEN && IMX95
+	depends on IMX_SNPS_DDR_PHY_QB_GEN && (IMX95 || IMX94)
 	help
 	  Enable qb command to write DDR quick boot training data to boot device.
 
@@ -135,24 +137,6 @@ config CMD_DEKBLOB
 	  Freescale secure boot mechanism. This command encapsulates and
 	  creates a blob of data. See also CMD_BLOB and doc/imx/habv4/* for
 	  more information.
-
-config IMX_ROLLBACK_BLOB
-	bool "Encapsulate the bootloader rollback index as a blob"
-	depends on ARCH_IMX8M || ARCH_IMX8ULP || ARCH_IMX8
-	help
-	  To avoid disclosure of plaintext data in rpmb, this encapsulates
-	  the bootloader rollback index as a blob then keep in rpmb.
-
-config RPMB_INIT_ALLOW
-	bool "Do RPMB initilization even though magic number not matched"
-	help
-	  uboot will determine if rpmb has finished initializing by checking
-	  the magic number at the beginning of the rpmb. If the
-	  "CONFIG_IMX_ROLLBACK_BLOB" be set, uboot reject to boot if rpmb hasn't
-	  finished initializing or RPMB magic number not matched.
-	  This allow boot and RPMB initializing even though the RPMB magic not
-	  matched. This config should only be set for production then it should
-	  be disabled for release.
 
 config TARGET_PRODUCT_NAME
 	string "Target product name"
@@ -297,9 +281,8 @@ config DDRMC_VF610_CALIBRATION
 	  the ddrmc_cr_setting on relevant board file.
 
 config IMX8_ROMAPI
-	bool "Enable i.MX ROMAPI"
-	default y
-	depends on IMX8MN || IMX8MP || IMX8ULP || IMX9
+	def_bool y
+	depends on IMX8MN || IMX8MP || IMX8ULP || IMX93 || IMX91
 
 config SPL_IMX_ROMAPI_LOADADDR
 	hex "Default load address to load image through ROM API"
@@ -475,6 +458,23 @@ config IMX_SUPPORT_SRM
 	  Let trusty to load srm before loading kernel.
 	default n
 
+config IMX_ROLLBACK_BLOB
+	bool "Encapsulate the bootloader rollback index as a blob"
+	help
+	  To avoid disclosure of plaintext data in rpmb, this encapsulates
+	  the bootloader rollback index as a blob then keep in rpmb.
+
+config RPMB_INIT_ALLOW
+	bool "Do RPMB initilization even though magic number not matched"
+	help
+	  uboot will determine if rpmb has finished initializing by checking
+	  the magic number at the beginning of the rpmb. If the
+	  "CONFIG_IMX_ROLLBACK_BLOB" be set, uboot reject to boot if rpmb hasn't
+	  finished initializing or RPMB magic number not matched.
+	  This allow boot and RPMB initializing even though the RPMB magic not
+	  matched. This config should only be set for production then it should
+	  be disabled for release.
+
 endmenu
 
 config APPEND_BOOTARGS
@@ -504,3 +504,5 @@ config PSCI_BOARD_REBOOT
 	depends on ARM_PSCI_FW
 	help
 	  This is a optional command used to trigger system board reboot on imx8q and imx95.
+
+endif

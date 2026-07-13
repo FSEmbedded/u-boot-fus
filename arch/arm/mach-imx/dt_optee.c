@@ -2,13 +2,12 @@
 /*
  * Copyright 2020 NXP
  */
-#include <common.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/optee.h>
 #include <errno.h>
 #include <fdt_support.h>
+#include <linux/sizes.h>
 #include <fdtdec.h>
-
 
 #ifdef CONFIG_OF_SYSTEM_SETUP
 int ft_add_optee_node(void *fdt, struct bd_info *bd)

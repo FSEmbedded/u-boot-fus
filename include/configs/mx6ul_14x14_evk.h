@@ -13,7 +13,7 @@
 #include <linux/stringify.h>
 #include "mx6_common.h"
 #include <asm/mach-imx/gpio.h>
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #define is_mx6ul_9x9_evk()	IS_ENABLED(CONFIG_TARGET_MX6UL_9X9_EVK)
 
@@ -188,14 +188,7 @@
 #define CFG_SYS_INIT_RAM_ADDR	IRAM_BASE_ADDR
 #define CFG_SYS_INIT_RAM_SIZE	IRAM_SIZE
 
-/* environment organization */
-
 /* NAND stuff */
 #define CFG_SYS_NAND_BASE		0x40000000
 
-/* USB Configs */
-#ifdef CONFIG_CMD_USB
-#define CFG_MXC_USB_PORTSC  (PORT_PTS_UTMI | PORT_PTS_PTW)
-#define CFG_MXC_USB_FLAGS   0
-#endif
 #endif

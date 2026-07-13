@@ -5,7 +5,6 @@
 
 #define LOG_CATEGORY	LOGC_BOOT
 
-#include <common.h>
 #include <cpu_func.h>
 #include <debug_uart.h>
 #include <dm.h>
@@ -29,6 +28,7 @@
 #include <asm/processor.h>
 #include <asm/qemu.h>
 #include <asm/spl.h>
+#include <asm/u-boot-x86.h>
 #include <asm-generic/sections.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -298,11 +298,19 @@ void spl_board_init(void)
 	if (IS_ENABLED(CONFIG_QEMU))
 		qemu_chipset_init();
 
+	if (CONFIG_IS_ENABLED(UPL_OUT))
+		gd->flags |= GD_FLG_UPL;
+
 	if (CONFIG_IS_ENABLED(VIDEO)) {
 		struct udevice *dev;
+		int ret;
 
 		/* Set up PCI video in SPL if required */
-		uclass_first_device_err(UCLASS_PCI, &dev);
-		uclass_first_device_err(UCLASS_VIDEO, &dev);
+		ret = uclass_first_device_err(UCLASS_PCI, &dev);
+		if (ret)
+			panic("Failed to set up PCI");
+		ret = uclass_first_device_err(UCLASS_VIDEO, &dev);
+		if (ret)
+			panic("Failed to set up video");
 	}
 }

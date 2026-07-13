@@ -4,8 +4,7 @@
  *
  */
 
-#include <common.h>
-#include <cpu_func.h>
+#include <config.h>
 #include <hang.h>
 #include <image.h>
 #include <init.h>
@@ -43,7 +42,7 @@ static void spl_dram_init(void)
 {
 	/* Check PCA6416A IO EXP on 4GB WEVK only */
 #if IS_ENABLED(CONFIG_IMX8MQ_4GB_DDR_TIMING)
-	I2C_SET_BUS(2);
+	i2c_set_bus_num(2);
 	if (!i2c_probe(0x20)) {
 		ddr_init(&dram_timing_4g);
 		return;

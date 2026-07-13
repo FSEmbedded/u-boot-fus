@@ -2,7 +2,7 @@
 /*
  * Copyright 2022 NXP
  */
-#include <common.h>
+
 #include <errno.h>
 #include <log.h>
 #include <asm/io.h>
@@ -10,6 +10,7 @@
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
 #include <linux/delay.h>
+#include <linux/string.h>
 
 static unsigned int g_cdd_rr_max[4];
 static unsigned int g_cdd_rw_max[4];
@@ -399,7 +400,7 @@ int ddr_init(struct dram_timing_info *dram_timing)
 #endif
 #endif
 	/* save the ddr PHY trained CSR in memory for low power use */
-	ddrphy_trained_csr_save(ddrphy_trained_csr, ddrphy_trained_csr_num);
+	ddrphy_trained_csr_save(dram_timing->ddrphy_trained_csr, dram_timing->ddrphy_trained_csr_num);
 
 	debug("DDRINFO: ddrphy config done\n");
 

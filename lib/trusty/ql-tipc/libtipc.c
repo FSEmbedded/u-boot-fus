@@ -23,7 +23,6 @@
  * SOFTWARE.
  */
 
-#include <common.h>
 #include <trusty/avb.h>
 #include <trusty/hwcrypto.h>
 #include <trusty/keymaster.h>
@@ -49,6 +48,16 @@ bool rpmbkey_is_set(void);
 void rpmb_storage_put_ctx(void *dev);
 void trusty_ipc_shutdown(void)
 {
+    /**
+     * Trusty OS is not well initialized when the rpmb
+     * key is not set, skip ipc shut down to avoid panic.
+     */
+#ifndef CONFIG_IMX_MATTER_TRUSTY
+    if (!rpmbkey_is_set()) {
+        return;
+    }
+#endif
+
     (void)rpmb_storage_proxy_shutdown(_ipc_dev);
     (void)rpmb_storage_put_ctx(rpmb_ctx);
 

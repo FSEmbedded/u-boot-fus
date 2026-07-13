@@ -4,7 +4,6 @@
  */
 
 #include "vsprintf.h"
-#include <common.h>
 #include <command.h>
 #include <ctype.h>
 #include <errno.h>
@@ -415,9 +414,10 @@ static int do_authenticate(struct cmd_tbl *cmdtp, int flag, int argc,
 	return CMD_RET_SUCCESS;
 }
 
-#ifdef CONFIG_IMX95
+#if IS_ENABLED(CONFIG_IMX95) || IS_ENABLED(CONFIG_IMX94)
 #define FSB_LC_OFFSET 0x414
 #define LC_OEM_OPEN 0x10
+#define LC_OEM_CLOSED 0x40
 static void display_life_cycle(u32 lc)
 {
 	printf("Lifecycle: 0x%08X, ", lc);
@@ -463,6 +463,7 @@ static void display_life_cycle(u32 lc)
 #else
 #define FSB_LC_OFFSET 0x41c
 #define LC_OEM_OPEN 0x8
+#define LC_OEM_CLOSED 0x20
 static void display_life_cycle(u32 lc)
 {
 	printf("Lifecycle: 0x%08X, ", lc);
@@ -503,17 +504,17 @@ static void display_life_cycle(u32 lc)
 
 static int confirm_close(void)
 {
-	puts("Warning: Please ensure your sample is in NXP closed state, "
+	puts("Warning: Please ensure your sample lifecycle is OEM Open state, "
 	     "OEM SRK hash has been fused, \n"
 	     "         and you are able to boot a signed image successfully "
-	     "without any SECO events reported.\n"
+	     "without any ELE events reported.\n"
 	     "         If not, your sample will be unrecoverable.\n"
 	     "\nReally perform this operation? <y/N>\n");
 
 	if (confirm_yesno())
 		return 1;
 
-	puts("Ahab close aborted\n");
+	puts("AHAB close aborted\n");
 	return 0;
 }
 
@@ -546,6 +547,51 @@ static int do_ahab_close(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	return 0;
 }
+
+static int confirm_lock(void)
+{
+    puts("Warning: Please ensure your sample lifecycle is OEM Closed state "
+         "         and you are able to boot a signed image successfully "
+         "         Beware of the security policies enforced in OEM_ LOCKED state.\n"
+         "\nReally perform this operation? <y/N>\n");
+
+    if (confirm_yesno())
+        return 1;
+
+    puts("AHAB lock aborted\n");
+    return 0;
+}
+
+static int do_ahab_lock(struct cmd_tbl *cmdtp, int flag, int argc,
+             char *const argv[])
+{
+    int err;
+    u32 resp;
+    u32 lc;
+
+    if (!confirm_lock())
+        return -EACCES;
+
+    lc = readl(FSB_BASE_ADDR + FSB_LC_OFFSET);
+    lc &= 0x3ff;
+
+    if (lc != LC_OEM_CLOSED) {
+        puts("Current lifecycle is NOT OEM Closed, can't move to OEM locked\n");
+        display_life_cycle(lc);
+        return -EPERM;
+    }
+
+    err = ele_forward_lifecycle(128, &resp);
+    if (err != 0) {
+        printf("Error in forward lifecycle to OEM locked\n");
+        return -EIO;
+    }
+
+    printf("Change to OEM locked successfully\n");
+
+    return 0;
+}
+
 
 int ahab_dump(void)
 {
@@ -673,6 +719,31 @@ static int do_ahab_return_lifecycle(struct cmd_tbl *cmdtp, int flag, int argc, c
 	}
 
 	printf("Return lifecycle completed, response 0x%x\n", response);
+
+	return CMD_RET_SUCCESS;
+}
+
+static int do_ahab_derive(struct cmd_tbl *cmdtp, int flag, int argc,
+			  char *const argv[])
+{
+	ulong key;
+	size_t key_size;
+	char seed[] = "_ELE_AHAB_SEED_";
+
+	if (argc != 3)
+		return CMD_RET_USAGE;
+
+	key = hextoul(argv[1], NULL);
+	key_size = simple_strtoul(argv[2], NULL, 10);
+	if (key_size != 16 && key_size != 32) {
+		printf("key size can only be 16 or 32\n");
+		return CMD_RET_FAILURE;
+	}
+
+	if (ele_derive_huk((u8 *)key, key_size, seed, sizeof(seed))) {
+		printf("Error in AHAB derive\n");
+		return CMD_RET_FAILURE;
+	}
 
 	return CMD_RET_SUCCESS;
 }
@@ -819,6 +890,11 @@ U_BOOT_CMD(ahab_close, CONFIG_SYS_MAXARGS, 1, do_ahab_close,
 	   ""
 );
 
+U_BOOT_CMD(ahab_lock, CONFIG_SYS_MAXARGS, 1, do_ahab_lock,
+	   "Change AHAB lifecycle to OEM locked",
+	   ""
+);
+
 U_BOOT_CMD(ahab_dump, CONFIG_SYS_MAXARGS, 1, do_ahab_dump,
 	   "Dump AHAB log for debug",
 	   ""
@@ -839,6 +915,12 @@ U_BOOT_CMD(ahab_return_lifecycle, CONFIG_SYS_MAXARGS, 1, do_ahab_return_lifecycl
 	   "Return lifecycle to OEM field return via signed message block",
 	   "addr\n"
 	   "addr - Return lifecycle message block signed by OEM SRK\n"
+);
+
+U_BOOT_CMD(ahab_derive, CONFIG_SYS_MAXARGS, 3, do_ahab_derive,
+	   "Derive the hardware unique key",
+	   "addr [16|32]\n"
+	   "Store at addr the derivation of the HUK on 16 or 32 bytes.\n"
 );
 
 U_BOOT_CMD(ahab_commit, CONFIG_SYS_MAXARGS, 1, do_ahab_commit,

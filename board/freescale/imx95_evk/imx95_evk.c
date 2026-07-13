@@ -1,42 +1,28 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023-2024 NXP
+ * Copyright 2025 NXP
  */
 
-#include <common.h>
 #include <env.h>
 #include <init.h>
-#include <asm/global_data.h>
-#include <asm/arch-imx9/ccm_regs.h>
-#include <asm/arch/clock.h>
 #include <fdt_support.h>
-#include <fuse.h>
+#include <asm/arch/clock.h>
 #include <usb.h>
 #include "../common/tcpc.h"
 #include <dwc3-uboot.h>
-#include <asm/io.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/delay.h>
-#include <miiphy.h>
-#include <netdev.h>
 #include <asm/gpio.h>
+#include <power/regulator.h>
+#include <scmi_agent.h>
+#include "../dts/upstream/src/arm64/freescale/imx95-power.h"
 #include <asm/arch/sys_proto.h>
 #include <i2c.h>
 #include <dm/uclass.h>
 #include <dm/uclass-internal.h>
-#include <power/regulator.h>
-
-#ifdef CONFIG_SCMI_FIRMWARE
-#include <scmi_agent.h>
-#include <scmi_protocols.h>
-#include <dt-bindings/clock/fsl,imx95-clock.h>
-#include <dt-bindings/power/fsl,imx95-power.h>
-#endif
 
 extern int board_fix_fdt_fuse(void *fdt);
-
-DECLARE_GLOBAL_DATA_PTR;
 
 int board_early_init_f(void)
 {
@@ -183,7 +169,7 @@ static void setup_typec(void)
 #define PHY_CTRL6_ALT_CLK_SEL		BIT(0)
 
 static struct dwc3_device dwc3_device_data = {
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 	.maximum_speed = USB_SPEED_HIGH,
 #else
 	.maximum_speed = USB_SPEED_SUPER,
@@ -193,12 +179,6 @@ static struct dwc3_device dwc3_device_data = {
 	.index = 0,
 	.power_down_scale = 2,
 };
-
-int dm_usb_gadget_handle_interrupts(struct udevice *dev)
-{
-	dwc3_uboot_handle_interrupt(dev);
-	return 0;
-}
 
 static void dwc3_nxp_usb_phy_init(struct dwc3_device *dwc3)
 {
@@ -238,7 +218,14 @@ static void dwc3_nxp_usb_phy_init(struct dwc3_device *dwc3)
 
 static int imx9_scmi_power_domain_enable(u32 domain, bool enable)
 {
-	return scmi_pwd_state_set(gd->arch.scmi_dev, 0, domain, enable ? 0 : BIT(30));
+	struct udevice *dev;
+	int ret;
+
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret)
+		return ret;
+
+	return scmi_pwd_state_set(dev, 0, domain, enable ? 0 : BIT(30));
 }
 
 int board_usb_init(int index, enum usb_init_type init)
@@ -315,7 +302,7 @@ static void netc_phy_rst(const char *gpio_name, const char *label)
 
 }
 
-static void netc_regulator_enable(const char *devname, bool enable)
+static void __maybe_unused netc_regulator_enable(const char *devname, bool enable)
 {
 	int ret;
 	struct udevice *dev;
@@ -347,8 +334,6 @@ void netc_init(void)
 		printf("SCMI_POWWER_STATE_SET Failed for NETC MIX\n");
 		return;
 	}
-
-	set_clk_netc(ENET_125MHZ);
 
 #ifdef CONFIG_TARGET_IMX95_15X15_EVK
 	netc_phy_rst("gpio@22_4", "ENET1_RST_B");
@@ -424,15 +409,6 @@ static void flexspi_nor_steup(void)
 	dm_gpio_set_value(&desc, 1);
 }
 
-#if CONFIG_IS_ENABLED(NET)
-int board_phy_config(struct phy_device *phydev)
-{
-	if (phydev->drv->config)
-		phydev->drv->config(phydev);
-	return 0;
-}
-#endif
-
 void lvds_backlight_on(void)
 {
 	struct udevice *dev;
@@ -476,7 +452,7 @@ int board_init(void)
 
 	flexspi_nor_steup();
 
-	power_on_m7("mx95alt");
+	power_on_m7("mx95evkrpmsg");
 
 	lvds_backlight_on();
 
@@ -485,9 +461,8 @@ int board_init(void)
 
 int board_late_init(void)
 {
-#ifdef CONFIG_ENV_IS_IN_MMC
-	board_late_mmc_env_init();
-#endif
+	if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
+		board_late_mmc_env_init();
 
 	env_set("sec_boot", "no");
 #ifdef CONFIG_AHAB_BOOT
@@ -623,10 +598,22 @@ static int board_fix_15x15_evk(void *fdt)
 static int imx9_scmi_misc_cfginfo(u32 *msel, char *cfgname)
 {
 	struct scmi_cfg_info_out out;
-	struct scmi_msg msg = SCMI_MSG(SCMI_PROTOCOL_ID_MISC, SCMI_MISC_CFG_INFO, out);
+	struct scmi_msg msg = {
+		.protocol_id = SCMI_PROTOCOL_ID_IMX_MISC,
+		.message_id = SCMI_MISC_CFG_INFO,
+		.in_msg = (u8 *)NULL,
+		.in_msg_sz = 0,
+		.out_msg = (u8 *)&out,
+		.out_msg_sz = sizeof(out),
+	};
 	int ret;
+	struct udevice *dev;
 
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret)
+		return ret;
+
+	ret = devm_scmi_process_msg(dev, &msg);
 	if(ret == 0 && out.status == 0) {
 		strcpy(cfgname, (const char *)out.cfgname);
 	} else {
@@ -644,10 +631,9 @@ static void disable_fdt_resources(void *fdt)
 	int nodeoff, ret;
 	const char *status = "disabled";
 	static const char * const dsi_nodes[] = {
-		"/soc@0/bus@42000000/i2c@426b0000",
-		"/soc@0/bus@42000000/i2c@426d0000",
-		"/pcie@4ca00000",
-		"/pcie@4cb00000"
+		"/soc/bus@42000000/i2c@426b0000",
+		"/soc/bus@42000000/i2c@426d0000",
+		"/soc/netc-blk-ctrl@4cde0000"
 	};
 
 	for (i = 0; i < ARRAY_SIZE(dsi_nodes); i++) {

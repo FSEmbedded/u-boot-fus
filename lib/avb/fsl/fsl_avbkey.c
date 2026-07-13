@@ -4,7 +4,7 @@
  * SPDX-License-Identifier:     GPL-2.0+
  *
  */
-#include <common.h>
+#include <config.h>
 #include <stdlib.h>
 #include <fuse.h>
 #include <mmc.h>
@@ -1319,7 +1319,7 @@ int at_disable_vboot_unlock(void)
 
 #if defined(CONFIG_IMX_TRUSTY_OS) && !defined(CONFIG_AVB_ATX)
 
-extern struct imx_sec_config_fuse_t const imx_sec_config_fuse;
+extern struct imx_fuse const imx_sec_config_fuse;
 #define HAB_ENABLED_BIT (is_soc_type(MXC_SOC_IMX8M)? 0x2000000 : 0x2)
 
 /* Check hab status, this is basically copied from imx_hab_is_enabled() */
@@ -1344,8 +1344,8 @@ bool hab_is_enabled(void)
 
 	if (lc != 0x20)
 #elif CONFIG_ARCH_IMX8M
-	struct imx_sec_config_fuse_t *fuse =
-		(struct imx_sec_config_fuse_t *)&imx_sec_config_fuse;
+	struct imx_fuse *fuse =
+		(struct imx_fuse *)&imx_sec_config_fuse;
 	uint32_t reg;
 	int ret;
 

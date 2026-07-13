@@ -4,7 +4,7 @@
  * Copyright 2017-2021 NXP
  */
 
-#include <common.h>
+#include <config.h>
 #include <cpu_func.h>
 #include <init.h>
 #include <log.h>
@@ -40,8 +40,13 @@
 static char *get_reset_cause(char *);
 
 #if defined(CONFIG_IMX_HAB)
-struct imx_sec_config_fuse_t const imx_sec_config_fuse = {
+struct imx_fuse const imx_sec_config_fuse = {
 	.bank = 29,
+	.word = 6,
+};
+
+struct imx_fuse const imx_field_return_fuse = {
+	.bank = 9,
 	.word = 6,
 };
 #endif
@@ -226,7 +231,7 @@ static bool ldo_mode_is_enabled(void)
 		return false;
 }
 
-#if !defined(CONFIG_SPL) || (defined(CONFIG_SPL) && defined(CONFIG_SPL_BUILD))
+#if !defined(CONFIG_SPL) || (defined(CONFIG_SPL) && defined(CONFIG_XPL_BUILD))
 #if defined(CONFIG_LDO_ENABLED_MODE)
 static void init_ldo_mode(void)
 {

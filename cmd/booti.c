@@ -4,7 +4,6 @@
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  */
 
-#include <common.h>
 #include <bootm.h>
 #include <command.h>
 #include <image.h>
@@ -16,11 +15,60 @@
 #include <linux/kernel.h>
 #include <linux/sizes.h>
 
+#if defined(CONFIG_AHAB_BOOT) && !defined(CONFIG_ANDROID_SUPPORT)
+#include <asm/mach-imx/ahab.h>
+#endif
+
 #ifdef CONFIG_IMX_MATTER_TRUSTY
 #include <trusty/libtipc.h>
 #endif
 
 DECLARE_GLOBAL_DATA_PTR;
+
+#if defined(CONFIG_AHAB_BOOT) && !defined(CONFIG_ANDROID_SUPPORT)
+static int container_get_image_dst(ulong cntr, ulong *kernel, ulong *fdt)
+{
+	struct container_hdr *phdr;
+	u16 length;
+	int i;
+	struct boot_img_t *img;
+	bool find_k = false, find_f = false;
+
+	phdr = (struct container_hdr *)cntr;
+	length = phdr->length_lsb + (phdr->length_msb << 8);
+
+	debug("container length %u\n", length);
+
+	phdr = ahab_auth_cntr_hdr(phdr, length);
+	if (!phdr) {
+		return -EPERM;
+	}
+
+	for (i = 0; i < phdr->num_images; i++) {
+		img = (struct boot_img_t *)((ulong)phdr +
+					    sizeof(struct container_hdr) +
+					    i * sizeof(struct boot_img_t));
+
+		debug("img %d, flags 0x%x\n", i, img->hab_flags);
+
+		if (((img->hab_flags & 0xf) == 0x3) && !find_k) {
+			*kernel = (ulong)img->dst;	/* First exec image is kernel */
+			find_k = true;
+		} else if (((img->hab_flags & 0xf) == 0x4) && !find_f) {
+			*fdt = (ulong)img->dst;	/* First data image is FDT */
+			find_f = true;
+		}
+	}
+
+	ahab_auth_release();
+
+	if (!find_k || !find_f)
+		return -ENOENT;
+
+	return 0;
+}
+#endif
+
 /*
  * Image booting support
  */
@@ -78,7 +126,7 @@ static int booti_start(struct bootm_info *bmi)
 	unmap_sysmem((void *)ld);
 
 	ret = booti_setup(ld, &relocated_addr, &image_size, false);
-	if (ret || IS_ENABLED(CONFIG_SANDBOX))
+	if (ret)
 		return 1;
 
 #if defined(CONFIG_IMX_HAB) && !defined(CONFIG_AVB_SUPPORT)
@@ -93,7 +141,7 @@ static int booti_start(struct bootm_info *bmi)
 
 	/* Handle BOOTM_STATE_LOADOS */
 	if (relocated_addr != ld) {
-		printf("Moving Image from 0x%lx to 0x%lx, end=%lx\n", ld,
+		printf("Moving Image from 0x%lx to 0x%lx, end=0x%lx\n", ld,
 		       relocated_addr, relocated_addr + image_size);
 		memmove((void *)relocated_addr, (void *)ld, image_size);
 	}
@@ -102,7 +150,7 @@ static int booti_start(struct bootm_info *bmi)
 	images->os.start = relocated_addr;
 	images->os.end = relocated_addr + image_size;
 
-	lmb_reserve(&images->lmb, images->ep, le32_to_cpu(image_size));
+	lmb_reserve(images->ep, le32_to_cpu(image_size), LMB_NONE);
 
 	/*
 	 * Handle the BOOTM_STATE_FINDOTHER state ourselves as we do not
@@ -134,6 +182,37 @@ int do_booti(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	bmi.boot_progress = true;
 	bmi.cmd_name = "booti";
 	/* do not set up argc and argv[] since nothing uses them */
+
+#if defined(CONFIG_AHAB_BOOT) && !defined(CONFIG_ANDROID_SUPPORT)
+	ulong cntr, kernel = 0, fdt = 0;
+	char fdtstr[32];
+	char kernelstr[32];
+
+	if (!bmi.addr_img) {
+		printf("addr parameter is missed for container image\n");
+		return 1;
+	}
+
+	cntr = hextoul(bmi.addr_img, NULL);
+	printf("Authenticate OS container at 0x%08lx\n", cntr);
+
+	extern int authenticate_os_container(ulong addr);
+	if (authenticate_os_container(cntr)) {
+		printf("Authenticate OS container is failed\n");
+		return 1;
+	}
+
+	ret = container_get_image_dst(cntr, &kernel, &fdt);
+	if (ret) {
+		printf("Parse kernel and fdt address failed %d\n", ret);
+		return 1;
+	}
+
+	bmi.addr_img = (const char*)kernelstr;
+	bmi.conf_fdt = (const char*)fdtstr;
+	sprintf(kernelstr, "0x%08lx\n", kernel);
+	sprintf(fdtstr, "0x%08lx\n", fdt);
+#endif
 
 	if (booti_start(&bmi))
 		return 1;

@@ -2,7 +2,7 @@
 /*
  * Copyright 2018 NXP
  */
-#include <common.h>
+
 #include <efi_loader.h>
 #include <env.h>
 #include <init.h>
@@ -262,9 +262,9 @@ int board_usb_init(int index, enum usb_init_type init)
 	imx8m_usb_power(index, true);
 
 	if (init == USB_INIT_HOST)
-		tcpc_setup_dfp_mode(port_ptr);
+		ret = tcpc_setup_dfp_mode(port_ptr);
 	else
-		tcpc_setup_ufp_mode(port_ptr);
+		ret = tcpc_setup_ufp_mode(port_ptr);
 
 	return ret;
 }
@@ -325,9 +325,8 @@ int board_init(void)
 
 int board_late_init(void)
 {
-#ifdef CONFIG_ENV_IS_IN_MMC
-	board_late_mmc_env_init();
-#endif
+	if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
+		board_late_mmc_env_init();
 
 	if (IS_ENABLED(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)) {
 		env_set("board_name", "EVK");
@@ -351,3 +350,9 @@ int is_recovery_key_pressing(void)
 }
 #endif /* CONFIG_ANDROID_RECOVERY */
 #endif /* CONFIG_FSL_FASTBOOT */
+
+#ifdef CONFIG_IMX_MATTER_TRUSTY
+int board_get_emmc_id(void) {
+	return 2;
+}
+#endif

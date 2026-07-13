@@ -12,6 +12,7 @@
 #include <config.h>
 
 #include <linux/types.h>
+#include <asm/u-boot.h>
 
 /* Architecture-specific global data */
 struct arch_global_data {
@@ -106,9 +107,6 @@ struct arch_global_data {
 #endif
 #ifdef CONFIG_SMBIOS
 	ulong smbios_start;		/* Start address of SMBIOS table */
-#endif
-#if defined(CONFIG_SCMI_FIRMWARE) && defined(CONFIG_IMX9)
-	struct udevice *scmi_dev;
 #endif
 };
 
