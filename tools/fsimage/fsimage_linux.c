@@ -351,6 +351,7 @@ int get_container_size(ulong addr, u16 *header_length)
 /* Check that the version of this BOARD-CFG is the same as the one booted from */
 bool check_board_cfg(struct fs_header_v1_0 *fsh)
 {
+#if 0 //### With the current list of former offsets do not check version anymore
 	const void *version;
 	int offs;
 	void *fdt = fs_image_find_cfg_fdt(fsh);
@@ -373,8 +374,8 @@ bool check_board_cfg(struct fs_header_v1_0 *fsh)
 	if (strcmp(version, nboot_version))
 		return false;
 
+#endif //###
 	return true;
-
 }
 
 /* ------------- Functions that differ from U-Boot ------------------------- */

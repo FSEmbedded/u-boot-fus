@@ -204,27 +204,86 @@ static void fs_image_put_flash_mmc(struct flash_info *fi)
 		close(ll->fd[2]);
 }
 
+/* Known offsets for the BOARD-CFG in eMMC flash of previous versions */
+static const off_t fs_image_known_boardcfg_offs_mmc[][2] = {
+#ifdef CONFIG_IMX8MM
+	{ 0x00088000, 0x00448000 },
+	{ 0x00040000, 0x00140000 },
+#elif defined CONFIG_IMX8MN
+	{ 0x00048000, 0x00448000 },
+	{ 0x00048000, 0x00740000 },
+	{ 0x00040000, 0x00740000 },
+	{ 0x00048000, 0x00140000 },
+#elif defined CONFIG_IMX8MP
+	{ 0x00048000, 0x00448000 },
+	{ 0x00048000, 0x00740000 },
+	{ 0x00040000, 0x00740000 },
+#elif defined CONFIG_IMX8X
+	{ 0x00080000, 0x00740000 },
+	{ 0x00040000, 0x00740000 },
+#endif
+};
+
 extern bool check_board_cfg(struct fs_header_v1_0 *fsh);
-static int fs_image_read_board_cfg_mmc(struct flash_info *fi, int copy,
-				       void *board_cfg)
+static bool try_board_cfg(off_t offs, u8 hwpart, void *board_cfg)
 {
 	struct mmc_ll_linux *ll = &mmc_ll_linux;
        	struct fs_header_v1_0 *fsh = board_cfg;
+	int fd = ll->fd[hwpart];
 	ssize_t count;
 	size_t size;
-	int fd;
+
+	if (lseek(fd, offs, SEEK_SET) == -1)
+		return -errno;
+
+	/* Read F&S header */
+	count = read(fd, fsh, FSH_SIZE);
+	if (count == (ssize_t)-1)
+		return -errno;
+	if (count != FSH_SIZE)
+		return -EWOULDBLOCK;
+
+	/* Is there a matching BOARD-CFG? */
+	if (!fs_image_match_board_id(fsh))
+		return 1;
+
+	size = fs_image_get_size(fsh, false);
+	count = read(fd, fsh + 1, size);
+	if (count == (ssize_t)-1)
+		return -errno;
+	if (count != (ssize_t)size)
+		return -EWOULDBLOCK;
+	if (!check_board_cfg(fsh)) {
+		printf("  Ignoring invalid BOARD-CFG in hwpart %d at"
+		       " offset 0x%lx\n", hwpart, offs);
+		return 1;
+	}
+
+	printf("  Found BOARD-CFG in hwpart %d at offset 0x%lx\n", hwpart, offs);
+
+	return 0;
+}
+
+static int fs_image_read_board_cfg_mmc(struct flash_info *fi, int copy,
+				       void *board_cfg)
+{
 	off_t offs;
 	off_t end;
 	u8 hwpart = fi->boot_hwpart;
+	int index;
+	int i;
+	int err;
 
 	if (hwpart) {
 		/* Booting from boot1/2 hwpart: use appropriate copy */
 		offs = 0;
 		end = fi->boot_part_size;
+		index = 0;
 		if (copy)
 			hwpart = 3 - hwpart;
 	} else {
 		/* Booting from User hwpart: search in first or second 4 MiB */
+		index = copy;
 		if (!copy) {
 			offs = 0x00008000; /* skip GPT in first 32KiB */
 			end = 0x00400000;
@@ -233,36 +292,21 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi, int copy,
 			end = 0x00800000;
 		}
 	}
-	fd = ll->fd[hwpart];
 
-	/* Search for BOARD-CFG */
+	/* First look for BOARD-CFG at known offsets */
+	for (i = 0; i < ARRAY_SIZE(fs_image_known_boardcfg_offs_mmc); i++) {
+		err = try_board_cfg(fs_image_known_boardcfg_offs_mmc[i][index],
+				    hwpart, board_cfg);
+		if (err <= 0)
+			return err;	/* Error or found */
+	}
+
+	/* No BOARD-CFG found at known offsets, search for it */
+	printf("  Warning, no BOARD-CFG found at known offsets, searching...\n");
 	do {
-		if (lseek(fd, offs, SEEK_SET) == -1)
-			return -errno;
-
-		/* Read F&S header */
-		count = read(fd, fsh, FSH_SIZE);
-		if (count == (ssize_t)-1)
-			return -errno;
-		if (count != FSH_SIZE)
-			return -EWOULDBLOCK;
-
-		/* If there is a matching BOARD-CFG, load and verify it */
-		if (fs_image_match_board_id(fsh)) {
-			size = fs_image_get_size(fsh, false);
-			count = read(fd, fsh + 1, size);
-			if (count == (ssize_t)-1)
-				return -errno;
-			if (count != (ssize_t)size)
-				return -EWOULDBLOCK;
-			if (check_board_cfg(fsh)) {
-				printf("  Found BOARD-CFG in hwpart %d at"
-				       " offset 0x%lx\n", hwpart, offs);
-				return 0;
-			}
-			printf("  Ignoring invalid BOARD-CFG in hwpart %d at"
-			       " offset 0x%lx\n", hwpart, offs);
-		}
+		err = try_board_cfg(offs, hwpart, board_cfg);
+		if (err <= 0)
+			return err;	/* Error or found */
 		offs += FSH_SIZE;
 	} while (offs < end);
 
