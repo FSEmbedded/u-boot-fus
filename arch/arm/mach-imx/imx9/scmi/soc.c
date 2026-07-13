@@ -33,7 +33,6 @@
 #include <asm/mach-imx/ele_api.h>
 #include <asm/mach-imx/optee.h>
 #include <linux/delay.h>
-#include <linux/iopoll.h>
 #include <fuse.h>
 #include <imx_thermal.h>
 #include <thermal.h>
@@ -203,9 +202,8 @@ u32 get_cpu_temp_grade(int *minc, int *maxc)
 			*minc = -40;
 			*maxc = 105;
 		} else if (val == TEMP_EXTCOMMERCIAL) {
-			/* Map to Ext industrial */
-			*minc = -40;
-			*maxc = 125;
+			*minc = -20;
+			*maxc = 105;
 		} else {
 			*minc = 0;
 			*maxc = 95;
@@ -691,7 +689,10 @@ int print_cpuinfo(void)
 		puts("Industrial temperature grade ");
 		break;
 	case TEMP_EXTCOMMERCIAL:
-		puts("Extended Industrial temperature grade ");
+		if (is_imx93())
+			puts("Extended Industrial temperature grade ");
+		else
+			puts("Extended Consumer temperature grade ");
 		break;
 	default:
 		puts("Consumer temperature grade ");
@@ -937,14 +938,14 @@ static int disable_npu_node(void *blob)
 	return delete_fdt_nodes(blob, nodes_path_npu, ARRAY_SIZE(nodes_path_npu));
 }
 
-static int disable_arm_cpu_nodes(void *blob, u32 disabled_cores)
+static int disable_cpu_nodes(void *blob, u32 disabled_cores)
 {
 	u32 i = 0;
 	int rc;
 	int nodeoff;
 	char nodes_path[32];
 
-	printf("disable_arm_cpu_nodes, num_disabled_cores = %d\n", disabled_cores);
+	printf("disable_cpu_nodes, num_disabled_cores = %d\n", disabled_cores);
 	for (i = 6; i > (6 - disabled_cores); i--) {
 
 		sprintf(nodes_path, "/cpus/cpu@%u00", i - 1);
@@ -1097,50 +1098,6 @@ static bool is_m7_off(void)
 		return false;
 }
 
-static int disable_smmu_node(void *blob)
-{
-	struct scmi_imx_misc_cfg_info_out out = { 0 };
-	struct scmi_msg msg = SCMI_MSG(SCMI_IMX_PROTOCOL_ID_MISC,
-				       SCMI_IMX_MISC_CFG_INFO, out);
-	int ret, nodeoff;
-	bool disable_smmu_node = false;
-	const char *status = "disabled";
-
-	ret = devm_scmi_process_msg(gd->arch.scmi_dev, &msg);
-	if (out.status) {
-		printf("%s:%d fail\n", __func__, out.status);
-		return ret;
-	}
-
-	if (!strncmp(out.cfgname, "mx95alt", MISC_MAX_CFGNAME))
-		disable_smmu_node = true;
-
-	if ((gd->arch.soc_rev >> 28) == 0xa)
-		disable_smmu_node = true;
-
-	if (!disable_smmu_node)
-		return 0;
-
-	puts("disabling SMMU\n");
-
-	ret = fdt_increase_size(blob, 256);
-	if (ret) {
-		printf("Unable to increase fdt size, err=%s\n", fdt_strerror(ret));
-		return ret;
-	}
-	nodeoff = fdt_path_offset(blob, "/soc/bus@49000000/iommu@490d0000");
-	if (nodeoff > 0) {
-		ret = fdt_setprop(blob, nodeoff, "status", status,
-				  strlen(status) + 1);
-		if (ret) {
-			printf("Unable to disable SMMU, err=%s\n", fdt_strerror(ret));
-			return ret;
-		}
-	}
-
-	return 0;
-}
-
 int disable_enet10g_node(void *blob)
 {
 	static const char * const nodes_path_enet10g[] = {
@@ -1203,7 +1160,7 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 			num_a55_cores_disabled++;
 
 		if (num_a55_cores_disabled > 0)
-			disable_arm_cpu_nodes(blob, num_a55_cores_disabled);
+			disable_cpu_nodes(blob, num_a55_cores_disabled);
 
 		if (val & BIT(27)) /* LVDS */
 			disable_lvds_node(blob);
@@ -1244,8 +1201,6 @@ int ft_system_setup(void *blob, struct bd_info *bd)
 
 		if (val & BIT(12)) /* Disable 10G */
 			disable_enet10g_node(blob);
-
-		disable_smmu_node(blob);
 	}
 
 	if (is_imx95() && is_m7_off()) {
@@ -1286,7 +1241,7 @@ int board_fix_fdt_fuse(void *fdt)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)
+#if defined(CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG)
 void get_board_serial(struct tag_serialnr *serialnr)
 {
 	printf("UID: %08x%08x%08x%08x\n", __be32_to_cpu(gd->arch.uid[0]),
@@ -1348,7 +1303,7 @@ int imx9_probe_mu(void)
 	if (ret)
 		return ret;
 
-#if defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_IMX_TRUSTY_OS) && defined(CONFIG_SPL_BUILD)
 	ret = uclass_get_device_by_name(UCLASS_MISC, "mailbox@47530000", &dev);
 #else
 	ret = uclass_get_device_by_name(UCLASS_MISC, "mailbox@47550000", &dev);
@@ -1369,53 +1324,6 @@ int imx9_probe_mu(void)
 }
 EVENT_SPY_SIMPLE(EVT_DM_POST_INIT_F, imx9_probe_mu);
 EVENT_SPY_SIMPLE(EVT_DM_POST_INIT_R, imx9_probe_mu);
-
-#ifdef CONFIG_SPL_BUILD
-int disable_smmuv3(void)
-{
-	/*
-	 * Disable SMMU in case kernel force reset, not check whether SMMU
-	 * is already disabled, because there is chance that when SMMU
-	 * is being dsiable in linux, while linux got reset. So disable SMMU
-	 * no matter SMMU is disabled or enabled.
-	 */
-	if (IS_ENABLED(CONFIG_IMX95)) {
-		int ret;
-		u32 reg, val, __iomem *gbpa = (void __iomem *)SMMU_BASE_ADDR + SMMU_GBPA;
-
-		ret = readl_relaxed_poll_timeout(gbpa, reg, !(reg & GBPA_UPDATE),
-						 ARM_SMMU_POLL_TIMEOUT_US);
-
-		if (ret) {
-			printf("GBPA updating waiting timeout\n");
-			return ret;
-		}
-
-		/* Use incoming SHCFG attributes */
-		reg = BIT(12);
-
-		writel_relaxed(reg | GBPA_UPDATE, gbpa);
-		ret = readl_relaxed_poll_timeout(gbpa, reg, !(reg & GBPA_UPDATE),
-						 ARM_SMMU_POLL_TIMEOUT_US);
-
-		if (ret) {
-			printf("GBPA not responding to update\n");
-			return ret;
-		}
-
-		val = 0;
-		writel_relaxed(val, SMMU_BASE_ADDR + SMMU_CR0);
-		ret = readl_relaxed_poll_timeout(SMMU_BASE_ADDR + SMMU_CR0_ACK, reg, reg == val,
-						 ARM_SMMU_POLL_TIMEOUT_US);
-		if (ret) {
-			printf("CR0 not updated\n");
-			return ret;
-		}
-	}
-
-	return 0;
-}
-#endif
 
 int timer_init(void)
 {
@@ -1539,8 +1447,7 @@ enum boot_device get_boot_device(void)
 	case BT_DEV_TYPE_USB:
 		boot_dev = boot_instance + USB_BOOT;
 #ifdef CONFIG_IMX95
-        if (is_imx95_a0())
-			boot_dev -= 3; //iMX95 usb instance start at 3
+		boot_dev -= 3; //iMX95 usb instance start at 3
 #endif
 		break;
 	default:
@@ -1567,7 +1474,7 @@ ulong h_spl_load_read(struct spl_load_info *load, ulong off,
 #endif
 
 	/* Check if the buf is in non-secure world, otherwise copy from trampoline */
-	if ((ulong)buf < CFG_SYS_SDRAM_BASE || (ulong)buf + (count << bd->log2blksz) > ns_ddr_end) {
+	if ((ulong)buf < CFG_SYS_SDRAM_BASE || (ulong)buf + (count * sector) > ns_ddr_end) {
 		total = 0;
 		while (count) {
 			read_count = trampoline_cnt > count ? count : trampoline_cnt;
@@ -1588,10 +1495,3 @@ ulong h_spl_load_read(struct spl_load_info *load, ulong off,
 
 	return blk_dread(bd, sector, count, buf) << bd->log2blksz;
 }
-
-#ifdef CONFIG_IMX95
-u32 container_hdr_alignment(void)
-{
-	return is_imx95_a0() ? 0x400: 0x4000;
-}
-#endif

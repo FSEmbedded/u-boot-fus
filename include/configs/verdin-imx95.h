@@ -36,11 +36,13 @@
 #define JAILHOUSE_ENV \
 	"jh_root_dtb=" JH_ROOT_DTB "\0" \
 	"jh_mmcboot=setenv fdtfile ${jh_root_dtb}; " \
-		    "setenv jh_clk kvm.enable_virt_at_load=false cpuidle.off=1 clk_ignore_unused mem=1408MB kvm-arm.mode=nvhe; " \
-		    "if run loadimage; then run mmcboot;" \
-		    "else run jh_netboot; fi; \0" \
+		"setenv jh_clk kvm.enable_virt_at_load=false cpuidle.off=1 clk_ignore_unused kvm-arm.mode=nvhe; " \
+		"setenv jh_root_mem 0x58000000@0x90000000,0x300000000@0x180000000; " \
+		"if run loadimage; then run mmcboot;" \
+		"else run jh_netboot; fi; \0" \
 	"jh_netboot=setenv fdtfile ${jh_root_dtb}; " \
-		    "setenv jh_clk kvm.enable_virt_at_load=false cpuidle.off=1 clk_ignore_unused mem=1408MB kvm-arm.mode=nvhe; run netboot; \0 "
+		"setenv jh_root_mem 0x58000000@0x90000000,0x300000000@0x180000000; " \
+		"setenv jh_clk kvm.enable_virt_at_load=false cpuidle.off=1 clk_ignore_unused kvm-arm.mode=nvhe; run netboot; \0 "
 
 #define CFG_MFG_ENV_SETTINGS \
 	CFG_MFG_ENV_SETTINGS_DEFAULT \
@@ -115,12 +117,16 @@
 	"loadimage=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${image}\0" \
 	"loadfdt=fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr_r} ${fdtfile}\0" \
 	"loadcntr=fatload mmc ${mmcdev}:${mmcpart} ${cntr_addr} ${cntr_file}\0" \
-	"auth_os=booti ${cntr_addr}\0" \
+	"auth_os=auth_cntr ${cntr_addr}\0" \
 	"boot_os=booti ${loadaddr} - ${fdt_addr_r};\0" \
 	"mmcboot=echo Booting from mmc ...; " \
 		"run mmcargs; " \
 		"if test ${sec_boot} = yes; then " \
-			"run auth_os; " \
+			"if run auth_os; then " \
+				"run boot_os; " \
+			"else " \
+				"echo ERR: failed to authenticate; " \
+			"fi; " \
 		"else " \
 			"if test ${boot_fit} = yes || test ${boot_fit} = try; then " \
 				"bootm ${loadaddr}; " \
@@ -144,7 +150,11 @@
 		"fi; " \
 		"if test ${sec_boot} = yes; then " \
 			"${get_cmd} ${cntr_addr} ${cntr_file}; " \
-			"run auth_os; " \
+			"if run auth_os; then " \
+				"run boot_os; " \
+			"else " \
+				"echo ERR: failed to authenticate; " \
+			"fi; " \
 		"else " \
 			"${get_cmd} ${loadaddr} ${image}; " \
 			"if test ${boot_fit} = yes || test ${boot_fit} = try; then " \
