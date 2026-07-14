@@ -1031,6 +1031,17 @@ int board_usb_init(int index, enum usb_init_type init)
 	bool tcpc = (port1.i2c_dev != NULL);
 	struct udevice *dev;
 	char dr_mode[32] = "";
+	unsigned int board_type = fs_board_get_type();
+
+	switch (board_type)
+	{
+	case BT_ARMSTONEMX8MP:
+	case BT_ARMSTONEMX8MPr2:
+		/* Ignore Type-C on USB-Boot for flashing */
+		if (is_usb_boot())
+			tcpc = false;
+		break;
+	}
 
 	debug("USB%d: %s init.\n", index, (init)?"otg":"host");
 
