@@ -12,7 +12,6 @@
 * GNU General Public License for more details.
 */
 
-#include <common.h>
 #include <command.h>
 #include <cpu_func.h>
 #include <hang.h>
@@ -275,8 +274,6 @@ void board_init_f(ulong dummy)
 	/* Setup Multiple Devicetree */
 	board_early_init_f();
 
-	regulators_enable_boot_on(false);
-	
 	preloader_console_init();
 
 	print_bootstage();

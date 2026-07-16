@@ -11,9 +11,9 @@
  * http://code.google.com/p/inih/
  */
 
-#include <common.h>
 #include <command.h>
 #include <env.h>
+#include <vsprintf.h>
 #include <image.h>			/* parse_loadaddr() */
 #include <linux/ctype.h>
 #include <linux/string.h>

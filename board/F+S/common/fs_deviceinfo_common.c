@@ -9,7 +9,7 @@
  * 2024-12-10 - friedrich@fs-net.de - port to fsimx93
  * 2026-05-19 - roesner@fs-net.de - add bootlogo
  */
-#include <common.h>
+
 #include <blk.h>
 #include <fastboot.h>
 #include <image.h>

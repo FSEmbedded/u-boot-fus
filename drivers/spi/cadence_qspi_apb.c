@@ -25,7 +25,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <common.h>
 #include <log.h>
 #include <asm/io.h>
 #include <dma.h>
@@ -152,9 +151,9 @@ static int cadence_qspi_set_protocol(struct cadence_spi_priv *priv,
 /* Return 1 if idle, otherwise return 0 (busy). */
 static unsigned int cadence_qspi_wait_idle(void *reg_base)
 {
-	unsigned int start, count = 0;
+	unsigned long start, count = 0;
 	/* timeout in unit of ms */
-	unsigned int timeout = 5000;
+	unsigned long timeout = 5000;
 
 	start = get_timer(0);
 	for ( ; get_timer(start) < timeout ; ) {
@@ -171,7 +170,7 @@ static unsigned int cadence_qspi_wait_idle(void *reg_base)
 	}
 
 	/* Timeout, still in busy mode. */
-	printf("QSPI: QSPI is still busy after poll for %d ms.\n", timeout);
+	printf("QSPI: QSPI is still busy after poll for %lu ms.\n", timeout);
 	return 0;
 }
 

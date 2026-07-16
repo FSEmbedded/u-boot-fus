@@ -4,10 +4,10 @@
  * Copyright 2018 NXP
  */
 
-#include <common.h>
 #include <command.h>
 #include <div64.h>
 #include <log.h>
+#include <time.h>
 #include <asm/io.h>
 #include <linux/errno.h>
 #include <asm/arch/imx-regs.h>
@@ -1241,7 +1241,7 @@ void disable_ipu_clock(void)
 }
 #endif
 
-#ifndef CONFIG_SPL_BUILD
+#ifndef CONFIG_XPL_BUILD
 static void show_freq(const char *name, u32 freq)
 {
 	freq = (freq + 50000) / 100000;

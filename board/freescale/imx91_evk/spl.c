@@ -3,7 +3,6 @@
  * Copyright 2024 NXP
  */
 
-#include <common.h>
 #include <command.h>
 #include <cpu_func.h>
 #include <hang.h>
@@ -13,7 +12,6 @@
 #include <spl.h>
 #include <asm/global_data.h>
 #include <asm/io.h>
-#include <asm/arch/imx91_pins.h>
 #include <asm/arch/mu.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
@@ -39,20 +37,7 @@ DECLARE_GLOBAL_DATA_PTR;
 
 int spl_board_boot_device(enum boot_device boot_dev_spl)
 {
-#ifdef CONFIG_SPL_BOOTROM_SUPPORT
 	return BOOT_DEVICE_BOOTROM;
-#else
-	switch (boot_dev_spl) {
-	case SD1_BOOT:
-	case MMC1_BOOT:
-		return BOOT_DEVICE_MMC1;
-	case SD2_BOOT:
-	case MMC2_BOOT:
-		return BOOT_DEVICE_MMC2;
-	default:
-		return BOOT_DEVICE_NONE;
-	}
-#endif
 }
 
 void spl_board_init(void)
@@ -70,6 +55,7 @@ extern struct dram_timing_info dram_timing_1600mts;
 void spl_dram_init(void)
 {
 	struct dram_timing_info *ptiming = &dram_timing;
+
 	if (is_voltage_mode(VOLT_LOW_DRIVE))
 		ptiming = &dram_timing_1600mts;
 
@@ -85,11 +71,13 @@ int power_init_board(void)
 	unsigned int val = 0, buck_val;
 
 	ret = pmic_get("pmic@25", &dev);
-	if (ret != 0) {
+	if (ret == -ENODEV) {
 		puts("ERROR: Get PMIC PCA9451A failed!\n");
 		return ret;
 	}
-	puts("PMIC: PCA9451A\n");
+	if (ret != 0)
+		return ret;
+
 	/* BUCKxOUT_DVS0/1 control BUCK123 output */
 	pmic_reg_write(dev, PCA9450_BUCK123_DVS, 0x29);
 
@@ -99,17 +87,17 @@ int power_init_board(void)
 	ret = pmic_reg_read(dev, PCA9450_PWR_CTRL);
 	if (ret < 0)
 		return ret;
-	else
-		val = ret;
+
+	val = ret;
 
 	if (is_voltage_mode(VOLT_LOW_DRIVE)) {
-		buck_val = 0x0c; /* 0.8v for Low drive mode */
+		buck_val = 0x0c; /* 0.8V for Low drive mode */
 		printf("PMIC: Low Drive Voltage Mode\n");
 	} else if (is_voltage_mode(VOLT_NOMINAL_DRIVE)) {
-		buck_val = 0x10; /* 0.85v for Nominal drive mode */
+		buck_val = 0x10; /* 0.85V for Nominal drive mode */
 		printf("PMIC: Nominal Voltage Mode\n");
 	} else {
-		buck_val = 0x14; /* 0.9v for Over drive mode */
+		buck_val = 0x14; /* 0.9V for Over drive mode */
 		printf("PMIC: Over Drive Voltage Mode\n");
 	}
 
@@ -124,7 +112,7 @@ int power_init_board(void)
 	/* Set VDDQ to 1.1V from buck2 (buck2 not used for iMX91 EVK) */
 	pmic_reg_write(dev, PCA9450_BUCK2OUT_DVS0, 0x28);
 
-	/* set standby voltage to 0.65v */
+	/* set standby voltage to 0.65V */
 	if (val & PCA9450_REG_PWRCTRL_TOFF_DEB)
 		pmic_reg_write(dev, PCA9450_BUCK1OUT_DVS1, 0x0);
 	else
@@ -157,8 +145,8 @@ void board_init_f(ulong dummy)
 	if (ret) {
 		printf("Fail to init ELE API\n");
 	} else {
-		printf("SOC: 0x%x\n", gd->arch.soc_rev);
-		printf("LC: 0x%x\n", gd->arch.lifecycle);
+		debug("SOC: 0x%x\n", gd->arch.soc_rev);
+		debug("LC: 0x%x\n", gd->arch.lifecycle);
 	}
 
 	clock_init_late();

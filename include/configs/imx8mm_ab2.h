@@ -9,32 +9,20 @@
 #include <linux/sizes.h>
 #include <linux/stringify.h>
 #include <asm/arch/imx-regs.h>
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
+
 #define CFG_SYS_UBOOT_BASE	\
 	(QSPI0_AMBA_BASE + CONFIG_SYS_MMCSD_RAW_MODE_U_BOOT_SECTOR * 512)
 
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 /* malloc f used before GD_FLG_FULL_MALLOC_INIT set */
 #define CFG_MALLOC_F_ADDR		0x930000
 /* For RAW image gives a error info not panic */
 
 #endif
 
-#define PHY_ANEG_TIMEOUT 20000
-
 #ifdef CONFIG_NAND_BOOT
 #define MFG_NAND_PARTITION "mtdparts=gpmi-nand:64m(nandboot),16m(nandfit),64m(nandkernel),16m(nanddtb),8m(nandtee),-(nandrootfs)"
-#endif
-
-#ifdef CONFIG_DISTRO_DEFAULTS
-#define BOOT_TARGET_DEVICES(func) \
-	func(USB, usb, 0) \
-	func(MMC, mmc, 1) \
-	func(MMC, mmc, 2)
-
-#include <config_distro_bootcmd.h>
-#else
-#define BOOTENV
 #endif
 
 /*
@@ -47,11 +35,11 @@
 	"jh_clk= \0 " \
 	"jh_root_dtb=" JH_ROOT_DTB "\0" \
 	"jh_mmcboot=mw 0x303d0518 0xff; setenv fdtfile ${jh_root_dtb};" \
-		"setenv jh_clk clk_ignore_unused mem=1212MB; " \
+		"setenv jh_clk kvm.enable_virt_at_load=false clk_ignore_unused mem=1212MB; " \
 			   "if run loadimage; then " \
 				   "run mmcboot; " \
 			   "else run jh_netboot; fi; \0" \
-	"jh_netboot=mw 0x303d0518 0xff; setenv fdtfile ${jh_root_dtb}; setenv jh_clk clk_ignore_unused mem=1212MB; run netboot; \0 "
+	"jh_netboot=mw 0x303d0518 0xff; setenv fdtfile ${jh_root_dtb}; setenv jh_clk kvm.enable_virt_at_load=false clk_ignore_unused mem=1212MB; run netboot; \0 "
 
 #define M4_BOOT_ENV \
 	"m4_boot=no\0" \
@@ -117,7 +105,6 @@
 #else
 #define CFG_EXTRA_ENV_SETTINGS		\
 	CFG_MFG_ENV_SETTINGS \
-	BOOTENV \
 	JAILHOUSE_ENV \
 	M4_BOOT_ENV \
 	"scriptaddr=0x43500000\0" \

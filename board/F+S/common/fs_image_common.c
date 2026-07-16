@@ -9,7 +9,6 @@
  */
 
 #ifdef __UBOOT__
-#include <common.h>
 #include <fdt_support.h>		/* fdt_getprop_u32_default_node() */
 //####include <spl.h>
 //####include <mmc.h>
@@ -36,10 +35,10 @@
 //####include "../../../include/linux/libfdt_env.h"
 //####include <string.h>
 #include <stdio.h>
-#include <errno.h>
 #include "crc32.h"
 #endif /* __UBOOT__ */
 
+#include <errno.h>
 #include "fs_board_common.h"		/* fs_board_is_closed() */
 #include "fs_image_common.h"		/* Own interface */
 #include "fs_cntr_common.h"		/* fs_cntr_*() */

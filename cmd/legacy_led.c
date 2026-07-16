@@ -12,10 +12,9 @@
  * Ulf Samuelsson <ulf.samuelsson@atmel.com>
  */
 
-#include <common.h>
-#include <config.h>
 #include <command.h>
 #include <status_led.h>
+#include <vsprintf.h>
 #ifdef CONFIG_CMD_BLINK
 #include <blink.h>
 #endif

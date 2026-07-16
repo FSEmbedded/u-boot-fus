@@ -7,7 +7,6 @@
  * (C) Copyright 2017 F&S Elektronik Systeme GmbH
  */
 
-#include <common.h>
 #include <init.h>
 #include <time.h>
 #include <asm/io.h>

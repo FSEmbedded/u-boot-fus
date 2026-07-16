@@ -3,7 +3,6 @@
  * Copyright (C) 2023 NXP
  */
 
-#include <common.h>
 #include <command.h>
 #include <dm.h>
 #include <mapmem.h>

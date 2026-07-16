@@ -12,7 +12,6 @@
 * GNU General Public License for more details.
 */
 
-#include <common.h>
 #include <errno.h>
 #include <malloc.h>
 #include <dm/device.h>

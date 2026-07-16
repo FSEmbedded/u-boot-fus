@@ -11,7 +11,6 @@
  */
 
 #include <config.h>
-#include <common.h>
 #include <command.h>
 #include <clk.h>
 #include <cpu_func.h>
@@ -148,15 +147,14 @@ struct esdhc_soc_data {
 struct fsl_esdhc_priv {
 	struct fsl_esdhc_cfg esdhc;
 	struct clk per_clk;
-	struct clk ipg_clk;
-	struct clk ahb_clk;
+	struct clk_bulk clk_bulk;
 	unsigned int clock;
 #if !CONFIG_IS_ENABLED(DM_MMC)
 	struct mmc *mmc;
 #endif
 	struct udevice *dev;
 	int broken_cd;
-#ifdef MMC_SUPPORTS_TUNING
+#if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
 	unsigned int mode;
 	u32 tuning_step;
 	u32 tuning_start_tap;
@@ -545,6 +543,11 @@ static int esdhc_send_cmd_common(struct fsl_esdhc_priv *priv, struct mmc *mmc,
 				}
 			} while ((irqstat & flags) != flags);
 
+			/* Add 10us delay for Errata ERR052357 */
+			if (IS_ENABLED(CONFIG_SYS_FSL_ERRATUM_052357) &&
+			    (data->flags & MMC_DATA_READ))
+				udelay(10);
+
 			/*
 			 * Need invalidate the dcache here again to avoid any
 			 * cache-fill during the DMA operations such as the
@@ -634,7 +637,7 @@ static void set_sysctl(struct fsl_esdhc_priv *priv, struct mmc *mmc, uint clock)
 	priv->clock = clock;
 }
 
-#ifdef MMC_SUPPORTS_TUNING
+#if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
 static int esdhc_change_pinstate(struct udevice *dev)
 {
 	struct fsl_esdhc_priv *priv = dev_get_priv(dev);
@@ -766,7 +769,7 @@ static int esdhc_set_voltage(struct mmc *mmc)
 			ret = regulator_set_value(priv->vqmmc_dev,
 						  3300000);
 			if (ret) {
-				printf("Setting to 3.3V error");
+				printf("Setting to 3.3V error: %d\n", ret);
 				return -EIO;
 			}
 			mdelay(5);
@@ -784,7 +787,7 @@ static int esdhc_set_voltage(struct mmc *mmc)
 			ret = regulator_set_value(priv->vqmmc_dev,
 						  1800000);
 			if (ret) {
-				printf("Setting to 1.8V error");
+				printf("Setting to 1.8V error: %d\n", ret);
 				return -EIO;
 			}
 		}
@@ -881,7 +884,7 @@ static int fsl_esdhc_execute_tuning(struct udevice *dev, uint32_t opcode)
 		esdhc_write32(&regs->mixctrl, val);
 
 		/* We are using STD tuning, no need to check return value */
-		mmc_send_tuning(mmc, opcode, NULL);
+		mmc_send_tuning(mmc, opcode);
 
 		ctrl = esdhc_read32(&regs->autoc12err);
 		if ((!(ctrl & MIX_CTRL_EXE_TUNE)) &&
@@ -922,7 +925,7 @@ static int esdhc_set_ios_common(struct fsl_esdhc_priv *priv, struct mmc *mmc)
 	int ret __maybe_unused;
 	u32 clock;
 
-#ifdef MMC_SUPPORTS_TUNING
+#if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
 	/*
 	 * call esdhc_set_timing() before update the clock rate,
 	 * This is because current we support DDR and SDR mode,
@@ -960,7 +963,7 @@ static int esdhc_set_ios_common(struct fsl_esdhc_priv *priv, struct mmc *mmc)
 			esdhc_setbits32(&regs->sysctl, SYSCTL_PEREN | SYSCTL_CKEN);
 	}
 
-#ifdef MMC_SUPPORTS_TUNING
+#if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
 	/*
 	 * For HS400/HS400ES mode, make sure set the strobe dll in the
 	 * target clock rate. So call esdhc_set_strobe_dll() after the
@@ -1254,7 +1257,7 @@ static int fsl_esdhc_init(struct fsl_esdhc_priv *priv,
 
 	esdhc_write32(&regs->dllctrl, 0);
 	if (priv->esdhc.flags & ESDHC_FLAG_USDHC) {
-#ifdef MMC_SUPPORTS_TUNING
+#if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
 		if (priv->esdhc.flags & ESDHC_FLAG_STD_TUNING) {
 			u32 val = esdhc_read32(&regs->tuning_ctrl);
 
@@ -1420,9 +1423,8 @@ static int fsl_esdhc_of_to_plat(struct udevice *dev)
 	struct udevice *vqmmc_dev;
 	int ret;
 
-#ifdef MMC_SUPPORTS_TUNING
-	const void *fdt = gd->fdt_blob;
-	int node = dev_of_offset(dev);
+#if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
+	ofnode node = dev_ofnode(dev);
 	unsigned int val;
 #endif
 	fdt_addr_t addr;
@@ -1444,16 +1446,16 @@ static int fsl_esdhc_of_to_plat(struct udevice *dev)
 	priv->esdhc.esdhc_base = addr;
 	priv->dev = dev;
 
-#ifdef MMC_SUPPORTS_TUNING
-	val = fdtdec_get_int(fdt, node, "fsl,tuning-step", 1);
+#if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
+	val = ofnode_read_u32_default(node, "fsl,tuning-step", 1);
 	priv->tuning_step = val;
-	val = fdtdec_get_int(fdt, node, "fsl,tuning-start-tap",
-			     ESDHC_TUNING_START_TAP_DEFAULT);
+	val = ofnode_read_u32_default(node, "fsl,tuning-start-tap",
+				      ESDHC_TUNING_START_TAP_DEFAULT);
 	priv->tuning_start_tap = val;
-	val = fdtdec_get_int(fdt, node, "fsl,strobe-dll-delay-target",
-			     ESDHC_STROBE_DLL_CTRL_SLV_DLY_TARGET_DEFAULT);
+	val = ofnode_read_u32_default(node, "fsl,strobe-dll-delay-target",
+				      ESDHC_STROBE_DLL_CTRL_SLV_DLY_TARGET_DEFAULT);
 	priv->strobe_dll_delay_target = val;
-	val = fdtdec_get_int(fdt, node, "fsl,signal-voltage-switch-extra-delay-ms", 0);
+	val = ofnode_read_u32_default(node, "fsl,signal-voltage-switch-extra-delay-ms", 0);
 	priv->signal_voltage_switch_extra_delay_ms = val;
 #endif
 
@@ -1538,32 +1540,21 @@ static int fsl_esdhc_probe(struct udevice *dev)
 
 #if CONFIG_IS_ENABLED(CLK)
 	/* Assigned clock already set clock */
-	ret = clk_get_by_name(dev, "ipg", &priv->ipg_clk);
-	if (!ret) {
-		ret = clk_enable(&priv->ipg_clk);
-		if (ret) {
-			printf("Failed to enable ipg_clk\n");
-			return ret;
-		}
+	ret = clk_get_bulk(dev, &priv->clk_bulk);
+	if (ret) {
+		dev_err(dev, "Failed to get clks: %d\n", ret);
+		return ret;
 	}
 
-	ret = clk_get_by_name(dev, "ahb", &priv->ahb_clk);
-	if (!ret) {
-		ret = clk_enable(&priv->ahb_clk);
-		if (ret) {
-			printf("Failed to enable ahb_clk\n");
-			return ret;
-		}
+	ret = clk_enable_bulk(&priv->clk_bulk);
+	if (ret) {
+		dev_err(dev, "Failed to enable clks: %d\n", ret);
+		return ret;
 	}
 
 	ret = clk_get_by_name(dev, "per", &priv->per_clk);
 	if (ret) {
 		printf("Failed to get per_clk\n");
-		return ret;
-	}
-	ret = clk_enable(&priv->per_clk);
-	if (ret) {
-		printf("Failed to enable per_clk\n");
 		return ret;
 	}
 
@@ -1658,7 +1649,7 @@ static const struct dm_mmc_ops fsl_esdhc_ops = {
 	.get_cd		= fsl_esdhc_get_cd,
 	.send_cmd	= fsl_esdhc_send_cmd,
 	.set_ios	= fsl_esdhc_set_ios,
-#ifdef MMC_SUPPORTS_TUNING
+#if CONFIG_IS_ENABLED(MMC_SUPPORTS_TUNING)
 	.execute_tuning	= fsl_esdhc_execute_tuning,
 #endif
 #if CONFIG_IS_ENABLED(MMC_HS400_ES_SUPPORT)

@@ -3,6 +3,7 @@
  * Copyright 2019 NXP
  */
 
+#include <asm/arch/sys_proto.h>
 #include <efi_loader.h>
 #include <env.h>
 #include <errno.h>
@@ -25,6 +26,9 @@
 #include "../common/tcpc.h"
 #include <usb.h>
 #include <dwc3-uboot.h>
+#include <dm/uclass-internal.h>
+#include <dm/pinctrl.h>
+#include <fuse.h>
 #include <mmc.h>
 
 DECLARE_GLOBAL_DATA_PTR;
@@ -82,8 +86,55 @@ int board_early_init_f(void)
 }
 
 #ifdef CONFIG_OF_BOARD_SETUP
+static int jh_mem_fdt_setup(void *blob)
+{
+	char *p, *b, *s;
+	char *token = NULL;
+	int i, ret = 0;
+	u64 base[CONFIG_NR_DRAM_BANKS] = {0};
+	u64 size[CONFIG_NR_DRAM_BANKS] = {0};
+
+	p = env_get("jh_root_mem");
+	if (!p)
+		return 0;
+
+	i = 0;
+	token = strtok(p, ",");
+	while (token) {
+		if (i >= CONFIG_NR_DRAM_BANKS) {
+			printf("Error: The number of size@base exceeds CONFIG_NR_DRAM_BANKS.\n");
+			return -EINVAL;
+		}
+
+		b = token;
+		s = strsep(&b, "@");
+		if (!s) {
+			printf("The format of jh_root_mem is size@base[,size@base...].\n");
+			return -EINVAL;
+		}
+
+		base[i] = simple_strtoull(b, NULL, 16);
+		size[i] = simple_strtoull(s, NULL, 16);
+		token = strtok(NULL, ",");
+		i++;
+	}
+
+	ret = fdt_fixup_memory_banks(blob, base, size, CONFIG_NR_DRAM_BANKS);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 int ft_board_setup(void *blob, struct bd_info *bd)
 {
+	int ret;
+	ret = jh_mem_fdt_setup(blob);
+	if (ret) {
+		printf("jailhouse memory process fail.\n");
+		return ret;
+	}
+
 #ifdef CONFIG_IMX8M_DRAM_INLINE_ECC
 #ifdef CONFIG_TARGET_IMX8MP_DDR4_EVK
 	int rc;
@@ -304,12 +355,6 @@ static struct dwc3_device dwc3_device_data = {
 	.power_down_scale = 2,
 };
 
-int dm_usb_gadget_handle_interrupts(struct udevice *dev)
-{
-	dwc3_uboot_handle_interrupt(dev);
-	return 0;
-}
-
 static void dwc3_nxp_usb_phy_init(struct dwc3_device *dwc3)
 {
 	u32 RegData;
@@ -413,8 +458,39 @@ int board_typec_get_mode(int index)
 #endif
 #endif
 
+
+#if IS_ENABLED(CONFIG_IMX8MP_GP5_LOCK_UPDATE)
+#define GP5_LOCK_WPOP 0x300
+
+static void lock_gp5_fuse(void)
+{
+	u32 val = 0;
+	int ret;
+
+	ret = fuse_sense(0, 1, &val);
+	if (ret) {
+		printf("Sense GP5_LOCK fuse failed\n");
+		return;
+	}
+
+	if ((val & GP5_LOCK_WPOP) != GP5_LOCK_WPOP) {
+		printf("Locking GP5 ");
+		ret = fuse_prog(0, 1, GP5_LOCK_WPOP);
+		if (!ret)
+			printf("done\n");
+		else
+			printf("failed %d\n", ret);
+
+	}
+}
+#endif
+
 int board_init(void)
 {
+#if IS_ENABLED(CONFIG_IMX8MP_GP5_LOCK_UPDATE)
+	lock_gp5_fuse();
+#endif
+
 #ifdef CONFIG_USB_TCPC
 	setup_typec();
 #endif
@@ -432,9 +508,10 @@ int board_init(void)
 
 int board_late_init(void)
 {
-#ifdef CONFIG_ENV_IS_IN_MMC
+#if CONFIG_IS_ENABLED(ENV_IS_IN_MMC)
 	board_late_mmc_env_init();
 #endif
+
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	env_set("board_name", "EVK");
 	env_set("board_rev", "iMX8MP");
@@ -442,6 +519,18 @@ int board_late_init(void)
 
 	return 0;
 }
+
+#ifndef CONFIG_XPL_BUILD
+void board_prep_linux(struct bootm_headers *images)
+{
+	int ret;
+	struct udevice *dwc3_usb;
+
+	ret = uclass_find_device_by_seq(UCLASS_USB, 1, &dwc3_usb);
+	if (!ret)
+		pinctrl_select_state(dwc3_usb, "gpio");
+}
+#endif
 
 #ifdef CONFIG_ANDROID_SUPPORT
 bool is_power_key_pressed(void) {
@@ -471,3 +560,9 @@ int is_recovery_key_pressing(void)
 }
 #endif /* CONFIG_ANDROID_RECOVERY */
 #endif /* CONFIG_FSL_FASTBOOT */
+
+#ifdef CONFIG_IMX_MATTER_TRUSTY
+int board_get_emmc_id(void) {
+	return 2;
+}
+#endif

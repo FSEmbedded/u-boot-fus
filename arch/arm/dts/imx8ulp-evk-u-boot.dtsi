@@ -3,7 +3,13 @@
  * Copyright 2021 NXP
  */
 
+#include "imx8ulp-u-boot.dtsi"
+
 / {
+	chosen {
+		bootargs = "console=ttyLP1,115200 earlycon";
+	};
+
 	mu@27020000 {
 		compatible = "fsl,imx8ulp-mu";
 		reg = <0 0x27020000 0 0x10000>;
@@ -12,8 +18,8 @@
 	};
 
 	aliases {
-		usbgadget0 = &usbg1;
-		usbgadget1 = &usbg2;
+		usb_gadget0 = &usbg1;
+		usb_gadget1 = &usbg2;
 	};
 
 	usbg1: usbg1 {

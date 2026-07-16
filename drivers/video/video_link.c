@@ -4,7 +4,6 @@
  *
  */
 
-#include <common.h>
 #include <command.h>
 #include <linux/errno.h>
 
@@ -37,6 +36,7 @@ struct video_link temp_stack;
 ulong video_links_num = 0;
 ulong curr_video_link = 0;
 bool video_off = false;
+bool video_retain = false;
 
 ofnode ofnode_get_child_by_name(ofnode parent, const char *name)
 {
@@ -533,9 +533,8 @@ static int do_videolink(struct cmd_tbl * cmdtp, int flag, int argc, char * const
 int video_link_init(void)
 {
 	struct udevice *dev;
-	const char *env_vl;
 	ulong env_id;
-
+	int off, retain;
 	memset(&video_links, 0, sizeof(video_links));
 	memset(&temp_stack, 0, sizeof(temp_stack));
 
@@ -551,18 +550,20 @@ int video_link_init(void)
 		return -ENODEV;
 	}
 
-	printf("Video: ");
-	env_vl = env_get("video_link");
-	if (!env_vl) {
+	/* Read the env variable for default video link */
+	off = env_get_yesno("video_off");
+	if (off == 1) {
 		video_off = true;
-		printf("off (variable video_link is unset)\n");
 		return 0;
 	}
 
-	env_id = simple_strtoul(env_vl, NULL, 10);
-
+	env_id = env_get_ulong("video_link", 10, 0);
 	if (env_id < video_links_num)
 		curr_video_link = env_id;
+
+	retain = env_get_yesno("video_retain");
+	if (retain == 1)
+		video_retain = true;
 
 	list_videolink(true);
 
@@ -573,7 +574,7 @@ int video_link_shut_down(void)
 {
 	struct udevice *video_dev = video_link_get_video_device();
 
-	if (video_dev)
+	if (video_dev && !video_retain)
 		device_remove(video_dev, DM_REMOVE_NORMAL);
 
 	return 0;

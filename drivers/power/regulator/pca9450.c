@@ -7,7 +7,6 @@
  * ROHM BD71837 regulator driver
  */
 
-#include <common.h>
 #include <dm.h>
 #include <log.h>
 #include <linux/bitops.h>
@@ -297,8 +296,8 @@ static int pca9450_regulator_probe(struct udevice *dev)
 	ret = pmic_reg_read(dev->parent, PCA9450_PWR_CTRL);
 	if (ret < 0)
 		return ret;
-	else
-		val = ret;
+
+	val = ret;
 
 	if ((type == NXP_CHIP_TYPE_PCA9451A || type == NXP_CHIP_TYPE_PCA9452) &&
 	    (val & PCA9450_REG_PWRCTRL_TOFF_DEB))

@@ -3,7 +3,6 @@
  * Copyright 2022 NXP
  */
 
-#include <common.h>
 #include <command.h>
 #include <cpu_func.h>
 #include <hang.h>
@@ -20,6 +19,7 @@
 #include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/mxc_i2c.h>
 #include <asm/arch-mx7ulp/gpio.h>
+#include <asm/arch-imx9/bbsm.h>
 #include <asm/mach-imx/ele_api.h>
 #include <asm/mach-imx/syscounter.h>
 #include <asm/sections.h>
@@ -64,6 +64,11 @@ void spl_board_init(void)
 	if (ret)
 		printf("Fail to start RNG: %d\n", ret);
 
+#ifdef CONFIG_SPL_IMX_BBSM
+	ret = bbsm_tamper_detect_enable();
+	if (ret)
+		printf("Failed to enable BBSM Tamper Detection: %d\n", ret);
+#endif
 	puts("Normal Boot\n");
 }
 
@@ -71,10 +76,9 @@ extern struct dram_timing_info dram_timing_1866mts;
 void spl_dram_init(void)
 {
 	struct dram_timing_info *ptiming = &dram_timing;
-#if IS_ENABLED(CONFIG_IMX93_EVK_LPDDR4X)
+
 	if (is_voltage_mode(VOLT_LOW_DRIVE))
 		ptiming = &dram_timing_1866mts;
-#endif
 
 	printf("DDR: %uMTS\n", ptiming->fsp_msg[0].drate);
 	ddr_init(ptiming);
@@ -142,9 +146,8 @@ int power_init_board(void)
 	ret = pmic_reg_read(dev, PF0900_REG_SYS_CFG1);
 	if (ret < 0)
 		return ret;
-	/*disable stby xrst*/
-	sw_val = 0x0;
-	sw_val = (sw_val & XRST_STBY_EN_MASK) | (ret & ~XRST_STBY_EN_MASK);
+	/*enable stby xrst*/
+	sw_val = ret | XRST_STBY_EN_MASK;
 	ret = pmic_reg_write(dev, PF0900_REG_SYS_CFG1, sw_val);
 	if (ret != 0)
 		return ret;
@@ -174,8 +177,8 @@ int power_init_board(void)
 	ret = pmic_reg_read(dev, PCA9450_PWR_CTRL);
 	if (ret < 0)
 		return ret;
-	else
-		val = ret;
+
+	val = ret;
 
 	if (is_voltage_mode(VOLT_LOW_DRIVE)) {
 		buck_val = 0x0c; /* 0.8v for Low drive mode */
@@ -199,11 +202,6 @@ int power_init_board(void)
 	}
 
 	ele_volt_change_finish_req();
-
-	if (IS_ENABLED(CONFIG_IMX93_EVK_LPDDR4)) {
-		/* Set VDDQ to 1.1V from buck2 */
-		pmic_reg_write(dev, PCA9450_BUCK2OUT_DVS0, 0x28);
-	}
 
 	/* set standby voltage to 0.65v */
 	if (val & PCA9450_REG_PWRCTRL_TOFF_DEB)
@@ -238,8 +236,8 @@ void board_init_f(ulong dummy)
 	if (ret) {
 		printf("Fail to init ELE API\n");
 	} else {
-		printf("SOC: 0x%x\n", gd->arch.soc_rev);
-		printf("LC: 0x%x\n", gd->arch.lifecycle);
+		debug("SOC: 0x%x\n", gd->arch.soc_rev);
+		debug("LC: 0x%x\n", gd->arch.lifecycle);
 	}
 
 	clock_init_late();

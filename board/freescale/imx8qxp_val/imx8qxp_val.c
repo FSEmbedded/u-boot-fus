@@ -3,7 +3,6 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-#include <common.h>
 #include <malloc.h>
 #include <errno.h>
 #include <netdev.h>

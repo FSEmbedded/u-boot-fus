@@ -2,7 +2,6 @@
 /*
  * Copyright 2017-2018 NXP
  */
-#include <common.h>
 #include <cpu_func.h>
 #include <malloc.h>
 #include <errno.h>

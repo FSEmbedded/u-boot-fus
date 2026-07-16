@@ -7,7 +7,6 @@
  * Murray.Jensen@cmst.csiro.au, 27-Jan-01.
  */
 
-#include <common.h>
 #include <command.h>
 #include <config.h>
 #include <cpu_func.h>
@@ -328,16 +327,16 @@ static void ci_ep_free_request(struct usb_ep *ep, struct usb_request *req)
 	free(ci_req);
 }
 
-static void ep_enable(int num, int in, int maxpacket)
+static void ep_enable(int num, int in, int type, int maxpacket)
 {
 	struct ci_udc *udc = (struct ci_udc *)controller.ctrl->hcor;
 	unsigned n;
 
 	n = readl(&udc->epctrl[num]);
 	if (in)
-		n |= (CTRL_TXE | CTRL_TXR | CTRL_TXT_BULK);
+		n |= (CTRL_TXE | CTRL_TXR | CTRL_TXT(type));
 	else
-		n |= (CTRL_RXE | CTRL_RXR | CTRL_RXT_BULK);
+		n |= (CTRL_RXE | CTRL_RXR | CTRL_RXT(type));
 
 	if (num != 0) {
 		struct ept_queue_head *head = ci_get_qh(num, in);
@@ -352,9 +351,10 @@ static int ci_ep_enable(struct usb_ep *ep,
 		const struct usb_endpoint_descriptor *desc)
 {
 	struct ci_ep *ci_ep = container_of(ep, struct ci_ep, ep);
-	int num, in;
+	int num, in, type;
 	num = desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 	in = (desc->bEndpointAddress & USB_DIR_IN) != 0;
+	type = usb_endpoint_type(desc);
 	ci_ep->desc = desc;
 	ep->desc = desc;
 
@@ -369,7 +369,7 @@ static int ci_ep_enable(struct usb_ep *ep,
 			ep->maxpacket = max;
 		}
 	}
-	ep_enable(num, in, ep->maxpacket);
+	ep_enable(num, in, type, ep->maxpacket);
 	DBG("%s: num=%d maxpacket=%d\n", __func__, num, ep->maxpacket);
 	return 0;
 }
@@ -669,11 +669,29 @@ static void flip_ep0_direction(void)
 	}
 }
 
+/*
+ * This function explicitly sets the address, without the "USBADRA" (advance)
+ * feature, which is not supported by older versions of the controller.
+ */
+static void ci_set_address(struct ci_udc *udc, u8 address)
+{
+	DBG("%s %x\n", __func__, address);
+	writel(address << 25, &udc->devaddr);
+}
+
 static void handle_ep_complete(struct ci_ep *ci_ep)
 {
 	struct ept_queue_item *item, *next_td;
 	int num, in, len, j;
 	struct ci_req *ci_req;
+
+	/* Set the device address that was previously sent by SET_ADDRESS */
+	if (controller.next_device_address != 0) {
+		struct ci_udc *udc = (struct ci_udc *)controller.ctrl->hcor;
+
+		ci_set_address(udc, controller.next_device_address);
+		controller.next_device_address = 0;
+	}
 
 	num = ci_ep->desc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
 	in = (ci_ep->desc->bEndpointAddress & USB_DIR_IN) != 0;
@@ -734,7 +752,7 @@ static void handle_setup(void)
 	struct ept_queue_head *head;
 	struct usb_ctrlrequest r;
 	int status = 0;
-	int num, in, _num, _in, i;
+	int num, in, _num, _in, i, type;
 	char *buf;
 
 	ci_req = controller.ep0_req;
@@ -788,8 +806,9 @@ static void handle_setup(void)
 						& USB_ENDPOINT_NUMBER_MASK;
 				in = (ep->desc->bEndpointAddress
 						& USB_DIR_IN) != 0;
+				type = usb_endpoint_type(ep->desc);
 				if ((num == _num) && (in == _in)) {
-					ep_enable(num, in, ep->ep.maxpacket);
+					ep_enable(num, in, type, ep->ep.maxpacket);
 					usb_ep_queue(controller.gadget.ep0,
 							req, 0);
 					break;
@@ -803,7 +822,7 @@ static void handle_setup(void)
 		 * write address delayed (will take effect
 		 * after the next IN txn)
 		 */
-		writel((r.wValue << 25) | (1 << 24), &udc->devaddr);
+		controller.next_device_address = r.wValue;
 		req->length = 0;
 		usb_ep_queue(controller.gadget.ep0, req, 0);
 		return;
@@ -834,6 +853,9 @@ static void stop_activity(void)
 	int i, num, in;
 	struct ept_queue_head *head;
 	struct ci_udc *udc = (struct ci_udc *)controller.ctrl->hcor;
+
+	ci_set_address(udc, 0);
+
 	writel(readl(&udc->epcomp), &udc->epcomp);
 #ifdef CONFIG_CI_UDC_HAS_HOSTPC
 	writel(readl(&udc->epsetupstat), &udc->epsetupstat);
@@ -954,6 +976,7 @@ static int ci_pullup(struct usb_gadget *gadget, int is_on)
 	struct ci_udc *udc = (struct ci_udc *)controller.ctrl->hcor;
 	if (is_on) {
 		/* RESET */
+		controller.next_device_address = 0;
 		writel(USBCMD_ITC(MICRO_8FRAME) | USBCMD_RST, &udc->usbcmd);
 		udelay(200);
 
@@ -1544,6 +1567,10 @@ static const struct udevice_id ci_udc_otg_ids[] = {
 	{ }
 };
 
+static const struct usb_gadget_generic_ops ci_udc_gadget_ops = {
+	.handle_interrupts	= ci_udc_gadget_handle_interrupts,
+};
+
 U_BOOT_DRIVER(ci_udc_otg) = {
 	.name	= "ci-udc-otg",
 	.id	= UCLASS_USB_GADGET_GENERIC,
@@ -1551,7 +1578,7 @@ U_BOOT_DRIVER(ci_udc_otg) = {
 	.of_to_plat = ci_udc_otg_ofdata_to_platdata,
 	.probe = ci_udc_otg_probe,
 	.remove = ci_udc_otg_remove,
-	.handle_interrupts = ci_udc_gadget_handle_interrupts,
+	.ops	= &ci_udc_gadget_ops,
 	.priv_auto = sizeof(struct ci_udc_priv_data),
 };
 

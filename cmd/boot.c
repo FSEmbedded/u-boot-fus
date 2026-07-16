@@ -7,10 +7,10 @@
 /*
  * Misc boot support
  */
-#include <common.h>
 #include <command.h>
 #include <image.h>			/* parse_loadaddr() */
 #include <net.h>
+#include <vsprintf.h>
 
 #ifdef CONFIG_CMD_GO
 

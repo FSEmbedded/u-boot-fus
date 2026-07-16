@@ -3,7 +3,6 @@
  * Copyright 2022 NXP
  */
 
-#include <common.h>
 #include <dm.h>
 #include <dm/device_compat.h>
 #include <thermal.h>
@@ -144,7 +143,7 @@ static int scmi_sensor_config_set(struct udevice *dev, u32 config)
 	if (ret)
 		return ret;
 
-	ret = scmi_to_linux_errno(*(u32 *)out.buf);
+	ret = scmi_to_linux_errno(out.status);
 	if (ret < 0)
 		return ret;
 

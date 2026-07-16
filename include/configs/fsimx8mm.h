@@ -99,7 +99,7 @@
 #include <linux/sizes.h>
 #include <asm/arch/imx-regs.h>
 
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #define CONFIG_SYS_SERCON_NAME "ttymxc"	/* Base name for serial devices */
 

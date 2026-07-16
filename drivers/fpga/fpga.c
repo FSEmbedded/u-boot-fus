@@ -5,7 +5,6 @@
  */
 
 /* Generic FPGA support */
-#include <common.h>             /* core U-Boot definitions */
 #include <init.h>
 #include <log.h>
 #include <xilinx.h>             /* xilinx specific definitions */
@@ -31,13 +30,12 @@ static void fpga_no_sup(char *fn, char *msg)
 		printf("No FPGA support!\n");
 }
 
-
 /* fpga_get_desc
  *	map a device number to a descriptor
  */
-const fpga_desc *const fpga_get_desc(int devnum)
+const fpga_desc *fpga_get_desc(int devnum)
 {
-	fpga_desc *desc = (fpga_desc *)NULL;
+	const fpga_desc *desc = NULL;
 
 	if ((devnum >= 0) && (devnum < next_desc)) {
 		desc = &desc_table[devnum];
@@ -52,8 +50,8 @@ const fpga_desc *const fpga_get_desc(int devnum)
  * fpga_validate
  *	generic parameter checking code
  */
-const fpga_desc *const fpga_validate(int devnum, const void *buf,
-				     size_t bsize, char *fn)
+const fpga_desc *fpga_validate(int devnum, const void *buf,
+			       size_t bsize, char *fn)
 {
 	const fpga_desc *desc = fpga_get_desc(devnum);
 
@@ -62,7 +60,7 @@ const fpga_desc *const fpga_validate(int devnum, const void *buf,
 
 	if (!buf) {
 		printf("%s: Null buffer.\n", fn);
-		return (fpga_desc * const)NULL;
+		return NULL;
 	}
 	return desc;
 }
@@ -74,7 +72,7 @@ const fpga_desc *const fpga_validate(int devnum, const void *buf,
 static int fpga_dev_info(int devnum)
 {
 	int ret_val = FPGA_FAIL; /* assume failure */
-	const fpga_desc * const desc = fpga_get_desc(devnum);
+	const fpga_desc *desc = fpga_get_desc(devnum);
 
 	if (desc) {
 		debug("%s: Device Descriptor @ 0x%p\n",
@@ -376,7 +374,7 @@ int fpga_info(int devnum)
 #if CONFIG_IS_ENABLED(FPGA_LOAD_SECURE)
 int fpga_compatible2flag(int devnum, const char *compatible)
 {
-	const fpga_desc * const desc = fpga_get_desc(devnum);
+	const fpga_desc *desc = fpga_get_desc(devnum);
 
 	if (!desc)
 		return 0;

@@ -6,7 +6,6 @@
 #ifndef _FS_DEVICEINFO_COMMON_H
 #define _FS_DEVICEINFO_COMMON_H
 
-#include <common.h>
 #include <linux/types.h>
 
 /**

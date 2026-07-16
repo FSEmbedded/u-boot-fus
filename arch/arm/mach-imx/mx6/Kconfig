@@ -86,8 +86,8 @@ config MX6UL_OPOS6UL
 	select BOARD_LATE_INIT
 	select DM
 	select DM_GPIO
-	select DM_MMC
 	select DM_THERMAL
+	select MMC
 	select SPL_DM if SPL
 	select SPL_OF_CONTROL if SPL
 	select SPL_PINCTRL if SPL
@@ -223,9 +223,9 @@ config TARGET_DART_6UL
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_SERIAL
 	select DM_THERMAL
+	select MMC
 	select SUPPORT_SPL
 
 config TARGET_DHCOMIMX6
@@ -244,10 +244,10 @@ config TARGET_DISPLAY5
 	depends on MX6Q
 	select DM
 	select DM_I2C
-	select DM_MMC
 	select DM_SPI
 	select DM_GPIO
 	select DM_SERIAL
+	select MMC
 	select MTD
 	select SUPPORT_SPL
 	imply CMD_DM
@@ -317,7 +317,7 @@ config TARGET_KOSAGI_NOVENA
 	bool "Kosagi Novena"
 	select BOARD_LATE_INIT
 	select DM_GPIO
-	select DM_MMC
+	select MMC
 	select PCI
 	select SCSI
 	select VIDEO
@@ -352,8 +352,8 @@ config TARGET_MX6LOGICPD
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_PMIC
+	select MMC
 	select OF_CONTROL
 	imply CMD_DM
 
@@ -372,10 +372,10 @@ config TARGET_MX6DL_MAMOJ
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_PMIC
 	select DM_PMIC_PFUZE100
 	select DM_THERMAL
+	select MMC
 	select OF_CONTROL
 	select PINCTRL
 	select SPL
@@ -404,8 +404,8 @@ config TARGET_MX6Q_ENGICAM
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_THERMAL
+	select MMC
 	select OF_CONTROL
 	select SPL_DM if SPL
 	select SPL_OF_CONTROL if SPL
@@ -424,8 +424,8 @@ config TARGET_MX6Q_ACC
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_THERMAL
+	select MMC
 	select SUPPORT_SPL
 
 config TARGET_MX6S_SIELAFF
@@ -572,8 +572,8 @@ config TARGET_MX6UL_ENGICAM
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_THERMAL
+	select MMC
 	select OF_CONTROL
 	select SPL_DM if SPL
 	select SPL_OF_CONTROL if SPL
@@ -614,6 +614,7 @@ config TARGET_MX6ULZ_SMM_M2
 	select DM_MTD
 	select DM_THERMAL
 	select SUPPORT_SPL
+	imply OF_UPSTREAM
 
 config TARGET_MYS_6ULX
 	bool "MYiR MYS-6ULX"
@@ -621,9 +622,9 @@ config TARGET_MYS_6ULX
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_SERIAL
 	select DM_THERMAL
+	select MMC
 	select SUPPORT_SPL
 
 config TARGET_NITROGEN6X
@@ -638,10 +639,10 @@ config TARGET_NPI_IMX6ULL
 	bool "Seeed NPI-IMX6ULL"
 	depends on MX6ULL
 	select DM
-	select DM_MMC
 	select DM_GPIO
 	select DM_SERIAL
 	select DM_THERMAL
+	select MMC
 	select SUPPORT_SPL
 
 config TARGET_OPOS6ULDEV
@@ -672,6 +673,16 @@ config TARGET_LITEBOARD
 	select BOARD_LATE_INIT
 	select MX6UL_LITESOM
 
+config TARGET_LXR2
+	bool "Comvetia i.MX6Q LXR2"
+	depends on MX6Q
+	select BOARD_EARLY_INIT_F
+	select BOARD_LATE_INIT
+	select DM
+	select DM_THERMAL
+	select SUPPORT_SPL
+	imply CMD_DM
+
 config TARGET_PCM058
 	bool "Phytec PCM058 i.MX6 Quad"
 	depends on MX6Q
@@ -687,9 +698,9 @@ config TARGET_PCL063
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_SERIAL
 	select DM_THERMAL
+	select MMC
 	select SUPPORT_SPL
 
 config TARGET_PCL063_ULL
@@ -698,9 +709,9 @@ config TARGET_PCL063_ULL
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_SERIAL
 	select DM_THERMAL
+	select MMC
 	select SUPPORT_SPL
 
 config TARGET_SOMLABS_VISIONSOM_6ULL
@@ -709,9 +720,9 @@ config TARGET_SOMLABS_VISIONSOM_6ULL
 	select BOARD_LATE_INIT
 	select DM
 	select DM_GPIO
-	select DM_MMC
 	select DM_SERIAL
 	select DM_THERMAL
+	select MMC
 	imply CMD_DM
 
 config TARGET_TBS2910
@@ -726,7 +737,7 @@ config TARGET_KP_IMX6Q_TPC
 	select DM
 	select SPL_DM if SPL
 	select DM_THERMAL
-	select DM_MMC
+	select MMC
 	select DM_REGULATOR
 	select SPL_DM_REGULATOR if SPL
 	select DM_SERIAL
@@ -768,6 +779,7 @@ config TARGET_UDOO_NEO
 	select DM_THERMAL
 	select SUPPORT_SPL
 	imply CMD_DM
+	imply OF_UPSTREAM
 
 config TARGET_SOFTING_VINING_2000
 	bool "Softing VIN|ING 2000"
@@ -793,7 +805,7 @@ config TARGET_BRPPT2
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
+	select MMC
 	select SUPPORT_SPL
 	select SPL_DM if SPL
 	select SPL_OF_CONTROL if SPL
@@ -826,6 +838,7 @@ source "board/boundary/nitrogen6x/Kconfig"
 source "board/bsh/imx6ulz_smm_m2/Kconfig"
 source "board/bticino/mamoj/Kconfig"
 source "board/compulab/cm_fx6/Kconfig"
+source "board/comvetia/lxr2/Kconfig"
 source "board/dhelectronics/dh_imx6/Kconfig"
 source "board/embest/mx6boards/Kconfig"
 source "board/engicam/imx6q/Kconfig"

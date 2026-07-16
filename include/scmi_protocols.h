@@ -25,7 +25,10 @@ enum scmi_std_protocol {
 	SCMI_PROTOCOL_ID_RESET_DOMAIN = 0x16,
 	SCMI_PROTOCOL_ID_VOLTAGE_DOMAIN = 0x17,
 	SCMI_PROTOCOL_ID_PINCTRL = 0x19,
-	SCMI_PROTOCOL_ID_MISC = 0x84,
+	SCMI_PROTOCOL_ID_VENDOR_80 = 0x80,
+	SCMI_PROTOCOL_ID_IMX_BBM = 0x81,
+	SCMI_PROTOCOL_ID_VENDOR_82 = 0x82,
+	SCMI_PROTOCOL_ID_IMX_MISC = 0x84,
 };
 
 enum scmi_status_code {
@@ -51,10 +54,15 @@ enum scmi_discovery_id {
 	SCMI_PROTOCOL_MESSAGE_ATTRIBUTES = 0x2,
 };
 
-/* SCMI Base Protocol */
-enum scmi_misc_message_id {
+enum scmi_imx_misc_message_id {
 	SCMI_MISC_ROM_PASSOVER_GET = 0x7,
-	SCMI_MISC_CFG_INFO = 0xC
+	SCMI_MISC_CFG_INFO = 0xC,
+	SCMI_MISC_DDR_INFO_GET = 0x22,
+};
+
+enum scmi_imx_bbm_message_id {
+	SCMI_BBM_GPR_SET = 0x3,
+	SCMI_BBM_GPR_GET = 0x4,
 };
 
 /*
@@ -147,7 +155,7 @@ struct scmi_base_discover_impl_version_out {
 struct scmi_base_discover_list_protocols_out {
 	s32 status;
 	u32 num_protocols;
-	u32 protocols[4];
+	u32 protocols[];
 };
 
 /**
@@ -733,13 +741,15 @@ int scmi_pwd_name_get(struct udevice *dev, u32 domain_id, u8 **name);
 /*
  * SCMI Clock Protocol
  */
+#define CLOCK_PROTOCOL_VERSION_3_0	0x30000
 
 enum scmi_clock_message_id {
 	SCMI_CLOCK_ATTRIBUTES = 0x3,
 	SCMI_CLOCK_RATE_SET = 0x5,
 	SCMI_CLOCK_RATE_GET = 0x6,
 	SCMI_CLOCK_CONFIG_SET = 0x7,
-	SCMI_CLOCK_PARENT_SET = 0xD
+	SCMI_CLOCK_PARENT_SET = 0xD,
+	SCMI_CLOCK_GET_PERMISSIONS = 0xF
 };
 
 #define SCMI_CLK_PROTO_ATTR_COUNT_MASK	GENMASK(15, 0)
@@ -778,6 +788,7 @@ struct scmi_clk_attribute_in {
 struct scmi_clk_attribute_out {
 	s32 status;
 	u32 attributes;
+#define CLK_HAS_RESTRICTIONS(x)	((x) & BIT(1))
 	char clock_name[SCMI_CLOCK_NAME_LENGTH_MAX];
 };
 
@@ -789,7 +800,6 @@ struct scmi_clk_attribute_out {
 struct scmi_clk_state_in {
 	u32 clock_id;
 	u32 attributes;
-	u32 oem_config_val;
 };
 
 /**
@@ -860,6 +870,27 @@ struct scmi_clk_parent_set_in {
 struct scmi_clk_parent_set_out {
 	s32 status;
 };
+
+/**
+ * @clock_id:	Identifier for the clock device.
+ */
+struct scmi_clk_get_permissions_in {
+	u32 clock_id;
+};
+
+/**
+ * @status:	Negative 32-bit integers are used to return error status codes.
+ * @permissions:	Bit[31] Clock state control, Bit[30] Clock parent control,
+ * Bit[29] Clock rate control, Bits[28:0] Reserved, must be zero.
+ */
+struct scmi_clk_get_permissions_out {
+	s32 status;
+	u32 permissions;
+};
+
+#define SUPPORT_CLK_STAT_CONTROL	BIT(31)
+#define SUPPORT_CLK_PARENT_CONTROL	BIT(30)
+#define SUPPORT_CLK_RATE_CONTROL	BIT(29)
 
 /*
  * SCMI Reset Domain Protocol
@@ -1033,6 +1064,60 @@ struct scmi_voltd_level_get_out {
 	s32 voltage_level;
 };
 
+/* SCMI Pinctrl Protocol */
+enum scmi_pinctrl_message_id {
+	SCMI_MSG_PINCTRL_CONFIG_SET = 0x6
+};
+
+struct scmi_pin_config {
+	u32 type;
+	u32 val;
+};
+
+/**
+ * struct scmi_pad_config_set_in - Message payload for PAD_CONFIG_SET command
+ * @identifier:		Identifier for the pin or group.
+ * @function_id:	Identifier for the function selected to be enabled
+ * 			for the selected pin or group. This field is set to
+ * 			0xFFFFFFFF if no function should be enabled by the
+ * 			pin or group.
+ * @attributes:		Bits[31:11] Reserved, must be zero.
+ * 			Bit[10] Function valid.
+ * 			Bits[9:2] Number of configurations to set.
+ * 			Bits[1:0] Selector: Whether the identifier field
+ * 				  refers to a pin or a group.
+ * @configs:	Array of configurations.
+ */
+struct scmi_pinctrl_config_set_in {
+	u32 identifier;
+	u32 function_id;
+	u32 attributes;
+	struct scmi_pin_config configs[5];
+};
+
+struct scmi_pinctrl_config_set_out {
+	s32 status;
+};
+
+/* SCMI Perf Protocol */
+enum scmi_perf_message_id {
+	SCMI_PERF_DOMAIN_ATTRIBUTES = 0x3,
+	SCMI_PERF_DESCRIBE_LEVELS = 0x4,
+	SCMI_PERF_LIMITS_SET = 0x5,
+	SCMI_PERF_LIMITS_GET = 0x6,
+	SCMI_PERF_LEVEL_SET = 0x7,
+	SCMI_PERF_LEVEL_GET = 0x8
+};
+
+struct scmi_perf_in {
+	u32 domain_id;
+	u32 perf_level;
+};
+
+struct scmi_perf_out {
+	s32 status;
+};
+
 /*
  * SCMI Sensor protocol
  */
@@ -1103,8 +1188,7 @@ struct scmi_sensor_config_set_a2p {
 };
 
 struct scmi_sensor_config_set_p2a {
-	void *buf;
-	size_t len;
+	u32 status;
 };
 
 #define SCMI_SENS_CFG_ENABLED_MASK	BIT(0)
@@ -1131,49 +1215,4 @@ struct scmi_sensor_reading_get_p2a {
 	struct scmi_sensor_val val;
 };
 
-/* SCMI Pinctrl Protocol */
-enum scmi_pinctrl_message_id {
-	SCMI_MSG_PINCTRL_CONFIG_SET = 0x6
-};
-
-struct scmi_pin_config {
-	u32 type;
-	u32 val;
-};
-
-/**
- * struct scmi_pad_config_set_in - Message payload for PAD_CONFIG_SET command
- * @clock_id:	SCMI clock ID
- * @parent_clk:		SCMI clock ID
- */
-struct scmi_pinctrl_config_set_in {
-	uint32_t identifier;
-	uint32_t function_id;
-	uint32_t attributes;
-	struct scmi_pin_config configs[4];
-};
-
-
-struct scmi_pinctrl_config_set_out {
-	s32 status;
-};
-
-/* SCMI Perf Protocol */
-enum scmi_perf_message_id {
-	SCMI_PERF_DOMAIN_ATTRIBUTES = 0x3,
-	SCMI_PERF_DESCRIBE_LEVELS = 0x4,
-	SCMI_PERF_LIMITS_SET = 0x5,
-	SCMI_PERF_LIMITS_GET = 0x6,
-	SCMI_PERF_LEVEL_SET = 0x7,
-	SCMI_PERF_LEVEL_GET = 0x8
-};
-
-struct scmi_perf_in {
-	u32 domain_id;
-	u32 perf_level;
-};
-
-struct scmi_perf_out {
-	s32 status;
-};
 #endif /* _SCMI_PROTOCOLS_H */

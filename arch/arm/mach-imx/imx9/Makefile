@@ -1,17 +1,19 @@
 # SPDX-License-Identifier: GPL-2.0+
 #
-# Copyright 2023 NXP
+# Copyright 2022 NXP
 
 obj-y += lowlevel_init.o
 
 ifeq ($(CONFIG_SCMI_FIRMWARE),y)
 obj-y += scmi/
 else
-obj-y += native/
+obj-y += soc.o clock.o clock_root.o trdc.o
 endif
 
 ifneq ($(CONFIG_SPL_BUILD),y)
 obj-y += imx_bootaux.o misc.o
+else
+obj-$(CONFIG_SPL_IMX_BBSM) += bbsm.o
 endif
 
 obj-$(CONFIG_MP) += mp.o

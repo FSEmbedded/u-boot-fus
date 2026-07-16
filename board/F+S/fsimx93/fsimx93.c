@@ -12,7 +12,6 @@
 * GNU General Public License for more details.
 */
 
-#include <common.h>
 #include <command.h>
 #include <env.h>
 #include <init.h>
@@ -701,20 +700,3 @@ int board_late_init(void)
 	debug("FEATURES=0x%x\n", info->features);
 	return 0;
 }
-
-#if 0 //### defined in serial-uclass.c
-int serial_get_alias_seq(void)
-{
-	int seq, err;
-
-	if (!gd->cur_serial_dev)
-		return -ENXIO;
-
-	err = fdtdec_get_alias_seq(gd->fdt_blob, "serial",
-				   dev_of_offset(gd->cur_serial_dev), &seq);
-	if (err < 0)
-		return err;
-
-	return seq;
-}
-#endif

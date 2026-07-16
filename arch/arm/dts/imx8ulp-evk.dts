@@ -13,7 +13,6 @@
 
 	chosen {
 		stdout-path = &lpuart5;
-		bootargs = "console=ttyLP1,115200 earlycon";
 	};
 
 	memory@80000000 {

@@ -8,7 +8,6 @@
  * made from existing GRUB Sources by Sun, GNU and others.
  */
 
-#include <common.h>
 #include <part.h>
 #include <config.h>
 #include <command.h>
@@ -92,7 +91,6 @@ static int do_zfs_load(struct cmd_tbl *cmdtp, int flag, int argc,
 	return 0;
 }
 
-
 int zfs_print(const char *entry, const struct zfs_dirhook_info *data)
 {
 	printf("%s %s\n",
@@ -100,7 +98,6 @@ int zfs_print(const char *entry, const struct zfs_dirhook_info *data)
 		   entry);
 	return 0; /* 0 continue, 1 stop */
 }
-
 
 static int do_zfs_ls(struct cmd_tbl *cmdtp, int flag, int argc,
 		     char *const argv[])
@@ -129,7 +126,6 @@ static int do_zfs_ls(struct cmd_tbl *cmdtp, int flag, int argc,
 
 	return 0;
 }
-
 
 U_BOOT_CMD(zfsls, 4, 1, do_zfs_ls,
 		   "list files in a directory (default /)",

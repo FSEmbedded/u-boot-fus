@@ -10,6 +10,7 @@
  *-----------------------------------------------------------------------*/
 
 #include <linux/list.h>
+#include <linux/string.h>
 
 #define PARTITION_MAXLEN 16
 

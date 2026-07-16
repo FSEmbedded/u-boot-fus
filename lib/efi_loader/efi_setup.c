@@ -12,6 +12,15 @@
 #include <log.h>
 #include <asm-generic/unaligned.h>
 
+#include <efi_gbl_avb_protocol.h>
+#include <efi_gbl_os_configuration_protocol.h>
+#include <efi_gbl_boot_control_protocol.h>
+#include <efi_gbl_boot_memory_protocol.h>
+#include <efi_gbl_fastboot_transport_protocol.h>
+#include <efi_gbl_fastboot_protocol.h>
+#include <efi_gbl_vendor_partition.h>
+#include <efi_gbl_timestamp_protocol.h>
+
 #define OBJ_LIST_NOT_INITIALIZED 1
 
 efi_status_t efi_obj_list_initialized = OBJ_LIST_NOT_INITIALIZED;
@@ -86,7 +95,6 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_EFI_SECURE_BOOT
 /**
  * efi_init_secure_boot - initialize secure boot state
  *
@@ -112,12 +120,6 @@ static efi_status_t efi_init_secure_boot(void)
 
 	return ret;
 }
-#else
-static efi_status_t efi_init_secure_boot(void)
-{
-	return EFI_SUCCESS;
-}
-#endif /* CONFIG_EFI_SECURE_BOOT */
 
 /**
  * efi_init_capsule - initialize capsule update state
@@ -302,9 +304,11 @@ efi_status_t efi_init_obj_list(void)
 	}
 
 	/* Secure boot */
-	ret = efi_init_secure_boot();
-	if (ret != EFI_SUCCESS)
-		goto out;
+	if (IS_ENABLED(CONFIG_EFI_SECURE_BOOT)) {
+		ret = efi_init_secure_boot();
+		if (ret != EFI_SUCCESS)
+			goto out;
+	}
 
 	/* Indicate supported runtime services */
 	ret = efi_init_runtime_supported();
@@ -322,11 +326,11 @@ efi_status_t efi_init_obj_list(void)
 		if (ret != EFI_SUCCESS)
 			goto out;
 	}
-#ifdef CONFIG_NETDEVICES
-	ret = efi_net_register();
-	if (ret != EFI_SUCCESS)
-		goto out;
-#endif
+	if (IS_ENABLED(CONFIG_NETDEVICES)) {
+		ret = efi_net_register();
+		if (ret != EFI_SUCCESS)
+			goto out;
+	}
 	if (IS_ENABLED(CONFIG_ACPI)) {
 		ret = efi_acpi_register();
 		if (ret != EFI_SUCCESS)
@@ -354,6 +358,69 @@ efi_status_t efi_init_obj_list(void)
 	if (IS_ENABLED(CONFIG_EFI_CAPSULE_ON_DISK) &&
 	    !IS_ENABLED(CONFIG_EFI_CAPSULE_ON_DISK_EARLY))
 		ret = efi_launch_capsules();
+
+	/* Register GBL AVB protocol */
+	if (IS_ENABLED(CONFIG_EFI_GBL_AVB)) {
+		ret = efi_gbl_avb_register();
+		if (ret != EFI_SUCCESS)
+			goto out;
+	}
+
+	/* Register GBL OS configuration protocol */
+	if (IS_ENABLED(CONFIG_EFI_GBL_OS_CONFIGURATION)) {
+		ret = efi_gbl_os_config_register();
+		if (ret != EFI_SUCCESS) {
+			goto out;
+		}
+	}
+
+	/* Register GBL boot control protocol */
+	if (IS_ENABLED(CONFIG_EFI_GBL_BOOT_CONTROL)) {
+		ret = efi_gbl_boot_control_register();
+		if (ret != EFI_SUCCESS) {
+			goto out;
+		}
+	}
+
+	/* Register GBL boot memory protocol */
+	if (IS_ENABLED(CONFIG_EFI_GBL_BOOT_MEMORY)) {
+		ret = efi_gbl_boot_memory_register();
+		if (ret != EFI_SUCCESS) {
+			goto out;
+		}
+	}
+
+	/* Register GBL fastboot transport protocol */
+	if (IS_ENABLED(CONFIG_EFI_GBL_FASTBOOT_TRANSPORT)) {
+		ret = efi_gbl_fastboot_transport_register();
+		if (ret != EFI_SUCCESS) {
+			goto out;
+		}
+	}
+
+	/* Register GBL fastboot protocol */
+	if (IS_ENABLED(CONFIG_EFI_GBL_FASTBOOT)) {
+		ret = efi_gbl_fastboot_register();
+		if (ret != EFI_SUCCESS) {
+			goto out;
+		}
+	}
+
+	if (IS_ENABLED(CONFIG_EFI_GBL_VENDOR_PARTITION)) {
+		ret = efi_gbl_vendor_part_register();
+		if (ret != EFI_SUCCESS) {
+			goto out;
+		}
+	}
+
+	/* Register GBL timestamp protocol */
+	if (IS_ENABLED(CONFIG_EFI_GBL_TIMESTAMP)) {
+		ret = efi_gbl_timestamp_register();
+		if (ret != EFI_SUCCESS) {
+			goto out;
+		}
+	}
+
 out:
 	efi_obj_list_initialized = ret;
 	return ret;

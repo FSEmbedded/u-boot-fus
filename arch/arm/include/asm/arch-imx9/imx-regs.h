@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright 2022-2023 NXP
+ * Copyright 2022 NXP
  */
 
 #ifndef __ASM_ARCH_IMX9_REGS_H__
@@ -17,8 +17,13 @@
 
 #define ANATOP_BASE_ADDR    0x44480000UL
 
+#ifdef CONFIG_IMX94
+#define WDG3_BASE_ADDR      0x49220000UL
+#define WDG4_BASE_ADDR      0x49230000UL
+#else
 #define WDG3_BASE_ADDR      0x42490000UL
 #define WDG4_BASE_ADDR      0x424a0000UL
+#endif
 #define WDG5_BASE_ADDR      0x424b0000UL
 
 #define GPIO1_BASE_ADDR	    0x47400000UL
@@ -26,6 +31,19 @@
 #define GPIO3_BASE_ADDR	    0x43820000UL
 #define GPIO4_BASE_ADDR	    0x43840000UL
 #define GPIO5_BASE_ADDR	    0x43850000UL
+#ifdef CONFIG_IMX94
+#define GPIO6_BASE_ADDR	    0x43860000UL
+#define GPIO7_BASE_ADDR	    0x43870000UL
+#endif
+
+/* i.MX95 */
+#define SMMU_BASE_ADDR      0x490d0000UL
+#define SMMU_CR0            0x20
+#define SMMU_CR0_ACK        0x24
+#define SMMU_GBPA           0x44
+#define GBPA_UPDATE	    (1 << 31)
+#define GBPA_ABORT          (1 << 20)
+#define ARM_SMMU_POLL_TIMEOUT_US 1000000
 
 #define FSB_BASE_ADDR       0x47510000UL
 
@@ -48,6 +66,16 @@
 #define SRC_MEDIA_RBASE		(SRC_IPS_BASE_ADDR + 0x2400)
 #define SRC_M33P_RBASE		(SRC_IPS_BASE_ADDR + 0x2800)
 
+#ifdef CONFIG_IMX94
+#define TCML_BASE_ADDR              (0x209C0000UL)
+#define TCML_BASE_MCORE_SEC_ADDR    (0x1FFC0000UL)
+#define TCML_BASE_MCORE_NSEC_ADDR   (0x0FFC0000UL)
+#define TCML_SIZE                   (0x40000U)
+#define TCMU_BASE_ADDR              (0x20A00000UL)
+#define TCMU_BASE_MCORE_SEC_ADDR    (0x30000000UL)
+#define TCMU_BASE_MCORE_NSEC_ADDR   (0x20000000UL)
+#define TCMU_SIZE                   (0x40000U)
+#else
 #define TCML_BASE_ADDR              (0x201E0000UL)
 #define TCML_BASE_MCORE_SEC_ADDR    (0x1FFE0000UL)
 #define TCML_BASE_MCORE_NSEC_ADDR   (0x0FFE0000UL)
@@ -56,11 +84,15 @@
 #define TCMU_BASE_MCORE_SEC_ADDR    (0x30000000UL)
 #define TCMU_BASE_MCORE_NSEC_ADDR   (0x20000000UL)
 #define TCMU_SIZE                   (0x20000U)
+#endif
 
 #define MCU_BOOTROM_BASE_ADDR (0x203C0000UL)
 #define M7_TCML_BASE_ADDR              (0x20380000UL)
 #define M7_TCML_BASE_MCORE_ADDR    (0x0UL)
 #define M7_TCML_MAX_SIZE                (0x80000U) /* Could configure to 512KB TCML */
+#define M71_TCML_BASE_ADDR          (0x20280000UL)
+#define M71_TCML_BASE_MCORE_ADDR    (0x0UL)
+#define M71_TCML_MAX_SIZE           (0x80000U) /* Could configure to 512KB TCML */
 
 #define FLEXSPI_AHB_ADDR            (0x28000000UL)
 #define FLEXSPI_AHB_SIZE            (0x8000000UL)
@@ -79,8 +111,16 @@
 #define BCTRL_GPR_ENET_QOS_INTF_SEL_RGMII        (0x1 << 1)
 #define BCTRL_GPR_ENET_QOS_CLK_GEN_EN            (0x1 << 0)
 
+#define TRDC_AON_BASE		(0x44270000UL)
+#define TRDC_WAKEUP_BASE	(0x42460000UL)
+#define TRDC_MEGA_BASE		(0x42810000UL)
+#define TRDC_NIC_BASE		(0x49010000UL)
+
 #define MARKETING_GRADING_MASK	GENMASK(5, 4)
 #define SPEED_GRADING_MASK	GENMASK(11, 6)
+#define NUM_WORDS_PER_BANK	8
+#define HW_CFG1			19
+#define HW_CFG2			20
 
 #if !(defined(__KERNEL_STRICT_NAMES) || defined(__ASSEMBLY__))
 #include <asm/types.h>

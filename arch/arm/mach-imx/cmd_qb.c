@@ -6,7 +6,6 @@
 #include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/sys_proto.h>
 
-#include <common.h>
 #include <command.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -27,9 +26,6 @@
 
 extern rom_passover_t rom_passover_data;
 
-#define MAX_V2X_CTNR_IMG_NUM   (4)
-#define MIN_V2X_CTNR_IMG_NUM   (2)
-
 #define IMG_FLAGS_IMG_TYPE_SHIFT  (0u)
 #define IMG_FLAGS_IMG_TYPE_MASK   (0xfU)
 #define IMG_FLAGS_IMG_TYPE(x)     (((x) & IMG_FLAGS_IMG_TYPE_MASK) >> \
@@ -40,11 +36,7 @@ extern rom_passover_t rom_passover_data;
 #define IMG_FLAGS_CORE_ID(x)      (((x) & IMG_FLAGS_CORE_ID_MASK) >> \
                                    IMG_FLAGS_CORE_ID_SHIFT)
 
-#define IMG_TYPE_V2X_PRI_FW     (0x0Bu)   /* Primary V2X FW */
-#define IMG_TYPE_V2X_SND_FW     (0x0Cu)   /* Secondary V2X FW */
-
-#define CORE_V2X_PRI 9
-#define CORE_V2X_SND 10
+#define IMG_TYPE_DDR_TDATA_DUMMY  (0x0Du)   /* dummy DDR training data image */
 
 /** Polynomial: 0xEDB88320 */
 static u32 const p_table[] =
@@ -79,16 +71,21 @@ static u32 qb_crc32(const void* addr, u32 len)
 static bool qb_check(void)
 {
 	struct ddrphy_qb_state *qb_state;
-	bool valid = true;
 	u32 size, crc;
 
-	/** check crc here, or validate it using ELE */
+	/**
+	 * Ensure CRC is not empty, the reason is that
+	 * the data is invalidated after first save run
+	 * or after it is overwritten.
+	 */
 	qb_state = (struct ddrphy_qb_state *)CONFIG_SAVED_QB_STATE_BASE;
-	size = sizeof(struct ddrphy_qb_state) - sizeof(u32);
-	crc = qb_crc32(&qb_state->TrainedVREFCA_A0, size);
-	valid = (crc == qb_state->crc);
+	size = sizeof(struct ddrphy_qb_state) - sizeof(qb_state->crc);
+	crc = qb_crc32(qb_state->mac, size);
 
-	return valid;
+	if (!qb_state->crc || crc != qb_state->crc)
+		return false;
+
+	return true;
 }
 
 static int do_qb_check(struct cmd_tbl *cmdtp, int flag,
@@ -97,10 +94,62 @@ static int do_qb_check(struct cmd_tbl *cmdtp, int flag,
 	return qb_check() ? CMD_RET_SUCCESS : CMD_RET_FAILURE;
 }
 
-static unsigned long get_boot_device_offset(void *dev, int dev_type)
+#if IS_ENABLED(CONFIG_SCMI_FIRMWARE)
+static int scmi_get_boot_device_offset(unsigned long *img_off)
+{
+	int ret;
+	rom_passover_t rom_data = {0};
+	rom_passover_t *rdata = &rom_data;
+
+	ret = scmi_get_rom_data(rdata);
+	if (ret != 0) {
+		printf("SCMI: fail to get ROM passover data %d\n", ret);
+		return ret;
+	}
+
+	*img_off = rom_data.img_ofs;
+
+	return 0;
+}
+
+static int scmi_get_boot_stage(u8 *stage)
+{
+	int ret;
+	rom_passover_t rom_data = {0};
+	rom_passover_t *rdata = &rom_data;
+
+	ret = scmi_get_rom_data(rdata);
+	if (ret != 0) {
+		printf("SCMI: fail to get ROM passover data %d\n", ret);
+		return ret;
+	}
+
+	*stage = rom_data.boot_stage;
+
+	return 0;
+}
+#endif
+
+static unsigned long get_boot_device_offset(void *dev, int dev_type, bool bootdev)
 {
 	unsigned long offset = 0;
 	struct mmc *mmc;
+
+#if IS_ENABLED(CONFIG_SCMI_FIRMWARE)
+	int ret;
+
+	/** Running qb save from SDP boot or qb save to non boot device.
+	  * The current boot device is different that the medium we
+	  * are trying to save the qb data to. ROM does not know what our
+	  * final boot device will be.
+	  */
+	if (bootdev) {
+		ret = scmi_get_boot_device_offset(&offset);
+		if (!ret)
+			return offset;
+	}
+	/* fall back to boot from primary set if get rom passover failed */
+#endif
 
 	switch (dev_type) {
 	case ROM_API_DEV:
@@ -142,15 +191,22 @@ static int parse_container(void *addr, u32 *qb_data_off)
 	struct container_hdr *phdr;
 	struct boot_img_t *img_entry;
 	u8 i = 0;
-	u32 img_end;
+	u32 img_type, img_end;
 
 	phdr = (struct container_hdr *)addr;
-	if (phdr->tag != 0x87 || phdr->version != 0x0) {
+	if (phdr->tag != 0x87 || (phdr->version != 0x0 && phdr->version != 0x2)) {
 		return -1;
 	}
 
 	img_entry = (struct boot_img_t *)(addr + sizeof(struct container_hdr));
 	for (i = 0; i < phdr->num_images; i++) {
+		img_type = IMG_FLAGS_IMG_TYPE(img_entry->hab_flags);
+		if (img_type == IMG_TYPE_DDR_TDATA_DUMMY && img_entry->size == 0) {
+			/** Image entry pointing to DDR Training Data */
+			(*qb_data_off) = img_entry->offset;
+			return 0;
+		}
+
 		img_end = img_entry->offset + img_entry->size;
 		if (i + 1 < phdr->num_images) {
 			img_entry++;
@@ -167,14 +223,15 @@ static int parse_container(void *addr, u32 *qb_data_off)
 
 static int get_dev_qbdata_offset(void *dev, int dev_type, unsigned long offset, u32 *qbdata_offset)
 {
-	void *buf = malloc(CONTAINER_HDR_ALIGNMENT);
+	u16 ctnr_hdr_align = container_hdr_alignment();
+	void *buf = (void *)env_get_hex("loadaddr", 0);;
 	int ret = 0;
 	char cmd[128];
 	unsigned long count = 0;
 	struct mmc *mmc;
 
 	if (!buf) {
-		printf("Malloc buffer failed\n");
+		printf("loadaddr env is not defined, please set it\n");
 		return -ENOMEM;
 	}
 
@@ -184,7 +241,7 @@ static int get_dev_qbdata_offset(void *dev, int dev_type, unsigned long offset, 
 
 		count = blk_dread(mmc_get_blk_desc(mmc),
 				  offset / mmc->read_bl_len,
-				  CONTAINER_HDR_ALIGNMENT / mmc->read_bl_len,
+				  ctnr_hdr_align / mmc->read_bl_len,
 				  buf);
 		if (count == 0) {
 			printf("Read container image from MMC/SD failed\n");
@@ -193,7 +250,7 @@ static int get_dev_qbdata_offset(void *dev, int dev_type, unsigned long offset, 
 		break;
 	case QSPI_DEV:
 		sprintf(cmd, "sf read 0x%x 0x%lx 0x%x", (unsigned int)(uintptr_t)buf,
-			offset, CONTAINER_HDR_ALIGNMENT);
+			offset, ctnr_hdr_align);
 		/** Read data */
 		ret = run_command(cmd, 0);
 		if (ret) {
@@ -203,28 +260,34 @@ static int get_dev_qbdata_offset(void *dev, int dev_type, unsigned long offset, 
 		break;
 	case QSPI_NOR_DEV:
 	case RAM_DEV:
-		memcpy(buf, (const void *)offset, CONTAINER_HDR_ALIGNMENT);
+		memcpy(buf, (const void *)offset, ctnr_hdr_align);
 		break;
 	}
 
 	ret = parse_container(buf, qbdata_offset);
 
-	free(buf);
-
 	return ret;
 }
 
-static int get_qbdata_offset(void *dev, int dev_type, u32 *qbdata_offset)
+static int get_qbdata_offset(void *dev, int dev_type, u32 *qbdata_offset, bool bootdev)
 {
-	u32 offset = get_boot_device_offset(dev, dev_type);
+	u32 offset = get_boot_device_offset(dev, dev_type, bootdev);
+	u16 ctnr_hdr_align = container_hdr_alignment();
+	u32 contOffset;
+	int ret, i;
 
-	/** third container, @todo: v2x might be missing */
-	offset += 2 * CONTAINER_HDR_ALIGNMENT;
-	get_dev_qbdata_offset(dev, dev_type, offset, qbdata_offset);
+	for (i = 0; i < 3; i++)
+	{
+		contOffset = offset + i * ctnr_hdr_align;
+		ret = get_dev_qbdata_offset(dev, dev_type, contOffset, qbdata_offset);
+		if (ret == 0)
+		{
+			(*qbdata_offset) += contOffset;
+			break;
+		}
+	}
 
-	(*qbdata_offset) += offset;
-
-	return 0;
+	return ret;
 }
 
 static int get_board_boot_device(enum boot_device dev)
@@ -276,12 +339,13 @@ static int mmc_find_device(struct mmc **mmcp, int mmc_dev)
 	return (*mmcp ? 0 : -ENODEV);
 }
 
-static int do_qb_mmc(int dev, bool save)
+static int do_qb_mmc(int dev, bool save, bool is_bootdev)
 {
 	struct mmc *mmc;
 	int ret = 0, mmc_dev;
+	bool has_hw_part;
+	u8 orig_part, part;
 	u32 offset;
-	char blk_cmd[128];
 	void *buf;
 
 	mmc_dev = mmc_get_device_index(dev);
@@ -292,23 +356,36 @@ static int do_qb_mmc(int dev, bool save)
 	if (ret)
 		return ret;
 
-	if (IS_SD(mmc) || mmc->part_config == MMCPART_NOAVAILABLE) {
-		sprintf(blk_cmd, "mmc dev %x", mmc_dev);
-	} else {
-		u8 part = EXT_CSD_EXTRACT_BOOT_PART(mmc->part_config);
-		if (part == 1 || part == 2) {
-			sprintf(blk_cmd, "mmc dev %x %x", mmc_dev, part);
-		} else {
-			sprintf(blk_cmd, "mmc dev %x", mmc_dev);
-		}
-	}
+	if (!mmc->has_init)
+		ret = mmc_init(mmc);
 
-	/** Select the device and partition */
-	ret = run_command(blk_cmd, 0);
 	if (ret)
 		return ret;
 
-	ret = get_qbdata_offset(mmc, MMC_DEV, &offset);
+	has_hw_part = !IS_SD(mmc) && mmc->part_config != MMCPART_NOAVAILABLE;
+
+	if (has_hw_part) {
+		orig_part = mmc_get_blk_desc(mmc)->hwpart;
+		part = EXT_CSD_EXTRACT_BOOT_PART(mmc->part_config);
+
+		if (is_bootdev && (part == 1 || part == 2)) {
+#if IS_ENABLED(CONFIG_SCMI_FIRMWARE)
+			u8 stage;
+			ret = scmi_get_boot_stage(&stage);
+			if (!ret) {
+				if (stage == 0x9)
+					part = (part == 1) ? 2 : 1;
+			}
+#endif
+		}
+
+		/** Select the partition */
+		ret = mmc_switch_part(mmc, part);
+		if (ret)
+			return ret;
+	}
+
+	ret = get_qbdata_offset(mmc, MMC_DEV, &offset, is_bootdev);
 	if (ret)
 		return ret;
 
@@ -329,10 +406,16 @@ static int do_qb_mmc(int dev, bool save)
 			 QB_STATE_LOAD_SIZE / mmc->write_bl_len, (const void*)buf);
 	free(buf);
 
-	return (ret > 0 ? 0 : -1);
+	ret = (ret > 0) ? 0 : -1;
+
+	/** Return to original partition */
+	if (has_hw_part)
+		ret |= mmc_switch_part(mmc, orig_part);
+
+	return ret;
 }
 
-static int do_qb_qspi(int dev, bool save)
+static int do_qb_spi(int dev, bool save, bool is_bootdev)
 {
 	int ret = 0;
 	u32 offset;
@@ -345,7 +428,7 @@ static int do_qb_qspi(int dev, bool save)
 	if (ret)
 		return ret;
 
-	ret = get_qbdata_offset(0, QSPI_DEV, &offset);
+	ret = get_qbdata_offset(0, QSPI_DEV, &offset, is_bootdev);
 	if (ret)
 		return ret;
 
@@ -376,32 +459,50 @@ static int do_qb_save(struct cmd_tbl *cmdtp, int flag,
 		      int argc, char * const argv[])
 {
 	int ret = CMD_RET_FAILURE;
-	enum boot_device dev;
-	int bb_dev;
+	long dev = -1;
+	enum boot_device boot_dev = UNKNOWN_BOOT;
+	int qb_dev = BOOT_DEVICE_NONE, qb_bootdev;
+	char *interface = "";
 
 	if (!qb_check())
 		return CMD_RET_FAILURE;
 
-	dev = get_boot_device();
-	bb_dev = get_board_boot_device(dev);
+	boot_dev = get_boot_device();
+	qb_bootdev = get_board_boot_device(boot_dev);
 
-	switch (dev) {
-	case SD1_BOOT:
-	case SD2_BOOT:
-	case MMC1_BOOT:
-	case MMC2_BOOT:
-		ret = do_qb_mmc(bb_dev, true);
+	if (argc >= 2) {
+		interface = argv[1];
+	} else {
+		/** qb save -> use boot device */
+		qb_dev = qb_bootdev;
+	}
+
+	if (argc == 3)
+		dev = simple_strtol(argv[2], NULL, 10);
+
+	if (!strcmp(interface, "mmc") && dev >= 0
+	    && dev <= (BOOT_DEVICE_MMC2_2 - BOOT_DEVICE_MMC1))
+		qb_dev = BOOT_DEVICE_MMC1 + dev;
+
+	if (!strcmp(interface, "spi"))
+		qb_dev = BOOT_DEVICE_SPI;
+
+	switch (qb_dev) {
+	case BOOT_DEVICE_MMC1:
+	case BOOT_DEVICE_MMC2:
+	case BOOT_DEVICE_MMC2_2:
+		ret = do_qb_mmc(qb_dev, true, !!(qb_dev == qb_bootdev));
 		break;
-	case QSPI_BOOT:
-		ret = do_qb_qspi(bb_dev, true);
+	case BOOT_DEVICE_SPI:
+		ret = do_qb_spi(qb_dev, true, !!(qb_dev == qb_bootdev));
 		break;
-	case NAND_BOOT:
-	case USB_BOOT:
-	case USB2_BOOT:
 	default:
-		printf("Unsupported boot devices\n");
+		printf("Unsupported quickboot device\n");
 		break;
 	}
+
+	if (ret)
+		return CMD_RET_FAILURE;
 
 	/**
 	 * invalidate qb_state mem so that at next boot
@@ -409,34 +510,49 @@ static int do_qb_save(struct cmd_tbl *cmdtp, int flag,
 	 */
 	memset((void *)CONFIG_SAVED_QB_STATE_BASE, 0, sizeof(struct ddrphy_qb_state));
 
-	return ret == 0 ? CMD_RET_SUCCESS : CMD_RET_FAILURE;
+	return CMD_RET_SUCCESS;
 }
 
 static int do_qb_erase(struct cmd_tbl *cmdtp, int flag,
 		       int argc, char * const argv[])
 {
 	int ret = CMD_RET_FAILURE;
-	enum boot_device dev;
-	int bb_dev;
+	long dev = -1;
+	enum boot_device boot_dev = UNKNOWN_BOOT, qb_bootdev;
+	int qb_dev = BOOT_DEVICE_NONE;
+	char *interface = "";
 
-	dev = get_boot_device();
-	bb_dev = get_board_boot_device(dev);
+	boot_dev = get_boot_device();
+	qb_bootdev = get_board_boot_device(boot_dev);
 
-	switch (dev) {
-	case SD1_BOOT:
-	case SD2_BOOT:
-	case MMC1_BOOT:
-	case MMC2_BOOT:
-		ret = do_qb_mmc(bb_dev, false);
+	if (argc >= 2) {
+		interface = argv[1];
+	} else {
+		/** qb erase -> use boot device */
+		qb_dev = qb_bootdev;
+	}
+
+	if (argc == 3)
+		dev = simple_strtol(argv[2], NULL, 10);
+
+	if (!strcmp(interface, "mmc") && dev >= 0
+	    && dev <= (BOOT_DEVICE_MMC2_2 - BOOT_DEVICE_MMC1))
+		qb_dev = BOOT_DEVICE_MMC1 + dev;
+
+	if (!strcmp(interface, "spi"))
+		qb_dev = BOOT_DEVICE_SPI;
+
+	switch (qb_dev) {
+	case BOOT_DEVICE_MMC1:
+	case BOOT_DEVICE_MMC2:
+	case BOOT_DEVICE_MMC2_2:
+		ret = do_qb_mmc(qb_dev, false, !!(qb_dev == qb_bootdev));
 		break;
-	case QSPI_BOOT:
-		ret = do_qb_qspi(bb_dev, false);
+	case BOOT_DEVICE_SPI:
+		ret = do_qb_spi(qb_dev, false, !!(qb_dev == qb_bootdev));
 		break;
-	case NAND_BOOT:
-	case USB_BOOT:
-	case USB2_BOOT:
 	default:
-		printf("unsupported boot devices\n");
+		printf("Unsupported quickboot device\n");
 		break;
 	}
 
@@ -445,8 +561,8 @@ static int do_qb_erase(struct cmd_tbl *cmdtp, int flag,
 
 static struct cmd_tbl cmd_qb[] = {
 	U_BOOT_CMD_MKENT(check, 1, 1, do_qb_check, "", ""),
-	U_BOOT_CMD_MKENT(save,  1, 1, do_qb_save,  "", ""),
-	U_BOOT_CMD_MKENT(erase, 1, 1, do_qb_erase, "", ""),
+	U_BOOT_CMD_MKENT(save,  3, 1, do_qb_save,  "", ""),
+	U_BOOT_CMD_MKENT(erase, 3, 1, do_qb_erase, "", ""),
 };
 
 static int do_qbops(struct cmd_tbl *cmdtp, int flag, int argc,
@@ -480,9 +596,9 @@ static int do_qbops(struct cmd_tbl *cmdtp, int flag, int argc,
 }
 
 U_BOOT_CMD(
-	qb, 2, 1, do_qbops,
+	qb, 4, 1, do_qbops,
 	"DDR Quick Boot sub system",
 	"check - check if quick boot data is stored in mem by training flow\n"
-	"qb save  - save quick boot data in NVM location    => trigger quick boot flow\n"
-	"qb erase - erase quick boot data from NVM loaciotn => trigger training flow\n"
+	"qb save [interface] [dev]  - save quick boot data in NVM location    => trigger quick boot flow\n"
+	"qb erase [interface] [dev] - erase quick boot data from NVM location => trigger training flow\n"
 );

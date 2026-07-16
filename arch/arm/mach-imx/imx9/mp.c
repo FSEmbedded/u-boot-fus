@@ -5,8 +5,10 @@
 
 #include <asm/ptrace.h>
 #include <asm/system.h>
-#include <common.h>
 #include <linux/psci.h>
+#include <vsprintf.h>
+#include <stdio.h>
+#include <linux/bitops.h>
 
 #define MPIDR_MT_BIT BIT(24)
 #define MPIDR_AFF1_SHFT (8)

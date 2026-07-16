@@ -8,7 +8,7 @@
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  */
 
-#include <common.h>
+#include <config.h>
 #include <bootstage.h>
 #include <cpu_func.h>
 #include <display_options.h>
@@ -152,14 +152,12 @@ static int on_loadaddr(const char *name, const char *value, enum env_op op,
 }
 U_BOOT_ENV_CALLBACK(loadaddr, on_loadaddr);
 
-ulong env_get_bootm_low(void)
+phys_addr_t env_get_bootm_low(void)
 {
 	char *s = env_get("bootm_low");
 
-	if (s) {
-		ulong tmp = hextoul(s, NULL);
-		return tmp;
-	}
+	if (s)
+		return simple_strtoull(s, NULL, 16);
 
 #if defined(CFG_SYS_SDRAM_BASE)
 	return CFG_SYS_SDRAM_BASE;
@@ -172,14 +170,12 @@ ulong env_get_bootm_low(void)
 
 phys_size_t env_get_bootm_size(void)
 {
-	phys_size_t tmp, size;
-	phys_addr_t start;
+	phys_addr_t start, low;
+	phys_size_t size;
 	char *s = env_get("bootm_size");
 
-	if (s) {
-		tmp = (phys_size_t)simple_strtoull(s, NULL, 16);
-		return tmp;
-	}
+	if (s)
+		return simple_strtoull(s, NULL, 16);
 
 	start = gd->ram_base;
 	size = gd->ram_size;
@@ -189,22 +185,19 @@ phys_size_t env_get_bootm_size(void)
 
 	s = env_get("bootm_low");
 	if (s)
-		tmp = (phys_size_t)simple_strtoull(s, NULL, 16);
+		low = simple_strtoull(s, NULL, 16);
 	else
-		tmp = start;
+		low = start;
 
-	return size - (tmp - start);
+	return size - (low - start);
 }
 
 phys_size_t env_get_bootm_mapsize(void)
 {
-	phys_size_t tmp;
 	char *s = env_get("bootm_mapsize");
 
-	if (s) {
-		tmp = (phys_size_t)simple_strtoull(s, NULL, 16);
-		return tmp;
-	}
+	if (s)
+		return simple_strtoull(s, NULL, 16);
 
 #if defined(CFG_SYS_BOOTMAPSZ)
 	return CFG_SYS_BOOTMAPSZ;
@@ -463,13 +456,20 @@ static int select_ramdisk(struct bootm_headers *images, const char *select, u8 a
 		if (IS_ENABLED(CONFIG_ANDROID_BOOT_IMAGE)) {
 			int ret;
 			if (IS_ENABLED(CONFIG_CMD_ABOOTIMG)) {
-				void *boot_img = map_sysmem(get_abootimg_addr(), 0);
+				ulong boot_img = get_abootimg_addr();
+				ulong init_boot_img = get_ainit_bootimg_addr();
 				void *vendor_boot_img = map_sysmem(get_avendor_bootimg_addr(), 0);
+				void *ramdisk_img;
 
-				ret = android_image_get_ramdisk(boot_img, vendor_boot_img,
+				if (init_boot_img == -1)
+					ramdisk_img = map_sysmem(boot_img, 0);
+				else
+					ramdisk_img = map_sysmem(init_boot_img, 0);
+
+				ret = android_image_get_ramdisk(ramdisk_img, vendor_boot_img,
 								rd_datap, rd_lenp);
 				unmap_sysmem(vendor_boot_img);
-				unmap_sysmem(boot_img);
+				unmap_sysmem(ramdisk_img);
 			} else {
 				void *ptr = map_sysmem(images->os.start, 0);
 
@@ -477,7 +477,9 @@ static int select_ramdisk(struct bootm_headers *images, const char *select, u8 a
 				unmap_sysmem(ptr);
 			}
 
-			if (ret)
+			if (ret == -ENOENT)
+				return -ENOPKG;
+			else if (ret)
 				return ret;
 			done = true;
 		}
@@ -565,7 +567,6 @@ int boot_get_ramdisk(char const *select, struct bootm_headers *images,
 
 /**
  * boot_ramdisk_high - relocate init ramdisk
- * @lmb: pointer to lmb handle, will be used for memory mgmt
  * @rd_data: ramdisk data start address
  * @rd_len: ramdisk data length
  * @initrd_start: pointer to a ulong variable, will hold final init ramdisk
@@ -584,11 +585,11 @@ int boot_get_ramdisk(char const *select, struct bootm_headers *images,
  *      0 - success
  *     -1 - failure
  */
-int boot_ramdisk_high(struct lmb *lmb, ulong rd_data, ulong rd_len,
-		      ulong *initrd_start, ulong *initrd_end)
+int boot_ramdisk_high(ulong rd_data, ulong rd_len, ulong *initrd_start,
+		      ulong *initrd_end)
 {
 	char	*s;
-	ulong	initrd_high;
+	phys_addr_t initrd_high;
 	int	initrd_copy_to_ram = 1;
 
 	s = env_get("initrd_high");
@@ -603,21 +604,24 @@ int boot_ramdisk_high(struct lmb *lmb, ulong rd_data, ulong rd_len,
 		initrd_high = env_get_bootm_mapsize() + env_get_bootm_low();
 	}
 
-	debug("## initrd_high = 0x%08lx, copy_to_ram = %d\n",
-	      initrd_high, initrd_copy_to_ram);
+	debug("## initrd_high = 0x%llx, copy_to_ram = %d\n",
+	      (u64)initrd_high, initrd_copy_to_ram);
 
 	if (rd_data) {
 		if (!initrd_copy_to_ram) {	/* zero-copy ramdisk support */
 			debug("   in-place initrd\n");
 			*initrd_start = rd_data;
 			*initrd_end = rd_data + rd_len;
-			lmb_reserve(lmb, rd_data, rd_len);
+			lmb_reserve(rd_data, rd_len, LMB_NONE);
 		} else {
 			if (initrd_high)
-				*initrd_start = (ulong)lmb_alloc_base(lmb,
-						rd_len, 0x1000, initrd_high);
+				*initrd_start =
+					(ulong)lmb_alloc_base(rd_len,
+								    0x1000,
+								    initrd_high,
+								    LMB_NONE);
 			else
-				*initrd_start = (ulong)lmb_alloc(lmb, rd_len,
+				*initrd_start = (ulong)lmb_alloc(rd_len,
 								 0x1000);
 
 			if (*initrd_start == 0) {
@@ -672,9 +676,10 @@ int boot_get_fpga(struct bootm_headers *images)
 	void *buf;
 	int conf_noffset;
 	int fit_img_result;
-	const char *uname, *name;
+	const char *uname, *name, *compatible;
 	int err;
 	int devnum = 0; /* TODO support multi fpga platforms */
+	int flags = 0;
 
 	if (!IS_ENABLED(CONFIG_FPGA))
 		return -ENOSYS;
@@ -722,20 +727,29 @@ int boot_get_fpga(struct bootm_headers *images)
 			return fit_img_result;
 		}
 
+		conf_noffset = fit_image_get_node(buf, uname);
+		compatible = fdt_getprop(buf, conf_noffset, "compatible", NULL);
+		if (!compatible) {
+			printf("'fpga' image without 'compatible' property\n");
+		} else {
+			if (CONFIG_IS_ENABLED(FPGA_LOAD_SECURE))
+				flags = fpga_compatible2flag(devnum, compatible);
+		}
+
 		if (!fpga_is_partial_data(devnum, img_len)) {
 			name = "full";
 			err = fpga_loadbitstream(devnum, (char *)img_data,
 						 img_len, BIT_FULL);
 			if (err)
 				err = fpga_load(devnum, (const void *)img_data,
-						img_len, BIT_FULL, 0);
+						img_len, BIT_FULL, flags);
 		} else {
 			name = "partial";
 			err = fpga_loadbitstream(devnum, (char *)img_data,
 						 img_len, BIT_PARTIAL);
 			if (err)
 				err = fpga_load(devnum, (const void *)img_data,
-						img_len, BIT_PARTIAL, 0);
+						img_len, BIT_PARTIAL, flags);
 		}
 
 		if (err)
@@ -850,7 +864,6 @@ int boot_get_loadable(struct bootm_headers *images)
 
 /**
  * boot_get_cmdline - allocate and initialize kernel cmdline
- * @lmb: pointer to lmb handle, will be used for memory mgmt
  * @cmd_start: pointer to a ulong variable, will hold cmdline start
  * @cmd_end: pointer to a ulong variable, will hold cmdline end
  *
@@ -863,7 +876,7 @@ int boot_get_loadable(struct bootm_headers *images)
  *      0 - success
  *     -1 - failure
  */
-int boot_get_cmdline(struct lmb *lmb, ulong *cmd_start, ulong *cmd_end)
+int boot_get_cmdline(ulong *cmd_start, ulong *cmd_end)
 {
 	int barg;
 	char *cmdline;
@@ -877,8 +890,9 @@ int boot_get_cmdline(struct lmb *lmb, ulong *cmd_start, ulong *cmd_end)
 		return 0;
 
 	barg = IF_ENABLED_INT(CONFIG_SYS_BOOT_GET_CMDLINE, CONFIG_SYS_BARGSIZE);
-	cmdline = (char *)(ulong)lmb_alloc_base(lmb, barg, 0xf,
-				env_get_bootm_mapsize() + env_get_bootm_low());
+	cmdline = (char *)(ulong)lmb_alloc_base(barg, 0xf,
+				env_get_bootm_mapsize() + env_get_bootm_low(),
+				LMB_NONE);
 	if (!cmdline)
 		return -1;
 
@@ -898,7 +912,6 @@ int boot_get_cmdline(struct lmb *lmb, ulong *cmd_start, ulong *cmd_end)
 
 /**
  * boot_get_kbd - allocate and initialize kernel copy of board info
- * @lmb: pointer to lmb handle, will be used for memory mgmt
  * @kbd: double pointer to board info data
  *
  * boot_get_kbd() allocates space for kernel copy of board info data below
@@ -909,13 +922,13 @@ int boot_get_cmdline(struct lmb *lmb, ulong *cmd_start, ulong *cmd_end)
  *      0 - success
  *     -1 - failure
  */
-int boot_get_kbd(struct lmb *lmb, struct bd_info **kbd)
+int boot_get_kbd(struct bd_info **kbd)
 {
-	*kbd = (struct bd_info *)(ulong)lmb_alloc_base(lmb,
-						       sizeof(struct bd_info),
-						       0xf,
-						       env_get_bootm_mapsize() +
-						       env_get_bootm_low());
+	*kbd = (struct bd_info *)(ulong)lmb_alloc_base(sizeof(struct bd_info),
+							     0xf,
+							     env_get_bootm_mapsize() +
+							     env_get_bootm_low(),
+							     LMB_NONE);
 	if (!*kbd)
 		return -1;
 
@@ -933,17 +946,16 @@ int image_setup_linux(struct bootm_headers *images)
 {
 	ulong of_size = images->ft_len;
 	char **of_flat_tree = &images->ft_addr;
-	struct lmb *lmb = images_lmb(images);
 	int ret;
 
 	/* This function cannot be called without lmb support */
-	if (!IS_ENABLED(CONFIG_LMB))
+	if (!CONFIG_IS_ENABLED(LMB))
 		return -EFAULT;
 	if (CONFIG_IS_ENABLED(OF_LIBFDT))
-		boot_fdt_add_mem_rsv_regions(lmb, *of_flat_tree);
+		boot_fdt_add_mem_rsv_regions(*of_flat_tree);
 
 	if (IS_ENABLED(CONFIG_SYS_BOOT_GET_CMDLINE)) {
-		ret = boot_get_cmdline(lmb, &images->cmdline_start,
+		ret = boot_get_cmdline(&images->cmdline_start,
 				       &images->cmdline_end);
 		if (ret) {
 			puts("ERROR with allocation of cmdline\n");
@@ -952,13 +964,13 @@ int image_setup_linux(struct bootm_headers *images)
 	}
 
 	if (CONFIG_IS_ENABLED(OF_LIBFDT)) {
-		ret = boot_relocate_fdt(lmb, of_flat_tree, &of_size);
+		ret = boot_relocate_fdt(of_flat_tree, &of_size);
 		if (ret)
 			return ret;
 	}
 
 	if (CONFIG_IS_ENABLED(OF_LIBFDT) && of_size) {
-		ret = image_setup_libfdt(images, *of_flat_tree, lmb);
+		ret = image_setup_libfdt(images, *of_flat_tree, true);
 		if (ret)
 			return ret;
 	}
@@ -1125,8 +1137,8 @@ fallback:
 			}
 
 			/* get script subimage data address and length */
-			if (fit_image_get_data_and_size(fit_hdr, noffset,
-							&fit_data, &fit_len)) {
+			if (fit_image_get_data(fit_hdr, noffset, &fit_data,
+					       &fit_len)) {
 				puts("Could not find script subimage data\n");
 				return 1;
 			}

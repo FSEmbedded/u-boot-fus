@@ -6,7 +6,6 @@
  * Author: Fabio Estevam <fabio.estevam@freescale.com>
  */
 
-#include <common.h>
 #include <image.h>
 #include <init.h>
 #include <net.h>
@@ -159,7 +158,6 @@ static void eim_clk_setup(void)
 	struct mxc_ccm_reg *imx_ccm = (struct mxc_ccm_reg *)CCM_BASE_ADDR;
 	int cscmr1, ccgr6;
 
-
 	/* Turn off EIM clock */
 	ccgr6 = readl(&imx_ccm->CCGR6);
 	ccgr6 &= ~(0x3 << 10);
@@ -203,7 +201,6 @@ static void setup_iomux_eimnor(void)
 	eimnor_cs_setup();
 }
 #endif
-
 
 static void setup_iomux_uart(void)
 {
@@ -849,7 +846,7 @@ int is_recovery_key_pressing(void)
 #endif /*CONFIG_FSL_FASTBOOT*/
 
 
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 #include <asm/arch/mx6-ddr.h>
 #include <spl.h>
 #include <linux/libfdt.h>

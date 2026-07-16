@@ -135,7 +135,7 @@ _pad:                   .word 0x12345678 /* now 16*4=64 */
 
 /* SPL interrupt handling: just hang */
 
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 
 #if !CONFIG_IS_ENABLED(SYS_NO_VECTOR_TABLE)
 	.align	5
@@ -168,7 +168,7 @@ fiq:
 	b	1b			/* hang and never return */
 #endif
 
-#else	/* !CONFIG_SPL_BUILD */
+#else	/* !CONFIG_XPL_BUILD */
 
 /* IRQ stack memory (calculated at run-time) + 8 bytes */
 .globl IRQ_STACK_START_IN
@@ -375,4 +375,4 @@ fiq:
 
 #endif /* CONFIG_USE_IRQ */
 
-#endif	/* CONFIG_SPL_BUILD */
+#endif	/* CONFIG_XPL_BUILD */

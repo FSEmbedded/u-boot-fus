@@ -9,7 +9,6 @@
  */
 
 #include <config.h>
-#include <common.h>
 #include <dm.h>
 #include <errno.h>
 #include <log.h>
@@ -79,6 +78,33 @@ static void nulldev_register(void)
 static inline void nulldev_register(void) {}
 #endif	/* SYS_DEVICE_NULLDEV */
 
+static void stdio_serial_putc(const struct stdio_dev *dev, const char c)
+{
+	serial_putc(c);
+}
+
+static void stdio_serial_puts(const struct stdio_dev *dev, const char *s)
+{
+	serial_puts(s);
+}
+
+#ifdef CONFIG_CONSOLE_FLUSH_SUPPORT
+static void stdio_serial_flush(const struct stdio_dev *dev)
+{
+	serial_flush();
+}
+#endif
+
+static int stdio_serial_getc(const struct stdio_dev *dev)
+{
+	return serial_getc();
+}
+
+static int stdio_serial_tstc(const struct stdio_dev *dev)
+{
+	return serial_tstc();
+}
+
 /**************************************************************************
  * SYSTEM DRIVERS
  **************************************************************************
@@ -86,6 +112,19 @@ static inline void nulldev_register(void) {}
 
 static void drv_system_init (void)
 {
+	struct stdio_dev dev;
+
+	memset (&dev, 0, sizeof (dev));
+
+	strcpy (dev.name, "serial");
+	dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT;
+	dev.putc = stdio_serial_putc;
+	dev.puts = stdio_serial_puts;
+	STDIO_DEV_ASSIGN_FLUSH(&dev, stdio_serial_flush);
+	dev.getc = stdio_serial_getc;
+	dev.tstc = stdio_serial_tstc;
+	stdio_register (&dev);
+
 	nulldev_register();
 }
 

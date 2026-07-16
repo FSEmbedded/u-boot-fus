@@ -13,7 +13,6 @@
 
 #ifdef CONFIG_FSL_ESDHC_IMX
 
-#include <common.h>			/* Types, container_of(), ... */
 #include <asm/gpio.h>			/* gpio_get_value(), ... */
 #include <asm/io.h>			/* readl(), writel() */
 #include <asm/mach-imx/boot_mode.h>

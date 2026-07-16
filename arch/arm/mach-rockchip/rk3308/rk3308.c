@@ -2,12 +2,10 @@
 /*
  *Copyright (c) 2018 Rockchip Electronics Co., Ltd
  */
-#include <common.h>
 #include <init.h>
 #include <malloc.h>
-#include <asm/io.h>
-#include <asm/arch/grf_rk3308.h>
 #include <asm/arch-rockchip/bootrom.h>
+#include <asm/arch-rockchip/grf_rk3308.h>
 #include <asm/arch-rockchip/hardware.h>
 #include <asm/gpio.h>
 #include <debug_uart.h>
@@ -142,6 +140,7 @@ enum {
 
 const char * const boot_devices[BROM_LAST_BOOTSOURCE + 1] = {
 	[BROM_BOOTSOURCE_EMMC] = "/mmc@ff490000",
+	[BROM_BOOTSOURCE_SPINOR] = "/spi@ff4c0000/flash@0",
 	[BROM_BOOTSOURCE_SD] = "/mmc@ff480000",
 };
 
@@ -186,7 +185,7 @@ __weak void board_debug_uart_init(void)
 }
 #endif
 
-#if defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_XPL_BUILD)
 int arch_cpu_init(void)
 {
 	static struct rk3308_sgrf * const sgrf = (void *)SGRF_BASE;
@@ -217,3 +216,19 @@ int arch_cpu_init(void)
 	return 0;
 }
 #endif
+
+#define RK3308_GRF_CHIP_ID	0xFF000800
+
+int checkboard(void)
+{
+	u32 chip_id = readl(RK3308_GRF_CHIP_ID);
+
+	if (chip_id == 0x3308)
+		printf("SoC:   RK3308B\n");
+	else if (chip_id == 0x3308c)
+		printf("SoC:   RK3308B-S\n");
+	else
+		printf("SoC:   RK3308\n");
+
+	return 0;
+}

@@ -70,7 +70,6 @@
  *
  */
 
-#include <common.h>
 #include <command.h>
 #include <env.h>
 #include <log.h>
@@ -338,7 +337,6 @@ static void current_save(void)
 	index_partitions();
 }
 
-
 /**
  * Produce a mtd_info given a type and num.
  *
@@ -447,7 +445,6 @@ static int part_validate_eraseblock(struct mtdids *id, struct part_info *part)
 
 	return 0;
 }
-
 
 /**
  * Performs sanity check for supplied partition. Offset and size are
@@ -1175,7 +1172,6 @@ static int generate_mtdparts(char *buf, u32 buflen)
 			p += len;
 			maxlen -= len;
 
-
 			/* add offset only when there is a gap between
 			 * partitions */
 			if ((!prev_part && (offset != 0)) ||
@@ -1777,7 +1773,6 @@ static int parse_mtdids(const char *const ids)
 
 	return 0;
 }
-
 
 /**
  * Parse and initialize global mtdids mapping and create global

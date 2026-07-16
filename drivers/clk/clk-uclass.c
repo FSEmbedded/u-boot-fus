@@ -8,7 +8,6 @@
 
 #define LOG_CATEGORY UCLASS_CLK
 
-#include <common.h>
 #include <clk.h>
 #include <clk-uclass.h>
 #include <dm.h>
@@ -131,7 +130,6 @@ static int clk_get_by_indexed_prop(struct udevice *dev, const char *prop_name,
 		return log_ret(ret);
 	}
 
-
 	return clk_get_by_index_tail(ret, dev_ofnode(dev), &args, "clocks",
 				     index, clk);
 }
@@ -180,7 +178,7 @@ int clk_get_bulk(struct udevice *dev, struct clk_bulk *bulk)
 bulk_get_err:
 	err = clk_release_all(bulk->clks, bulk->count);
 	if (err)
-		debug("%s: could release all clocks for %p\n",
+		debug("%s: could not release all clocks for %p\n",
 		      __func__, dev);
 
 	return ret;
@@ -380,7 +378,7 @@ int clk_set_defaults(struct udevice *dev, enum clk_defaults_stage stage)
 	 * However, still set them for SPL. And still set them if explicitly
 	 * asked.
 	 */
-	if (!(IS_ENABLED(CONFIG_SPL_BUILD) || (gd->flags & GD_FLG_RELOC)))
+	if (!(IS_ENABLED(CONFIG_XPL_BUILD) || (gd->flags & GD_FLG_RELOC)))
 		if (stage != CLK_DEFAULTS_POST_FORCE)
 			return 0;
 
@@ -571,8 +569,20 @@ ulong clk_set_rate(struct clk *clk, ulong rate)
 		return 0;
 	ops = clk_dev_ops(clk->dev);
 
-	if (!ops->set_rate)
-		return -ENOSYS;
+	/* Try to find parents which can set rate */
+	while (!ops->set_rate) {
+		struct clk *parent;
+
+		if (!(clk->flags & CLK_SET_RATE_PARENT))
+			return -ENOSYS;
+
+		parent = clk_get_parent(clk);
+		if (IS_ERR_OR_NULL(parent) || !clk_valid(parent))
+			return -ENODEV;
+
+		clk = parent;
+		ops = clk_dev_ops(clk->dev);
+	}
 
 	/* get private clock struct used for cache */
 	clk_get_priv(clk, &clkp);
@@ -611,7 +621,7 @@ int clk_enable(struct clk *clk)
 	struct clk *clkp = NULL;
 	int ret;
 
-	debug("%s(clk=%p)\n", __func__, clk);
+	debug("%s(clk=%p name=%s)\n", __func__, clk, clk->dev->name);
 	if (!clk_valid(clk))
 		return 0;
 	ops = clk_dev_ops(clk->dev);
@@ -672,7 +682,7 @@ int clk_disable(struct clk *clk)
 	struct clk *clkp = NULL;
 	int ret;
 
-	debug("%s(clk=%p)\n", __func__, clk);
+	debug("%s(clk=%p name=%s)\n", __func__, clk, clk->dev->name);
 	if (!clk_valid(clk))
 		return 0;
 	ops = clk_dev_ops(clk->dev);

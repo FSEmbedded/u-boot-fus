@@ -45,7 +45,7 @@
 #include <linux/sizes.h>
 #include <linux/stringify.h>
 #include <asm/arch/imx-regs.h>
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 /* RAM Layout */
 #define CFG_SYS_OCRAM_BASE		0x20498000

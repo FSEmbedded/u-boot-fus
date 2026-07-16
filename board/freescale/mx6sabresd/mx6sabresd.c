@@ -36,7 +36,6 @@
 #include <usb.h>
 #include <usb/ehci-ci.h>
 #include <asm/arch/mx6-ddr.h>
-#include <power/regulator.h>
 #if defined(CONFIG_MX6DL) && defined(CONFIG_MXC_EPDC)
 #include <mxc_epdc_fb.h>
 #endif
@@ -748,10 +747,6 @@ int board_init(void)
 	/* address of boot parameters */
 	gd->bd->bi_boot_params = PHYS_SDRAM + 0x100;
 
-#if defined(CONFIG_DM_REGULATOR)
-	regulators_enable_boot_on(false);
-#endif
-
 #ifdef CONFIG_MXC_SPI
 	setup_spi();
 #endif
@@ -1022,7 +1017,7 @@ int is_recovery_key_pressing(void)
 
 #endif /*CONFIG_FSL_FASTBOOT*/
 
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 #include <asm/arch/mx6-ddr.h>
 #include <spl.h>
 #include <linux/libfdt.h>

@@ -6,7 +6,6 @@
  * Author: Clark Wang (xiaoning.wang@nxp.com)
  */
 
-#include <common.h>
 #include <clk.h>
 #include <dm.h>
 #include <malloc.h>
@@ -128,7 +127,7 @@ static void fsl_lpspi_cs_activate(struct fsl_lpspi_slave *lpspi)
 	struct udevice *dev = lpspi->dev;
 	struct dm_spi_slave_plat *slave_plat = dev_get_parent_plat(dev);
 
-	u32 cs = slave_plat->cs;
+	u32 cs = slave_plat->cs[0];
 
 	if (!dm_gpio_is_valid(&lpspi->cs_gpios[cs]))
 		return;
@@ -141,7 +140,7 @@ static void fsl_lpspi_cs_deactivate(struct fsl_lpspi_slave *lpspi)
 	struct udevice *dev = lpspi->dev;
 	struct dm_spi_slave_plat *slave_plat = dev_get_parent_plat(dev);
 
-	u32 cs = slave_plat->cs;
+	u32 cs = slave_plat->cs[0];
 
 	if (!dm_gpio_is_valid(&lpspi->cs_gpios[cs]))
 		return;
@@ -336,7 +335,7 @@ static int fsl_lpspi_xfer_internal(struct fsl_lpspi_slave *lpspi,
 	reg_write(&regs->TCR, ((lpspi->mode & 0x3) << LPSPI_TCR_CPHA_SHIFT |
 		  LPSPI_TCR_FRAMESZ(lpspi->wordlen - 1) |
 		  LPSPI_TCR_PRESCALE(lpspi->prescale) |
-		  LPSPI_TCR_PCS(slave_plat->cs) | LPSPI_TCR_CONT(1) |
+		  LPSPI_TCR_PCS(slave_plat->cs[0]) | LPSPI_TCR_CONT(1) |
 		  LPSPI_TCR_CONTC(0)));
 
 	reg_write(&regs->CR, LPSPI_CR_MEN_MASK);
@@ -479,7 +478,7 @@ static int fsl_lpspi_claim_bus(struct udevice *dev)
 	lpspi->wordlen = 8;
 	fsl_lpspi_set_word_size(lpspi, lpspi->wordlen);
 
-	return fsl_lpspi_claim_bus_internal(lpspi, slave_plat->cs);
+	return fsl_lpspi_claim_bus_internal(lpspi, slave_plat->cs[0]);
 }
 
 static int fsl_lpspi_release_bus(struct udevice *dev)

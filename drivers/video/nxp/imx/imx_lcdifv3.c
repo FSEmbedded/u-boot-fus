@@ -3,7 +3,6 @@
  * Copyright 2019 NXP
  */
 
-#include <common.h>
 #include <malloc.h>
 #include <video.h>
 #include <video_bridge.h>
@@ -119,13 +118,13 @@ static void lcdifv3_set_bus_fmt(struct lcdifv3_priv *priv)
 	uint32_t disp_para = 0;
 
 	disp_para = readl((ulong)(priv->reg_base + LCDIFV3_DISP_PARA));
-	disp_para &= DISP_PARA_LINE_PATTERN(0xf);
+	disp_para &= ~DISP_PARA_LINE_PATTERN(0xf);
 
 	/* Fixed to 24 bits output */
 	disp_para |= DISP_PARA_LINE_PATTERN(LP_RGB888_OR_YUV444);
 
 	/* config display mode: default is normal mode */
-	disp_para &= DISP_PARA_DISP_MODE(3);
+	disp_para &= ~DISP_PARA_DISP_MODE(3);
 	disp_para |= DISP_PARA_DISP_MODE(0);
 	writel(disp_para, (ulong)(priv->reg_base + LCDIFV3_DISP_PARA));
 }
@@ -403,7 +402,6 @@ static int lcdifv3_video_probe(struct udevice *dev)
 	mmu_set_region_dcache_behaviour(fb_start, fb_end - fb_start,
 					DCACHE_WRITEBACK);
 	video_set_flush_dcache(dev, true);
-	gd->fb_base = plat->base;
 
 	return ret;
 }

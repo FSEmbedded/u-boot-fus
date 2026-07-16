@@ -121,7 +121,7 @@ Free Space:
 #include <linux/sizes.h>
 #include <asm/arch/imx-regs.h>
 
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 /*
  * 0x08081000 - 0x08180FFF is for m4_0 xip image,

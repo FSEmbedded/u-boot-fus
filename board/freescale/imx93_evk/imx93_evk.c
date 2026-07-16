@@ -3,7 +3,6 @@
  * Copyright 2022 NXP
  */
 
-#include <common.h>
 #include <env.h>
 #include <efi_loader.h>
 #include <init.h>
@@ -195,9 +194,9 @@ int board_usb_init(int index, enum usb_init_type init)
 		port_ptr = &port2;
 
 	if (init == USB_INIT_HOST)
-		tcpc_setup_dfp_mode(port_ptr);
+		ret = tcpc_setup_dfp_mode(port_ptr);
 	else
-		tcpc_setup_ufp_mode(port_ptr);
+		ret = tcpc_setup_ufp_mode(port_ptr);
 
 	return ret;
 }
@@ -319,7 +318,7 @@ int board_init(void)
 
 int board_late_init(void)
 {
-#ifdef CONFIG_ENV_IS_IN_MMC
+#if CONFIG_IS_ENABLED(ENV_IS_IN_MMC) || CONFIG_IS_ENABLED(ENV_IS_NOWHERE)
 	board_late_mmc_env_init();
 #endif
 

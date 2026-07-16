@@ -137,7 +137,6 @@
  * be done before that.
  */
 
-#include <common.h>
 #include <fdt_support.h>		/* fdt_getprop_u32_default_node() */
 #include <spl.h>
 #include <mmc.h>

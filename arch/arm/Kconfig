@@ -6,6 +6,8 @@ config SYS_ARCH
 
 config ARM64
 	bool
+	select 64BIT
+	select SPL_64BIT if SPL
 	select PHYS_64BIT
 	select SYS_CACHE_SHIFT_6
 	imply SPL_SEPARATE_BSS
@@ -33,6 +35,7 @@ config COUNTER_FREQUENCY
 			ROCKCHIP_RK3288 || ROCKCHIP_RK322X || ROCKCHIP_RK3036
 	default 25000000 if ARCH_LX2160A || ARCH_LX2162A || ARCH_LS1088A
 	default 100000000 if ARCH_ZYNQMP
+	default 200000000 if ARCH_SOCFPGA && ARM64 && TARGET_SOCFPGA_AGILEX5
 	default 0
 	help
 	  For platforms with ARMv8-A and ARMv7-A which features a system
@@ -110,15 +113,27 @@ config LNX_KRNL_IMG_TEXT_OFFSET_BASE
 	  The value subtracted from CONFIG_TEXT_BASE to calculate the
 	  TEXT_OFFSET value written to the Linux kernel image header.
 
+config NVIC
+	bool
+
 config GICV2
 	bool
 
 config GICV3
 	bool
 
+config DRIVER_GICV2
+	bool "ARM GICV2 driver"
+	select IRQ
+	depends on !NVIC
+	help
+	  ARM GICV2 driver.
+	  Basic support for parsing the GICV2 node and generate ACPI tables.
+
 config GIC_V3_ITS
 	bool "ARM GICV3 ITS"
 	select IRQ
+	depends on !NVIC
 	help
 	  ARM GICV3 Interrupt translation service (ITS).
 	  Basic support for programming locality specific peripheral
@@ -126,6 +141,16 @@ config GIC_V3_ITS
 	  LPI configuration table can be used by u-boot or Linux.
 	  ARM GICV3 has limitation, once the LPI table is enabled, LPI
 	  configuration table can not be re-programmed, unless GICV3 reset.
+
+config GICV3_SUPPORT_GIC600
+	bool "ARM GICV3 GIC600 SUPPORT"
+	depends on !NVIC
+	help
+	  ARM GIC-600 IP complies with ARM GICv3 architecture, but among others,
+	  implements a power control register in the Redistributor frame.This
+	  register must be programmed to mark the frame as powered on, before
+	  accessing other registers in the frame. Rest of initialization sequence
+	  remains the same.
 
 config STATIC_RELA
 	bool
@@ -179,6 +204,7 @@ config SPL_SYS_DCACHE_OFF
 
 config SYS_ARM_CACHE_CP15
 	bool "CP15 based cache enabling support"
+	depends on !CPU_V7M
 	help
 	  Select this if your processor suports enabling caches by using
 	  CP15 registers.
@@ -186,6 +212,7 @@ config SYS_ARM_CACHE_CP15
 config SYS_ARM_MMU
 	bool "MMU-based Paged Memory Management Support"
 	select SYS_ARM_CACHE_CP15
+	depends on !CPU_V7M
 	help
 	  Select if you want MMU-based virtualised addressing space
 	  support via paged memory management.
@@ -336,6 +363,7 @@ config CPU_V7M
 	select SYS_CACHE_SHIFT_5
 	select SYS_THUMB_BUILD
 	select THUMB2_KERNEL
+	select NVIC
 
 config CPU_V7R
 	bool
@@ -645,22 +673,9 @@ config ARCH_ORION5X
 	select SPL_SEPARATE_BSS if SPL
 	select TIMER
 
-config TARGET_STV0991
-	bool "Support stv0991"
-	select CPU_V7A
-	select DM
-	select DM_SERIAL
-	select DM_SPI
-	select DM_SPI_FLASH
-	select GPIO_EXTRA_HEADER
-	select PL01X_SERIAL
-	select MTD
-	select SPI
-	select SPI_FLASH
-	imply CMD_DM
-
 config ARCH_BCM283X
 	bool "Broadcom BCM283X family"
+	select CPU
 	select DM
 	select DM_GPIO
 	select DM_SERIAL
@@ -670,6 +685,7 @@ config ARCH_BCM283X
 	select SERIAL_SEARCH_ALL
 	imply CMD_DM
 	imply FAT_WRITE
+	imply OF_HAS_PRIOR_STAGE
 
 config ARCH_BCMSTB
 	bool "Broadcom BCM7XXX family"
@@ -712,15 +728,6 @@ config TARGET_BCMNS
 	  Support for Broadcom Northstar SoCs. NS is a dual-core 32-bit
 	  ARMv7 Cortex-A9 SoC family including BCM4708, BCM47094,
 	  BCM5301x etc.
-
-config TARGET_BCMNS2
-	bool "Support Broadcom Northstar2"
-	select ARM64
-	select GPIO_EXTRA_HEADER
-	help
-	  Support for Broadcom Northstar 2 SoCs.  NS2 is a quad-core 64-bit
-	  ARMv8 Cortex-A57 processors targeting a broad range of networking
-	  applications.
 
 config TARGET_BCMNS3
 	bool "Support Broadcom NS3"
@@ -788,14 +795,13 @@ config ARCH_IPQ40XX
 	select DM_SERIAL
 	select DM_RESET
 	select GPIO_EXTRA_HEADER
-	select MSM_SMEM
 	select PINCTRL
 	select CLK
-	select SMEM
 	select OF_CONTROL
 	select CLK_QCOM_IPQ4019
 	select PINCTRL_QCOM_IPQ4019
 	imply CMD_DM
+	imply OF_UPSTREAM
 
 config ARCH_KEYSTONE
 	bool "TI Keystone"
@@ -828,7 +834,7 @@ config ARCH_OMAP2PLUS
 	bool "TI OMAP2+"
 	select CPU_V7A
 	select GPIO_EXTRA_HEADER
-	select SPL_BOARD_INIT if SPL
+	select SPL_SOC_INIT if SPL
 	select SPL_STACK_R if SPL
 	select SUPPORT_SPL
 	imply TI_SYSC if DM && OF_CONTROL
@@ -858,6 +864,15 @@ config ARCH_MEDIATEK
 	help
 	  Support for the MediaTek SoCs family developed by MediaTek Inc.
 	  Please refer to doc/README.mediatek for more information.
+
+config ARCH_MMP
+	bool "Marvell MMP"
+	select ARM64
+	select DM
+	select DM_SERIAL
+	select OF_CONTROL
+	select SAVE_PREV_BL_FDT_ADDR
+	select SAVE_PREV_BL_INITRAMFS_START_ADDR
 
 config ARCH_LPC32XX
 	bool "NXP LPC32xx platform"
@@ -1063,7 +1078,7 @@ config ARCH_APPLE
 	select USB
 	imply CMD_DM
 	imply CMD_GPT
-	imply DISTRO_DEFAULTS
+	imply BOOTSTD_FULL
 	imply OF_HAS_PRIOR_STAGE
 
 config ARCH_OWL
@@ -1088,7 +1103,7 @@ config ARCH_QEMU
 	imply DM_RNG
 	imply DM_RTC
 	imply RTC_PL031
-	imply OF_HAS_PRIOR_STAGE
+	imply OF_HAS_PRIOR_STAGE if !TARGET_QEMU_ARM_SBSA
 	imply VIDEO
 	imply VIDEO_BOCHS
 	imply SYS_WHITE_ON_BLACK
@@ -1109,6 +1124,7 @@ config ARCH_RENESAS
 	imply BOARD_EARLY_INIT_F
 	imply CMD_DM
 	imply FAT_WRITE
+	imply OF_UPSTREAM
 	imply SYS_THUMB_BUILD
 	imply ARCH_MISC_INIT if DISPLAY_CPUINFO
 
@@ -1119,12 +1135,18 @@ config ARCH_SNAPDRAGON
 	select DM_GPIO
 	select DM_SERIAL
 	select DM_RESET
+	select POWER_DOMAIN
 	select GPIO_EXTRA_HEADER
 	select MSM_SMEM
 	select OF_CONTROL
 	select OF_SEPARATE
 	select SMEM
 	select SPMI
+	select BOARD_LATE_INIT
+	select OF_BOARD
+	select SAVE_PREV_BL_FDT_ADDR
+	select LINUX_KERNEL_IMAGE_HEADER if !ENABLE_ARM_SOC_BOOT0_HOOK
+	imply OF_UPSTREAM
 	imply CMD_DM
 
 config ARCH_SOCFPGA
@@ -1145,6 +1167,8 @@ config ARCH_SOCFPGA
 	select SPL_LIBGENERIC_SUPPORT
 	select SPL_OF_CONTROL
 	select SPL_SEPARATE_BSS if TARGET_SOCFPGA_SOC64
+	select SPL_DRIVERS_MISC if TARGET_SOCFPGA_SOC64
+	select SPL_SOCFPGA_DT_REG if TARGET_SOCFPGA_SOC64
 	select SPL_SERIAL
 	select SPL_SYSRESET
 	select SPL_WATCHDOG
@@ -1153,7 +1177,8 @@ config ARCH_SOCFPGA
 	select SYS_THUMB_BUILD if TARGET_SOCFPGA_GEN5 || TARGET_SOCFPGA_ARRIA10
 	select SYSRESET
 	select SYSRESET_SOCFPGA if TARGET_SOCFPGA_GEN5 || TARGET_SOCFPGA_ARRIA10
-	select SYSRESET_SOCFPGA_SOC64 if TARGET_SOCFPGA_SOC64
+	select SYSRESET_SOCFPGA_SOC64 if !TARGET_SOCFPGA_AGILEX5 && \
+	  TARGET_SOCFPGA_SOC64
 	imply CMD_DM
 	imply CMD_MTDPARTS
 	imply CRC32_VERIFY
@@ -1186,7 +1211,6 @@ config ARCH_SUNXI
 	select DM_SPI if SPI
 	select DM_SPI_FLASH if SPI && MTD
 	select DM_KEYBOARD
-	select DM_MMC if MMC
 	select DM_SERIAL
 	select OF_BOARD_SETUP
 	select OF_CONTROL
@@ -1200,7 +1224,6 @@ config ARCH_SUNXI
 	select SUNXI_GPIO
 	select SYS_NS16550
 	select SYS_THUMB_BUILD if !ARM64
-	select USB if DISTRO_DEFAULTS
 	select USB_KEYBOARD if DISTRO_DEFAULTS && USB_HOST
 	select USB_STORAGE if DISTRO_DEFAULTS && USB_HOST
 	select SPL_USE_TINY_PRINTF if SPL
@@ -1226,6 +1249,7 @@ config ARCH_SUNXI
 	imply SYSRESET
 	imply SYSRESET_WATCHDOG
 	imply SYSRESET_WATCHDOG_AUTO
+	imply USB
 	imply USB_GADGET
 	imply WDT
 
@@ -1234,7 +1258,6 @@ config ARCH_U8500
 	select CPU_V7A
 	select DM
 	select DM_GPIO
-	select DM_MMC if MMC
 	select DM_SERIAL
 	select DM_USB_GADGET if DM_USB
 	select OF_CONTROL
@@ -1259,7 +1282,6 @@ config ARCH_VERSAL
 	select ARM64
 	select CLK
 	select DM
-	select DM_MMC if MMC
 	select DM_SERIAL
 	select GICV3
 	select OF_CONTROL
@@ -1267,12 +1289,22 @@ config ARCH_VERSAL
 	imply BOARD_LATE_INIT
 	imply ENV_VARS_UBOOT_RUNTIME_CONFIG
 
+config ARCH_VERSAL2
+	bool "Support AMD Versal Gen 2 Platform"
+	select ARM64
+	select CLK
+	select DM
+	select DM_SERIAL
+	select OF_CONTROL
+	imply BOARD_LATE_INIT
+	imply ENV_VARS_UBOOT_RUNTIME_CONFIG
+	imply ZYNQMP_FIRMWARE
+
 config ARCH_VERSAL_NET
 	bool "Support Xilinx Versal NET Platform"
 	select ARM64
 	select CLK
 	select DM
-	select DM_MMC if MMC
 	select DM_SERIAL
 	select OF_CONTROL
 	imply BOARD_LATE_INIT
@@ -1297,14 +1329,13 @@ config ARCH_ZYNQ
 	select CPU_V7A
 	select DEBUG_UART_BOARD_INIT if SPL && DEBUG_UART
 	select DM
-	select DM_MMC if MMC
 	select DM_SERIAL
 	select DM_SPI
 	select DM_SPI_FLASH
 	select OF_CONTROL
 	select MTD
 	select SPI
-	select SPL_BOARD_INIT if SPL
+	select SPL_SOC_INIT if SPL
 	select SPL_CLK if SPL
 	select SPL_DM if SPL
 	select SPL_DM_SPI if SPL
@@ -1326,7 +1357,6 @@ config ARCH_ZYNQMP_R5
 	select CLK
 	select CPU_V7R
 	select DM
-	select DM_MMC if MMC
 	select DM_SERIAL
 	select OF_CONTROL
 	imply CMD_DM
@@ -1335,11 +1365,11 @@ config ARCH_ZYNQMP_R5
 config ARCH_ZYNQMP
 	bool "Xilinx ZynqMP based platform"
 	select ARM64
+	select BINMAN
 	select CLK
 	select DM
 	select DEBUG_UART_BOARD_INIT if SPL && DEBUG_UART
 	imply DM_MAILBOX
-	select DM_MMC if MMC
 	select DM_SERIAL
 	select MTD
 	select DM_SPI if SPI
@@ -1347,13 +1377,21 @@ config ARCH_ZYNQMP
 	imply FIRMWARE
 	select GICV2
 	select OF_CONTROL
-	select SPL_BOARD_INIT if SPL
+	select SPL_SOC_INIT if SPL
 	select SPL_CLK if SPL
 	select SPL_DM if SPL
 	select SPL_DM_SPI if SPI && SPL_DM
 	select SPL_DM_SPI_FLASH if SPL_DM_SPI
 	select SPL_DM_MAILBOX if SPL
 	imply SPL_FIRMWARE if SPL
+	imply SPL_FS_FAT if SPL
+	imply SPL_LIBCOMMON_SUPPORT if SPL
+	imply SPL_LIBDISK_SUPPORT if SPL
+	imply SPL_LIBGENERIC_SUPPORT if SPL
+	imply SPL_MMC if SPL && MMC_SDHCI_ZYNQ
+	imply SPL_SERIAL if SPL
+	imply SPL_SPI if SPL && ZYNQ_QSPI
+	imply SPL_SPI_FLASH_SUPPORT if SPL && ZYNQ_QSPI
 	select SPL_SEPARATE_BSS if SPL
 	select SUPPORT_SPL
 	imply ZYNQMP_IPI if DM_MAILBOX
@@ -1369,7 +1407,7 @@ config ARCH_ZYNQMP
 config ARCH_TEGRA
 	bool "NVIDIA Tegra"
 	select GPIO_EXTRA_HEADER
-	imply DISTRO_DEFAULTS
+	imply BOOTSTD_DEFAULTS
 	imply FAT_WRITE
 	imply SPL_TIMER if SPL
 
@@ -1381,7 +1419,6 @@ config ARCH_VEXPRESS64
 	select PL01X_SERIAL
 	select OF_CONTROL
 	select CLK
-	select BLK
 	select MTD_NOR_FLASH if MTD
 	select FLASH_CFI_DRIVER if MTD
 	select ENV_IS_IN_FLASH if MTD
@@ -1399,8 +1436,10 @@ config TARGET_TOTAL_COMPUTE
 	select PL01X_SERIAL
 	select DM
 	select DM_SERIAL
-	select DM_MMC
 	select DM_GPIO
+	select MMC
+	imply OF_HAS_PRIOR_STAGE
+	imply MISC_INIT_R
 
 config TARGET_LS2080A_EMU
 	bool "Support ls2080a_emu"
@@ -1877,6 +1916,23 @@ config TARGET_LS1046AFRWY
 	  development platform that supports the QorIQ LS1046A
 	  Layerscape Architecture processor.
 
+config ARCH_SC5XX
+	bool "Analog Devices SC5XX-processor family"
+	select ADI_SC5XX_TIMER
+	select DM
+	select DM_SERIAL
+	select HAS_CUSTOM_SYS_INIT_SP_ADDR
+	select PANIC_HANG
+	select SPL
+	select SPL_BOOTROM_SUPPORT
+	select SPL_DM
+	select SPL_DM_SEQ_ALIAS
+	select SPL_LIBGENERIC_SUPPORT
+	select SPL_LIBCOMMON_SUPPORT
+	select SPL_SKIP_LOWLEVEL_INIT
+	select SUPPORT_SPL
+	select TIMER
+
 config TARGET_SL28
 	bool "Support sl28"
 	select ARCH_LS1028A
@@ -1887,7 +1943,7 @@ config TARGET_SL28
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
+	select MMC
 	select MTD
 	select DM_SPI_FLASH
 	select DM_MDIO
@@ -1928,10 +1984,10 @@ config ARCH_UNIPHIER
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_MTD
 	select DM_RESET
 	select DM_SERIAL
+	select MMC
 	select OF_BOARD_SETUP
 	select OF_CONTROL
 	select OF_LIBFDT
@@ -1972,12 +2028,11 @@ config ARCH_STM32
 
 config ARCH_STI
 	bool "Support STMicroelectronics SoCs"
-	select BLK
 	select CPU_V7A
 	select DM
-	select DM_MMC
 	select DM_RESET
 	select DM_SERIAL
+	select MMC
 	imply CMD_DM
 	help
 	  Support for STMicroelectronics STiH407/10 SoC family.
@@ -2019,12 +2074,10 @@ config ARCH_STM32MP
 
 config ARCH_ROCKCHIP
 	bool "Support Rockchip SoCs"
-	select BLK
 	select BINMAN if SPL_OPTEE || SPL
 	select DM
 	select DM_GPIO
 	select DM_I2C
-	select DM_MMC
 	select DM_PWM
 	select DM_REGULATOR
 	select DM_SERIAL
@@ -2033,6 +2086,7 @@ config ARCH_ROCKCHIP
 	select DM_USB_GADGET if USB_DWC3_GADGET
 	select ENABLE_ARM_SOC_BOOT0_HOOK
 	select OF_CONTROL
+	select MMC
 	select MTD
 	select SPI
 	select SPL_DM if SPL
@@ -2107,7 +2161,6 @@ config TARGET_POMELO
 	select AHCI
 	select SCSI_AHCI
 	select AHCI_PCI
-	select BLK
 	select PCI
 	select DM_PCI
 	select SCSI
@@ -2178,6 +2231,7 @@ config SERIAL_TAG
 config STATIC_MACH_TYPE
 	bool "Statically define the Machine ID number"
 	default y if TARGET_DS109 || TARGET_DS414 || DEFAULT_DEVICE_TREE = "sun7i-a20-icnova-swac"
+	depends on SUPPORT_PASSING_ATAGS
 	help
 	  When booting via ATAGs, enable this option if we know the correct
 	  machine ID number to use at compile time.  Some systems will be
@@ -2304,11 +2358,15 @@ source "arch/arm/mach-meson/Kconfig"
 
 source "arch/arm/mach-mediatek/Kconfig"
 
+source "arch/arm/mach-mmp/Kconfig"
+
 source "arch/arm/mach-qemu/Kconfig"
 
 source "arch/arm/mach-rockchip/Kconfig"
 
 source "arch/arm/mach-s5pc1xx/Kconfig"
+
+source "arch/arm/mach-sc5xx/Kconfig"
 
 source "arch/arm/mach-snapdragon/Kconfig"
 
@@ -2335,6 +2393,8 @@ source "arch/arm/mach-zynq/Kconfig"
 source "arch/arm/mach-zynqmp/Kconfig"
 
 source "arch/arm/mach-versal/Kconfig"
+
+source "arch/arm/mach-versal2/Kconfig"
 
 source "arch/arm/mach-versal-net/Kconfig"
 
@@ -2366,6 +2426,7 @@ source "board/broadcom/bcmns3/Kconfig"
 source "board/cavium/thunderx/Kconfig"
 source "board/eets/pdu001/Kconfig"
 source "board/emulation/qemu-arm/Kconfig"
+source "board/emulation/qemu-sbsa/Kconfig"
 source "board/freescale/ls2080aqds/Kconfig"
 source "board/freescale/ls2080ardb/Kconfig"
 source "board/freescale/ls1088a/Kconfig"
@@ -2394,7 +2455,6 @@ source "board/samsung/common/Kconfig"
 source "board/siemens/common/Kconfig"
 source "board/seeed/npi_imx6ull/Kconfig"
 source "board/socionext/developerbox/Kconfig"
-source "board/st/stv0991/Kconfig"
 source "board/tcl/sl50/Kconfig"
 source "board/traverse/ten64/Kconfig"
 source "board/variscite/dart_6ul/Kconfig"

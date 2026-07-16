@@ -19,7 +19,7 @@
 #include <linux/sizes.h>
 #include <asm/arch/imx-regs.h>
 
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #ifdef CONFIG_IMX_HAB
 #define CONFIG_CSF_SIZE			0x2000 /* 8K region */

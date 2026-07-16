@@ -10,7 +10,7 @@
 #define __MX7D_VAL_CONFIG_H
 
 #include "mx7_common.h"
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #define CFG_MXC_UART_BASE		UART1_IPS_BASE_ADDR
 

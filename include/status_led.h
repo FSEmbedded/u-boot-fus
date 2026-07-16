@@ -46,6 +46,13 @@ void status_led_init(void);
 void status_led_tick(unsigned long timestamp);
 void status_led_set(int led, int state);
 
+static inline void status_led_boot_blink(void)
+{
+#ifdef CONFIG_LED_STATUS_BOOT_ENABLE
+	status_led_set(CONFIG_LED_STATUS_BOOT, CONFIG_LED_STATUS_BLINKING);
+#endif
+}
+
 /*****  MVS v1  **********************************************************/
 #if (defined(CONFIG_MVS) && CONFIG_MVS < 2)
 # define STATUS_LED_PAR		im_ioport.iop_pdpar
@@ -71,6 +78,12 @@ void status_led_set(int led, int state);
 #ifndef CONFIG_LED_STATUS_BOARD_SPECIFIC
 # include <asm/status_led.h>
 #endif
+
+#else
+
+static inline void status_led_init(void) { }
+static inline void status_led_set(int led, int state) { }
+static inline void status_led_boot_blink(void) { }
 
 #endif	/* CONFIG_LED_STATUS	*/
 

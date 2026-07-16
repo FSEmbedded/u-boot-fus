@@ -137,7 +137,6 @@
  */
 
 #ifdef __UBOOT__
-#include <common.h>
 #include <command.h>
 #include <mmc.h>
 #include <linux/err.h>

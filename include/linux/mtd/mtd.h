@@ -26,6 +26,7 @@
 #include <dm/device.h>
 #endif
 #include <dm/ofnode.h>
+#include <blk.h>
 
 #define MAX_MTD_DEVICES 32
 #endif
@@ -154,7 +155,7 @@ struct mtd_info {
 	uint64_t size;	 /* Total size of the MTD */
 	loff_t skip;     /* F&S: Skip these many bytes at start of device */
 
-	/* "Major" erase size for the device. Naïve users may take this
+	/* "Major" erase size for the device. Naive users may take this
 	 * to be the only erase size available, or may use the more detailed
 	 * information below if they desire
 	 */
@@ -353,7 +354,7 @@ static inline void mtd_set_ofnode(struct mtd_info *mtd, ofnode node)
 	dev_set_ofnode(mtd->dev, node);
 }
 
-static inline const ofnode mtd_get_ofnode(struct mtd_info *mtd)
+static inline ofnode mtd_get_ofnode(struct mtd_info *mtd)
 {
 	return dev_ofnode(mtd->dev);
 }
@@ -426,6 +427,30 @@ int mtd_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 	      const u_char *buf);
 int mtd_panic_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen,
 		    const u_char *buf);
+
+#if CONFIG_IS_ENABLED(MTD_BLOCK)
+static inline struct mtd_info *blk_desc_to_mtd(struct blk_desc *bdesc)
+{
+	void *priv = dev_get_priv(bdesc->bdev);
+
+	if (!priv)
+		return NULL;
+
+	return *((struct mtd_info **)priv);
+}
+
+int mtd_bind(struct udevice *dev, struct mtd_info **mtd);
+#else
+static inline struct mtd_info *blk_desc_to_mtd(struct blk_desc *bdesc)
+{
+	return NULL;
+}
+
+static inline int mtd_bind(struct udevice *dev, struct mtd_info **mtd)
+{
+	return -EOPNOTSUPP;
+}
+#endif
 
 int mtd_read_oob(struct mtd_info *mtd, loff_t from, struct mtd_oob_ops *ops);
 int mtd_write_oob(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *ops);
@@ -537,14 +562,12 @@ extern void __put_mtd_device(struct mtd_info *mtd);
 extern struct mtd_info *get_mtd_device_nm(const char *name);
 extern void put_mtd_device(struct mtd_info *mtd);
 
-
 #ifndef __UBOOT__
 struct mtd_notifier {
 	void (*add)(struct mtd_info *mtd);
 	void (*remove)(struct mtd_info *mtd);
 	struct list_head list;
 };
-
 
 extern void register_mtd_user (struct mtd_notifier *new);
 extern int unregister_mtd_user (struct mtd_notifier *old);

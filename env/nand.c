@@ -13,7 +13,6 @@
  * Andreas Heppel <aheppel@sysgo.de>
  */
 
-#include <common.h>
 #include <command.h>
 #include <env.h>
 #include <env_internal.h>
@@ -28,9 +27,9 @@
 #include <dm/ofnode.h>
 
 #if defined(CONFIG_CMD_SAVEENV) && defined(CONFIG_CMD_NAND) && \
-		!defined(CONFIG_SPL_BUILD)
+		!defined(CONFIG_XPL_BUILD)
 #define CMD_SAVEENV
-#elif defined(CONFIG_ENV_NAND_OFFSET_REDUND) && !defined(CONFIG_SPL_BUILD)
+#elif defined(CONFIG_ENV_NAND_OFFSET_REDUND) && !defined(CONFIG_XPL_BUILD)
 #error CONFIG_ENV_NAND_OFFSET_REDUND must have CONFIG_CMD_SAVEENV & CONFIG_CMD_NAND
 #endif
 
@@ -284,7 +283,7 @@ static int env_nand_save(void)
 }
 #endif /* CMD_SAVEENV */
 
-#if defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_XPL_BUILD)
 static int readenv(size_t offset, u_char *buf)
 {
 	return nand_spl_load_image(offset, CONFIG_ENV_SIZE, buf);
@@ -325,7 +324,7 @@ static int readenv(size_t offset, u_char *buf)
 
 	return 0;
 }
-#endif /* #if defined(CONFIG_SPL_BUILD) */
+#endif /* #if defined(CONFIG_XPL_BUILD) */
 
 #ifdef CONFIG_ENV_NAND_OFFSET_REDUND
 static int env_nand_load(void)

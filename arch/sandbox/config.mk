@@ -22,7 +22,9 @@ SANITIZERS	+= -fsanitize=fuzzer
 endif
 KBUILD_CFLAGS	+= $(SANITIZERS)
 
-cmd_u-boot__ = $(CC) -o $@ -Wl,-T u-boot.lds $(u-boot-init) \
+cmd_u-boot__ = \
+	touch $(u-boot-main) ; \
+	$(CC) -o $@ -Wl,-T u-boot.lds $(u-boot-init) \
 	$(KBUILD_LDFLAGS:%=-Wl,%) \
 	$(SANITIZERS) \
 	$(LTO_FINAL_LDFLAGS) \
@@ -32,7 +34,9 @@ cmd_u-boot__ = $(CC) -o $@ -Wl,-T u-boot.lds $(u-boot-init) \
 	-Wl,--no-whole-archive \
 	$(PLATFORM_LIBS) -Wl,-Map -Wl,u-boot.map -Wl,--gc-sections
 
-cmd_u-boot-spl = (cd $(obj) && $(CC) -o $(SPL_BIN) -Wl,-T u-boot-spl.lds \
+cmd_u-boot-spl = (cd $(obj) && \
+	touch $(patsubst $(obj)/%,%,$(u-boot-spl-main)) && \
+	$(CC) -o $(SPL_BIN) -Wl,-T u-boot-spl.lds \
 	$(KBUILD_LDFLAGS:%=-Wl,%) \
 	$(SANITIZERS) \
 	$(LTO_FINAL_LDFLAGS) \
@@ -69,5 +73,3 @@ EFI_LDS := ${SRCDIR}/../../../arch/riscv/lib/elf_riscv64_efi.lds
 endif
 EFI_CRT0 := crt0_sandbox_efi.o
 EFI_RELOC := reloc_sandbox_efi.o
-AFLAGS_crt0_sandbox_efi.o += -DHOST_ARCH="$(HOST_ARCH)"
-CFLAGS_reloc_sandbox_efi.o += -DHOST_ARCH="$(HOST_ARCH)"

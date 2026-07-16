@@ -12,7 +12,6 @@
 #include <config.h>
 #include <env.h>			/* env_get() */
 #include <command.h>			/* run_command() */
-#include <common.h>			/* types, get_board_name(), ... */
 #include <serial.h>			/* get_serial_device() */
 #include <stdio_dev.h>			/* STDIO_NAME_LEN */
 #include <asm/gpio.h>			/* gpio_direction_output(), ... */

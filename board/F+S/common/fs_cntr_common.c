@@ -134,7 +134,6 @@
  */
 
 #ifdef __UBOOT__
-#include <common.h>
 #include <spl.h>
 #include <malloc.h>
 #include <sdp.h>

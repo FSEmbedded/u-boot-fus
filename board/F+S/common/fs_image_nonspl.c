@@ -8,7 +8,6 @@
  */
 
 #ifdef __UBOOT__
-#include <common.h>
 #include <fdt_support.h>		/* fdt_getprop_u32_default_node() */
 //####include <mmc.h>
 //####include <nand.h>
@@ -35,10 +34,10 @@
 //####include "../../../include/linux/libfdt_env.h"
 //####include <string.h>
 #include <stdio.h>
-#include <errno.h>
 //####include "crc32.h"
 #endif /* __UBOOT__ */
 
+#include <errno.h>
 #include "fs_image_common.h"		/* Own interface */
 
 struct env_info {

@@ -8,7 +8,6 @@
 
 #define LOG_CATEGORY UCLASS_BOOTSTD
 
-#include <common.h>
 #include <bootdev.h>
 #include <bootflow.h>
 #include <bootmeth.h>
@@ -75,7 +74,8 @@ static int efi_mgr_read_bootflow(struct udevice *dev, struct bootflow *bflow)
 }
 
 static int efi_mgr_read_file(struct udevice *dev, struct bootflow *bflow,
-				const char *file_path, ulong addr, ulong *sizep)
+			     const char *file_path, ulong addr,
+			     enum bootflow_img_t type, ulong *sizep)
 {
 	/* Files are loaded by the 'bootefi bootmgr' command */
 
@@ -114,7 +114,7 @@ static const struct udevice_id efi_mgr_bootmeth_ids[] = {
 	{ }
 };
 
-U_BOOT_DRIVER(bootmeth_efi_mgr) = {
+U_BOOT_DRIVER(bootmeth_3efi_mgr) = {
 	.name		= "bootmeth_efi_mgr",
 	.id		= UCLASS_BOOTMETH,
 	.of_match	= efi_mgr_bootmeth_ids,

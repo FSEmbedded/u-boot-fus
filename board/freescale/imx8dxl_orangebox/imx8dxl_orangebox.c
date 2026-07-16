@@ -3,7 +3,6 @@
  * Copyright 2022 NXP
  */
 
-#include <common.h>
 #include <cpu_func.h>
 #include <env.h>
 #include <errno.h>

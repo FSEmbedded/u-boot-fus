@@ -10,11 +10,11 @@
  * Some board init for the Allwinner A10-evb board.
  */
 
-#include <common.h>
 #include <clock_legacy.h>
 #include <dm.h>
 #include <env.h>
 #include <hang.h>
+#include <i2c.h>
 #include <image.h>
 #include <init.h>
 #include <log.h>
@@ -186,7 +186,7 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	return ENVL_UNKNOWN;
 }
 
-/* add board specific code here */
+/* called only from U-Boot proper */
 int board_init(void)
 {
 	__maybe_unused int id_pfr1, ret;
@@ -226,13 +226,6 @@ int board_init(void)
 	if (ret)
 		return ret;
 
-#if CONFIG_IS_ENABLED(DM_I2C)
-	/*
-	 * Temporary workaround for enabling I2C clocks until proper sunxi DM
-	 * clk, reset and pinctrl drivers land.
-	 */
-	i2c_init_board();
-#endif
 	eth_init_board();
 
 	return 0;
@@ -289,7 +282,7 @@ int dram_init(void)
 	return 0;
 }
 
-#if defined(CONFIG_NAND_SUNXI) && defined(CONFIG_SPL_BUILD)
+#if defined(CONFIG_NAND_SUNXI) && defined(CONFIG_XPL_BUILD)
 static void nand_pinmux_setup(void)
 {
 	unsigned int pin;
@@ -523,7 +516,7 @@ int board_mmc_init(struct bd_info *bis)
 	return 0;
 }
 
-#if CONFIG_MMC_SUNXI_SLOT_EXTRA != -1
+#ifdef CONFIG_SYS_MMC_ENV_DEV
 int mmc_get_env_dev(void)
 {
 	switch (sunxi_get_boot_device()) {
@@ -538,7 +531,7 @@ int mmc_get_env_dev(void)
 #endif
 #endif /* CONFIG_MMC */
 
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 
 static void sunxi_spl_store_dram_size(phys_addr_t dram_size)
 {
@@ -570,7 +563,7 @@ void sunxi_board_init(void)
 #if defined CONFIG_AXP152_POWER || defined CONFIG_AXP209_POWER || \
 	defined CONFIG_AXP221_POWER || defined CONFIG_AXP305_POWER || \
 	defined CONFIG_AXP809_POWER || defined CONFIG_AXP818_POWER || \
-	defined CONFIG_AXP313_POWER
+	defined CONFIG_AXP313_POWER || defined CONFIG_AXP717_POWER
 	power_failed = axp_init();
 
 	if (IS_ENABLED(CONFIG_AXP_DISABLE_BOOT_ON_POWERON) && !power_failed) {
@@ -585,7 +578,6 @@ void sunxi_board_init(void)
 
 #ifdef CONFIG_AXP_DCDC1_VOLT
 	power_failed |= axp_set_dcdc1(CONFIG_AXP_DCDC1_VOLT);
-	power_failed |= axp_set_dcdc5(CONFIG_AXP_DCDC5_VOLT);
 #endif
 #ifdef CONFIG_AXP_DCDC2_VOLT
 	power_failed |= axp_set_dcdc2(CONFIG_AXP_DCDC2_VOLT);
@@ -593,6 +585,9 @@ void sunxi_board_init(void)
 #endif
 #ifdef CONFIG_AXP_DCDC4_VOLT
 	power_failed |= axp_set_dcdc4(CONFIG_AXP_DCDC4_VOLT);
+#endif
+#ifdef CONFIG_AXP_DCDC5_VOLT
+	power_failed |= axp_set_dcdc5(CONFIG_AXP_DCDC5_VOLT);
 #endif
 
 #ifdef CONFIG_AXP_ALDO1_VOLT
@@ -649,7 +644,7 @@ void sunxi_board_init(void)
 	else
 		printf("Failed to set core voltage! Can't set CPU frequency\n");
 }
-#endif /* CONFIG_SPL_BUILD */
+#endif /* CONFIG_XPL_BUILD */
 
 #ifdef CONFIG_USB_GADGET
 int g_dnl_board_usb_cable_connected(void)
@@ -884,6 +879,27 @@ static void bluetooth_dt_fixup(void *blob)
 			   "local-bd-address", bdaddr, ETH_ALEN, 1);
 }
 
+#define PINEPHONE_LIS3MDL_I2C_ADDR	0x1e
+#define PINEPHONE_LIS3MDL_I2C_BUS	1 /* I2C1 */
+
+static void board_dt_fixup(void *blob)
+{
+	struct udevice *bus, *dev;
+
+	if (IS_ENABLED(CONFIG_PINEPHONE_DT_SELECTION) &&
+	    !fdt_node_check_compatible(blob, 0, "pine64,pinephone-1.2")) {
+		if (!uclass_get_device_by_seq(UCLASS_I2C,
+					      PINEPHONE_LIS3MDL_I2C_BUS,
+					      &bus)) {
+			dm_i2c_probe(bus, PINEPHONE_LIS3MDL_I2C_ADDR, 0, &dev);
+			fdt_set_status_by_compatible(blob, "st,lis3mdl-magn",
+				dev ? FDT_STATUS_OKAY  : FDT_STATUS_DISABLED);
+			fdt_set_status_by_compatible(blob, "voltafield,af8133j",
+				dev ? FDT_STATUS_DISABLED : FDT_STATUS_OKAY);
+		}
+	}
+}
+
 int ft_board_setup(void *blob, struct bd_info *bd)
 {
 	int __maybe_unused r;
@@ -897,6 +913,7 @@ int ft_board_setup(void *blob, struct bd_info *bd)
 	fdt_fixup_ethernet(blob);
 
 	bluetooth_dt_fixup(blob);
+	board_dt_fixup(blob);
 
 #ifdef CONFIG_VIDEO_DT_SIMPLEFB
 	r = sunxi_simplefb_setup(blob);

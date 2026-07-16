@@ -67,8 +67,8 @@ $(obj)/board_id.fsh:
 # 2. .<cfg>.dts.tmp + nboot-info.dtsi --> (dtc) --> <cfg>_BOARD-CFG.fsi
 # 3. *_BOARD-CFG.fsi --> (fsc) --> board_info.fs
 
-GIT_VERSION = $(shell $(srctree)/scripts/setlocalversion $(srctree))
-NBOOT_VERSION = ${NBOOT_SUFFIX}${GIT_VERSION}
+GIT_VERSION := $(shell KERNELVERSION=$(UBOOTVERSION) $(srctree)/scripts/setlocalversion $(srctree))
+NBOOT_VERSION := ${NBOOT_SUFFIX}${GIT_VERSION}
 
 # 1. Prepend some macros with varying content to .dts file of each board cfg
 quiet_cmd_cfg_dts_tmp = CAT     $@

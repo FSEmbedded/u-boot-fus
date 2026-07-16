@@ -3,7 +3,6 @@
  * Copyright 2024 NXP
  */
 
-#include <common.h>
 #include <command.h>
 #include <cpu_func.h>
 #include <hang.h>
@@ -13,15 +12,14 @@
 #include <spl.h>
 #include <asm/global_data.h>
 #include <asm/io.h>
-#include <asm/arch/imx91_pins.h>
 #include <asm/arch/mu.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/boot_mode.h>
 #include <asm/mach-imx/mxc_i2c.h>
 #include <asm/arch-mx7ulp/gpio.h>
-#include <asm/mach-imx/syscounter.h>
 #include <asm/mach-imx/ele_api.h>
+#include <asm/mach-imx/syscounter.h>
 #include <asm/sections.h>
 #include <dm/uclass.h>
 #include <dm/device.h>
@@ -46,11 +44,11 @@ void spl_board_init(void)
 {
 	int ret;
 
-	puts("Normal Boot\n");
-
 	ret = ele_start_rng();
 	if (ret)
 		printf("Fail to start RNG: %d\n", ret);
+
+	puts("Normal Boot\n");
 }
 
 extern struct dram_timing_info dram_timing_1600mts;
@@ -78,9 +76,6 @@ int power_init_board(void)
 	}
 	if (ret != 0)
 		return ret;
-
-	/* enable DVS control through PMIC_STBY_REQ */
-	pmic_reg_write(dev, PF9453_BUCK2CTRL, 0x59);
 
 	if (is_voltage_mode(VOLT_LOW_DRIVE)) {
 		buck_val = 0x10; /* 0.8v for Low drive mode */
@@ -134,8 +129,8 @@ void board_init_f(ulong dummy)
 	if (ret) {
 		printf("Fail to init ELE API\n");
 	} else {
-		printf("SOC: 0x%x\n", gd->arch.soc_rev);
-		printf("LC: 0x%x\n", gd->arch.lifecycle);
+		debug("SOC: 0x%x\n", gd->arch.soc_rev);
+		debug("LC: 0x%x\n", gd->arch.lifecycle);
 	}
 
 	clock_init_late();
@@ -153,11 +148,6 @@ void board_init_f(ulong dummy)
 
 	/* DDR initialization */
 	spl_dram_init();
-
-	/* Put M33 into CPUWAIT for following kick */
-	ret = m33_prepare();
-	if (!ret)
-		printf("M33 prepare ok\n");
 
 	board_init_r(NULL, 0);
 }

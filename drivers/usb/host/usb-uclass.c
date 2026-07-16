@@ -8,7 +8,6 @@
 
 #define LOG_CATEGORY UCLASS_USB
 
-#include <common.h>
 #include <bootdev.h>
 #include <dm.h>
 #include <errno.h>
@@ -389,7 +388,7 @@ int usb_init(int verbose)
 
 	/* if we were not able to find at least one working bus, bail out */
 	if (verbose && (controllers_initialized == 0))
-		printf("No working controllers found\n");
+		printf("No USB controllers found\n");
 
 	return usb_started ? 0 : -ENOENT;
 }

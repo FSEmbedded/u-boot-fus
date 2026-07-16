@@ -9,7 +9,7 @@
 #define __CONFIG_H
 
 #include "mx6_common.h"
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #define CFG_MXC_UART_BASE		UART1_IPS_BASE_ADDR
 
@@ -118,12 +118,6 @@
 #define CFG_SYS_SDRAM_BASE		PHYS_SDRAM
 #define CFG_SYS_INIT_RAM_ADDR	IRAM_BASE_ADDR
 #define CFG_SYS_INIT_RAM_SIZE	IRAM_SIZE
-
-/* USB Configs */
-#ifdef CONFIG_CMD_USB
-#define CFG_MXC_USB_PORTSC		(PORT_PTS_UTMI | PORT_PTS_PTW)
-#define CFG_MXC_USB_FLAGS		0
-#endif
 
 #define CFG_SYS_FSL_USDHC_NUM	3
 

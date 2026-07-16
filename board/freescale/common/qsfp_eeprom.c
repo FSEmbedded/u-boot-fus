@@ -2,7 +2,7 @@
 /*
  * Copyright 2019-2022 NXP
  */
-#include <common.h>
+#include <config.h>
 #include <command.h>
 #include <i2c.h>
 #include <linux/ctype.h>

@@ -10,7 +10,7 @@
 #define __MX7D_SABRESD_CONFIG_H
 
 #include "mx7_common.h"
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #define PHYS_SDRAM_SIZE			SZ_1G
 
@@ -196,8 +196,5 @@
 
 /* DMA stuff, needed for GPMI/MXS NAND support */
 #endif
-
-/* USB Configs */
-#define CFG_MXC_USB_PORTSC  (PORT_PTS_UTMI | PORT_PTS_PTW)
 
 #endif	/* __CONFIG_H */

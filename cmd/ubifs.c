@@ -4,20 +4,19 @@
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  */
 
-
 /*
  * UBIFS command support
  */
 
 #undef DEBUG
 
-#include <common.h>
 #include <config.h>
 #include <command.h>
 #include <image.h>			/* parse_loadaddr(), ... */
 #include <log.h>
 #include <mtd/ubi-user.h>		/* UBI_MAX_VOLUME_NAME */
 #include <ubifs_uboot.h>
+#include <vsprintf.h>
 
 static int ubifs_mounted;
 static char vol_mounted[UBI_MAX_VOLUME_NAME];

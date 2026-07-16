@@ -13,7 +13,6 @@
 
 #ifdef CONFIG_CMD_NET
 
-#include <common.h>			/* Types */
 #include <net.h>			/* eth_env_get_enetaddr_by_index() */
 #include <asm/io.h>			/* __raw_readl() */
 #if defined(CONFIG_ARCH_IMX8) || defined(CONFIG_ARCH_IMX9) || defined(CONFIG_ARCH_IMX8ULP)

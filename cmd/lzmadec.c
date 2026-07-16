@@ -9,11 +9,11 @@
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  */
 
-#include <common.h>
 #include <command.h>
 #include <env.h>
 #include <image.h>			/* parse_loadaddr(), ... */
 #include <mapmem.h>
+#include <vsprintf.h>
 #include <asm/io.h>
 
 #include <lzma/LzmaTools.h>

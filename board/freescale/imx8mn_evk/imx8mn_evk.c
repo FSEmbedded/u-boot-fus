@@ -3,11 +3,11 @@
  * Copyright 2019 NXP
  */
 
-#include <common.h>
+#include <asm/arch/sys_proto.h>
+#include <asm/io.h>
 #include <efi_loader.h>
 #include <env.h>
 #include <init.h>
-#include <asm/global_data.h>
 #include <miiphy.h>
 #include <netdev.h>
 #include <asm/mach-imx/iomux-v3.h>
@@ -21,8 +21,6 @@
 #include <asm/io.h>
 #include "../common/tcpc.h"
 #include <usb.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 #define UART_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_FSEL1)
 #define WDOG_PAD_CTRL	(PAD_CTL_DSE6 | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
@@ -262,9 +260,9 @@ int board_usb_init(int index, enum usb_init_type init)
 	imx8m_usb_power(index, true);
 
 	if (init == USB_INIT_HOST)
-		tcpc_setup_dfp_mode(port_ptr);
+		ret = tcpc_setup_dfp_mode(port_ptr);
 	else
-		tcpc_setup_ufp_mode(port_ptr);
+		ret = tcpc_setup_ufp_mode(port_ptr);
 
 	return ret;
 }
@@ -325,7 +323,7 @@ int board_init(void)
 
 int board_late_init(void)
 {
-#ifdef CONFIG_ENV_IS_IN_MMC
+#if CONFIG_IS_ENABLED(ENV_IS_IN_MMC)
 	board_late_mmc_env_init();
 #endif
 

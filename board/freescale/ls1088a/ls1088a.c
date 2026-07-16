@@ -2,7 +2,7 @@
 /*
  * Copyright 2017-2022 NXP
  */
-#include <common.h>
+#include <config.h>
 #include <clock_legacy.h>
 #include <display_options.h>
 #include <env.h>
@@ -248,7 +248,7 @@ int fixup_ls1088ardb_pb_banner(void *fdt)
 	return 0;
 }
 
-#if !defined(CONFIG_SPL_BUILD)
+#if !defined(CONFIG_XPL_BUILD)
 int checkboard(void)
 {
 #ifdef CONFIG_TFABOOT
@@ -421,7 +421,7 @@ unsigned long get_board_ddr_clk(void)
 }
 #endif
 
-#if !defined(CONFIG_SPL_BUILD)
+#if !defined(CONFIG_XPL_BUILD)
 void board_retimer_init(void)
 {
 	u8 reg;
@@ -701,7 +701,7 @@ int get_serdes_volt(void)
 	dm_i2c_read(dev, PMBUS_CMD_READ_VOUT, (void *)&vcode, 2);
 #endif
 	if (ret) {
-		printf("VID: failed to read the volatge\n");
+		printf("VID: failed to read the voltage\n");
 		return ret;
 	}
 
@@ -727,11 +727,11 @@ int set_serdes_volt(int svdd)
 				   (void *)&buff, 5);
 #endif
 	if (ret) {
-		printf("VID: I2C failed to write to the volatge regulator\n");
+		printf("VID: I2C failed to write to the voltage regulator\n");
 		return -1;
 	}
 
-	/* Wait for the volatge to get to the desired value */
+	/* Wait for the voltage to get to the desired value */
 	do {
 		vdd_last = get_serdes_volt();
 		if (vdd_last < 0) {
@@ -789,7 +789,7 @@ int set_serdes_volt(int svdd)
 		return -1;
 	}
 
-	/* Wait for the volatge to get to the desired value */
+	/* Wait for the voltage to get to the desired value */
 	udelay(10000);
 
 	return 1;
@@ -815,7 +815,7 @@ exit:
 	return ret;
 }
 
-#if !defined(CONFIG_SPL_BUILD)
+#if !defined(CONFIG_XPL_BUILD)
 int board_init(void)
 {
 	init_final_memctl_regs();
@@ -908,7 +908,10 @@ void fsl_fdt_fixup_flash(void *fdt)
 	}
 
 	if (disable_ifc) {
-		offset = fdt_path_offset(fdt, "/soc/memory-controller/nor");
+		offset = fdt_path_offset(fdt, "/soc/memory-controller/flash");
+
+		if (offset < 0)
+			offset = fdt_path_offset(fdt, "/soc/memory-controller/nor");
 
 		if (offset < 0)
 			offset = fdt_path_offset(fdt, "/memory-controller/nor");
@@ -921,7 +924,10 @@ void fsl_fdt_fixup_flash(void *fdt)
 
 #else
 #ifdef CONFIG_FSL_QSPI
-	offset = fdt_path_offset(fdt, "/soc/memory-controller/nor");
+	offset = fdt_path_offset(fdt, "/soc/memory-controller/flash");
+
+	if (offset < 0)
+		offset = fdt_path_offset(fdt, "/soc/memory-controller/nor");
 
 	if (offset < 0)
 		offset = fdt_path_offset(fdt, "/memory-controller/nor");
@@ -1006,7 +1012,43 @@ int ft_board_setup(void *blob, struct bd_info *bd)
 	return 0;
 }
 #endif
-#endif /* defined(CONFIG_SPL_BUILD) */
+
+#ifdef CONFIG_OF_BOARD_FIXUP
+int board_fix_fdt(void *fdt)
+{
+	static const char *node =
+		"/soc/i2c@2000000/i2c-mux@77/i2c@3/rtc@51";
+
+	u32 reg = 0x53;
+	const char *compatible = "nxp,pcf2131";
+	int nodeoff, ret;
+	struct udevice *dev;
+
+	if (i2c_get_chip_for_busnum(0x1, 0x53, 1, &dev))
+		return 0;
+	nodeoff = fdt_path_offset(fdt, node);
+	if (nodeoff > 0) {
+set_compatible:
+		ret = fdt_setprop(fdt, nodeoff, "compatible", compatible,
+				  strlen(compatible) + 1);
+		if (ret == -FDT_ERR_NOSPACE) {
+			ret = fdt_increase_size(fdt, 512);
+			if (!ret)
+				goto set_compatible;
+		}
+set_reg:
+		ret = fdt_setprop_u32(fdt, nodeoff, "reg", reg);
+		if (ret == -FDT_ERR_NOSPACE) {
+			ret = fdt_increase_size(fdt, 512);
+			if (!ret)
+				goto set_reg;
+		}
+	}
+
+	return 0;
+}
+#endif
+#endif /* defined(CONFIG_XPL_BUILD) */
 
 #ifdef CONFIG_TFABOOT
 #ifdef CONFIG_MTD_NOR_FLASH

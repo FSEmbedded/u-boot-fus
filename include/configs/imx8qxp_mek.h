@@ -9,10 +9,9 @@
 #include <linux/sizes.h>
 #include <linux/stringify.h>
 #include <asm/arch/imx-regs.h>
+#include <env/nxp/imx_env.h>
 
-#include "imx_env.h"
-
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 #define CFG_MALLOC_F_ADDR		0x00138000
 
 /*
@@ -67,16 +66,12 @@
 	"loadimage=fatload mmc ${mmcdev}:${mmcpart} ${loadaddr} ${image}\0" \
 	"loadfdt=fatload mmc ${mmcdev}:${mmcpart} ${fdt_addr} ${fdt_file}\0" \
 	"loadcntr=fatload mmc ${mmcdev}:${mmcpart} ${cntr_addr} ${cntr_file}\0" \
-	"auth_os=auth_cntr ${cntr_addr}\0" \
+	"auth_os=booti ${cntr_addr}\0" \
 	"boot_os=booti ${loadaddr} - ${fdt_addr};\0" \
 	"mmcboot=echo Booting from mmc ...; " \
 		"run mmcargs; " \
 		"if test ${sec_boot} = yes; then " \
-			"if run auth_os; then " \
-				"run boot_os; " \
-			"else " \
-				"echo ERR: failed to authenticate; " \
-			"fi; " \
+			"run auth_os; " \
 		"else " \
 			"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
 				"if run loadfdt; then " \
@@ -100,11 +95,7 @@
 		"fi; " \
 		"if test ${sec_boot} = yes; then " \
 			"${get_cmd} ${cntr_addr} ${cntr_file}; " \
-			"if run auth_os; then " \
-				"run boot_os; " \
-			"else " \
-				"echo ERR: failed to authenticate; " \
-			"fi; " \
+			"run auth_os; " \
 		"else " \
 			"${get_cmd} ${loadaddr} ${image}; " \
 			"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
@@ -136,7 +127,6 @@
 #endif
 
 /* Misc configuration */
-#define PHY_ANEG_TIMEOUT 20000
 
 #if defined(CONFIG_ANDROID_SUPPORT)
 #include "imx8qxp_mek_android.h"

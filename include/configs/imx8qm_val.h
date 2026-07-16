@@ -9,9 +9,9 @@
 #include <linux/sizes.h>
 #include <linux/stringify.h>
 #include <asm/arch/imx-regs.h>
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
-#ifdef CONFIG_SPL_BUILD
+#ifdef CONFIG_XPL_BUILD
 #define CFG_MALLOC_F_ADDR		0x00138000
 
 /*
@@ -22,8 +22,6 @@
 #define CFG_SYS_UBOOT_BASE 0x08281000
 
 #endif
-
-#define PHY_ANEG_TIMEOUT 20000
 
 #ifdef CONFIG_AHAB_BOOT
 #define AHAB_ENV "sec_boot=yes\0"
@@ -114,16 +112,12 @@
 	"hdp_file=dpfw.bin\0" \
 	"loadhdp=fatload mmc ${mmcdev}:${mmcpart} ${hdp_addr} ${hdp_file}\0" \
 	"loadcntr=fatload mmc ${mmcdev}:${mmcpart} ${cntr_addr} ${cntr_file}\0" \
-	"auth_os=auth_cntr ${cntr_addr}\0" \
+	"auth_os=booti ${cntr_addr}\0" \
 	"mmcboot=echo Booting from mmc ...; " \
 		"if run loadhdp; then; hdp load ${hdp_addr}; fi;" \
 		"run mmcargs; " \
 		"if test ${sec_boot} = yes; then " \
-			"if run auth_os; then " \
-				"booti ${loadaddr} - ${fdt_addr}; " \
-			"else " \
-				"echo ERR: failed to authenticate; " \
-			"fi; " \
+			"run auth_os; " \
 		"else " \
 			"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \
 				"if run loadfdt; then " \
@@ -148,11 +142,7 @@
 		"if ${get_cmd} ${hdp_addr} ${hdp_file}; then; hdp load ${hdp_addr}; fi;" \
 		"if test ${sec_boot} = yes; then " \
 			"${get_cmd} ${cntr_addr} ${cntr_file}; " \
-			"if run auth_os; then " \
-				"booti ${loadaddr} - ${fdt_addr}; " \
-			"else " \
-				"echo ERR: failed to authenticate; " \
-			"fi; " \
+			"run auth_os; " \
 		"else " \
 			"${get_cmd} ${loadaddr} ${image}; " \
 			"if test ${boot_fdt} = yes || test ${boot_fdt} = try; then " \

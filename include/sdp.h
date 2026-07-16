@@ -24,10 +24,16 @@ struct sdp_stream_ops {
 
 int sdp_init(struct udevice *udc);
 
-void sdp_handle(struct udevice *udc,
-		    const struct sdp_stream_ops *ops, bool single);
+#ifdef CONFIG_XPL_BUILD
+#include <spl.h>
+int spl_sdp_handle(struct udevice *udc, struct spl_image_info *spl_image,
+		   struct spl_boot_device *bootdev);
 int spl_sdp_stream_image(const struct sdp_stream_ops *ops, bool single);
 int spl_sdp_stream_continue(const struct sdp_stream_ops *ops, bool single);
 void spl_sdp_stream_done(void);
+#else
+void sdp_handle(struct udevice *udc,
+		    const struct sdp_stream_ops *ops, bool single);
+#endif
 
 #endif /* __SDP_H_ */

@@ -8,8 +8,6 @@
 #ifndef __checkboot_H__
 #define __checkboot_H__
 
-
-#include <common.h>
 #include <asm/mach-imx/hab.h>
 
 /* UBoot IVT defines (so uboot recognizes the uboot with ivt)  */

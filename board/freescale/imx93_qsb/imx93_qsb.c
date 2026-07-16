@@ -1,27 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2022 NXP
+ * Copyright 2024 NXP
  */
 
-#include <common.h>
 #include <env.h>
 #include <init.h>
 #include <miiphy.h>
 #include <netdev.h>
-#include <asm/global_data.h>
 #include <asm/arch-imx9/ccm_regs.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/arch-imx9/imx93_pins.h>
 #include <asm/arch/clock.h>
-#include <power/pmic.h>
 #include "../common/tcpc.h"
+#include <i2c.h>
 #include <dm/device.h>
 #include <dm/uclass.h>
 #include <usb.h>
 #include <dwc3-uboot.h>
 #include <asm/gpio.h>
-
-DECLARE_GLOBAL_DATA_PTR;
 
 #define UART_PAD_CTRL	(PAD_CTL_DSE(6) | PAD_CTL_FSEL2)
 #define WDOG_PAD_CTRL	(PAD_CTL_DSE(6) | PAD_CTL_ODE | PAD_CTL_PUE | PAD_CTL_PE)
@@ -149,9 +145,9 @@ int board_usb_init(int index, enum usb_init_type init)
 	port_ptr = &port1;
 
 	if (init == USB_INIT_HOST)
-		tcpc_setup_dfp_mode(port_ptr);
+		ret = tcpc_setup_dfp_mode(port_ptr);
 	else
-		tcpc_setup_ufp_mode(port_ptr);
+		ret = tcpc_setup_ufp_mode(port_ptr);
 
 	return ret;
 }
@@ -192,14 +188,6 @@ int board_ehci_usb_phy_mode(struct udevice *dev)
 	return USB_INIT_DEVICE;
 }
 #endif
-
-int board_phy_config(struct phy_device *phydev)
-{
-	if (phydev->drv->config)
-		phydev->drv->config(phydev);
-
-	return 0;
-}
 
 static void board_gpio_init(void)
 {
@@ -254,9 +242,8 @@ int board_late_init(void)
 #endif
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
-	env_set("board_name", "(9X9_QSB");
+	env_set("board_name", "9X9_QSB");
 	env_set("board_rev", "iMX93");
 #endif
 	return 0;
 }
-

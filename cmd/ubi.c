@@ -11,10 +11,10 @@
  * published by the Free Software Foundation.
  */
 
-#include <common.h>
 #include <command.h>
 #include <env.h>
 #include <exports.h>
+#include <led.h>
 #include <image.h>			/* parse_loadaddr(), ... */
 #include <malloc.h>
 #include <memalign.h>
@@ -250,7 +250,7 @@ static int ubi_create_vol(char *volume, int64_t size, int dynamic, int vol_id,
 
 static struct ubi_volume *ubi_find_volume(char *volume)
 {
-	struct ubi_volume *vol = NULL;
+	struct ubi_volume *vol;
 	int i;
 
 	for (i = 0; i < ubi->vtbl_slots; i++) {
@@ -357,12 +357,17 @@ static int ubi_rename_vol(char *oldname, char *newname)
 
 static int ubi_volume_continue_write(char *volume, void *buf, size_t size)
 {
-	int err = 1;
+	int err;
 	struct ubi_volume *vol;
 
 	vol = ubi_find_volume(volume);
 	if (vol == NULL)
 		return ENODEV;
+
+	if (!vol->updating) {
+		printf("UBI volume update was not initiated\n");
+		return EINVAL;
+	}
 
 	err = ubi_more_update_data(ubi, vol, buf, size);
 	if (err < 0) {
@@ -393,8 +398,8 @@ static int ubi_volume_continue_write(char *volume, void *buf, size_t size)
 int ubi_volume_begin_write(char *volume, void *buf, size_t size,
 	size_t full_size)
 {
-	int err = 1;
-	int rsvd_bytes = 0;
+	int err;
+	int rsvd_bytes;
 	struct ubi_volume *vol;
 
 	vol = ubi_find_volume(volume);
@@ -413,21 +418,99 @@ int ubi_volume_begin_write(char *volume, void *buf, size_t size,
 		return -err;
 	}
 
+	/* The volume is just wiped out */
+	if (!full_size)
+		return 0;
+
 	return ubi_volume_continue_write(volume, buf, size);
 }
 
-int ubi_volume_write(char *volume, void *buf, size_t size)
+static int ubi_volume_offset_write(char *volume, void *buf, loff_t offset,
+				   size_t size)
 {
-	return ubi_volume_begin_write(volume, buf, size, size);
+	int len, tbuf_size, ret;
+	u64 lnum;
+	struct ubi_volume *vol;
+	loff_t off = offset;
+	void *tbuf;
+
+	vol = ubi_find_volume(volume);
+	if (!vol)
+		return -ENODEV;
+
+	if (size > vol->reserved_pebs * (ubi->leb_size - vol->data_pad))
+		return -EINVAL;
+
+	tbuf_size = vol->usable_leb_size;
+	tbuf = malloc_cache_aligned(tbuf_size);
+	if (!tbuf)
+		return -ENOMEM;
+
+	lnum = off;
+	off = do_div(lnum, vol->usable_leb_size);
+
+	do {
+		struct ubi_volume_desc desc = {
+			.vol = vol,
+			.mode = UBI_READWRITE,
+		};
+
+		len = size > tbuf_size ? tbuf_size : size;
+		if (off + len >= vol->usable_leb_size)
+			len = vol->usable_leb_size - off;
+
+		ret = ubi_read(&desc, (int)lnum, tbuf, 0, tbuf_size);
+		if (ret) {
+			pr_err("Failed to read leb %lld (%d)\n", lnum, ret);
+			goto exit;
+		}
+
+		memcpy(tbuf + off, buf, len);
+
+		ret = ubi_leb_change(&desc, (int)lnum, tbuf, tbuf_size);
+		if (ret) {
+			pr_err("Failed to write leb %lld (%d)\n", lnum, ret);
+			goto exit;
+		}
+
+		off += len;
+		if (off >= vol->usable_leb_size) {
+			lnum++;
+			off -= vol->usable_leb_size;
+		}
+
+		buf += len;
+		size -= len;
+	} while (size);
+
+exit:
+	free(tbuf);
+	return ret;
 }
 
-int ubi_volume_read(char *volume, char *buf, size_t size, size_t *loaded)
+int ubi_volume_write(char *volume, void *buf, loff_t offset, size_t size)
+{
+	int ret;
+
+	led_activity_blink();
+
+	if (!offset)
+		ret = ubi_volume_begin_write(volume, buf, size, size);
+	else
+		ret = ubi_volume_offset_write(volume, buf, offset, size);
+
+	led_activity_off();
+
+	return ret;
+}
+
+int ubi_volume_read(char *volume, char *buf, loff_t offset, size_t size, size_t *loaded)
 {
 	int err, lnum, off, len, tbuf_size;
 	void *tbuf;
 	unsigned long long tmp;
 	struct ubi_volume *vol;
-	loff_t offp = 0;
+	loff_t offp = offset;
 	size_t len_read;
 
 	*loaded = 0;
@@ -576,7 +659,7 @@ static int ubi_detach(void)
 int set_ubi_part(const char *part_name, const char *vid_header_offset)
 {
 	struct mtd_info *mtd;
-	int err = 0;
+	int err;
 
 	if (ubi && ubi->mtd && !strcmp(ubi->mtd->name, part_name)) {
 		printf("UBI partition '%s' already selected\n", part_name);
@@ -608,7 +691,7 @@ int set_ubi_part(const char *part_name, const char *vid_header_offset)
 static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 {
 	int64_t size = 0;
-	ulong addr;
+	ulong addr = 0;
 	int ret;
 	bool skipcheck = false;
 
@@ -700,8 +783,8 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 				size = simple_strtoull(argv[3], NULL, 16);
 			argc--;
 		}
-		if (!size) {
 		/* Use maximum available size */
+		if (!size) {
 			size = ubi->avail_pebs * ubi->leb_size;
 			printf("No size specified -> Using max size (%lld)\n",
 			       size);
@@ -741,7 +824,7 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 			}
 		} else {
 			printf("Writing to volume %s ... ", argv[3]);
-			ret = ubi_volume_write(argv[3], (void *)addr, size);
+			ret = ubi_volume_write(argv[3], (void *)addr, 0, size);
 		}
 		if (!ret)
 			printf("OK, %lld bytes stored\n", size);
@@ -758,7 +841,7 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		size = (argc > 4) ? hextoul(argv[4], NULL) : 0;
 
 		printf("Reading from volume %s ... ", argv[3]);
-		ret = ubi_volume_read(argv[3], (char *)addr, size, &loaded);
+		ret = ubi_volume_read(argv[3], (char *)addr, 0, size, &loaded);
 		if (!ret) {
 			set_fileaddr(addr);
 			env_set_fileinfo(loaded);
@@ -766,6 +849,27 @@ static int do_ubi(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		}
 
 		return ret;
+	}
+
+	if (strncmp(argv[1], "read", 4) == 0) {
+		size_t loaded;
+		size = 0;
+
+		/* E.g., read volume size */
+		if (argc == 5) {
+			size = hextoul(argv[4], NULL);
+			argc--;
+		}
+
+		/* E.g., read volume */
+		if (argc == 4) {
+			addr = hextoul(argv[2], NULL);
+			argc--;
+		}
+
+		if (argc == 3) {
+			return ubi_volume_read(argv[3], (char *)addr, 0, size, &loaded);
+		}
 	}
 
 	return CMD_RET_USAGE;

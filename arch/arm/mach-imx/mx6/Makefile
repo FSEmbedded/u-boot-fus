@@ -9,7 +9,7 @@
 
 obj-y	:= soc.o clock.o
 obj-$(CONFIG_IMX_MODULE_FUSE) += module_fuse.o
-obj-$(CONFIG_SPL_BUILD)	     += ddr.o
+obj-$(CONFIG_XPL_BUILD)	     += ddr.o
 obj-$(CONFIG_VIDEO_IPUV3)    += clock-ipuv3.o
 obj-$(CONFIG_VIDEO_MXS)      += clock-mxsfb.o
 obj-$(CONFIG_MP)             += mp.o

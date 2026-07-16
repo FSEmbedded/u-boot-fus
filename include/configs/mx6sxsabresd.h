@@ -12,7 +12,7 @@
 #include <linux/stringify.h>
 
 #include "mx6_common.h"
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 #define CFG_MXC_UART_BASE		UART1_BASE
 
@@ -157,11 +157,6 @@
 #define CFG_SYS_FSL_ESDHC_ADDR	USDHC4_BASE_ADDR
 
 #define CFG_POWER_PFUZE100_I2C_ADDR	0x08
-
-#ifdef CONFIG_CMD_USB
-#define CFG_MXC_USB_PORTSC  (PORT_PTS_UTMI | PORT_PTS_PTW)
-#define CFG_MXC_USB_FLAGS   0
-#endif
 
 #define CFG_SYS_FSL_USDHC_NUM	3
 

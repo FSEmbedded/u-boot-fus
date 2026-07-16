@@ -69,7 +69,7 @@
 #include <linux/sizes.h>
 #include <asm/arch/imx-regs.h>
 
-#include "imx_env.h"
+#include <env/nxp/imx_env.h>
 
 /* disable FASTBOOT_USB_DEV so both ports can be used */
 #undef CONFIG_FASTBOOT_USB_DEV

@@ -7,8 +7,6 @@
  *
  * Copyright (C) 2018 Texas Instruments, Inc
  */
-
-#include <common.h>
 #include <dm.h>
 #include <log.h>
 #include <pci.h>
@@ -268,6 +266,48 @@ int pcie_dw_write_config(struct udevice *bus, pci_dev_t bdf,
 						 pcie->io.bus_start, pcie->io.size);
 }
 
+/*
+ * These interfaces resemble the pci_find_*capability() interfaces, but these
+ * are for configuring host controllers, which are bridges *to* PCI devices but
+ * are not PCI devices themselves.
+ */
+static u8 pcie_dw_find_next_cap(struct pcie_dw *pci, u8 cap_ptr, u8 cap)
+{
+	u8 cap_id, next_cap_ptr;
+	u32 val;
+	u16 reg;
+
+	if (!cap_ptr)
+		return 0;
+
+	val = readl(pci->dbi_base + (cap_ptr & ~0x3));
+	reg = pci_conv_32_to_size(val, cap_ptr, 2);
+	cap_id = (reg & 0x00ff);
+
+	if (cap_id > PCI_CAP_ID_MAX)
+		return 0;
+
+	if (cap_id == cap)
+		return cap_ptr;
+
+	next_cap_ptr = (reg & 0xff00) >> 8;
+	return pcie_dw_find_next_cap(pci, next_cap_ptr, cap);
+}
+
+u8 pcie_dw_find_capability(struct pcie_dw *pci, u8 cap)
+{
+	u8 next_cap_ptr;
+	u32 val;
+	u16 reg;
+
+	val = readl(pci->dbi_base + (PCI_CAPABILITY_LIST & ~0x3));
+	reg = pci_conv_32_to_size(val, PCI_CAPABILITY_LIST, 2);
+
+	next_cap_ptr = (reg & 0x00ff);
+
+	return pcie_dw_find_next_cap(pci, next_cap_ptr, cap);
+}
+
 /**
  * pcie_dw_setup_host() - Setup the PCIe controller for RC opertaion
  *
@@ -299,7 +339,7 @@ void pcie_dw_setup_host(struct pcie_dw *pci)
 			0xffffff, 0x00ff0100);
 
 	/* setup command register */
-	clrsetbits_le32(pci->dbi_base + PCI_PRIMARY_BUS,
+	clrsetbits_le32(pci->dbi_base + PCI_COMMAND,
 			0xffff,
 			PCI_COMMAND_IO | PCI_COMMAND_MEMORY |
 			PCI_COMMAND_MASTER | PCI_COMMAND_SERR);
