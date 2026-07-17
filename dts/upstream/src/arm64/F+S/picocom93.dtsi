@@ -13,7 +13,7 @@
 #include <dt-bindings/usb/pd.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/rtc/pcf85363.h>
-#include <fsversion.h>
+// #include <fsversion.h>
 
 pcom_i2c_1: &lpi2c1 {};
 pcom_i2c_2: &lpi2c5 {};
@@ -85,7 +85,7 @@ pcom_adc: &adc1{};
 	/* -------------------- BOARD INFO -------------------- */
 	bdinfo: bdinfo {
 		compatible = "bdinfo";
-		dts_version = FS_LINUX_VERSION;
+		// dts_version = FS_LINUX_VERSION;
 	};
 
 	reserved-memory {
@@ -576,21 +576,21 @@ pcom_adc: &adc1{};
 				regulator-always-on;
 			};
 
-			ldo2: LDO2 {
-				regulator-name = "LDO2";
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <1150000>;
-				regulator-boot-on;
-				regulator-always-on;
-			};
+			// ldo2: LDO2 {
+			// 	regulator-name = "LDO2";
+			// 	regulator-min-microvolt = <800000>;
+			// 	regulator-max-microvolt = <1150000>;
+			// 	regulator-boot-on;
+			// 	regulator-always-on;
+			// };
 
-			ldo3: LDO3 {
-				regulator-name = "LDO3";
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <3300000>;
-				regulator-boot-on;
-				regulator-always-on;
-			};
+			// ldo3: LDO3 {
+			// 	regulator-name = "LDO3";
+			// 	regulator-min-microvolt = <800000>;
+			// 	regulator-max-microvolt = <3300000>;
+			// 	regulator-boot-on;
+			// 	regulator-always-on;
+			// };
 
 			ldo4: LDO4 {
 				regulator-name = "LDO4";

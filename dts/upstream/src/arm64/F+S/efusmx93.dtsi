@@ -16,7 +16,7 @@
 
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/rtc/pcf85363.h>
-#include <fsversion.h>
+// #include <fsversion.h>
 #include "../freescale/imx93.dtsi"
 
 fs_eth_a: &eqos {};
@@ -78,7 +78,7 @@ fs_can_b: &flexcan2 {};
 	/* -------------------- BOARD INFO -------------------- */
 	bdinfo: bdinfo {
 		compatible = "bdinfo";
-		dts_version = FS_LINUX_VERSION;
+		// dts_version = FS_LINUX_VERSION;
 	};
 
 	reserved-memory {
@@ -462,13 +462,13 @@ fs_can_b: &flexcan2 {};
 				regulator-always-on;
 			};
 
-			ldo3: LDO3 {
-				regulator-name = "LDO3";
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <3300000>;
-				regulator-boot-on;
-				regulator-always-on;
-			};
+			// ldo3: LDO3 {
+			// 	regulator-name = "LDO3";
+			// 	regulator-min-microvolt = <800000>;
+			// 	regulator-max-microvolt = <3300000>;
+			// 	regulator-boot-on;
+			// 	regulator-always-on;
+			// };
 
 			ldo4: LDO4 {
 				regulator-name = "LDO4";

@@ -13,7 +13,7 @@
 #include <dt-bindings/usb/pd.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/rtc/pcf85363.h>
-#include <fsversion.h>
+// #include <fsversion.h>
 
 pc_i2c_a: &lpi2c1 {};
 pc_i2c_b: &lpi2c8 {};
@@ -80,7 +80,7 @@ pc_sai: &sai3	{};
 	/* -------------------- BOARD INFO -------------------- */
 	bdinfo: bdinfo {
 		compatible = "bdinfo";
-		dts_version = FS_LINUX_VERSION;
+		// dts_version = FS_LINUX_VERSION;
 	};
 
 	reserved-memory {
@@ -565,21 +565,21 @@ pc_sai: &sai3	{};
 				regulator-always-on;
 			};
 
-			ldo2: LDO2 {
-				regulator-name = "LDO2";
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <1150000>;
-				regulator-boot-on;
-				regulator-always-on;
-			};
+			// ldo2: LDO2 {
+			// 	regulator-name = "LDO2";
+			// 	regulator-min-microvolt = <800000>;
+			// 	regulator-max-microvolt = <1150000>;
+			// 	regulator-boot-on;
+			// 	regulator-always-on;
+			// };
 
-			ldo3: LDO3 {
-				regulator-name = "LDO3";
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <3300000>;
-				regulator-boot-on;
-				regulator-always-on;
-			};
+			// ldo3: LDO3 {
+			// 	regulator-name = "LDO3";
+			// 	regulator-min-microvolt = <800000>;
+			// 	regulator-max-microvolt = <3300000>;
+			// 	regulator-boot-on;
+			// 	regulator-always-on;
+			// };
 
 			ldo4: LDO4 {
 				regulator-name = "LDO4";
