@@ -12,7 +12,6 @@
 * GNU General Public License for more details.
 */
 
-#include <common.h>
 #include <init.h>
 #include <spl.h>
 #include <asm/io.h>
@@ -342,8 +341,6 @@ void board_init_f(ulong dummy)
 	print_bootstage();
 
 	print_devinfo();
-
-	regulators_enable_boot_on(false);
 
 	if(ret)
 		printf("DM_INIT FAILED!: %d\n", ret);

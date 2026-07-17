@@ -12,7 +12,6 @@
 * GNU General Public License for more details.
 */
 
-#include <common.h>
 #include <command.h>
 #include <env.h>
 #include <miiphy.h>
@@ -26,8 +25,6 @@
 #include <netdev.h>
 #include <asm/gpio.h>
 #include <i2c.h>
-// #include <dm/uclass.h>
-// #include <dm/uclass-internal.h>
 #include <power-domain.h>
 #include <dt-bindings/power/imx8ulp-power.h>
 #include <fdt_support.h>
