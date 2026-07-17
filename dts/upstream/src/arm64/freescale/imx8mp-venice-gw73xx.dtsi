@@ -122,7 +122,7 @@
 	tpm@1 {
 		compatible = "atmel,attpm20p", "tcg,tpm_tis-spi";
 		reg = <0x1>;
-		spi-max-frequency = <36000000>;
+		spi-max-frequency = <25000000>;
 	};
 };
 
@@ -359,7 +359,7 @@
 
 	pinctrl_usb1: usb1grp {
 		fsl,pins = <
-			MX8MP_IOMUXC_GPIO1_IO13__USB1_OTG_OC	0x140 /* USB1_FLT# */
+			MX8MP_IOMUXC_GPIO1_IO13__USB1_OC	0x140 /* USB1_FLT# */
 		>;
 	};
 
