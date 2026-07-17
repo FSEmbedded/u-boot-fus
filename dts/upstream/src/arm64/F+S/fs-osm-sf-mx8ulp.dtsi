@@ -18,7 +18,7 @@
 #include "fsimx8ulp-rpmsg.dtsi"
 #include <dt-bindings/rtc/pcf85363.h>
 #include <dt-bindings/input/input.h>
-#include <fsversion.h>
+// #include <fsversion.h>
 
 #ifndef OSM8ULP_REV
 #define OSM8ULP_REV 110
@@ -90,7 +90,7 @@ osm_spi_b: &spidev0_rpchip {};
 	/* -------------------- BOARD INFO -------------------- */
 	bdinfo: bdinfo {
 		compatible = "bdinfo";
-		dts_version = FS_LINUX_VERSION;
+		// dts_version = FS_LINUX_VERSION;
 	};
 
 	memory@80000000 {

@@ -17,7 +17,7 @@
 #include <dt-bindings/rtc/pcf85363.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/i3c/i3c.h>
-#include <fsversion.h>
+// #include <fsversion.h>
 
 #define OSM8ULP_REV 100
 
@@ -84,8 +84,8 @@ fs_spi_b: &spidev0_rpchip {};
 		pwm1 = &fs_pwm_1;
 		pwm2 = &fs_pwm_2;
 		pwm3 = &fs_pwm_3;
-		isi0 = &isi_0;
-		csi0 = &mipi_csi0;
+		// isi0 = &isi_0;
+		// csi0 = &mipi_csi0;
 		spi0 = &fs_spi_a;
 		spi1 = &fs_spi_b;
 	};
@@ -93,7 +93,7 @@ fs_spi_b: &spidev0_rpchip {};
 	/* -------------------- BOARD INFO -------------------- */
 	bdinfo: bdinfo {
 		compatible = "bdinfo";
-		dts_version = FS_LINUX_VERSION;
+		// dts_version = FS_LINUX_VERSION;
 	};
 
 	memory@80000000 {
