@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2014-2015 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP.
  */
 
 #ifndef __DT_BINDINGS_CLOCK_IMX7D_H
