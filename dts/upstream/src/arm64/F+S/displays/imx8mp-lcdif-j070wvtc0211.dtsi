@@ -1,0 +1,159 @@
+/*
+ * Copyright (C) 2021 F&S Elektronik Systeme GmbH
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+/ {
+
+	lvds0_panel {
+		compatible = "panel-lvds";
+		power-supply = <&reg_vlcd>;
+		backlight = <&backlight_ldb>;
+		data-mapping = "vesa-24";
+		label = "j070wvtc0211";
+		width-mm = <154>;
+		height-mm = <85>;
+		status = "okay";
+
+		panel-timing {
+			clock-frequency = <37125000>;
+			hactive = <800>;
+			vactive = <480>;
+			hback-porch = <46>;
+			hfront-porch = <209>;
+			hsync-len = <1>;
+			vback-porch = <23>;
+			vfront-porch = <11>;
+			vsync-len = <1>;
+			de-active = <1>;
+			vsync-active = <1>;
+			hsync-active = <1>;
+		};
+
+		port {
+			panel_lvds0_in: endpoint {
+				remote-endpoint = <&lvds0_out>;
+			};
+		};
+	};
+
+	lvds1_panel {
+		compatible = "panel-lvds";
+		power-supply = <&reg_vlcd>;
+		backlight = <&backlight_ldb>;
+		data-mapping = "vesa-24";
+		label = "j070wvtc0211";
+		width-mm = <154>;
+		height-mm = <85>;
+		status = "okay";
+
+		panel-timing {
+			clock-frequency = <37125000>;
+			hactive = <800>;
+			vactive = <480>;
+			hback-porch = <46>;
+			hfront-porch = <209>;
+			hsync-len = <1>;
+			vback-porch = <23>;
+			vfront-porch = <11>;
+			vsync-len = <1>;
+			de-active = <1>;
+			vsync-active = <1>;
+			hsync-active = <1>;
+		};
+
+		port {
+			panel_lvds1_in: endpoint {
+				remote-endpoint = <&lvds1_out>;
+			};
+		};
+	};
+};
+
+&backlight_ldb {
+	pwms = <&pwm2 0 250000 PWM_POLARITY_INVERTED>;
+	brightness-levels = <135 143 151 159 167 175 183 191
+			     199 207 215 223 231 239 247 255>;
+	default-brightness-level = <14>;
+
+	status = "okay";
+};
+
+/* MIPI-DSI */
+&lcdif1 {
+	status = "disabled";
+};
+
+/* LVDS */
+&lcdif2 {
+	status = "okay";
+};
+
+/* HDMI */
+&lcdif3 {
+	status = "disabled";
+};
+
+&ldb_phy {
+	status = "okay";
+};
+
+&ldb {
+	status = "okay";
+	/* TODO: disabled for now because does not work */
+#ifdef CONFIG_PICOCOREMX8MP_LDB_DUAL_CHANNEL
+	fsl,dual-channel;
+#endif /* CONFIG_PICOCOREMX8MP_LDB_DUAL_CHANNEL */
+
+	/* DSI_A */
+	lvds-channel@0 {
+		fsl,data-mapping = "spwg";
+		fsl,data-width = <24>;
+		status = "disabled";
+
+		port@1 {
+			reg = <1>;
+
+			lvds0_out: endpoint {
+				remote-endpoint = <&panel_lvds0_in>;
+			};
+		};
+	};
+
+	/* DSI_B */
+	lvds-channel@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		fsl,data-mapping = "spwg";
+		fsl,data-width = <24>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds1_out: endpoint {
+				remote-endpoint = <&panel_lvds1_in>;
+			};
+		};
+	};
+};
+
+&i2c4 {
+	/* touch I2C */
+	focaltech@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <13 IRQ_TYPE_EDGE_FALLING>;
+		focaltech,irq-gpio = <&gpio1 13 IRQ_TYPE_EDGE_FALLING>;
+#ifdef CONFIG_PICOCOREMX8MP_INVERTED_XY
+		focaltech,touchscreen-inverted-x;
+		focaltech,touchscreen-inverted-y;
+#endif
+		focaltech,reset-gpio = <&gpio3 14 GPIO_ACTIVE_LOW>;
+		focaltech,num-max-touches = <10>;
+		focaltech,display-coords = <0 0 800 480>;
+	};
+};
