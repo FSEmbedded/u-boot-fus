@@ -190,34 +190,36 @@ int do_booti(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 	/* do not set up argc and argv[] since nothing uses them */
 
 #if defined(CONFIG_AHAB_BOOT) && !defined(CONFIG_ANDROID_SUPPORT)
-	ulong cntr, kernel = 0, fdt = 0;
-	char fdtstr[32];
-	char kernelstr[32];
+	if (!IS_ENABLED(CONFIG_FSIMX_BOARDS) || (env_get_yesno("sec_boot") == 1)) {
+		ulong cntr, kernel = 0, fdt = 0;
+		char fdtstr[32];
+		char kernelstr[32];
 
-	if (!bmi.addr_img) {
-		printf("addr parameter is missed for container image\n");
-		return 1;
+		if (!bmi.addr_img) {
+			printf("addr parameter is missed for container image\n");
+			return 1;
+		}
+
+		cntr = hextoul(bmi.addr_img, NULL);
+		printf("Authenticate OS container at 0x%08lx\n", cntr);
+
+		extern int authenticate_os_container(ulong addr);
+		if (authenticate_os_container(cntr)) {
+			printf("Authenticate OS container is failed\n");
+			return 1;
+		}
+
+		ret = container_get_image_dst(cntr, &kernel, &fdt);
+		if (ret) {
+			printf("Parse kernel and fdt address failed %d\n", ret);
+			return 1;
+		}
+
+		bmi.addr_img = (const char*)kernelstr;
+		bmi.conf_fdt = (const char*)fdtstr;
+		sprintf(kernelstr, "0x%08lx\n", kernel);
+		sprintf(fdtstr, "0x%08lx\n", fdt);
 	}
-
-	cntr = hextoul(bmi.addr_img, NULL);
-	printf("Authenticate OS container at 0x%08lx\n", cntr);
-
-	extern int authenticate_os_container(ulong addr);
-	if (authenticate_os_container(cntr)) {
-		printf("Authenticate OS container is failed\n");
-		return 1;
-	}
-
-	ret = container_get_image_dst(cntr, &kernel, &fdt);
-	if (ret) {
-		printf("Parse kernel and fdt address failed %d\n", ret);
-		return 1;
-	}
-
-	bmi.addr_img = (const char*)kernelstr;
-	bmi.conf_fdt = (const char*)fdtstr;
-	sprintf(kernelstr, "0x%08lx\n", kernel);
-	sprintf(fdtstr, "0x%08lx\n", fdt);
 #endif
 
 	if (booti_start(&bmi))
