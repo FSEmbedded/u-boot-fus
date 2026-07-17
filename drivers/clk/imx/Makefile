@@ -4,6 +4,7 @@
 
 obj-$(CONFIG_$(PHASE_)CLK_CCF) += clk-gate2.o clk-pllv3.o clk-pfd.o
 obj-$(CONFIG_$(PHASE_)CLK_IMX6Q) += clk-imx6q.o
+obj-$(CONFIG_$(PHASE_)CLK_IMX6UL) += clk-imx6ul.o
 obj-$(CONFIG_CLK_IMX8) += clk-imx8.o
 
 ifdef CONFIG_CLK_IMX8
@@ -17,7 +18,7 @@ obj-$(CONFIG_$(PHASE_)CLK_IMX8MN) += clk-imx8mn.o clk-pll14xx.o \
 				clk-composite-8m.o
 obj-$(CONFIG_$(PHASE_)CLK_IMX8MP) += clk-imx8mp.o clk-pll14xx.o \
 				clk-composite-8m.o
-obj-$(CONFIG_$(PHASE_)CLK_IMX8MQ) += clk-imx8mq.o clk-pll14xx.o \
+obj-$(CONFIG_$(PHASE_)CLK_IMX8MQ) += clk-imx8mq.o clk-frac-pll.o \
 				clk-composite-8m.o
 obj-$(CONFIG_$(PHASE_)CLK_IMX93) += clk-imx93.o clk-fracn-gppll.o \
 				clk-gate-93.o clk-composite-93.o
@@ -25,4 +26,8 @@ obj-$(CONFIG_$(PHASE_)CLK_IMX93) += clk-imx93.o clk-fracn-gppll.o \
 obj-$(CONFIG_$(PHASE_)CLK_IMXRT1020) += clk-imxrt1020.o
 obj-$(CONFIG_$(PHASE_)CLK_IMXRT1050) += clk-imxrt1050.o
 obj-$(CONFIG_$(PHASE_)CLK_IMXRT1170) += clk-imxrt1170.o
-obj-$(CONFIG_CLK_IMX95_BLKCTRL) += clk-imx95-blkctrl.o
+
+ifdef CONFIG_CLK_IMX95_BLKCTRL
+ccflags-y += -I$(srctree)/dts/upstream/src/arm64/freescale/
+obj-y += clk-imx95-blkctrl.o
+endif

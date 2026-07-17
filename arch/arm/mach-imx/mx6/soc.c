@@ -638,8 +638,8 @@ int arch_initr_trap(void)
 	return 0;
 }
 
-#ifndef CONFIG_SYS_MMC_ENV_DEV
-#define CONFIG_SYS_MMC_ENV_DEV -1
+#ifndef CONFIG_ENV_MMC_DEVICE_INDEX
+#define CONFIG_ENV_MMC_DEVICE_INDEX -1
 #endif
 
 __weak int board_mmc_get_env_dev(int devno)
@@ -684,15 +684,15 @@ int mmc_get_env_dev(void)
 
 	/* If not boot from sd/mmc, use default value */
 	if (devno < 0)
-	    return env_get_ulong("mmcdev", 10, CONFIG_SYS_MMC_ENV_DEV);
+	    return env_get_ulong("mmcdev", 10, CONFIG_ENV_MMC_DEVICE_INDEX);
 
 	return devno;
 }
 
-#ifdef CONFIG_SYS_MMC_ENV_PART
+#ifdef CONFIG_ENV_MMC_EMMC_HW_PARTITION
 __weak uint board_mmc_get_env_part(struct mmc *mmc, int copy)
 {
-	return CONFIG_SYS_MMC_ENV_PART;
+	return CONFIG_ENV_MMC_EMMC_HW_PARTITION;
 }
 
 uint mmc_get_env_part(struct mmc *mmc)
@@ -703,7 +703,7 @@ uint mmc_get_env_part(struct mmc *mmc)
 
 	/* If not boot from sd/mmc, use default value */
 	if (devno < 0)
-		return CONFIG_SYS_MMC_ENV_PART;
+		return CONFIG_ENV_MMC_EMMC_HW_PARTITION;
 
 	return devno;
 }

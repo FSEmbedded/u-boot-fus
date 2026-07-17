@@ -68,6 +68,7 @@ config MX6UL
 
 config MX6ULL
 	bool "i.MX 6ULL SoC support"
+	select ARCH_MISC_INIT
 	select ROM_UNIFIED_SECTIONS
 	select SYSCOUNTER_TIMER
 	select SYS_L2CACHE_OFF
@@ -682,6 +683,7 @@ config TARGET_LXR2
 	select DM_THERMAL
 	select SUPPORT_SPL
 	imply CMD_DM
+	imply OF_UPSTREAM
 
 config TARGET_PCM058
 	bool "Phytec PCM058 i.MX6 Quad"
@@ -843,15 +845,15 @@ source "board/dhelectronics/dh_imx6/Kconfig"
 source "board/embest/mx6boards/Kconfig"
 source "board/engicam/imx6q/Kconfig"
 source "board/engicam/imx6ul/Kconfig"
-source "board/freescale/mx6memcal/Kconfig"
-source "board/freescale/mx6sabreauto/Kconfig"
-source "board/freescale/mx6sabresd/Kconfig"
-source "board/freescale/mx6slevk/Kconfig"
-source "board/freescale/mx6sllevk/Kconfig"
-source "board/freescale/mx6sxsabresd/Kconfig"
-source "board/freescale/mx6sxsabreauto/Kconfig"
-source "board/freescale/mx6ul_14x14_evk/Kconfig"
-source "board/freescale/mx6ullevk/Kconfig"
+source "board/nxp/mx6memcal/Kconfig"
+source "board/nxp/mx6sabreauto/Kconfig"
+source "board/nxp/mx6sabresd/Kconfig"
+source "board/nxp/mx6slevk/Kconfig"
+source "board/nxp/mx6sllevk/Kconfig"
+source "board/nxp/mx6sxsabresd/Kconfig"
+source "board/nxp/mx6sxsabreauto/Kconfig"
+source "board/nxp/mx6ul_14x14_evk/Kconfig"
+source "board/nxp/mx6ullevk/Kconfig"
 source "board/F+S/fsimx6/Kconfig"
 source "board/F+S/fsimx6sx/Kconfig"
 source "board/F+S/fsimx6ul/Kconfig"

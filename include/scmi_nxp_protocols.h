@@ -1,25 +1,34 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause */
 /*
- * Copyright 2023 NXP
+ * Copyright 2025 NXP
  */
 
 #ifndef _SCMI_NXP_PROTOCOLS_H
 #define _SCMI_NXP_PROTOCOLS_H
 
-#include <linux/bitops.h>
 #include <asm/types.h>
+#include <linux/bitops.h>
 
-enum scmi_imx_protocol {
-	SCMI_IMX_PROTOCOL_ID_MISC = 0x84,
-};
+#define SCMI_PROTOCOL_ID_IMX_LMM	0x80
+#define SCMI_PROTOCOL_ID_IMX_CPU	0x82
+#define SCMI_PROTOCOL_ID_IMX_MISC	0x84
 
 #define SCMI_PAYLOAD_LEN	100
 
 #define SCMI_ARRAY(X, Y)	((SCMI_PAYLOAD_LEN - (X)) / sizeof(Y))
 
+#define SCMI_IMX_MISC_CONTROL_SET	0x3
 #define SCMI_IMX_MISC_BUILD_INFO	0x6
 #define SCMI_IMX_MISC_RESET_REASON	0xA
 #define SCMI_IMX_MISC_CFG_INFO		0xC
+
+#define SCMI_MISC_CTRL_ID_COMBO_PHY	9U
+struct scmi_imx_misc_control_set_in {
+    u32 ctrlid;
+    u32 numval;
+#define MISC_MAX_VAL_T	SCMI_ARRAY(8U, u32)
+    u32 val[MISC_MAX_VAL_T];
+};
 
 struct scmi_imx_misc_reset_reason_in {
 #define MISC_REASON_FLAG_SYSTEM		BIT(0)
@@ -52,30 +61,6 @@ struct scmi_imx_misc_reset_reason_out {
 	/* Array of extended info words */
 #define MISC_MAX_EXTINFO	SCMI_ARRAY(16, u32)
 	u32 extInfo[MISC_MAX_EXTINFO];
-};
-
-struct scmi_imx_misc_cfg_info_out {
-	s32 status;
-	/* Mode selector value */
-	u32 msel;
-#define MISC_MAX_CFGNAME	16
-	/* Config (cfg) file basename */
-	char cfgname[MISC_MAX_CFGNAME];
-};
-
-struct scmi_imx_misc_build_info_out {
-	/* Return status */
-	s32 status;
-	/* Build number */
-	u32 buildnum;
-	/* Most significant 32 bits of the git commit hash */
-	u32 buildcommit;
-#define MISC_MAX_BUILDDATE	16
-	/* Date of build */
-	char builddate[MISC_MAX_BUILDDATE];
-#define MISC_MAX_BUILDTIME	16
-	/* Time of build */
-	char buildtime[MISC_MAX_BUILDTIME];
 };
 
 #define LMM_ID_DISCOVER	0xFFFFFFFFU
@@ -145,4 +130,28 @@ static inline int scmi_imx_cpu_start(struct udevice *dev, u32 cpuid, bool start)
 	return -EOPNOTSUPP;
 }
 #endif
+
+struct scmi_imx_misc_cfg_info_out {
+	s32 status;
+	/* Mode selector value */
+	u32 msel;
+#define MISC_MAX_CFGNAME	16
+	/* Config (cfg) file basename */
+	char cfgname[MISC_MAX_CFGNAME];
+};
+
+struct scmi_imx_misc_build_info_out {
+	/* Return status */
+	s32 status;
+	/* Build number */
+	u32 buildnum;
+	/* Most significant 32 bits of the git commit hash */
+	u32 buildcommit;
+#define MISC_MAX_BUILDDATE	16
+	/* Date of build */
+	char builddate[MISC_MAX_BUILDDATE];
+#define MISC_MAX_BUILDTIME	16
+	/* Time of build */
+	char buildtime[MISC_MAX_BUILDTIME];
+};
 #endif

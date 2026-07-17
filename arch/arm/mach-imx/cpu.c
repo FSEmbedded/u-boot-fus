@@ -236,34 +236,18 @@ int print_cpuinfo(void)
 		temp = "Commercial";
 		break;
 	}
-	printf("CPU:   %s temperature grade (%dC to %dC)", temp, minc, maxc);
+	printf("(%dC to %dC)", minc, maxc);
+	ret = uclass_get_device(UCLASS_THERMAL, 0, &thermal_dev);
+	if (!ret) {
+		ret = thermal_get_temp(thermal_dev, &cpu_tmp);
+		cpu_tmp /= 1000;
 
-/*
- * 18.09.2024 KM: Further testing needed!
- * In tests the early call of the uclass_get_device() did not
- * create any problems for the device-tree. For now, we take
- * the early call out, but this needs to be evaluated for
- * newer U-Boot versions. (fsimx93 already uses this call)
- * We initialize the thermal sensor in board_init().
- */
-#if defined(CONFIG_IMX_THERMAL)// || defined(CONFIG_IMX_TMU)
-	{
-		struct udevice *thermal_dev;
-		int cpu_tmp;
-
-		/*
-		 * 23.08.2022 HK: WARNING!
-		 * print_cpuinfo() is called in the board_f phase where no
-		 * global variables should be used. However probing the TMU
-		 * driver violates this rule and causes damages to the device
-		 * tree. So do not use CONFIG_NXP_TMU for now.
-		 */
-		ret = uclass_get_device(UCLASS_THERMAL, 0, &thermal_dev);
-		if (!ret) {
-			ret = thermal_get_temp(thermal_dev, &cpu_tmp);
-			if (!ret)
-				printf(" running at %dC", cpu_tmp);
-		}
+		if (!ret)
+			printf(" at %dC", cpu_tmp);
+		else
+			debug(" - invalid sensor data\n");
+	} else {
+		debug(" - invalid sensor device\n");
 	}
 #endif
 
@@ -323,10 +307,10 @@ u32 get_ahb_clk(void)
 
 void arch_preboot_os(void)
 {
-#if defined(CONFIG_IMX_AHCI)
 	struct udevice *dev;
 	int rc;
 
+#if defined(CONFIG_IMX_AHCI)
 	rc = uclass_find_device(UCLASS_AHCI, 0, &dev);
 	if (!rc && dev) {
 		rc = device_remove(dev, DM_REMOVE_NORMAL);
@@ -350,11 +334,19 @@ void arch_preboot_os(void)
 #endif
 #if defined(CONFIG_VIDEO_IPUV3)
 	/* disable video before launching O/S */
-	ipuv3_fb_shutdown();
+	rc = uclass_find_first_device(UCLASS_VIDEO, &dev);
+	while (!rc && dev) {
+		if (device_active(dev))
+			ipuv3_fb_shutdown(dev);
+
+		uclass_find_next_device(&dev);
+	}
 #endif
 #if defined(CONFIG_VIDEO_MXS) && !defined(CONFIG_VIDEO)
 	lcdif_power_down();
 #endif
+    (void)dev;
+    (void)rc;
 }
 
 #ifndef CONFIG_IMX8M

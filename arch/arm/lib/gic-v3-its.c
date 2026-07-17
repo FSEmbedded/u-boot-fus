@@ -81,7 +81,7 @@ int gic_lpi_tables_init(u64 base, u32 num_redist)
 	int i;
 	u64 redist_lpi_base;
 	u64 pend_base;
-	ulong pend_tab_total_sz = num_redist * LPI_PENDBASE_SZ;
+	ulong pend_tab_total_sz;
 	void *pend_tab_va;
 
 	if (gic_v3_its_get_gic_addr(&priv))
@@ -133,6 +133,7 @@ int gic_lpi_tables_init(u64 base, u32 num_redist)
 	}
 
 	redist_lpi_base = base + LPI_PROPBASE_SZ;
+	pend_tab_total_sz = num_redist * LPI_PENDBASE_SZ;
 	pend_tab_va = map_physmem(redist_lpi_base, pend_tab_total_sz,
 				  MAP_NOCACHE);
 	memset(pend_tab_va, 0, pend_tab_total_sz);
@@ -232,6 +233,9 @@ U_BOOT_DRIVER(arm_gic_v3) = {
 	.id		= UCLASS_IRQ,
 	.of_match	= gic_v3_ids,
 	.ops		= &arm_gic_v3_ops,
+#if CONFIG_IS_ENABLED(OF_REAL)
+	.bind		= dm_scan_fdt_dev,
+#endif
 	ACPI_OPS_PTR(&gic_v3_acpi_ops)
 };
 

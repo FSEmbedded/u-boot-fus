@@ -22,6 +22,44 @@ struct fwl_data cbass_main_fwls[] = {
        { "FSS_DAT_REG3", 7, 8 },
 };
 
+const struct k3_speed_grade_map am62a_map[] = {
+	{'M', 800000000},
+	{'N', 800000000},
+	{'O', 1000000000},
+	{'P', 1000000000},
+	{'Q', 1000000000},
+	{'R', 1000000000},
+	{'S', 1250000000},
+	{'T', 1250000000},
+	{'U', 1250000000},
+	{'V', 1250000000},
+	{/* List Terminator */ },
+};
+
+char k3_get_speed_grade(void)
+{
+	u32 efuse_val = readl(CTRLMMR_WKUP_JTAG_DEVICE_ID);
+	u32 efuse_speed = (efuse_val & JTAG_DEV_SPEED_MASK) >>
+			  JTAG_DEV_SPEED_SHIFT;
+
+	char speed_grade = ('A' - 1) + efuse_speed;
+
+	/* Speed grades for AM62a are not sequential */
+	switch (efuse_speed) {
+	case 'T':
+		return 'V';
+	case 'V':
+		return 'T';
+	default:
+		return speed_grade;
+	}
+}
+
+const struct k3_speed_grade_map *k3_get_speed_grade_map(void)
+{
+	return am62a_map;
+}
+
 /*
  * This uninitialized global variable would normal end up in the .bss section,
  * but the .bss is cleared between writing and reading this variable, so move
@@ -57,7 +95,6 @@ static void ctrl_mmr_unlock(void)
 	mmr_unlock(CTRL_MMR0_BASE, 1);
 	mmr_unlock(CTRL_MMR0_BASE, 2);
 	mmr_unlock(CTRL_MMR0_BASE, 4);
-	mmr_unlock(CTRL_MMR0_BASE, 5);
 	mmr_unlock(CTRL_MMR0_BASE, 6);
 
 	/* Unlock all MCU_CTRL_MMR0 module registers */
@@ -172,6 +209,10 @@ void board_init_f(ulong dummy)
 	/* Output System Firmware version info */
 	k3_sysfw_print_ver();
 
+	/* Output DM Firmware version info */
+	if (IS_ENABLED(CONFIG_ARM64))
+		k3_dm_print_ver();
+
 	if (IS_ENABLED(CONFIG_ESM_K3)) {
 		/* Probe/configure ESM0 */
 		ret = uclass_get_device_by_name(UCLASS_MISC, "esm@420000", &dev);
@@ -191,9 +232,20 @@ void board_init_f(ulong dummy)
 	if (ret)
 		panic("DRAM init failed: %d\n", ret);
 #endif
+	spl_enable_cache();
 
 	setup_qos();
 
+	if (IS_ENABLED(CONFIG_SPL_ETH) && IS_ENABLED(CONFIG_TI_AM65_CPSW_NUSS) &&
+	    spl_boot_device() == BOOT_DEVICE_ETHERNET) {
+		struct udevice *cpswdev;
+
+		if (uclass_get_device_by_driver(UCLASS_MISC, DM_DRIVER_GET(am65_cpsw_nuss),
+						&cpswdev))
+			printf("Failed to probe am65_cpsw_nuss driver\n");
+	}
+
+	k3_fix_rproc_clock("/a53@0");
 	debug("am62a_init: %s done\n", __func__);
 }
 
@@ -205,8 +257,17 @@ u32 spl_mmc_boot_mode(struct mmc *mmc, const u32 boot_device)
 	u32 bootmode_cfg = (devstat & MAIN_DEVSTAT_PRIMARY_BOOTMODE_CFG_MASK) >>
 			    MAIN_DEVSTAT_PRIMARY_BOOTMODE_CFG_SHIFT;
 
+	if (bootindex != K3_PRIMARY_BOOTMODE) {
+		pr_alert("Fallback to backup bootmode MMCSD_MODE_FS\n");
+		return MMCSD_MODE_FS;
+	}
+
 	switch (bootmode) {
 	case BOOT_DEVICE_EMMC:
+		if (IS_ENABLED(CONFIG_SUPPORT_EMMC_BOOT))
+			return MMCSD_MODE_EMMCBOOT;
+		if (IS_ENABLED(CONFIG_SPL_FS_FAT) || IS_ENABLED(CONFIG_SPL_FS_EXT4))
+			return MMCSD_MODE_FS;
 		return MMCSD_MODE_EMMCBOOT;
 	case BOOT_DEVICE_MMC:
 		if (bootmode_cfg & MAIN_DEVSTAT_PRIMARY_MMC_FS_RAW_MASK)
@@ -218,5 +279,9 @@ u32 spl_mmc_boot_mode(struct mmc *mmc, const u32 boot_device)
 
 u32 spl_boot_device(void)
 {
+#if IS_ENABLED(CONFIG_SPL_OS_BOOT_SECURE) && !IS_ENABLED(CONFIG_ARM64)
+	return k3_r5_falcon_bootmode();
+#else
 	return get_boot_device();
+#endif
 }

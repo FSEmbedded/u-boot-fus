@@ -9,7 +9,6 @@
 #include <blk.h>
 #include <efi.h>
 #include <fwu_mdata.h>
-#include <mtd.h>
 #include <u-boot/uuid.h>
 
 #include <linux/types.h>
@@ -128,6 +127,17 @@ int fwu_read_mdata(struct udevice *dev, struct fwu_mdata *mdata,
  */
 int fwu_write_mdata(struct udevice *dev, struct fwu_mdata *mdata,
 		    bool primary, uint32_t size);
+
+/**
+ * fwu_platform_hook() - Platform specific processing with FWU metadata
+ * @dev: FWU metadata device
+ * @data: FWU metadata
+ *
+ * Provide a platform specific function for processing with the FWU metadata.
+ *
+ * Return: 0 if OK, -ve on error
+ */
+int fwu_platform_hook(struct udevice *dev, struct fwu_data *data);
 
 /**
  * fwu_get_mdata() - Read, verify and return the FWU metadata

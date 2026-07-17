@@ -8,11 +8,12 @@
 #include <compiler.h>
 #include <dm.h>
 #include <dm/device_compat.h>
-#include <scmi_agent.h>
-#include <scmi_protocols.h>
-#include <scmi_nxp_protocols.h>
 #include <linux/types.h>
 #include <misc.h>
+#include <scmi_agent.h>
+#include <scmi_agent-uclass.h>
+#include <scmi_protocols.h>
+#include <scmi_nxp_protocols.h>
 
 enum scmi_imx_lmm_protocol_cmd {
 	SCMI_IMX_LMM_ATTRIBUTES	= 0x3,
@@ -184,10 +185,6 @@ int scmi_imx_lmm_shutdown(struct udevice *dev, u32 lmid, bool flags)
 	return 0;
 }
 
-static struct misc_ops scmi_imx_lmm_ops = {
-	/* Empty */
-};
-
 static int scmi_imx_lmm_probe(struct udevice *dev)
 {
 	int ret;
@@ -203,8 +200,14 @@ static int scmi_imx_lmm_probe(struct udevice *dev)
 
 U_BOOT_DRIVER(scmi_imx_lmm) = {
 	.name = "scmi_imx_lmm",
-	.id = UCLASS_MISC,
-	.ops = &scmi_imx_lmm_ops,
+	.id = UCLASS_SCMI_BASE,
 	.probe = scmi_imx_lmm_probe,
 	.priv_auto = sizeof(struct scmi_imx_lmm_priv),
 };
+
+static struct scmi_proto_match match[] = {
+	{ .proto_id = SCMI_PROTOCOL_ID_VENDOR_80},
+	{ /* Sentinel */ }
+};
+
+U_BOOT_SCMI_PROTO_DRIVER(scmi_imx_lmm, match);

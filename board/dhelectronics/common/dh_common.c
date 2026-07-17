@@ -5,6 +5,7 @@
  */
 
 #include <dm.h>
+#include <env.h>
 #include <i2c_eeprom.h>
 #include <net.h>
 #include <u-boot/crc.h>
@@ -87,9 +88,9 @@ int dh_read_eeprom_id_page(u8 *eeprom_buffer, const char *alias)
 	/* Validate header ID */
 	if (eip->hdr.id[0] != 'D' || eip->hdr.id[1] != 'H' || eip->hdr.id[2] != 'E') {
 		printf("%s: Error validating header ID! (got %c%c%c (0x%02x 0x%02x 0x%02x) != expected DHE)\n",
-		       __func__, isprint(eip->hdr.id[0]) ? eip->hdr.id[0] : '.',
-		       isprint(eip->hdr.id[1]) ? eip->hdr.id[1] : '.',
-		       isprint(eip->hdr.id[2]) ? eip->hdr.id[2] : '.',
+		       __func__, (isascii(eip->hdr.id[0]) && isprint(eip->hdr.id[0])) ? eip->hdr.id[0] : '.',
+		       (isascii(eip->hdr.id[1]) && isprint(eip->hdr.id[1])) ? eip->hdr.id[1] : '.',
+		       (isascii(eip->hdr.id[2]) && isprint(eip->hdr.id[2])) ? eip->hdr.id[2] : '.',
 		       eip->hdr.id[0], eip->hdr.id[1], eip->hdr.id[2]);
 		return -EINVAL;
 	}
@@ -130,13 +131,16 @@ int dh_read_eeprom_id_page(u8 *eeprom_buffer, const char *alias)
 int dh_get_value_from_eeprom_buffer(enum eip_request_values request, u8 *data, int data_len,
 				    struct eeprom_id_page *eip)
 {
-	const char fin_chr = (eip->pl.item_prefix & DH_ITEM_PREFIX_FIN_BIT) ?
-			     DH_ITEM_PREFIX_FIN_FLASHED_CHR : DH_ITEM_PREFIX_FIN_HALF_CHR;
-	const u8 soc_coded = eip->pl.item_prefix & 0xf;
+	char fin_chr;
+	u8 soc_coded;
 	char soc_chr;
 
 	if (!eip)
 		return -EINVAL;
+
+	fin_chr = (eip->pl.item_prefix & DH_ITEM_PREFIX_FIN_BIT) ?
+		  DH_ITEM_PREFIX_FIN_FLASHED_CHR : DH_ITEM_PREFIX_FIN_HALF_CHR;
+	soc_coded = eip->pl.item_prefix & 0xf;
 
 	/* Copy requested data */
 	switch (request) {
@@ -241,4 +245,41 @@ __weak int dh_setup_mac_address(struct eeprom_id_page *eip)
 
 	printf("%s: Unable to set mac address!\n", __func__);
 	return -ENXIO;
+}
+
+void dh_add_item_number_and_serial_to_env(struct eeprom_id_page *eip)
+{
+	char *item_number_env;
+	char item_number[8];	/* String with 7 characters + string termination */
+	char *serial_env;
+	char serial[10];	/* String with 9 characters + string termination */
+	int ret;
+
+	ret = dh_get_value_from_eeprom_buffer(DH_ITEM_NUMBER, item_number, sizeof(item_number),
+					      eip);
+	if (ret) {
+		printf("%s: Unable to get DHSOM item number from EEPROM ID page! ret = %d\n",
+		       __func__, ret);
+	} else {
+		item_number_env = env_get("dh_som_item_number");
+		if (!item_number_env)
+			env_set("dh_som_item_number", item_number);
+		else if (strcmp(item_number_env, item_number))
+			printf("Warning: Environment dh_som_item_number differs from EEPROM ID page value (%s != %s)\n",
+			       item_number_env, item_number);
+	}
+
+	ret = dh_get_value_from_eeprom_buffer(DH_SERIAL_NUMBER, serial, sizeof(serial),
+					      eip);
+	if (ret) {
+		printf("%s: Unable to get DHSOM serial number from EEPROM ID page! ret = %d\n",
+		       __func__, ret);
+	} else {
+		serial_env = env_get("dh_som_serial_number");
+		if (!serial_env)
+			env_set("dh_som_serial_number", serial);
+		else if (strcmp(serial_env, serial))
+			printf("Warning: Environment dh_som_serial_number differs from EEPROM ID page value (%s != %s)\n",
+			       serial_env, serial);
+	}
 }

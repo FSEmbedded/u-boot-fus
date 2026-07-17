@@ -53,6 +53,17 @@
 #define FASTBOOT_VAR_YES    "yes"
 #define FASTBOOT_VAR_NO     "no"
 
+/* logical partitions list */
+char *logical_partition[] = {
+	"product",
+	"system",
+	"system_dlkm",
+	"system_ext",
+	"vendor",
+	"vendor_dlkm",
+	NULL,
+};
+
 /* common variables of fastboot getvar command */
 char *fastboot_common_var[] = {
 #ifndef CONFIG_IMX_ANDROID_GBL
@@ -188,14 +199,18 @@ int get_single_var(char *cmd, char *response)
 			strncat(response, fb_part->fstype, chars_left);
 		}
 	} else if ((str = strstr(cmd, "is-logical:"))) {
+		int i = 0;
+
 		str +=strlen("is-logical:");
-		struct fastboot_ptentry* fb_part;
-		fb_part = fastboot_flash_find_ptn(str);
-		if (!fb_part) {
-			return -1;
-		} else {
-			snprintf(response + strlen(response), chars_left, "no");
+		for (i = 0; logical_partition[i] != NULL; i++) {
+			if (!strcmp_l1(str, logical_partition[i]))
+				break;
 		}
+
+		if (logical_partition[i] == NULL) {
+			snprintf(response + strlen(response), chars_left, "no");
+		} else
+			snprintf(response + strlen(response), chars_left, "yes");
 	} else if (!strcmp_l1("version-baseband", cmd)) {
 		strncat(response, "N/A", chars_left);
 	} else if (!strcmp_l1("version-bootloader", cmd) ||

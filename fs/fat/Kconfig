@@ -14,6 +14,13 @@ config FAT_ORIG
 	  The original FAT driver uses a lot of memory and may have problems
 	  with long file names. However it has optional write support.
 
+config FAT_RENAME
+	bool "Enable filesystem rename support"
+	depends on FAT_WRITE
+	help
+	  This provides support for renaming and moving files within a
+	  FAT filesystem partition.
+
 config FS_FAT_MAX_CLUSTSIZE
 	int "Set maximum possible clustersize"
 	default 65536

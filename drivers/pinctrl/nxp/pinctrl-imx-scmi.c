@@ -6,8 +6,8 @@
 #include <asm/io.h>
 #include <asm/mach-imx/sys_proto.h>
 #include <dm.h>
-#include <dm/devres.h>
 #include <dm/device_compat.h>
+#include <dm/devres.h>
 #include <dm/pinctrl.h>
 #include <scmi_agent.h>
 #include <scmi_agent-uclass.h>
@@ -15,9 +15,9 @@
 
 #include "pinctrl-imx.h"
 
-#define DAISY_OFFSET_IMX93	0x360
-#define DAISY_OFFSET_IMX95	0x408
-#define DAISY_OFFSET_IMX94	0x608
+#define DAISY_OFFSET_IMX95      0x408
+#define DAISY_OFFSET_IMX94      0x608
+#define DAISY_OFFSET_IMX952	    0x460
 
 /* SCMI pin control types */
 #define PINCTRL_TYPE_MUX        192
@@ -139,12 +139,12 @@ static int imx_scmi_pinctrl_probe(struct udevice *dev)
 {
 	struct imx_scmi_pinctrl_priv *priv = dev_get_priv(dev);
 
-	if (IS_ENABLED(CONFIG_IMX93))
-		priv->daisy_offset = DAISY_OFFSET_IMX93;
-	else if (IS_ENABLED(CONFIG_IMX95))
+	if (IS_ENABLED(CONFIG_IMX95))
 		priv->daisy_offset = DAISY_OFFSET_IMX95;
 	else if (IS_ENABLED(CONFIG_IMX94))
 		priv->daisy_offset = DAISY_OFFSET_IMX94;
+	else if (IS_ENABLED(CONFIG_IMX952))
+		priv->daisy_offset = DAISY_OFFSET_IMX952;
 	else
 		return -EINVAL;
 
@@ -153,7 +153,10 @@ static int imx_scmi_pinctrl_probe(struct udevice *dev)
 
 static int imx_scmi_pinctrl_bind(struct udevice *dev)
 {
-	return 0;
+	if (IS_ENABLED(CONFIG_IMX95) || IS_ENABLED(CONFIG_IMX94) || IS_ENABLED(CONFIG_IMX952))
+		return 0;
+
+	return -ENODEV;
 }
 
 U_BOOT_DRIVER(scmi_pinctrl_imx) = {
@@ -166,8 +169,9 @@ U_BOOT_DRIVER(scmi_pinctrl_imx) = {
 	.flags = DM_FLAG_PRE_RELOC,
 };
 
-static struct scmi_proto_match match = {
-	.proto_id = SCMI_PROTOCOL_ID_PINCTRL,
+static struct scmi_proto_match match[] = {
+	{ .proto_id = SCMI_PROTOCOL_ID_PINCTRL },
+	{ /* Sentinel */ }
 };
 
-U_BOOT_SCMI_PROTO_DRIVER(scmi_pinctrl_imx, &match);
+U_BOOT_SCMI_PROTO_DRIVER(scmi_pinctrl_imx, match);

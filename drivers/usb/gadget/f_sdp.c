@@ -870,7 +870,7 @@ static void sdp_handle_in_ep(void)
 			struct spl_boot_device bootdev = {};
 			spl_parse_image_header(&spl_image, &bootdev, header);
 			spl_board_prepare_for_boot();
-			jump_to_image_no_args(&spl_image);
+			jump_to_image(&spl_image);
 #else
 			/* In U-Boot, allow jumps to scripts */
 			cmd_source_script(sdp_func->jmp_address, NULL, NULL);
@@ -957,13 +957,13 @@ int spl_sdp_handle(struct udevice *udc, struct spl_image_info *spl_image,
 			return -EINVAL;
 		}
 
+		schedule();
+		dm_usb_gadget_handle_interrupts(udc);
+
 		if (flag == SDP_EXIT)
 			return 0;
 		else if (flag == SDP_FAIL)
 			return -EIO;
-
-		schedule();
-		dm_usb_gadget_handle_interrupts(udc);
 
 #ifdef CONFIG_XPL_BUILD
 		flag = sdp_handle_in_ep(spl_image, bootdev);

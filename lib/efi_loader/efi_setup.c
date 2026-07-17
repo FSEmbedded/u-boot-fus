@@ -11,7 +11,7 @@
 #include <efi_variable.h>
 #include <log.h>
 #include <asm-generic/unaligned.h>
-
+#include <net.h>
 #include <efi_gbl_avb_protocol.h>
 #include <efi_gbl_os_configuration_protocol.h>
 #include <efi_gbl_boot_control_protocol.h>
@@ -20,10 +20,19 @@
 #include <efi_gbl_fastboot_protocol.h>
 #include <efi_gbl_vendor_partition.h>
 #include <efi_gbl_timestamp_protocol.h>
+#ifdef CONFIG_IMX_ANDROID_GBL
+const efi_guid_t efi_gbl_vendor_variable_guid = EFI_GBL_VENDOR_GUID;
+// api level corresponding to android codebase
+static char gbl_api_level[8] = "202504";
+#endif
 
+#define OBJ_LIST_INITIALIZED 0
 #define OBJ_LIST_NOT_INITIALIZED 1
 
 efi_status_t efi_obj_list_initialized = OBJ_LIST_NOT_INITIALIZED;
+
+const efi_guid_t efi_debug_image_info_table_guid =
+	EFI_DEBUG_IMAGE_INFO_TABLE_GUID;
 
 /*
  * Allow unaligned memory access.
@@ -218,6 +227,21 @@ out:
 }
 
 /**
+ * efi_start_obj_list() - Start EFI object list
+ *
+ * Return:	status code
+ */
+static efi_status_t efi_start_obj_list(void)
+{
+	efi_status_t ret = EFI_SUCCESS;
+
+	if (IS_ENABLED(CONFIG_NETDEVICES))
+		ret = efi_net_do_start(eth_get_dev());
+
+	return ret;
+}
+
+/**
  * efi_init_obj_list() - Initialize and populate EFI object list
  *
  * Return:	status code
@@ -226,7 +250,9 @@ efi_status_t efi_init_obj_list(void)
 {
 	efi_status_t ret = EFI_SUCCESS;
 
-	/* Initialize once only */
+	/* Initialize only once, but start every time if correctly initialized*/
+	if (efi_obj_list_initialized == OBJ_LIST_INITIALIZED)
+		return efi_start_obj_list();
 	if (efi_obj_list_initialized != OBJ_LIST_NOT_INITIALIZED)
 		return efi_obj_list_initialized;
 
@@ -267,6 +293,21 @@ efi_status_t efi_init_obj_list(void)
 	ret = efi_initialize_system_table();
 	if (ret != EFI_SUCCESS)
 		goto out;
+
+	/* Initialize system table pointer */
+	if (IS_ENABLED(CONFIG_EFI_DEBUG_SUPPORT)) {
+		efi_guid_t debug_image_info_table_guid =
+			efi_debug_image_info_table_guid;
+
+		ret = efi_initialize_system_table_pointer();
+		if (ret != EFI_SUCCESS)
+			goto out;
+
+		ret = efi_install_configuration_table(&debug_image_info_table_guid,
+						      &efi_m_debug_info_table_header);
+		if (ret != EFI_SUCCESS)
+			goto out;
+	}
 
 	if (IS_ENABLED(CONFIG_EFI_ECPT)) {
 		ret = efi_ecpt_register();
@@ -327,7 +368,7 @@ efi_status_t efi_init_obj_list(void)
 			goto out;
 	}
 	if (IS_ENABLED(CONFIG_NETDEVICES)) {
-		ret = efi_net_register();
+		ret = efi_net_register(eth_get_dev());
 		if (ret != EFI_SUCCESS)
 			goto out;
 	}
@@ -358,6 +399,8 @@ efi_status_t efi_init_obj_list(void)
 	if (IS_ENABLED(CONFIG_EFI_CAPSULE_ON_DISK) &&
 	    !IS_ENABLED(CONFIG_EFI_CAPSULE_ON_DISK_EARLY))
 		ret = efi_launch_capsules();
+	if (ret != EFI_SUCCESS)
+		goto out;
 
 	/* Register GBL AVB protocol */
 	if (IS_ENABLED(CONFIG_EFI_GBL_AVB)) {
@@ -420,6 +463,23 @@ efi_status_t efi_init_obj_list(void)
 			goto out;
 		}
 	}
+
+	ret = efi_start_obj_list();
+
+#ifdef CONFIG_IMX_ANDROID_GBL
+	/* Pass GBL variables */
+	char *api_level = gbl_api_level;
+	ret = efi_set_variable_int(u"gbl_fw_api_level",
+				   &efi_gbl_vendor_variable_guid,
+				   EFI_VARIABLE_BOOTSERVICE_ACCESS |
+				   EFI_VARIABLE_RUNTIME_ACCESS |
+				   EFI_VARIABLE_READ_ONLY,
+				   strlen(api_level),
+				   api_level,
+				   false);
+	if (ret != EFI_SUCCESS)
+		goto out;
+#endif
 
 out:
 	efi_obj_list_initialized = ret;

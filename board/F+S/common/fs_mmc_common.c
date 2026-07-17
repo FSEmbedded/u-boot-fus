@@ -244,8 +244,8 @@ static void fs_mmc_get_env_info(struct mmc *mmc, struct cfg_info *cfg)
 		err = fs_image_get_known_env_mmc(0, cfg->env_start, NULL);
 	}
 	if (err) {
-		cfg->env_start[0] = CONFIG_ENV_MMC_OFFSET;
-		cfg->env_start[1] = CONFIG_ENV_MMC_OFFSET_REDUND;
+		cfg->env_start[0] = CONFIG_ENV_OFFSET;
+		cfg->env_start[1] = CONFIG_ENV_OFFSET_REDUND;
 	}
 
 	cfg->flags |= CI_FLAGS_HAVE_ENV;

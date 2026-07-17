@@ -212,8 +212,8 @@ int rproc_elf32_load_image(struct udevice *dev, unsigned long addr, ulong size)
 		dst_addr = map_to_sysmem(dst);
 		if (!is_iomem) {
 			flush_cache(rounddown(dst_addr, ARCH_DMA_MINALIGN),
-				    roundup(dst_addr + phdr->p_filesz,
-				    ARCH_DMA_MINALIGN) - rounddown(dst_addr, ARCH_DMA_MINALIGN));
+				    roundup(dst_addr + phdr->p_filesz, ARCH_DMA_MINALIGN) -
+				    rounddown(dst_addr, ARCH_DMA_MINALIGN));
 		}
 	}
 
@@ -430,12 +430,11 @@ int rproc_elf32_load_rsc_table(struct udevice *dev, ulong fw_addr,
 		memcpy_toio(dst, src, *rsc_size);
 	} else {
 		memcpy(dst, src, *rsc_size);
+		dst_addr = map_to_sysmem(dst);
 		flush_cache(rounddown(dst_addr, ARCH_DMA_MINALIGN),
 			    roundup(dst_addr + *rsc_size, ARCH_DMA_MINALIGN) -
 			    rounddown(dst_addr, ARCH_DMA_MINALIGN));
 	}
-
-	dst_addr = map_to_sysmem(dst);
 
 	return 0;
 }
@@ -546,8 +545,7 @@ int rproc_elf64_load_rsc_table(struct udevice *dev, ulong fw_addr,
 	} else {
 		memcpy(dst, src, *rsc_size);
 		flush_cache(rounddown((unsigned long)dst, ARCH_DMA_MINALIGN),
-			    roundup((unsigned long)dst + *rsc_size,
-			    ARCH_DMA_MINALIGN) -
+			    roundup((unsigned long)dst + *rsc_size, ARCH_DMA_MINALIGN) -
 			    rounddown((unsigned long)dst, ARCH_DMA_MINALIGN));
 	}
 

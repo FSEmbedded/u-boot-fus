@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2019-2023 NXP
+ * Copyright 2019 NXP
  */
 
 #include <config.h>
@@ -41,6 +41,52 @@
 #elif defined(CONFIG_IMX8QXP) || defined (CONFIG_IMX8DXL)
 #define FUSE_IMG_SET_OFF_WORD 720
 #endif
+
+#define MAX_V2X_CTNR_IMG_NUM   (4)
+#define MIN_V2X_CTNR_IMG_NUM   (2)
+
+#define IMG_FLAGS_IMG_TYPE_SHIFT  (0u)
+#define IMG_FLAGS_IMG_TYPE_MASK   (0xfU)
+#define IMG_FLAGS_IMG_TYPE(x)     (((x) & IMG_FLAGS_IMG_TYPE_MASK) >> \
+								   IMG_FLAGS_IMG_TYPE_SHIFT)
+
+#define IMG_FLAGS_CORE_ID_SHIFT   (4u)
+#define IMG_FLAGS_CORE_ID_MASK    (0xf0U)
+#define IMG_FLAGS_CORE_ID(x)      (((x) & IMG_FLAGS_CORE_ID_MASK) >> \
+								   IMG_FLAGS_CORE_ID_SHIFT)
+
+#define IMG_TYPE_V2X_PRI_FW     (0x0Bu)   /* Primary V2X FW */
+#define IMG_TYPE_V2X_SND_FW     (0x0Cu)   /* Secondary V2X FW */
+
+#define CORE_V2X_PRI 9
+#define CORE_V2X_SND 10
+
+static bool is_v2x_fw_container(ulong addr)
+{
+	struct container_hdr *phdr;
+	struct boot_img_t *img_entry;
+
+	phdr = (struct container_hdr *)addr;
+	if ((phdr->tag != 0x87 && phdr->tag != 0x82) || phdr->version != 0x0) {
+		debug("Wrong container header\n");
+		return false;
+	}
+
+	if (phdr->num_images >= MIN_V2X_CTNR_IMG_NUM && phdr->num_images <= MAX_V2X_CTNR_IMG_NUM) {
+		img_entry = (struct boot_img_t *)(addr + sizeof(struct container_hdr));
+
+		if (IMG_FLAGS_IMG_TYPE(img_entry->hab_flags) == IMG_TYPE_V2X_PRI_FW &&
+		    IMG_FLAGS_CORE_ID(img_entry->hab_flags) == CORE_V2X_PRI) {
+			img_entry++;
+
+			if (IMG_FLAGS_IMG_TYPE(img_entry->hab_flags) == IMG_TYPE_V2X_SND_FW &&
+			    IMG_FLAGS_CORE_ID(img_entry->hab_flags) == CORE_V2X_SND)
+				return true;
+		}
+	}
+
+	return false;
+}
 
 int get_container_size(ulong addr, u16 *header_length)
 {
@@ -84,58 +130,9 @@ int get_container_size(ulong addr, u16 *header_length)
 	return max_offset;
 }
 
-#ifdef CONFIG_SPL_BUILD
-
-#define MAX_V2X_CTNR_IMG_NUM   (4)
-#define MIN_V2X_CTNR_IMG_NUM   (2)
-
-#define IMG_FLAGS_IMG_TYPE_SHIFT  (0u)
-#define IMG_FLAGS_IMG_TYPE_MASK   (0xfU)
-#define IMG_FLAGS_IMG_TYPE(x)     (((x) & IMG_FLAGS_IMG_TYPE_MASK) >> \
-                                   IMG_FLAGS_IMG_TYPE_SHIFT)
-
-#define IMG_FLAGS_CORE_ID_SHIFT   (4u)
-#define IMG_FLAGS_CORE_ID_MASK    (0xf0U)
-#define IMG_FLAGS_CORE_ID(x)      (((x) & IMG_FLAGS_CORE_ID_MASK) >> \
-                                   IMG_FLAGS_CORE_ID_SHIFT)
-
-#define IMG_TYPE_V2X_PRI_FW     (0x0Bu)   /* Primary V2X FW */
-#define IMG_TYPE_V2X_SND_FW     (0x0Cu)   /* Secondary V2X FW */
-
-#define CORE_V2X_PRI 9
-#define CORE_V2X_SND 10
-
-static bool is_v2x_fw_container(ulong addr)
-{
-	struct container_hdr *phdr;
-	struct boot_img_t *img_entry;
-
-	phdr = (struct container_hdr *)addr;
-	if ((phdr->tag != 0x87 && phdr->tag != 0x82) || phdr->version != 0x0) {
-		debug("Wrong container header\n");
-		return false;
-	}
-
-	if (phdr->num_images >= MIN_V2X_CTNR_IMG_NUM && phdr->num_images <= MAX_V2X_CTNR_IMG_NUM) {
-		img_entry = (struct boot_img_t *)(addr + sizeof(struct container_hdr));
-
-		if (IMG_FLAGS_IMG_TYPE(img_entry->hab_flags) == IMG_TYPE_V2X_PRI_FW &&
-		    IMG_FLAGS_CORE_ID(img_entry->hab_flags) == CORE_V2X_PRI) {
-			img_entry++;
-
-			if (IMG_FLAGS_IMG_TYPE(img_entry->hab_flags) == IMG_TYPE_V2X_SND_FW &&
-			    IMG_FLAGS_CORE_ID(img_entry->hab_flags) == CORE_V2X_SND)
-				return true;
-		}
-	}
-
-	return false;
-}
-
 static int get_dev_container_size(void *dev, int dev_type, unsigned long offset, u16 *header_length, bool *v2x_cntr)
 {
-	u16 ctnr_hdr_align = CONTAINER_HDR_ALIGNMENT;
-	u8 *buf = malloc(ctnr_hdr_align);
+	u8 *buf = malloc(CONTAINER_HDR_ALIGNMENT);
 	int ret = 0;
 
 	if (!buf) {
@@ -150,7 +147,7 @@ static int get_dev_container_size(void *dev, int dev_type, unsigned long offset,
 
 		count = blk_dread(mmc_get_blk_desc(mmc),
 				  offset / mmc->read_bl_len,
-				  ctnr_hdr_align / mmc->read_bl_len,
+				  CONTAINER_HDR_ALIGNMENT / mmc->read_bl_len,
 				  buf);
 		if (count == 0) {
 			free(buf);
@@ -165,7 +162,7 @@ static int get_dev_container_size(void *dev, int dev_type, unsigned long offset,
 		struct spi_flash *flash = (struct spi_flash *)dev;
 
 		ret = spi_flash_read(flash, offset,
-				     ctnr_hdr_align, buf);
+				     CONTAINER_HDR_ALIGNMENT, buf);
 		if (ret != 0) {
 			free(buf);
 			printf("Read container image from QSPI failed\n");
@@ -176,7 +173,7 @@ static int get_dev_container_size(void *dev, int dev_type, unsigned long offset,
 
 #ifdef CONFIG_SPL_NAND_SUPPORT
 	if (dev_type == NAND_DEV) {
-		ret = nand_spl_load_image(offset, ctnr_hdr_align,
+		ret = nand_spl_load_image(offset, CONTAINER_HDR_ALIGNMENT,
 					  buf);
 		if (ret != 0) {
 			free(buf);
@@ -188,12 +185,12 @@ static int get_dev_container_size(void *dev, int dev_type, unsigned long offset,
 
 #ifdef CONFIG_SPL_NOR_SUPPORT
 	if (dev_type == QSPI_NOR_DEV)
-		memcpy(buf, (const void *)offset, ctnr_hdr_align);
+		memcpy(buf, (const void *)offset, CONTAINER_HDR_ALIGNMENT);
 #endif
 
 #ifdef CONFIG_SPL_BOOTROM_SUPPORT
 	if (dev_type == ROM_API_DEV) {
-		ret = spl_romapi_read(offset, ctnr_hdr_align, buf);
+		ret = spl_romapi_read(offset, CONTAINER_HDR_ALIGNMENT, buf);
 		if (!ret) {
 			free(buf);
 			printf("Read container image from ROM API failed\n");
@@ -204,7 +201,7 @@ static int get_dev_container_size(void *dev, int dev_type, unsigned long offset,
 
 #ifdef CONFIG_SPL_RAM_SUPPORT
 	if (dev_type == RAM_DEV)
-		memcpy(buf, (const void *)offset, ctnr_hdr_align);
+		memcpy(buf, (const void *)offset, CONTAINER_HDR_ALIGNMENT);
 #endif
 
 
@@ -248,6 +245,7 @@ static int scmi_get_boot_device_offset(unsigned long *img_off)
 	return 0;
 }
 
+#ifndef CONFIG_DUAL_BOOTLOADER
 static int scmi_get_boot_stage(u8 *stage)
 {
 	int ret;
@@ -264,6 +262,7 @@ static int scmi_get_boot_stage(u8 *stage)
 
 	return 0;
 }
+#endif
 
 #else
 
@@ -361,7 +360,6 @@ static __maybe_unused ulong get_imageset_end(void *dev, int dev_type)
 	int value_container[3] = {};
 	u16 hdr_length;
 	bool v2x_fw = false;
-	u16 ctnr_hdr_align = CONTAINER_HDR_ALIGNMENT;
 
 	offset[0] = get_boot_device_offset(dev, dev_type);
 
@@ -373,8 +371,8 @@ static __maybe_unused ulong get_imageset_end(void *dev, int dev_type)
 
 	debug("seco container size 0x%x\n", value_container[0]);
 
-	if (is_imx8dxl() || is_imx95() || is_imx94()) {
-		offset[1] = ALIGN(hdr_length, ctnr_hdr_align) + offset[0];
+	if (is_imx8dxl() || is_imx95() || is_imx94() || is_imx952()) {
+		offset[1] = ALIGN(hdr_length, CONTAINER_HDR_ALIGNMENT) + offset[0];
 
 		value_container[1] = get_dev_container_size(dev, dev_type, offset[1], &hdr_length, &v2x_fw);
 		if (value_container[1] < 0) {
@@ -384,20 +382,20 @@ static __maybe_unused ulong get_imageset_end(void *dev, int dev_type)
 
 		if (v2x_fw) {
 			debug("v2x container size 0x%x\n", value_container[1]);
-			offset[2] = ALIGN(hdr_length, ctnr_hdr_align) + offset[1];
+			offset[2] = ALIGN(hdr_length, CONTAINER_HDR_ALIGNMENT) + offset[1];
 		} else {
 			printf("no v2x container included\n");
 			offset[2] = offset[1];
 		}
 	} else {
 		/* Skip offset[1] */
-		offset[2] = ALIGN(hdr_length, ctnr_hdr_align) + offset[0];
+		offset[2] = ALIGN(hdr_length, CONTAINER_HDR_ALIGNMENT) + offset[0];
 	}
 
 	value_container[2] = get_dev_container_size(dev, dev_type, offset[2], &hdr_length, NULL);
 	if (value_container[2] < 0) {
 		debug("Parse scu container image failed %d, only seco container\n", value_container[2]);
-		if (is_imx8dxl() || is_imx95() || is_imx94())
+		if (is_imx8dxl() || is_imx95() || is_imx94() || is_imx952())
 			return value_container[1] + offset[1]; /* return seco + v2x container total size */
 		else
 			return value_container[0] + offset[0]; /* return seco container total size */
@@ -541,5 +539,4 @@ unsigned long spl_ram_get_uboot_base(void)
 
 	return end;
 }
-#endif
 #endif

@@ -17,7 +17,9 @@ src := $(obj)
 # Create output directory if not already present
 _dummy := $(shell [ -d $(obj) ] || mkdir -p $(obj))
 
-include $(srctree)/scripts/Kbuild.include
+include $(srctree)/scripts/Kbuild.uboot
+
+include scripts/Makefile.compiler
 
 -include include/config/auto.conf
 
@@ -58,20 +60,18 @@ endif
 
 export SPL_NAME
 
-ifdef CONFIG_XPL_BUILD
-XPL_ := SPL_
+ifeq ($(CONFIG_SPL_BUILD),y)
+PHASE_ := SPL_
+else
 ifeq ($(CONFIG_VPL_BUILD),y)
 PHASE_ := VPL_
 else
 ifeq ($(CONFIG_TPL_BUILD),y)
 PHASE_ := TPL_
 else
-PHASE_ := SPL_
-endif
-endif
-else
-XPL_ :=
 PHASE_ :=
+endif
+endif
 endif
 
 ifeq ($(obj)$(CONFIG_SUPPORT_SPL),spl)
@@ -138,7 +138,7 @@ head-y		:= $(addprefix $(obj)/,$(head-y))
 libs-y		:= $(addprefix $(obj)/,$(libs-y))
 u-boot-spl-dirs	:= $(patsubst %/,%,$(filter %/, $(libs-y)))
 
-libs-y := $(patsubst %/, %/built-in.o, $(libs-y))
+libs-y := $(patsubst %/, %/built-in.a, $(libs-y))
 
 # Add GCC lib
 ifeq ($(CONFIG_USE_PRIVATE_LIBGCC),y)
@@ -366,7 +366,7 @@ cmd_dtoc = $(DTOC_ARGS) -c $(obj)/dts -C include/generated all
 quiet_cmd_plat = PLAT    $@
 cmd_plat = $(CC) $(c_flags) -c $< -o $(filter-out $(PHONY),$@)
 
-$(obj)/dts/dt-%.o: $(obj)/dts/dt-%.c $(platdata-hdr)
+$(obj)/dts/dt-%.o: $(obj)/dts/dt-%.c $(platdata-hdr) FORCE
 	$(call if_changed,plat)
 
 # Don't use dts_dir here, since it forces running this expensive rule every time
@@ -393,7 +393,6 @@ $(obj)/$(BOARD)-spl.bin: $(obj)/u-boot-spl.bin
 endif
 
 $(obj)/u-boot-spl.ldr: $(obj)/u-boot-spl
-	$(CREATE_LDR_ENV)
 	$(LDR) -T $(CONFIG_LDR_CPU) -c $@ $< $(LDR_FLAGS)
 	$(BOARD_SIZE_CHECK)
 
@@ -446,7 +445,8 @@ MKIMAGEFLAGS_sunxi-spl.bin = \
 	-A $(ARCH) \
 	-T $(CONFIG_SPL_IMAGE_TYPE) \
 	-a $(CONFIG_SPL_TEXT_BASE) \
-	-n $(CONFIG_DEFAULT_DEVICE_TREE)
+	-n $(CONFIG_DEFAULT_DEVICE_TREE) \
+	$(if $(KEYDIR),-k $(KEYDIR))
 
 OBJCOPYFLAGS_u-boot-spl-dtb.hex := -I binary -O ihex --change-address=$(CONFIG_SPL_TEXT_BASE)
 
@@ -458,13 +458,14 @@ $(obj)/sunxi-spl.bin: $(obj)/$(SPL_BIN).bin FORCE
 
 quiet_cmd_sunxi_spl_image_builder = SUNXI_SPL_IMAGE_BUILDER $@
 cmd_sunxi_spl_image_builder = $(objtree)/tools/sunxi-spl-image-builder \
+				$(if $(CONFIG_SUN50I_GEN_H6),--soc=h6) \
 				-c $(CONFIG_NAND_SUNXI_SPL_ECC_STRENGTH)/$(CONFIG_NAND_SUNXI_SPL_ECC_SIZE) \
 				-p $(CONFIG_SYS_NAND_PAGE_SIZE) \
 				-o $(CONFIG_SYS_NAND_OOBSIZE) \
 				-u $(CONFIG_NAND_SUNXI_SPL_USABLE_PAGE_SIZE) \
 				-e $(CONFIG_SYS_NAND_BLOCK_SIZE) \
 				-s -b $< $@
-$(obj)/sunxi-spl-with-ecc.bin: $(obj)/sunxi-spl.bin
+$(obj)/sunxi-spl-with-ecc.bin: $(obj)/sunxi-spl.bin FORCE
 	$(call if_changed,sunxi_spl_image_builder)
 
 
@@ -496,9 +497,9 @@ quiet_cmd_keep_syms_lto_cc = KSLCC   $@
       cmd_keep_syms_lto_cc = \
 	$(CC) $(filter-out $(LTO_CFLAGS),$(c_flags)) -c -o $@ $<
 
-$(u-boot-spl-keep-syms-lto_c): $(u-boot-spl-main) $(u-boot-spl-platdata)
+$(u-boot-spl-keep-syms-lto_c): $(u-boot-spl-main) $(u-boot-spl-platdata) FORCE
 	$(call if_changed,keep_syms_lto)
-$(u-boot-spl-keep-syms-lto): $(u-boot-spl-keep-syms-lto_c)
+$(u-boot-spl-keep-syms-lto): $(u-boot-spl-keep-syms-lto_c) FORCE
 	$(call if_changed,keep_syms_lto_cc)
 else
 u-boot-spl-keep-syms-lto :=
@@ -548,11 +549,11 @@ $(sort $(u-boot-spl-init) $(u-boot-spl-main)): $(u-boot-spl-dirs) ;
 
 PHONY += $(u-boot-spl-dirs)
 $(u-boot-spl-dirs): $(u-boot-spl-platdata) prepare
-	$(Q)$(MAKE) $(build)=$@
+	$(Q)$(MAKE) $(build)=$@ need-builtin=1
 
 PHONY += prepare
 prepare:
-	$(Q)$(MAKE) $(build)=$(obj)/.
+	$(Q)$(MAKE) $(build)=$(obj)/. need-builtin=1
 
 quiet_cmd_cpp_lds = LDS     $@
 cmd_cpp_lds = $(CPP) -Wp,-MD,$(depfile) $(cpp_flags) $(LDPPFLAGS) -ansi \
@@ -575,7 +576,7 @@ PHONY += FORCE
 FORCE:
 
 $(obj)/dts/dt-$(SPL_NAME).dtb: dts/dt.dtb
-	$(Q)$(MAKE) $(build)=$(obj)/dts spl_dtbs
+	$(Q)$(MAKE) $(build)=$(obj)/dts spl_dtbs need-builtin=1
 
 ifeq ($(CONFIG_OF_UPSTREAM),y)
 ifeq ($(CONFIG_ARM64),y)
@@ -597,7 +598,7 @@ $(sort $(dir $(SHRUNK_ARCH_DTB))):
 	$(shell [ -d $@ ] || mkdir -p $@)
 
 .SECONDEXPANSION:
-$(SHRUNK_ARCH_DTB): $$(patsubst $(obj)/dts/%, $(dt_dir)/%, $$@) $(dir $(SHRUNK_ARCH_DTB))
+$(SHRUNK_ARCH_DTB): $$(patsubst $(obj)/dts/%, $(dt_dir)/%, $$@) $(dir $(SHRUNK_ARCH_DTB)) FORCE
 	$(call if_changed,fdtgrep)
 
 targets += $(SPL_OF_LIST_TARGETS)

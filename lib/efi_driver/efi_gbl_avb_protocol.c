@@ -27,9 +27,9 @@ const efi_guid_t efi_gbl_avb_protocol_guid = EFI_GBL_AVB_PROTOCOL_UUID;
 const static char *boot_security_patch_string = "com.android.build.boot.security_patch";
 #endif
 
-static efi_status_t EFIAPI read_partitions_to_verify(struct efi_gbl_avb_protocol *this,
+static efi_status_t EFIAPI read_partition_attributes(struct efi_gbl_avb_protocol *this,
 						     size_t *num_partitions,
-						     efi_gbl_avb_partition *partitions) {
+						     efi_gbl_avb_partition_attributes *partitions) {
 	EFI_ENTRY("%p %p %p", this, num_partitions, partitions);
 
 	*num_partitions = 0;
@@ -460,9 +460,19 @@ static efi_status_t EFIAPI write_lock_state(struct efi_gbl_avb_protocol *this,
 	}
 }
 
+extern void wipe_all_userdata(void);
+static efi_status_t EFIAPI factory_data_reset(struct efi_gbl_avb_protocol *this) {
+	EFI_ENTRY("%p", this);
+
+	/* Wipe all data */
+	wipe_all_userdata();
+
+	return EFI_EXIT(EFI_SUCCESS);
+}
+
 static efi_gbl_avb_protocol efi_gbl_avb_proto = {
 	.revision = EFI_GBL_AVB_PROTOCOL_REVISION,
-	.read_partitions_to_verify = read_partitions_to_verify,
+	.read_partition_attributes = read_partition_attributes,
 	.read_device_status = read_device_status,
 	.validate_vbmeta_public_key = validate_vbmeta_public_key,
 	.read_rollback_index = read_rollback_index,
@@ -471,6 +481,7 @@ static efi_gbl_avb_protocol efi_gbl_avb_proto = {
 	.write_persistent_value = write_persistent_value,
 	.handle_verification_result = handle_verification_result,
 	.write_lock_state = write_lock_state,
+	.factory_data_reset = factory_data_reset,
 };
 
 efi_status_t efi_gbl_avb_register(void) {

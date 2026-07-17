@@ -7,7 +7,6 @@
 #include <dm/uclass.h>
 #include <scmi_agent.h>
 #include <scmi_nxp_protocols.h>
-
 #include "common.h"
 
 u32 get_arm_core_clk(void)
@@ -23,18 +22,6 @@ u32 get_arm_core_clk(void)
 void enable_usboh3_clk(unsigned char enable)
 {
 
-}
-
-int clock_init_early(void)
-{
-	return 0;
-}
-
-int clock_init_late(void)
-{
-	/* System Manager already sets the ARM CLK to max allowed. */
-
-	return 0;
 }
 
 u32 get_lpuart_clk(void)

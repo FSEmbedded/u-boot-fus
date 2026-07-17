@@ -52,6 +52,7 @@ fit-dtb.blob*
 /SPL*
 /System.map
 /boards.cfg
+/mkimage*mkimage
 /mkimage-in-simple-bin*
 /simple-bin*
 /u-boot*
@@ -59,28 +60,33 @@ fit-dtb.blob*
 /uboot.nb0
 
 #
-# git files that we don't want to ignore even it they are dot-files
+# We don't want to ignore the following even if they are dot-files
 #
+!.clang-format
+!.get_maintainer.*
+!.gitattributes
 !.gitignore
 !.mailmap
-!.get_maintainer.*
 
 #
 # Generated files
 #
 /spl/
 /tpl/
+/vpl/
 /defconfig
 /generated_defconfig
 /Test*
-/capsule.*.efi-capsule
+/capsule*.efi-capsule
 /capsule*.map
 /keep-syms-lto.*
 /*imx8mimage*
 /*imx8mcst*
+/*rcar4-sa0*
 /drivers/video/u_boot_logo.S
-/test/overlay/test-fdt-overlay.dtbo.S
-/test/overlay/test-fdt-overlay-stacked.dtbo.S
+/test/fdt_overlay/test-fdt-overlay-stacked.dtbo.S
+/test/fdt_overlay/test-fdt-overlay.dtbo.S
+capsule_esl_file
 /tools/boot/bootm.c
 /tools/boot/fdt_region.c
 /tools/boot/image-cipher.c

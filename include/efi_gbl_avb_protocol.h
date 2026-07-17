@@ -34,7 +34,7 @@
 #include <efi_gbl_protocol_utils.h>
 
 static const uint64_t EFI_GBL_AVB_PROTOCOL_REVISION = \
-	GBL_PROTOCOL_REVISION(0, 4);
+	GBL_PROTOCOL_REVISION(0, 256);
 
 typedef uint64_t efi_gbl_avb_device_status;
 // Indicates device is unlocked.
@@ -67,7 +67,10 @@ EFI_ENUM(efi_gbl_avb_key_validation_status, uint32_t,
          EFI_GBL_AVB_KEY_VALIDATION_STATUS_VALID);
 
 typedef uint64_t efi_gbl_avb_partition_flags;
-static const efi_gbl_avb_partition_flags EFI_GBL_AVB_PARTITION_OPTIONAL = 0x1 << 0;
+static const efi_gbl_avb_partition_flags EFI_GBL_AVB_PARTITION_FLAG_VERIFY = 0x1 << 0;
+static const efi_gbl_avb_partition_flags EFI_GBL_AVB_PARTITION_FLAG_VERIFY_IF_EXISTS = 0x1 << 1;
+static const efi_gbl_avb_partition_flags EFI_GBL_AVB_PARTITION_FLAG_FLASH_CRITICAL = 0x1 << 2;
+static const efi_gbl_avb_partition_flags EFI_GBL_AVB_PARTITION_FLAG_FDR = 0x1 << 3;
 
 EFI_ENUM(efi_gbl_avb_lock_type, uint8_t,
 	 EFI_GBL_AVB_LOCK_TYPE_DEVICE,
@@ -83,7 +86,7 @@ typedef struct {
   size_t base_name_len;
   char* base_name;
   efi_gbl_avb_partition_flags flags;
-} efi_gbl_avb_partition;
+} efi_gbl_avb_partition_attributes;
 
 typedef struct {
   // UTF-8, null terminated
@@ -118,9 +121,9 @@ typedef struct {
 typedef struct efi_gbl_avb_protocol {
 	uint64_t revision;
 
-	efi_status_t (EFIAPI *read_partitions_to_verify)(struct efi_gbl_avb_protocol *this,
+	efi_status_t (EFIAPI *read_partition_attributes)(struct efi_gbl_avb_protocol *this,
 							 /* in-out */ size_t *num_partitions,
-							 /* in-out */ efi_gbl_avb_partition *partitions);
+							 /* in-out */ efi_gbl_avb_partition_attributes *partitions);
 
 	efi_status_t (EFIAPI *read_device_status)(struct efi_gbl_avb_protocol *this,
 						       /* out */ efi_gbl_avb_device_status *status_flags);
@@ -155,6 +158,7 @@ typedef struct efi_gbl_avb_protocol {
 							  /* in */ const efi_gbl_avb_verification_result *result);
 	efi_status_t (EFIAPI *write_lock_state)(struct efi_gbl_avb_protocol *this, efi_gbl_avb_lock_type type,
 						efi_gbl_avb_lock_state state);
+	efi_status_t (EFIAPI *factory_data_reset)(struct efi_gbl_avb_protocol *this);
 } efi_gbl_avb_protocol;
 
 efi_status_t efi_gbl_avb_register(void);

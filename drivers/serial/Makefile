@@ -11,7 +11,7 @@ endif
 
 obj-$(CONFIG_PL01X_SERIAL) += serial_pl01x.o
 obj-$(CONFIG_PL011_SERIAL) += serial_pl01x.o
-obj-$(CONFIG_$(XPL_)SYS_NS16550_SERIAL) += serial_ns16550.o
+obj-$(CONFIG_$(PHASE_)SYS_NS16550_SERIAL) += serial_ns16550.o
 
 obj-$(CONFIG_ALTERA_UART) += altera_uart.o
 obj-$(CONFIG_ALTERA_JTAG_UART) += altera_jtag_uart.o
@@ -37,7 +37,6 @@ obj-$(CONFIG_SEMIHOSTING_SERIAL) += serial_semihosting.o
 obj-$(CONFIG_VYBRID_UART) += serial_vybrid.o
 obj-$(CONFIG_ZYNQ_SERIAL) += serial_zynq.o
 obj-$(CONFIG_FSL_LPUART) += serial_lpuart.o
-obj-$(CONFIG_FSL_LINFLEXUART) += serial_linflexuart.o
 obj-$(CONFIG_ARC_SERIAL) += serial_arc.o
 obj-$(CONFIG_UNIPHIER_SERIAL) += serial_uniphier.o
 obj-$(CONFIG_STM32_SERIAL) += serial_stm32.o
@@ -64,7 +63,5 @@ obj-$(CONFIG_XEN_SERIAL) += serial_xen.o
 obj-$(CONFIG_XTENSA_SEMIHOSTING_SERIAL) += serial_xtensa_semihosting.o
 obj-$(CONFIG_S5P4418_PL011_SERIAL) += serial_s5p4418_pl011.o
 
-ifndef CONFIG_XPL_BUILD
-obj-$(CONFIG_USB_TTY) += usbtty.o
-endif
 obj-$(CONFIG_UART4_SERIAL) += serial_adi_uart4.o
+obj-$(CONFIG_SERIAL_GOLDFISH) += serial_goldfish.o

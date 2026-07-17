@@ -386,6 +386,28 @@ struct efi_entry_memmap {
 };
 
 /**
+ * struct efi_gop_mode_info - graphics output mode information
+ */
+struct efi_gop_mode_info {
+	/** @version:	version of the data structure (use zero) */
+	u32 version;
+	/** @width:	horizontal screen size */
+	u32 width;
+	/** @height:	vertical screen size */
+	u32 height;
+	/** @pixel_format:   enum that specifies the storage format of pixels */
+	u32 pixel_format;
+	/**
+	 * @pixel_bitmask:   bitmasks used with PixelPixelBitMask
+	 *
+	 * The values which bits are used for red, green, blue, and alpha.
+	 */
+	u32 pixel_bitmask[4];
+	/** @pixels_per_scanline:	pixels per video memory line */
+	u32 pixels_per_scanline;
+};
+
+/**
  * struct efi_entry_gopmode - a GOP mode table passed to U-Boot
  *
  * @fb_base:	EFI's framebuffer base address
@@ -404,19 +426,7 @@ struct efi_entry_gopmode {
 	 */
 	u64 fb_size;
 	u64 info_size;
-	/*
-	 * We cannot directly use 'struct efi_gop_mode_info info[]' here as
-	 * it causes compiler to complain: array type has incomplete element
-	 * type 'struct efi_gop_mode_info'.
-	 */
-	struct /* efi_gop_mode_info */ {
-		u32 version;
-		u32 width;
-		u32 height;
-		u32 pixel_format;
-		u32 pixel_bitmask[4];
-		u32 pixels_per_scanline;
-	} info[];
+	struct efi_gop_mode_info info[];
 };
 
 /**
@@ -444,7 +454,7 @@ static inline struct efi_mem_desc *efi_get_next_mem_desc(
  * @memmap_key: Key returned from get_memory_map()
  * @memmap_desc: List of memory-map records
  * @memmap_alloc: Amount of memory allocated for memory map list
- * @memmap_size Size of memory-map list in bytes
+ * @memmap_size: Size of memory-map list in bytes
  * @memmap_desc_size: Size of an individual memory-map record, in bytes
  * @memmap_version: Memory-map version
  *
@@ -704,5 +714,18 @@ static inline bool efi_use_host_arch(void)
  * Return: Architecture value
  */
 int efi_get_pxe_arch(void);
+
+/**
+ * fdt_efi_pmem_setup() - Pmem setup in DT and EFI memory map
+ * @fdt: Devicetree to add the pmem nodes to
+ *
+ * Iterate through all the blkmap devices, look for BLKMAP_MEM devices,
+ * and add pmem nodes corresponding to the blkmap slice to the
+ * devicetree along with removing the corresponding region from the
+ * EFI memory map.
+ *
+ * Returns: 0 on success, negative error on failure
+ */
+int fdt_efi_pmem_setup(void *fdt);
 
 #endif /* _LINUX_EFI_H */

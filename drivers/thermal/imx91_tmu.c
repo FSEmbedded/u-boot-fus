@@ -92,8 +92,8 @@ int imx91_tmu_get_temp(struct udevice *dev, int *temp)
 		return -EAGAIN;
 
 	data = readw_relaxed(tmu->iobase + DATA0);
-	*temp = data * 1000 / 64 / 1000;
-	if (*temp < TMU_TEMP_LOW_LIMIT || *temp > TMU_TEMP_HIGH_LIMIT)
+	*temp = data * 1000 / 64;
+	if (*temp < TMU_TEMP_LOW_LIMIT * 1000 || *temp > TMU_TEMP_HIGH_LIMIT * 1000)
 		return -EAGAIN;
 
 	return 0;

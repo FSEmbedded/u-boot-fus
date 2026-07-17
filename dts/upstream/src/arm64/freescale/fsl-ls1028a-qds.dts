@@ -272,11 +272,6 @@
 	status = "okay";
 };
 
-&hdptx0 {
-	lane-mapping = <0x4e>;
-	status = "okay";
-};
-
 &i2c0 {
 	status = "okay";
 

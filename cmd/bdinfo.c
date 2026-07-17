@@ -46,6 +46,7 @@ void bdinfo_print_num_ll(const char *name, unsigned long long value)
 static void print_eth(void)
 {
 	const int idx = eth_get_dev_index();
+	char ipstr[] = "ipaddr\0\0";
 	uchar enetaddr[6];
 	char name[10];
 	int ret;
@@ -62,7 +63,11 @@ static void print_eth(void)
 		printf("%-12s= (not set)\n", name);
 	else
 		printf("%-12s= %pM\n", name, enetaddr);
-	printf("IP addr     = %s\n", env_get("ipaddr"));
+
+	if (idx > 0)
+		sprintf(ipstr, "ipaddr%d", idx);
+
+	printf("IP addr     = %s\n", env_get(ipstr));
 }
 
 void bdinfo_print_mhz(const char *name, unsigned long hz)
@@ -147,7 +152,7 @@ static int bdinfo_print_all(struct bd_info *bd)
 	bdinfo_print_num_l("relocaddr", gd->relocaddr);
 	bdinfo_print_num_l("reloc off", gd->reloc_off);
 	printf("%-12s= %u-bit\n", "Build", (uint)sizeof(void *) * 8);
-	if (IS_ENABLED(CONFIG_CMD_NET) || IS_ENABLED(CONFIG_CMD_NET_LWIP))
+	if (IS_ENABLED(CONFIG_NET) || IS_ENABLED(CONFIG_NET_LWIP))
 		print_eth();
 	bdinfo_print_num_l("fdt_blob", (ulong)map_to_sysmem(gd->fdt_blob));
 	if (IS_ENABLED(CONFIG_VIDEO))
@@ -155,11 +160,12 @@ static int bdinfo_print_all(struct bd_info *bd)
 #if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
 	bdinfo_print_num_l("multi_dtb_fit", (ulong)gd->multi_dtb_fit);
 #endif
-	if (IS_ENABLED(CONFIG_LMB) && gd->fdt_blob) {
+	if (IS_ENABLED(CONFIG_LMB))
 		lmb_dump_all_force();
-		if (IS_ENABLED(CONFIG_OF_REAL))
-			printf("devicetree  = %s\n", fdtdec_get_srcname());
-	}
+
+	if (IS_ENABLED(CONFIG_OF_REAL) && gd->fdt_blob)
+		printf("devicetree  = %s\n", fdtdec_get_srcname());
+
 	print_serial(gd->cur_serial_dev);
 
 	if (IS_ENABLED(CONFIG_CMD_BDINFO_EXTRA)) {
@@ -188,8 +194,8 @@ int do_bdinfo(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 		case 'a':
 			return bdinfo_print_all(bd);
 		case 'e':
-			if (!IS_ENABLED(CONFIG_CMD_NET) &&
-			    !IS_ENABLED(CONFIG_CMD_NET_LWIP))
+			if (!IS_ENABLED(CONFIG_NET) &&
+			    !IS_ENABLED(CONFIG_NET_LWIP))
 				return CMD_RET_USAGE;
 			print_eth();
 			return CMD_RET_SUCCESS;
@@ -207,5 +213,19 @@ int do_bdinfo(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[])
 U_BOOT_CMD(
 	bdinfo,	2,	1,	do_bdinfo,
 	"print Board Info structure",
-	""
+// Long help prepended with command's name, and `bdinfo` is a valid command
+	"\n"
+#if CONFIG_IS_ENABLED(GETOPT)
+	"bdinfo -a\n"
+#endif
+	"  - print all Board Info structure"
+#if CONFIG_IS_ENABLED(GETOPT)
+	"\n"
+#if IS_ENABLED(CONFIG_NET) || IS_ENABLED(CONFIG_NET_LWIP)
+	"bdinfo -e\n"
+	"  - print Board Info related to network\n"
+#endif
+	"bdinfo -m\n"
+	"  - print Board Info related to DRAM"
+#endif
 );

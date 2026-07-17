@@ -3,7 +3,7 @@
  * Copyright 2025 NXP
  */
 
-#include "imx943-evk.dts"
+#include "../dts/upstream/src/arm64/freescale/imx943-evk.dts"
 #include "imx943-evk-u-boot.dtsi"
 
 &xspi1 {

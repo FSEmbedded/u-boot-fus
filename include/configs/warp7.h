@@ -35,14 +35,13 @@
 	"image=zImage\0" \
 	"console=ttymxc0\0" \
 	"ethact=usb_ether\0" \
-	"fdt_high=0xffffffff\0" \
 	"initrd_high=0xffffffff\0" \
 	"fdt_file=imx7s-warp.dtb\0" \
 	"fdt_addr=0x83000000\0" \
 	"fdtovaddr=0x83100000\0" \
 	"boot_fdt=try\0" \
 	"ip_dyn=yes\0" \
-	"mmcdev="__stringify(CONFIG_SYS_MMC_ENV_DEV)"\0" \
+	"mmcdev="__stringify(CONFIG_ENV_MMC_DEVICE_INDEX)"\0" \
 	"mmcpart=1\0" \
 	"rootpart=" __stringify(CONFIG_WARP7_ROOT_PART) "\0" \
 	"finduuid=part uuid mmc 0:${rootpart} uuid\0" \

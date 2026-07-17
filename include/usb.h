@@ -259,11 +259,9 @@ int usb_host_eth_scan(int mode);
 /*
  * usb_init() - initialize the USB Controllers
  *
- * @verbose:	Show output or not
- *
  * Returns: 0 if OK, -ENOENT if there are no USB devices
  */
-int usb_init(int verbose);
+int usb_init(void);
 
 int usb_stop(void); /* stop the USB Controller */
 int usb_detect_change(void); /* detect if a USB device has been (un)plugged */
@@ -943,8 +941,6 @@ bool usb_device_has_child_on_port(struct usb_device *parent, int port);
 
 int usb_hub_probe(struct usb_device *dev, int ifnum);
 void usb_hub_reset(void);
-int usb_hub_port_reset(struct usb_device *dev, int port,
-		       unsigned short *portstat);
 
 /*
  * usb_find_usb2_hub_address_port() - Get hub address and port for TT setting

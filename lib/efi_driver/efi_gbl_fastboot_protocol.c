@@ -9,6 +9,7 @@
 #include <efi_loader.h>
 #include <fastboot.h>
 #include <fb_fsl.h>
+#include <env.h>
 #include "../../drivers/fastboot/fb_fsl/fastboot_lock_unlock.h"
 
 static const efi_guid_t efi_gbl_fastboot_protocol_guid = EFI_GBL_FASTBOOT_GUID;
@@ -26,8 +27,8 @@ extern void *fastboot_buf_addr;
 extern u32 fastboot_bytes_received;
 
 static efi_status_t EFIAPI get_var(struct efi_gbl_fastboot_protocol* this,
-				   const char* const* args, size_t num_args,
-				   uint8_t* out, size_t* out_size) {
+				   size_t num_args, const char* const* args,
+				   size_t* out_size, uint8_t* out) {
 	int ret = 0;
 	char buf[FASTBOOT_RESPONSE_LEN] = {0};
 	char cmd[FASTBOOT_RESPONSE_LEN] = {0};
@@ -76,7 +77,7 @@ static int check_and_send_single_var(char *var_name, char *buf, size_t buf_len,
 		return -1;
 	} else {
 		/* We only have 1 argument */
-		cb(ctx, (const char* const*)(&var_name), 1, buf);
+		cb(ctx, 1, (const char* const*)(&var_name), buf);
 	}
 
 	return 0;
@@ -110,8 +111,8 @@ static efi_status_t EFIAPI get_var_all(struct efi_gbl_fastboot_protocol* this,
 	return EFI_EXIT(EFI_SUCCESS);
 }
 
-static efi_status_t EFIAPI get_staged(struct efi_gbl_fastboot_protocol* this, uint8_t* out,
-				      size_t* out_size, size_t* out_remain) {
+static efi_status_t EFIAPI get_staged(struct efi_gbl_fastboot_protocol* this,
+				      size_t* out_size, size_t* out_remain, uint8_t* out) {
 	size_t len = 0;
 	static size_t remaining = 0;
 
@@ -149,36 +150,11 @@ static efi_status_t EFIAPI get_staged(struct efi_gbl_fastboot_protocol* this, ui
 	return EFI_EXIT(EFI_SUCCESS);
 }
 
-/* Defined in fb_fsl_command.c */
-extern void erase(char *cmd, char *response);
-static efi_status_t EFIAPI vendor_erase(struct efi_gbl_fastboot_protocol* this,
-					const char* part_name, efi_gbl_fastboot_erase_action* action) {
-	char response[FASTBOOT_RESPONSE_LEN] = {0};
-	char cmd[FASTBOOT_RESPONSE_LEN] = {0};
-
-	EFI_ENTRY("%p %p %p", this, part_name, action);
-
-	if (!this || !part_name || !action) {
-		return EFI_EXIT(EFI_INVALID_PARAMETER);
-	}
-
-	strncat(cmd, part_name, strlen(part_name));
-	erase(cmd, response);
-
-	if (strncmp(response, "OKAY", 4) == 0) {
-		/* Successfully erased */
-		*action = EFI_GBL_FASTBOOT_ERASE_ACTION_NOOP;
-		return EFI_EXIT(EFI_SUCCESS);
-	} else {
-		/* Failed to erase */
-		log_err("Failed to erase partition: %s\n", part_name);
-		return EFI_EXIT(EFI_DEVICE_ERROR);
-	}
-}
-
 static char *gbl_covered_oem_commands[] = {
 	"gbl-set-default-block",
 	"gbl-unset-default-block",
+	"gbl-integration-test-required",
+	"gbl-integration-test-optional",
 	NULL
 };
 
@@ -186,9 +162,9 @@ static char *gbl_covered_oem_commands[] = {
 extern void flashing(char *cmd, char *response);
 static efi_status_t EFIAPI command_exec(struct efi_gbl_fastboot_protocol* this,
 				        size_t num_args, const char* const* args,
+				        size_t download_data_full_size,
 				        size_t download_data_used_len,
 				        uint8_t *download_data,
-				        size_t download_data_full_size,
 				        efi_gbl_fastboot_cmd_exec_result *implementation,
 				        fastboot_message_sender sender, void *ctx) {
 	efi_status_t status = EFI_SUCCESS;
@@ -208,15 +184,16 @@ static efi_status_t EFIAPI command_exec(struct efi_gbl_fastboot_protocol* this,
 	fastboot_buf_addr = download_data;
 	fastboot_bytes_received = download_data_used_len;
 
-	/* Reject flash operations when the device is locked. */
-	if (!strncmp(args[0], "flash", strlen(args[0]))) {
+	/* Reject flash/erase operations when the device is locked. */
+	if (!strncmp(args[0], "flash", strlen(args[0])) || \
+		!strncmp(args[0], "erase", strlen(args[0]))) {
 		FbLockState lock_state = fastboot_get_lock_stat();
 
 		if (lock_state == FASTBOOT_LOCK) {
-			log_err("Can't flash images when device is in locked state!\n");
+			log_err("Can't flash or erase images when device is in locked state!\n");
 			*implementation = EFI_GBL_FASTBOOT_COMMAND_EXEC_RESULT_PROHIBITED;
 		} else if (lock_state == FASTBOOT_UNLOCK) {
-			/* Use default "flash" implementation in GBL */
+			/* Use default "flash" or "erase" implementation in GBL */
 			*implementation = EFI_GBL_FASTBOOT_COMMAND_EXEC_RESULT_DEFAULT_IMPL;
 		} else {
 			log_err("Failed to get lock state!\n");
@@ -255,9 +232,8 @@ static efi_status_t EFIAPI command_exec(struct efi_gbl_fastboot_protocol* this,
 		/* Send the response back to the sender, need to skip
 		 * the prefix at the beginning of the response.
 		 */
-		status = sender(ctx, msg_type, (const char*)(response + 4),
-				strlen((const char*)response) - 4);
-
+		status = sender(ctx, msg_type, strlen((const char*)response) - 4,
+				(const char*)(response + 4));
 		*implementation = EFI_GBL_FASTBOOT_COMMAND_EXEC_RESULT_CUSTOM_IMPL;
 	}
 
@@ -266,8 +242,8 @@ exit:
 }
 
 static efi_status_t EFIAPI get_partition_type(struct efi_gbl_fastboot_protocol* this,
-					      const uint8_t* part_name, uint8_t* part_type,
-					      size_t* part_type_len) {
+					      const uint8_t* part_name, size_t* part_type_len,
+					      uint8_t* part_type) {
 	EFI_ENTRY("%p %p %p %p", this, part_name, part_type, part_type_len);
 
 	if (!this || !part_name || !part_type || !part_type_len) {
@@ -290,7 +266,6 @@ static efi_gbl_fastboot_protocol efi_gbl_fastboot_proto = {
   .get_var = get_var,
   .get_var_all = get_var_all,
   .get_staged = get_staged,
-  .vendor_erase = vendor_erase,
   .command_exec = command_exec,
   .get_partition_type = get_partition_type,
 };

@@ -35,7 +35,7 @@
 #include <efi_gbl_protocol_utils.h>
 
 static const uint64_t GBL_EFI_BOOT_MEMORY_PROTOCOL_REVISION =
-    GBL_PROTOCOL_REVISION(0, 1);
+    GBL_PROTOCOL_REVISION(0, 256);
 
 typedef enum GBL_EFI_BOOT_BUFFER_TYPE {
   GENERAL_LOAD,

@@ -11,8 +11,10 @@
 #include <dfu.h>
 #include <env.h>
 #include <env_internal.h>
+#include <efi_loader.h>
 #include <init.h>
 #include <log.h>
+#include <mtd.h>
 #include <net.h>
 #include <sata.h>
 #include <ahci.h>
@@ -291,7 +293,7 @@ void reset_cpu(void)
 	 * will send command over IPI and requires pmufw to be present.
 	 */
 	xilinx_pm_request(PM_RESET_ASSERT, ZYNQMP_PM_RESET_SOFT,
-			  PM_RESET_ACTION_ASSERT, 0, 0, NULL);
+			  PM_RESET_ACTION_ASSERT, 0, 0, 0, 0, NULL);
 }
 #endif
 
@@ -526,6 +528,9 @@ int board_late_init(void)
 	usb_ether_init();
 #endif
 
+	if (IS_ENABLED(CONFIG_EFI_HAVE_CAPSULE_SUPPORT))
+		configure_capsule_updates();
+
 	multiboot = multi_boot();
 	if (multiboot >= 0)
 		env_set_hex("multiboot", multiboot);
@@ -623,6 +628,10 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	case QSPI_MODE_32BIT:
 		if (IS_ENABLED(CONFIG_ENV_IS_IN_SPI_FLASH))
 			return ENVL_SPI_FLASH;
+		if (IS_ENABLED(CONFIG_ENV_IS_IN_FAT))
+			return ENVL_FAT;
+		if (IS_ENABLED(CONFIG_ENV_IS_IN_EXT4))
+			return ENVL_EXT4;
 		return ENVL_NOWHERE;
 	case JTAG_MODE:
 	default:
@@ -630,8 +639,6 @@ enum env_location env_get_location(enum env_operation op, int prio)
 	}
 }
 #endif
-
-#if defined(CONFIG_SET_DFU_ALT_INFO)
 
 #define DFU_ALT_BUF_LEN		SZ_1K
 
@@ -660,16 +667,13 @@ static void mtd_found_part(u32 *base, u32 *size)
 	}
 }
 
-void set_dfu_alt_info(char *interface, char *devstr)
+void configure_capsule_updates(void)
 {
 	int multiboot, bootseq = 0, len = 0;
 
 	ALLOC_CACHE_ALIGN_BUFFER(char, buf, DFU_ALT_BUF_LEN);
 
-	if (env_get("dfu_alt_info"))
-		return;
-
-	memset(buf, 0, sizeof(buf));
+	memset(buf, 0, DFU_ALT_BUF_LEN);
 
 	multiboot = multi_boot();
 	if (multiboot < 0)
@@ -732,10 +736,9 @@ void set_dfu_alt_info(char *interface, char *devstr)
 		return;
 	}
 
-	env_set("dfu_alt_info", buf);
-	puts("DFU alt info setting: done\n");
+	update_info.dfu_string = strdup(buf);
+	debug("Capsule DFU: %s\n", update_info.dfu_string);
 }
-#endif
 
 #if defined(CONFIG_SPL_SPI_LOAD)
 unsigned int spl_spi_get_uboot_offs(struct spi_flash *flash)

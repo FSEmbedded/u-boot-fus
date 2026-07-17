@@ -45,6 +45,7 @@
 #define DCD_ENTRY_ADDR_IN_SCFW		0x240
 
 #define CONTAINER_ALIGNMENT		0x400
+#define CONTAINER_PQC_ALIGNMENT		0x4000
 #define CONTAINER_FLAGS_DEFAULT		0x10
 #define CONTAINER_FUSE_DEFAULT		0x0
 
@@ -160,7 +161,9 @@ enum imx8image_cmd {
 	CMD_DATA,
 	CMD_HASH,
 	CMD_DUMMY_V2X,
-	CMD_HOLD
+	CMD_HOLD,
+	CMD_CNTR_VERSION,
+	CMD_DUMMY_DDR,
 };
 
 enum imx8image_core_type {
@@ -175,7 +178,6 @@ enum imx8image_core_type {
 	CFG_A72,
 	CFG_M33,
 	CFG_OEI,
-	CFG_UPOWER
 };
 
 enum imx8image_fld_types {
@@ -219,7 +221,9 @@ typedef enum option_type {
 	UPOWER,
 	OEI,
 	DUMMY_V2X,
-	HOLD
+	HOLD,
+	CNTR_VERSION,
+	DUMMY_DDR,
 } option_type_t;
 
 typedef enum hashes {
@@ -272,6 +276,7 @@ typedef struct {
 #define IMG_TYPE_SENTINEL 0x06	/* SENTINEL image type */
 #define IMG_TYPE_PROV    0x07   /* Provisioning image type */
 #define IMG_TYPE_DEK     0x08   /* DEK validation type */
+#define IMG_TYPE_DDR_DUMMY 0x0D /* DDR training data dummy entry */
 #define IMG_TYPE_V2X_DUMMY 0x0E /* V2X Dummy image */
 
 #define IMG_TYPE_SHIFT   0

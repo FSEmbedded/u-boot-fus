@@ -6,20 +6,30 @@
 #define LOG_CATEGORY UCLASS_CLK
 
 #include <clk-uclass.h>
+#include <clk/scmi.h>
 #include <dm.h>
+#include <dm/device_compat.h>
+#include <dm/device-internal.h>
 #include <scmi_agent.h>
+#include <scmi_agent-uclass.h>
 #include <scmi_protocols.h>
 #include <asm/types.h>
 #include <linux/clk-provider.h>
 
 struct clk_scmi {
 	struct clk clk;
+	char name[SCMI_CLOCK_NAME_LENGTH_MAX];
 	u32 ctrl_flags;
+	bool attrs_resolved;
+};
+
+struct scmi_clock_priv {
+	u32 version;
 };
 
 static int scmi_clk_get_permissions(struct udevice *dev, int clkid, u32 *perm)
 {
-	u32 version;
+	struct scmi_clock_priv *priv = dev_get_priv(dev);
 	int ret;
 
 	struct scmi_clk_get_permissions_in in = {
@@ -35,26 +45,22 @@ static int scmi_clk_get_permissions(struct udevice *dev, int clkid, u32 *perm)
 		.out_msg_sz = sizeof(out),
 	};
 
-	ret = scmi_generic_protocol_version(dev, SCMI_PROTOCOL_ID_CLOCK, &version);
-	if (ret) {
-		log_debug("%s: get SCMI clock management protocol version failed\n", __func__);
-		return ret;
-	}
-
-	if (version < CLOCK_PROTOCOL_VERSION_3_0) {
-		log_debug("%s: SCMI clock management protocol version is less than 3.0.\n", __func__);
+	if (priv->version < CLOCK_PROTOCOL_VERSION_3_0) {
+		dev_dbg(dev,
+			"%s: SCMI clock management protocol version is less than 3.0.\n", __func__);
 		return -EINVAL;
 	}
 
 	ret = devm_scmi_process_msg(dev, &msg);
 	if (ret) {
-		log_debug("%s: get SCMI clock management protocol permissions failed\n", __func__);
+		dev_dbg(dev,
+			"%s: get SCMI clock management protocol permissions failed\n", __func__);
 		return ret;
 	}
 
 	ret = scmi_to_linux_errno(out.status);
 	if (ret < 0) {
-		log_debug("%s: the status code of getting permissions: %d\n", __func__, ret);
+		dev_dbg(dev, "%s: the status code of getting permissions: %d\n", __func__, ret);
 		return ret;
 	}
 
@@ -82,102 +88,186 @@ static int scmi_clk_get_num_clock(struct udevice *dev, size_t *num_clocks)
 	return 0;
 }
 
-static int scmi_clk_get_attibute(struct udevice *dev, int clkid, char **name,
-				 u32 *attr)
+static int scmi_clk_get_attribute(struct udevice *dev, int clkid, char *name,
+				  u32 *attr)
 {
+	struct scmi_clock_priv *priv = dev_get_priv(dev);
 	struct scmi_clk_attribute_in in = {
 		.clock_id = clkid,
 	};
-	struct scmi_clk_attribute_out out;
-	struct scmi_msg msg = {
-		.protocol_id = SCMI_PROTOCOL_ID_CLOCK,
-		.message_id = SCMI_CLOCK_ATTRIBUTES,
-		.in_msg = (u8 *)&in,
-		.in_msg_sz = sizeof(in),
-		.out_msg = (u8 *)&out,
-		.out_msg_sz = sizeof(out),
-	};
 	int ret;
 
-	ret = devm_scmi_process_msg(dev, &msg);
-	if (ret)
-		return ret;
+	if (priv->version >= 0x20000) {
+		struct scmi_clk_attribute_out_v2 out;
+		struct scmi_msg msg = {
+			.protocol_id = SCMI_PROTOCOL_ID_CLOCK,
+			.message_id = SCMI_CLOCK_ATTRIBUTES,
+			.in_msg = (u8 *)&in,
+			.in_msg_sz = sizeof(in),
+			.out_msg = (u8 *)&out,
+			.out_msg_sz = sizeof(out),
+		};
 
-	*name = strdup(out.clock_name);
-	*attr = out.attributes;
+		ret = devm_scmi_process_msg(dev, &msg);
+		if (ret)
+			return ret;
+
+		strncpy(name, out.clock_name, SCMI_CLOCK_NAME_LENGTH_MAX);
+		*attr = out.attributes;
+	} else {
+		struct scmi_clk_attribute_out out;
+		struct scmi_msg msg = {
+			.protocol_id = SCMI_PROTOCOL_ID_CLOCK,
+			.message_id = SCMI_CLOCK_ATTRIBUTES,
+			.in_msg = (u8 *)&in,
+			.in_msg_sz = sizeof(in),
+			.out_msg = (u8 *)&out,
+			.out_msg_sz = sizeof(out),
+		};
+
+		ret = devm_scmi_process_msg(dev, &msg);
+		if (ret)
+			return ret;
+
+		strncpy(name, out.clock_name, SCMI_CLOCK_NAME_LENGTH_MAX);
+		*attr = out.attributes;
+	}
 
 	return 0;
 }
 
 static int scmi_clk_gate(struct clk *clk, int enable)
 {
-	struct scmi_clk_state_in in = {
-		.clock_id = clk->id,
+	struct scmi_clock_priv *priv;
+	struct scmi_clk_state_in_v1 in_v1 = {
+		.clock_id = clk_get_id(clk),
+		.attributes = enable,
+	};
+	/* Valid only from SCMI clock v2.1 */
+	struct scmi_clk_state_in_v2 in_v2 = {
+		.clock_id = clk_get_id(clk),
 		.attributes = enable,
 	};
 	struct scmi_clk_state_out out;
-	struct scmi_msg msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_CLOCK,
-					  SCMI_CLOCK_CONFIG_SET,
-					  in, out);
+	struct scmi_msg msg_v1 = SCMI_MSG_IN(SCMI_PROTOCOL_ID_CLOCK,
+					     SCMI_CLOCK_CONFIG_SET,
+					     in_v1, out);
+	struct scmi_msg msg_v2 = SCMI_MSG_IN(SCMI_PROTOCOL_ID_CLOCK,
+					     SCMI_CLOCK_CONFIG_SET,
+					     in_v2, out);
 	int ret;
 
-	ret = devm_scmi_process_msg(clk->dev, &msg);
+	/*
+	 * In scmi_clk_probe(), in case of CLK_CCF is set, SCMI clock
+	 * version is set in dev's parent priv struct. Otherwise
+	 * SCMI clock version is set in dev priv struct.
+	 */
+	if (CONFIG_IS_ENABLED(CLK_CCF))
+		priv = dev_get_parent_priv(clk->dev);
+	else
+		priv = dev_get_priv(clk->dev);
+
+	ret = devm_scmi_process_msg(clk->dev,
+				    (priv->version < CLOCK_PROTOCOL_VERSION_2_1) ?
+				    &msg_v1 : &msg_v2);
 	if (ret)
 		return ret;
 
 	return scmi_to_linux_errno(out.status);
 }
 
-static int scmi_clk_enable(struct clk *clk)
+int scmi_clk_resolve_attr(ulong id, u32 *ctrl_flags)
 {
 	struct clk_scmi *clkscmi;
+	struct udevice *dev;
+	u32 attributes;
 	struct clk *c;
+	int ret;
+
+	ret = clk_get_by_id(id, &c);
+	if (ret)
+		return ret;
+
+	dev = c->dev->parent;
+
+	clkscmi = container_of(c, struct clk_scmi, clk);
+
+	if (!clkscmi->attrs_resolved) {
+		char name[SCMI_CLOCK_NAME_LENGTH_MAX];
+		ret = scmi_clk_get_attribute(dev, id & CLK_ID_MSK,
+					     name, &attributes);
+		if (ret)
+			return ret;
+
+		strncpy(clkscmi->name, name, SCMI_CLOCK_NAME_LENGTH_MAX);
+		if (CLK_HAS_RESTRICTIONS(attributes)) {
+			u32 perm;
+
+			ret = scmi_clk_get_permissions(dev, id & CLK_ID_MSK, &perm);
+			if (ret < 0)
+				clkscmi->ctrl_flags = 0;
+			else
+				clkscmi->ctrl_flags = perm;
+		} else {
+			clkscmi->ctrl_flags = SUPPORT_CLK_STAT_CONTROL |
+					      SUPPORT_CLK_PARENT_CONTROL |
+					      SUPPORT_CLK_RATE_CONTROL;
+		}
+
+		clkscmi->attrs_resolved = true;
+	}
+
+	if (ctrl_flags)
+		*ctrl_flags = clkscmi->ctrl_flags;
+
+	return 0;
+}
+
+static int scmi_clk_enable(struct clk *clk)
+{
+	u32 ctrl_flags;
 	int ret;
 
 	if (!CONFIG_IS_ENABLED(CLK_CCF))
 		return scmi_clk_gate(clk, 1);
 
-	ret = clk_get_by_id(clk->id, &c);
+	ret = scmi_clk_resolve_attr(clk->id, &ctrl_flags);
 	if (ret)
 		return ret;
 
-	clkscmi = container_of(c, struct clk_scmi, clk);
-
-	if (clkscmi->ctrl_flags & SUPPORT_CLK_STAT_CONTROL)
+	if (ctrl_flags & SUPPORT_CLK_STAT_CONTROL)
 		return scmi_clk_gate(clk, 1);
 
 	/* Following Linux drivers/clk/clk-scmi.c, directly return 0 if agent has no permission. */
-	log_debug("%s: SCMI CLOCK: the clock cannot be enabled by the agent.\n", __func__);
+	dev_dbg(clk->dev, "%s: SCMI CLOCK: the clock cannot be enabled by the agent.\n", __func__);
 	return 0;
 }
 
 static int scmi_clk_disable(struct clk *clk)
 {
-	struct clk_scmi *clkscmi;
-	struct clk *c;
+	u32 ctrl_flags;
 	int ret;
 
 	if (!CONFIG_IS_ENABLED(CLK_CCF))
 		return scmi_clk_gate(clk, 0);
 
-	ret = clk_get_by_id(clk->id, &c);
+	ret = scmi_clk_resolve_attr(clk->id, &ctrl_flags);
 	if (ret)
 		return ret;
 
-	clkscmi = container_of(c, struct clk_scmi, clk);
-
-	if (clkscmi->ctrl_flags & SUPPORT_CLK_STAT_CONTROL)
+	if (ctrl_flags & SUPPORT_CLK_STAT_CONTROL)
 		return scmi_clk_gate(clk, 0);
 
 	/* Following Linux drivers/clk/clk-scmi.c, directly return 0 if agent has no permission. */
-	log_debug("%s: SCMI CLOCK: the clock cannot be disabled by the agent.\n", __func__);
+	dev_dbg(clk->dev,
+		"%s: SCMI CLOCK: the clock cannot be disabled by the agent.\n", __func__);
 	return 0;
 }
 
 static ulong scmi_clk_get_rate(struct clk *clk)
 {
 	struct scmi_clk_rate_get_in in = {
-		.clock_id = clk->id,
+		.clock_id = clk_get_id(clk),
 	};
 	struct scmi_clk_rate_get_out out;
 	struct scmi_msg msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_CLOCK,
@@ -199,7 +289,7 @@ static ulong scmi_clk_get_rate(struct clk *clk)
 static ulong __scmi_clk_set_rate(struct clk *clk, ulong rate)
 {
 	struct scmi_clk_rate_set_in in = {
-		.clock_id = clk->id,
+		.clock_id = clk_get_id(clk),
 		.flags = SCMI_CLK_RATE_ROUND_CLOSEST,
 		.rate_lsb = (u32)rate,
 		.rate_msb = (u32)((u64)rate >> 32),
@@ -223,30 +313,29 @@ static ulong __scmi_clk_set_rate(struct clk *clk, ulong rate)
 
 static ulong scmi_clk_set_rate(struct clk *clk, ulong rate)
 {
-	struct clk_scmi *clkscmi;
-	struct clk *c;
+	u32 ctrl_flags;
 	int ret;
 
 	if (!CONFIG_IS_ENABLED(CLK_CCF))
 		return __scmi_clk_set_rate(clk, rate);
 
-	ret = clk_get_by_id(clk->id, &c);
+	ret = scmi_clk_resolve_attr(clk->id, &ctrl_flags);
 	if (ret)
 		return ret;
 
-	clkscmi = container_of(c, struct clk_scmi, clk);
-
-	if (clkscmi->ctrl_flags & SUPPORT_CLK_RATE_CONTROL)
+	if (ctrl_flags & SUPPORT_CLK_RATE_CONTROL)
 		return __scmi_clk_set_rate(clk, rate);
 
 	/* Following Linux drivers/clk/clk-scmi.c, directly return 0 if agent has no permission. */
-	log_debug("%s: SCMI CLOCK: the clock rate cannot be changed by the agent.\n", __func__);
+	dev_dbg(clk->dev,
+		"%s: SCMI CLOCK: the clock rate cannot be changed by the agent.\n", __func__);
 	return 0;
 }
 
 static int scmi_clk_probe(struct udevice *dev)
 {
-	struct clk_scmi *clk_scmi;
+	struct clk_scmi *clk_scmi_bulk, *clk_scmi;
+	struct scmi_clock_priv *priv = dev_get_priv(dev);
 	size_t num_clocks, i;
 	int ret;
 
@@ -265,40 +354,29 @@ static int scmi_clk_probe(struct udevice *dev)
 	if (ret)
 		return ret;
 
+	ret = scmi_generic_protocol_version(dev, SCMI_PROTOCOL_ID_CLOCK, &priv->version);
+	if (ret) {
+		dev_dbg(dev, "%s: get SCMI clock management protocol version failed\n", __func__);
+		return ret;
+	}
+
+	clk_scmi_bulk = kzalloc(num_clocks * sizeof(*clk_scmi), GFP_KERNEL);
+	if (!clk_scmi_bulk)
+		return -ENOMEM;
+
 	for (i = 0; i < num_clocks; i++) {
-		char *clock_name;
-		u32 attributes;
+		clk_scmi = clk_scmi_bulk + i;
+		char *clock_name = clk_scmi->name;
 
-		if (!scmi_clk_get_attibute(dev, i, &clock_name, &attributes)) {
-			clk_scmi = kzalloc(sizeof(*clk_scmi), GFP_KERNEL);
-			if (!clk_scmi || !clock_name)
-				ret = -ENOMEM;
-			else
-				ret = clk_register(&clk_scmi->clk, dev->driver->name,
-						   clock_name, dev->name);
+		snprintf(clock_name, SCMI_CLOCK_NAME_LENGTH_MAX, "scmi-%zu", i);
 
-			if (ret) {
-				free(clk_scmi);
-				free(clock_name);
-				free(&attributes);
-				return ret;
-			}
+		ret = clk_register(&clk_scmi->clk, dev->driver->name,
+				   clock_name, dev->name);
+		if (ret)
+			return ret;
 
-			clk_dm(i, &clk_scmi->clk);
-
-			if (CLK_HAS_RESTRICTIONS(attributes)) {
-				u32 perm;
-
-				ret = scmi_clk_get_permissions(dev, i, &perm);
-				if (ret < 0)
-					clk_scmi->ctrl_flags = 0;
-				else
-					clk_scmi->ctrl_flags = perm;
-			} else {
-				clk_scmi->ctrl_flags = SUPPORT_CLK_STAT_CONTROL | SUPPORT_CLK_PARENT_CONTROL |
-						       SUPPORT_CLK_RATE_CONTROL;
-			}
-		}
+		dev_clk_dm(dev, i, &clk_scmi->clk);
+		dev_set_parent_priv(clk_scmi->clk.dev, priv);
 	}
 
 	return 0;
@@ -307,8 +385,8 @@ static int scmi_clk_probe(struct udevice *dev)
 static int __scmi_clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	struct scmi_clk_parent_set_in in = {
-		.clock_id = clk->id,
-		.parent_clk = parent->id,
+		.clock_id = clk_get_id(clk),
+		.parent_clk = clk_get_id(parent),
 	};
 	struct scmi_clk_parent_set_out out;
 	struct scmi_msg msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_CLOCK,
@@ -325,24 +403,22 @@ static int __scmi_clk_set_parent(struct clk *clk, struct clk *parent)
 
 static int scmi_clk_set_parent(struct clk *clk, struct clk *parent)
 {
-	struct clk_scmi *clkscmi;
-	struct clk *c;
+	u32 ctrl_flags;
 	int ret;
 
 	if (!CONFIG_IS_ENABLED(CLK_CCF))
-		return -ENOTSUPP;
+		return __scmi_clk_set_parent(clk, parent);
 
-	ret = clk_get_by_id(clk->id, &c);
+	ret = scmi_clk_resolve_attr(clk->id, &ctrl_flags);
 	if (ret)
 		return ret;
 
-	clkscmi = container_of(c, struct clk_scmi, clk);
-
-	if (clkscmi->ctrl_flags & SUPPORT_CLK_PARENT_CONTROL)
+	if (ctrl_flags & SUPPORT_CLK_PARENT_CONTROL)
 		return __scmi_clk_set_parent(clk, parent);
 
 	/* Following Linux drivers/clk/clk-scmi.c, directly return 0 if agent has no permission. */
-	log_debug("%s: SCMI CLOCK: the clock's parent cannot be changed by the agent.\n", __func__);
+	dev_dbg(clk->dev,
+		"%s: SCMI CLOCK: the clock's parent cannot be changed by the agent.\n", __func__);
 	return 0;
 }
 
@@ -359,4 +435,12 @@ U_BOOT_DRIVER(scmi_clock) = {
 	.id = UCLASS_CLK,
 	.ops = &scmi_clk_ops,
 	.probe = scmi_clk_probe,
+	.priv_auto = sizeof(struct scmi_clock_priv),
 };
+
+static struct scmi_proto_match match[] = {
+	{ .proto_id = SCMI_PROTOCOL_ID_CLOCK },
+	{ /* Sentinel */ }
+};
+
+U_BOOT_SCMI_PROTO_DRIVER(scmi_clock, match);

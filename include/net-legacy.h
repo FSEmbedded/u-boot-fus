@@ -1,9 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  *	LiMon Monitor (LiMon) - Network.
  *
  *	Copyright 1994 - 2000 Neil Russell.
- *	(See License)
  *
  * History
  *	9/16/00	  bor  adapted to TQM823L/STK8xxL board, RARP/TFTP boot added
@@ -17,6 +16,7 @@
 #include <log.h>
 #include <time.h>
 #include <linux/if_ether.h>
+#include <linux/string.h>
 
 struct bd_info;
 struct cmd_tbl;
@@ -25,7 +25,6 @@ struct udevice;
 #define DEBUG_LL_STATE 0	/* Link local state machine changes */
 #define DEBUG_DEV_PKT 0		/* Packets or info directed to the device */
 #define DEBUG_NET_PKT 0		/* Packets on info on the network at large */
-#define DEBUG_INT_STATE 0	/* Internal network state changes */
 
 /* ARP hardware address length */
 #define ARP_HLEN 6
@@ -290,7 +289,6 @@ extern u8		net_ethaddr[ARP_HLEN];		/* Our ethernet address */
 extern u8		net_server_ethaddr[ARP_HLEN];	/* Boot server enet address */
 extern struct in_addr	net_server_ip;	/* Server IP addr (0 = unknown) */
 extern uchar		*net_tx_packet;		/* THE transmit packet */
-extern uchar		*net_rx_packets[PKTBUFSRX]; /* Receive packets */
 extern uchar		*net_rx_packet;		/* Current receive packet */
 extern int		net_rx_packet_len;	/* Current rx packet length */
 extern const u8		net_null_ethaddr[ARP_HLEN];
@@ -310,12 +308,8 @@ enum proto_t {
 
 /* Indicates whether the file name was specified on the command line */
 extern bool	net_boot_file_name_explicit;
-/* The actual transferred size of the bootfile (in bytes) */
-extern u32	net_boot_file_size;
-/* Boot file size in blocks as reported by the DHCP server */
-extern u32	net_boot_file_expected_size_in_blocks;
 
-#if defined(CONFIG_CMD_DNS)
+#if defined(CONFIG_DNS)
 extern char *net_dns_resolve;		/* The host to resolve  */
 extern char *net_dns_env_var;		/* the env var to put the ip into */
 #endif
@@ -347,9 +341,6 @@ extern int net_ntp_time_offset;			/* offset time from UTC */
 
 int net_loop(enum proto_t);
 
-/* Load failed.	 Start again. */
-int net_start_again(void);
-
 /* Get size of the ethernet header when we send */
 int net_eth_hdr_size(void);
 
@@ -371,22 +362,6 @@ void net_set_arp_handler(rxhand_f *f);	/* Set ARP RX packet handler */
 bool arp_is_waiting(void);		/* Waiting for ARP reply? */
 void net_set_icmp_handler(rxhand_icmp_f *f); /* Set ICMP RX handler */
 void net_set_timeout_handler(ulong t, thand_f *f);/* Set timeout handler */
-
-/* Network loop state */
-enum net_loop_state {
-	NETLOOP_CONTINUE,
-	NETLOOP_RESTART,
-	NETLOOP_SUCCESS,
-	NETLOOP_FAIL
-};
-
-extern enum net_loop_state net_state;
-
-static inline void net_set_state(enum net_loop_state state)
-{
-	debug_cond(DEBUG_INT_STATE, "--- NetState set to %d\n", state);
-	net_state = state;
-}
 
 /*
  * net_get_async_tx_pkt_buf - Get a packet buffer that is not in use for

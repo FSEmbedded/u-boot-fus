@@ -40,7 +40,7 @@ typedef enum EFI_GBL_FASTBOOT_RX_MODE {
 } EFI_GBL_FASTBOOT_RX_MODE;
 
 static const uint64_t EFI_GBL_FASTBOOT_TRANSPORT_PROTOCOL_REVISION =
-    GBL_PROTOCOL_REVISION(0, 1);
+    GBL_PROTOCOL_REVISION(0, 256);
 
 typedef struct efi_gbl_fastboot_transport_protocol {
   uint64_t revision;

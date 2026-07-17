@@ -6,6 +6,10 @@
 #include "imx93-u-boot.dtsi"
 
 / {
+	chosen {
+		bootargs = "console=ttyLP0,115200";
+	};
+
 	wdt-reboot {
 		compatible = "wdt-reboot";
 		wdt = <&wdog3>;
@@ -15,10 +19,6 @@
 
 	aliases {
 		usb_gadget0 = &usbg1;
-	};
-
-	chosen {
-		bootargs = "console=ttyLP0,115200";
 	};
 
 	usbg1: usbg1 {

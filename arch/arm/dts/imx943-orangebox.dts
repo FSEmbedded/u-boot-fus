@@ -5,7 +5,8 @@
 
 /dts-v1/;
 
-#include "imx943.dtsi"
+#include "../dts/upstream/src/arm64/freescale/imx943.dtsi"
+#include "imx943-u-boot.dtsi"
 #include <dt-bindings/usb/pd.h>
 
 / {
@@ -13,6 +14,9 @@
 	compatible = "fsl,imx943-orangebox", "fsl,imx94";
 
 	aliases {
+		i2c2 = &lpi2c3;
+		i2c3 = &lpi2c4;
+		i2c5 = &lpi2c6;
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		serial0 = &lpuart1;

@@ -9,6 +9,7 @@
 
 #include "API_General.h"
 #include "scfw_utils.h"
+#include <env.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 

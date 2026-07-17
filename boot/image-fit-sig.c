@@ -192,6 +192,11 @@ int fit_image_verify_required_sigs(const void *fit, int image_noffset,
 	int noffset;
 	int key_node;
 
+#ifdef USE_HOSTCC
+	if (!key_blob)
+		return 0;
+#endif
+
 	/* Work out what we need to verify */
 	*no_sigsp = 1;
 	key_node = fdt_subnode_offset(key_blob, 0, FIT_SIG_NODENAME);
@@ -471,10 +476,6 @@ static int fit_config_check_sig(const void *fit, int noffset, int conf_noffset,
 		return -1;
 	}
 
-	debug("Hash nodes (%d):\n", count);
-	for (int i = 0; i < count; ++i)
-		debug("   '%s'\n", node_inc[i]);
-
 	/*
 	 * Each node can generate one region for each sub-node. Allow for
 	 * 7 sub-nodes (hash-1, signature-1, etc.) and some extra.
@@ -617,6 +618,11 @@ static int fit_config_verify_required_keys(const void *fit, int conf_noffset,
 	int reqd_sigs = 0;
 	bool reqd_policy_all = true;
 	const char *reqd_mode;
+
+#ifdef USE_HOSTCC
+	if (!key_blob)
+		return 0;
+#endif
 
 	/*
 	 * We don't support this since libfdt considers names with the

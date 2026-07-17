@@ -27,6 +27,31 @@ config DEPRECATED
 	  code that relies on deprecated features that will be removed and
 	  the conversion deadline has passed.
 
+config COMPILE_TEST
+	bool "Compile also drivers which will not load"
+	help
+	  Some drivers can be compiled on a different platform than they are
+	  intended to be run on. Despite they cannot be loaded there (or even
+	  when they load they cannot be used due to missing HW support),
+	  developers still, opposing to distributors, might want to build such
+	  drivers to compile-test them.
+
+	  If you are a developer and want to build everything available, say Y
+	  here. If you are a user/distributor, say N here to exclude useless
+	  drivers to be distributed.
+
+config WERROR
+	bool "Compile U-Boot with warnings as errors"
+	default COMPILE_TEST
+	help
+	  A U-Boot build should not cause any compiler warnings, and this
+	  enables the '-Werror' flag to enforce that rule.
+
+	  However, if you have a new (or very old) compiler or linker with odd
+	  and unusual warnings, or you have some architecture with problems,
+	  you may need to disable this config option in order to
+	  successfully build U-Boot.
+
 config LOCALVERSION
 	string "Local version - append to U-Boot release"
 	help
@@ -115,6 +140,15 @@ config SPL_OPTIMIZE_INLINING
 	  do what it thinks is best, which is desirable in some cases for size
 	  reasons.
 
+config TPL_OPTIMIZE_INLINING
+	bool "Allow compiler to uninline functions marked 'inline' in TPL"
+	depends on TPL
+	help
+	  This option determines if U-Boot forces gcc to inline the functions
+	  developers have marked 'inline'. Doing so takes away freedom from gcc to
+	  do what it thinks is best, which is desirable in some cases for size
+	  reasons.
+
 config ARCH_SUPPORTS_LTO
 	bool
 
@@ -137,15 +171,6 @@ config LTO
 	  nproc command).
 
 	  If unsure, say n.
-
-config TPL_OPTIMIZE_INLINING
-	bool "Allow compiler to uninline functions marked 'inline' in TPL"
-	depends on TPL
-	help
-	  This option determines if U-Boot forces gcc to inline the functions
-	  developers have marked 'inline'. Doing so takes away freedom from gcc to
-	  do what it thinks is best, which is desirable in some cases for size
-	  reasons.
 
 config CC_COVERAGE
 	bool "Enable code coverage analysis"
@@ -274,8 +299,8 @@ config SYS_MALLOC_F_LEN
 			 ROCKCHIP_RV1108
 	default 0x600 if ARCH_ZYNQMP_R5 || ARCH_ZYNQMP
 	default 0x800 if ARCH_ZYNQ || ROCKCHIP_RK3128 || ROCKCHIP_RK3188 || \
-			 ROCKCHIP_RK322X || X86
-	default 0x1000 if ARCH_MESON || ARCH_BMIPS || ARCH_MTMIPS
+			 ROCKCHIP_RK322X
+	default 0x1000 if ARCH_MESON || ARCH_BMIPS || ARCH_MTMIPS || X86
 	default 0x1800 if ARCH_TEGRA
 	default 0x4000 if SANDBOX || RISCV || ARCH_APPLE || ROCKCHIP_RK3368 || \
 			  ROCKCHIP_RK3399
@@ -298,7 +323,7 @@ config SYS_MALLOC_F_LEN
 config SYS_MALLOC_LEN
 	hex "Define memory for Dynamic allocation"
 	default 0x4000000 if SANDBOX
-	default 0x2000000 if ARCH_ROCKCHIP || ARCH_OMAP2PLUS || ARCH_MESON
+	default 0x2000000 if ARCH_ROCKCHIP || ARCH_OMAP2PLUS || ARCH_MESON || ARCH_K3
 	default 0x200000 if ARCH_BMIPS || X86
 	default 0x4020000 if SUNXI_MINIMUM_DRAM_MB >= 256
 	default 0x220000 if SUNXI_MINIMUM_DRAM_MB >= 64
@@ -443,6 +468,12 @@ config TOOLS_DEBUG
 	  it is possible to set breakpoints on particular lines, single-step
 	  debug through the source code, etc.
 
+config SKIP_RELOCATE
+	bool "Skips relocation of U-Boot to end of RAM"
+	help
+	  Skips relocation of U-Boot allowing for systems that have extremely
+	  limited RAM to run U-Boot.
+
 endif # EXPERT
 
 config PHYS_64BIT
@@ -480,6 +511,7 @@ config SPL_IMAGE
 
 config REMAKE_ELF
 	bool "Recreate an ELF image from raw U-Boot binary"
+	depends on !COMPILE_TEST
 	help
 	  Enable this to recreate an ELF image (u-boot.elf) from the raw
 	  U-Boot binary (u-boot.bin), which may already have been statically
@@ -506,6 +538,7 @@ config BUILD_TARGET
 
 config HAS_BOARD_SIZE_LIMIT
 	bool "Define a maximum size for the U-Boot image"
+	depends on !COMPILE_TEST
 	default y if RCAR_32 || RCAR_64
 	help
 	  In some cases, we need to enforce a hard limit on how big the U-Boot
@@ -520,10 +553,11 @@ config BOARD_SIZE_LIMIT
 	  Maximum size of the U-Boot image. When defined, the build system
 	  checks that the actual size does not exceed it.  This does not
 	  include SPL nor TPL, on platforms that use that functionality, they
-	  have a separate option to restict size.
+	  have separate options to restrict size.
 
 config SYS_CUSTOM_LDSCRIPT
 	bool "Use a custom location for the U-Boot linker script"
+	depends on !COMPILE_TEST
 	help
 	  Normally when linking U-Boot we will look in the board directory,
 	  the CPU directory and finally the "cpu" directory of the architecture
@@ -707,6 +741,7 @@ config TPL_SYS_MONITOR_BASE
 
 config DYNAMIC_SYS_CLK_FREQ
 	bool "Determine CPU clock frequency at run-time"
+	depends on !COMPILE_TEST
 	help
 	  Implement a get_board_sys_clk function that will determine the CPU
 	  clock frequency at run time, rather than define it statically.
@@ -757,7 +792,7 @@ source "dts/Kconfig"
 
 source "env/Kconfig"
 
-menu Networking
+menu "Networking"
 
 choice
 	prompt "Networking stack"

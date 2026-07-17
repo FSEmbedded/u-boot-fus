@@ -25,6 +25,7 @@
 #include <nand.h>			/* get_nand_dev_by_index() */
 #include <cpu_func.h>			/* flush_cache() */
 #include <image.h>			/* set_fileaddr(), get_loadaddr() */
+#include <env.h>
 
 #ifndef CONFIG_CMD_SOURCE
 #error You need CONFIG_CMD_SOURCE when you define CONFIG_CMD_UPDATE
@@ -264,7 +265,7 @@ static int update_usb(const char *action, const char **check, const char *fname,
 
 	/* Init USB only once during update */
 	if (!usb_init_done) {
-	        if (usb_init(0) < 0)
+	        if (usb_init() < 0)
 			return -1;
 
 		/* Try to recognize storage devices immediately */

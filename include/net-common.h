@@ -5,7 +5,6 @@
 
 #include <asm/cache.h>
 #include <command.h>
-#include <env.h>
 #include <hexdump.h>
 #include <linux/if_ether.h>
 #include <linux/sizes.h>
@@ -14,6 +13,7 @@
 #include <time.h>
 
 #define DEBUG_NET_PKT_TRACE 0	/* Trace all packet data */
+#define DEBUG_INT_STATE 0	/* Internal network state changes */
 
 /*
  *	The number of receive packet buffers, and the required packet buffer
@@ -115,13 +115,37 @@ struct ip_udp_hdr {
 #define RINGSZ		4
 #define RINGSZ_LOG2	2
 
+/* Network loop state */
+enum net_loop_state {
+	NETLOOP_CONTINUE,
+	NETLOOP_RESTART,
+	NETLOOP_SUCCESS,
+	NETLOOP_FAIL
+};
+
+extern enum net_loop_state net_state;
+
+static inline void net_set_state(enum net_loop_state state)
+{
+	debug_cond(DEBUG_INT_STATE, "--- NetState set to %d\n", state);
+	net_state = state;
+}
+
 extern int		net_restart_wrap;	/* Tried all network devices */
-extern uchar               *net_rx_packets[PKTBUFSRX]; /* Receive packets */
+extern uchar		*net_rx_packets[PKTBUFSRX]; /* Receive packets */
 extern const u8		net_bcast_ethaddr[ARP_HLEN];	/* Ethernet broadcast address */
-extern char	net_boot_file_name[1024];/* Boot File name */
 extern struct in_addr	net_ip;		/* Our    IP addr (0 = unknown) */
 /* Indicates whether the pxe path prefix / config file was specified in dhcp option */
 extern char *pxelinux_configfile;
+
+/* Our IP addr (0 = unknown) */
+extern struct in_addr	net_ip;
+/* Boot File name */
+extern char	net_boot_file_name[1024];
+/* The actual transferred size of the bootfile (in bytes) */
+extern u32	net_boot_file_size;
+/* Boot file size in blocks as reported by the DHCP server */
+extern u32	net_boot_file_expected_size_in_blocks;
 
 /**
  * compute_ip_checksum() - Compute IP checksum
@@ -291,6 +315,7 @@ struct eth_ops {
 #define eth_get_ops(dev) ((struct eth_ops *)(dev)->driver->ops)
 
 struct udevice *eth_get_dev(void); /* get the current device */
+void eth_set_dev(struct udevice *dev); /* set a device */
 unsigned char *eth_get_ethaddr(void); /* get the current device MAC */
 int eth_rx(void);                      /* Check for received packets */
 void eth_halt(void);			/* stop SCC */
@@ -455,20 +480,10 @@ void net_process_received_packet(uchar *in_packet, int len);
  */
 int update_tftp(ulong addr, char *interface, char *devstring);
 
-/**
- * env_get_ip() - Convert an environment value to an ip address
- *
- * @var: Environment variable to convert. The value of this variable must be
- *	in the format a.b.c.d, where each value is a decimal number from
- *	0 to 255
- * Return: IP address, or 0 if invalid
- */
-static inline struct in_addr env_get_ip(char *var)
-{
-	return string_to_ip(env_get(var));
-}
-
 int net_init(void);
+
+/* Called when a network operation fails to know if it should be re-tried */
+int net_start_again(void);
 
 /* NET compatibility */
 enum proto_t;
@@ -488,6 +503,48 @@ int net_loop(enum proto_t protocol);
  * not found
  */
 int dhcp_run(ulong addr, const char *fname, bool autoload);
+
+/**
+ * do_dhcp - Run the dhcp command
+ *
+ * @cmdtp: Unused
+ * @flag: Command flags (CMD_FLAG_...)
+ * @argc: Number of arguments
+ * @argv: List of arguments
+ * Return: result (see enum command_ret_t)
+ */
+int do_dhcp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
+
+/**
+ * tftpb_run() - Run TFTP on the current ethernet device
+ *
+ * @addr: Address to load the file into
+ * @fname: Filename of file to load (NULL to use the default filename)
+ * @return 0 if OK, -ENOENT if ant file was not found
+ */
+int tftpb_run(ulong addr, const char *fname);
+
+/**
+ * do_ping - Run the ping command
+ *
+ * @cmdtp: Unused
+ * @flag: Command flags (CMD_FLAG_...)
+ * @argc: Number of arguments
+ * @argv: List of arguments
+ * Return: result (see enum command_ret_t)
+ */
+int do_ping(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
+
+/**
+ * do_sntp - Run the sntp command
+ *
+ * @cmdtp: Unused
+ * @flag: Command flags (CMD_FLAG_...)
+ * @argc: Number of arguments
+ * @argv: List of arguments
+ * Return: result (see enum command_ret_t)
+ */
+int do_sntp(struct cmd_tbl *cmdtp, int flag, int argc, char *const argv[]);
 
 /**
  * do_tftpb - Run the tftpboot command
@@ -554,6 +611,7 @@ enum wget_http_method {
  *			Filled by client.
  * @hdr_cont_len:	content length according to headers. Filled by wget
  * @headers:		buffer for headers. Filled by wget.
+ * @silent:		do not print anything to the console. Filled by client.
  */
 struct wget_http_info {
 	enum wget_http_method method;
@@ -564,10 +622,13 @@ struct wget_http_info {
 	bool check_buffer_size;
 	u32 hdr_cont_len;
 	char *headers;
+	bool silent;
 };
 
 extern struct wget_http_info default_wget_info;
 extern struct wget_http_info *wget_info;
 int wget_request(ulong dst_addr, char *uri, struct wget_http_info *info);
+
+void net_sntp_set_rtc(u32 seconds);
 
 #endif /* __NET_COMMON_H__ */

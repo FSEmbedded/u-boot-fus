@@ -131,6 +131,7 @@
 			font-size = <30>;
 			menu-inset = <3>;
 			menuitem-gap-y = <1>;
+			white-on-black;
 		};
 
 		cedit-theme {
@@ -454,6 +455,10 @@
 
 		mux-controls = <&muxcontroller0 0>;
 		mux-control-names = "mux0";
+	};
+
+	multimatch-test {
+		compatible = "sandbox,multimatch-test";
 	};
 
 	phy_provider0: gen_phy@0 {
@@ -822,6 +827,7 @@
 			#gpio-cells = <1>;
 			gpio-bank-name = "a";
 			sandbox,gpio-count = <25>;
+			gpio-line-names = "", "eth1-reset", "rtc-irq";
 			hog_input_active_low {
 				gpio-hog;
 				input;
@@ -850,6 +856,7 @@
 			#gpio-cells = <5>;
 			gpio-bank-name = "b";
 			sandbox,gpio-count = <10>;
+			gpio-line-names = "factory-reset";
 		};
 
 		gpio_c: pinmux-gpios {
@@ -859,6 +866,42 @@
 			gpio-bank-name = "c";
 			sandbox,gpio-count = <10>;
 		};
+	};
+
+	icc0: interconnect-0 {
+		compatible = "sandbox,interconnect0";
+		#interconnect-cells = <1>;
+	};
+
+	icc1: interconnect-1 {
+		compatible = "sandbox,interconnect1";
+		#interconnect-cells = <1>;
+	};
+
+	icc2: interconnect-2 {
+		compatible = "sandbox,interconnect2";
+		#interconnect-cells = <1>;
+	};
+
+	icc3: interconnect-3 {
+		compatible = "sandbox,interconnect3";
+		#interconnect-cells = <1>;
+	};
+
+	icc4: interconnect-4 {
+		compatible = "sandbox,interconnect4";
+		#interconnect-cells = <1>;
+	};
+
+	interconnect-test-0 {
+		compatible = "sandbox,interconnect-test";
+		interconnects = <&icc0 0 &icc3 0>;
+	};
+
+	interconnect-test-1 {
+		compatible = "sandbox,interconnect-test";
+		interconnects = <&icc1 0 &icc4 0>;
+		interconnect-names = "icc-path";
 	};
 
 	i2c@0 {
@@ -908,8 +951,8 @@
 			sandbox,emul = <&emul1>;
 		};
 
-		i2c_emul: emul {
-			reg = <0xff>;
+		i2c_emul: emul@7f {
+			reg = <0x7f>;
 			compatible = "sandbox,i2c-emul-parent";
 			emul_eeprom: emul-eeprom {
 				compatible = "sandbox,i2c-eeprom";
@@ -924,7 +967,7 @@
 			};
 		};
 
-		sandbox_pmic: sandbox_pmic {
+		sandbox_pmic: sandbox_pmic@40 {
 			reg = <0x40>;
 			sandbox,emul = <&emul_pmic0>;
 		};
@@ -933,6 +976,14 @@
 			reg = <0x41>;
 			sandbox,emul = <&emul_pmic1>;
 		};
+	};
+
+	i3c0 {
+		compatible = "sandbox,i3c";
+	};
+
+	i3c1 {
+		compatible = "sandbox,i3c";
 	};
 
 	bootcount@0 {
@@ -1044,6 +1095,31 @@
 			label = "sandbox:function";
 			function = LED_FUNCTION_STATUS;
 			color = <LED_COLOR_ID_GREEN>;
+		};
+	};
+
+	lvds-encoder {
+		compatible = "lvds-encoder";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				bridge_input: endpoint {
+					/* link to output */
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				bridge_output: endpoint {
+					remote-endpoint = <&panel_input>;
+				};
+			};
 		};
 	};
 
@@ -1194,6 +1270,13 @@
 		status = "disabled";
 		compatible = "sandbox,mmc";
 		filename = "mmc8.img";
+	};
+
+	/* This is used for zip/unzip/gzwrite tests. */
+	mmc9 {
+		status = "disabled";
+		compatible = "sandbox,mmc";
+		filename = "mmc9.img";
 	};
 
 	pch {
@@ -1402,6 +1485,27 @@
 	panel {
 		compatible = "simple-panel";
 		backlight = <&backlight 0 100>;
+
+		display-timings {
+			timing@0 {
+				/* 1280x800@60Hz */
+				clock-frequency = <68000000>;
+				hactive = <1280>;
+				hfront-porch = <48>;
+				hback-porch = <18>;
+				hsync-len = <30>;
+				vactive = <800>;
+				vfront-porch = <3>;
+				vback-porch = <12>;
+				vsync-len = <5>;
+			};
+		};
+
+		port {
+			panel_input: endpoint {
+				remote-endpoint = <&bridge_output>;
+			};
+		};
 	};
 
 	scsi {
@@ -1749,7 +1853,7 @@
 		pinctrl-0 = <&pinctrl_gpios>, <&pinctrl_i2s>;
 		pinctrl-1 = <&pinctrl_spi>, <&pinctrl_i2c>;
 
-		pinctrl_gpios: gpios {
+		pinctrl_gpios: pins-gpios {
 			gpio0 {
 				pins = "P5";
 				function = "GPIO";
@@ -1773,7 +1877,7 @@
 			};
 		};
 
-		pinctrl_i2c: i2c {
+		pinctrl_i2c: pins-i2c {
 			groups {
 				groups = "I2C_UART";
 				function = "I2C";
@@ -1785,12 +1889,12 @@
 			};
 		};
 
-		pinctrl_i2s: i2s {
+		pinctrl_i2s: pins-i2s {
 			groups = "SPI_I2S";
 			function = "I2S";
 		};
 
-		pinctrl_spi: spi {
+		pinctrl_spi: pins-spi {
 			groups = "SPI_I2S";
 			function = "SPI";
 
@@ -2047,6 +2151,65 @@
 			sandbox,err-count = <3>;
 			sandbox,err-step-size = <512>;
 		};
+	};
+
+	graph1 {
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				reg = <0>;
+
+				endpoint@0 {
+					reg = <0>;
+				};
+
+				endpoint@1 {
+					reg = <1>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				endpoint {
+					test-property-0;
+				};
+			};
+
+			port@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				reg = <2>;
+
+				graph2_link: endpoint@0 {
+					reg = <0>;
+					test-property-1;
+					remote-endpoint = <&graph1_link>;
+				};
+
+				endpoint@1 {
+					reg = <1>;
+				};
+			};
+		};
+	};
+
+	graph2 {
+		port {
+			graph1_link: endpoint {
+				remote-endpoint = <&graph2_link>;
+			};
+		};
+	};
+
+	aes-engine {
+		compatible = "software-aes-engine";
 	};
 };
 

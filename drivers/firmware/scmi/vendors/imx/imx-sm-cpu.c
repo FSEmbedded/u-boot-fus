@@ -8,12 +8,13 @@
 #include <compiler.h>
 #include <dm.h>
 #include <dm/device_compat.h>
-#include <scmi_agent.h>
-#include <scmi_protocols.h>
-#include <scmi_nxp_protocols.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <misc.h>
+#include <scmi_agent.h>
+#include <scmi_agent-uclass.h>
+#include <scmi_protocols.h>
+#include <scmi_nxp_protocols.h>
 
 enum scmi_imx_cpu_protocol_cmd {
 	SCMI_IMX_CPU_ATTRIBUTES	= 0x3,
@@ -150,10 +151,6 @@ int scmi_imx_cpu_started(struct udevice *dev, u32 cpuid, bool *started)
 	return 0;
 }
 
-static struct misc_ops scmi_imx_cpu_ops = {
-	/* Empty */
-};
-
 static int scmi_imx_cpu_probe(struct udevice *dev)
 {
 	int ret;
@@ -169,8 +166,14 @@ static int scmi_imx_cpu_probe(struct udevice *dev)
 
 U_BOOT_DRIVER(scmi_imx_cpu) = {
 	.name = "scmi_imx_cpu",
-	.id = UCLASS_MISC,
-	.ops = &scmi_imx_cpu_ops,
+	.id = UCLASS_SCMI_BASE,
 	.probe = scmi_imx_cpu_probe,
 	.priv_auto = sizeof(struct scmi_imx_cpu_priv),
 };
+
+static struct scmi_proto_match match[] = {
+	{ .proto_id = SCMI_PROTOCOL_ID_VENDOR_82},
+	{ /* Sentinel */ }
+};
+
+U_BOOT_SCMI_PROTO_DRIVER(scmi_imx_cpu, match);

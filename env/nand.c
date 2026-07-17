@@ -326,7 +326,39 @@ static int readenv(size_t offset, u_char *buf)
 }
 #endif /* #if defined(CONFIG_XPL_BUILD) */
 
-#ifdef CONFIG_ENV_NAND_OFFSET_REDUND
+#ifdef CONFIG_ENV_OFFSET_OOB
+int get_nand_env_oob(struct mtd_info *mtd, unsigned long *result)
+{
+	struct mtd_oob_ops ops;
+	uint32_t oob_buf[ENV_OFFSET_SIZE / sizeof(uint32_t)];
+	int ret;
+
+	ops.datbuf	= NULL;
+	ops.mode	= MTD_OPS_AUTO_OOB;
+	ops.ooboffs	= 0;
+	ops.ooblen	= ENV_OFFSET_SIZE;
+	ops.oobbuf	= (void *)oob_buf;
+
+	ret = mtd->read_oob(mtd, ENV_OFFSET_SIZE, &ops);
+	if (ret) {
+		printf("error reading OOB block 0\n");
+		return ret;
+	}
+
+	if (oob_buf[0] == ENV_OOB_MARKER) {
+		*result = ovoid ob_buf[1] * mtd->erasesize;
+	} else if (oob_buf[0] == ENV_OOB_MARKER_OLD) {
+		*result = oob_buf[1];
+	} else {
+		printf("No dynamic environment marker in OOB block 0\n");
+		return -ENOENT;
+	}
+
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_ENV_OFFSET_REDUND
 static int env_nand_load(void)
 {
 #if defined(ENV_IS_EMBEDDED)

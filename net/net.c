@@ -1,9 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  *	Copied from Linux Monitor (LiMon) - Networking.
  *
  *	Copyright 1994 - 2000 Neil Russell.
- *	(See License)
  *	Copyright 2000 Roland Borde
  *	Copyright 2000 Paolo Scaffardi
  *	Copyright 2000-2002 Wolfgang Denk, wd@denx.de
@@ -89,15 +88,9 @@
 #include <image.h>
 #include <led.h>
 #include <log.h>
-#if defined(CONFIG_LED_STATUS)
-#include <miiphy.h>
-#endif
 #include <net.h>
 #include <net6.h>
 #include <ndisc.h>
-#if defined(CONFIG_LED_STATUS)
-#include <status_led.h>
-#endif
 #include <watchdog.h>
 #include <linux/compiler.h>
 #include <net/fastboot_udp.h>
@@ -115,7 +108,7 @@
 #include "bootp.h"
 #include "cdp.h"
 #include "dhcpv6.h"
-#if defined(CONFIG_CMD_DNS)
+#if defined(CONFIG_DNS)
 #include "dns.h"
 #endif
 #include "link_local.h"
@@ -148,8 +141,6 @@ char *pxelinux_configfile;
 u8 net_ethaddr[6];
 /* Boot server enet address */
 u8 net_server_ethaddr[6];
-/* Our IP addr (0 = unknown) */
-struct in_addr	net_ip;
 /* Server IP addr (0 = unknown) */
 struct in_addr	net_server_ip;
 /* Current receive packet */
@@ -164,8 +155,6 @@ const u8 net_null_ethaddr[6];
 #if defined(CONFIG_API) || defined(CONFIG_EFI_LOADER)
 void (*push_packet)(void *, int len) = 0;
 #endif
-/* Network loop state */
-enum net_loop_state net_state;
 /* Tried all network devices */
 int		net_restart_wrap;
 /* Network loop restarted */
@@ -179,18 +168,10 @@ ushort		net_our_vlan = 0xFFFF;
 /* ditto */
 ushort		net_native_vlan = 0xFFFF;
 
-/* Boot File name */
-char net_boot_file_name[1024];
 /* Indicates whether the file name was specified on the command line */
 bool net_boot_file_name_explicit;
-/* The actual transferred size of the bootfile (in bytes) */
-u32 net_boot_file_size;
-/* Boot file size in blocks as reported by the DHCP server */
-u32 net_boot_file_expected_size_in_blocks;
 
 static uchar net_pkt_buf[(PKTBUFSRX+1) * PKTSIZE_ALIGN + PKTALIGN];
-/* Receive packets */
-uchar *net_rx_packets[PKTBUFSRX];
 /* Current UDP RX packet handler */
 static rxhand_f *udp_packet_handler;
 /* Current ARP RX packet handler */
@@ -311,7 +292,7 @@ static int on_vlan(const char *name, const char *value, enum env_op op,
 }
 U_BOOT_ENV_CALLBACK(vlan, on_vlan);
 
-#if defined(CONFIG_CMD_DNS)
+#if defined(CONFIG_DNS)
 static int on_dnsip(const char *name, const char *value, enum env_op op,
 	int flags)
 {
@@ -605,7 +586,7 @@ restart:
 			nc_start();
 			break;
 #endif
-#if defined(CONFIG_CMD_DNS)
+#if defined(CONFIG_DNS)
 		case DNS:
 			dns_start();
 			break;
@@ -639,19 +620,6 @@ restart:
 		break;
 	}
 
-#if defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
-#if	defined(CONFIG_SYS_FAULT_ECHO_LINK_DOWN)	&& \
-	defined(CONFIG_LED_STATUS)			&& \
-	defined(CONFIG_LED_STATUS_RED)
-	/*
-	 * Echo the inverted link state to the fault LED.
-	 */
-	if (miiphy_link(eth_get_dev()->name, CONFIG_SYS_FAULT_MII_ADDR))
-		status_led_set(CONFIG_LED_STATUS_RED, CONFIG_LED_STATUS_OFF);
-	else
-		status_led_set(CONFIG_LED_STATUS_RED, CONFIG_LED_STATUS_ON);
-#endif /* CONFIG_SYS_FAULT_ECHO_LINK_DOWN, ... */
-#endif /* CONFIG_MII, ... */
 #ifdef CONFIG_USB_KEYBOARD
 	net_busy_flag = 1;
 #endif
@@ -711,22 +679,6 @@ restart:
 		    ((get_timer(0) - time_start) > time_delta)) {
 			thand_f *x;
 
-#if defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
-#if	defined(CONFIG_SYS_FAULT_ECHO_LINK_DOWN)	&& \
-	defined(CONFIG_LED_STATUS)			&& \
-	defined(CONFIG_LED_STATUS_RED)
-			/*
-			 * Echo the inverted link state to the fault LED.
-			 */
-			if (miiphy_link(eth_get_dev()->name,
-					CONFIG_SYS_FAULT_MII_ADDR))
-				status_led_set(CONFIG_LED_STATUS_RED,
-					       CONFIG_LED_STATUS_OFF);
-			else
-				status_led_set(CONFIG_LED_STATUS_RED,
-					       CONFIG_LED_STATUS_ON);
-#endif /* CONFIG_SYS_FAULT_ECHO_LINK_DOWN, ... */
-#endif /* CONFIG_MII, ... */
 			debug_cond(DEBUG_INT_STATE, "--- net_loop timeout\n");
 			x = time_handler;
 			time_handler = (thand_f *)0;
@@ -761,7 +713,7 @@ restart:
 
 			eth_set_last_protocol(protocol);
 
-			ret = net_boot_file_size;
+			ret = !!net_boot_file_size;
 			debug_cond(DEBUG_INT_STATE, "--- net_loop Success!\n");
 			goto done;
 
@@ -1528,7 +1480,7 @@ static int net_check_prereq(enum proto_t protocol)
 		}
 		goto common;
 #endif
-#if defined(CONFIG_CMD_DNS)
+#if defined(CONFIG_DNS)
 	case DNS:
 		if (net_dns_server.s_addr == 0) {
 			puts("*** ERROR: DNS server address not given\n");
@@ -1561,7 +1513,7 @@ static int net_check_prereq(enum proto_t protocol)
 			return 1;
 		}
 #if	defined(CONFIG_CMD_PING) || \
-	defined(CONFIG_CMD_DNS) || defined(CONFIG_PROT_UDP)
+	defined(CONFIG_DNS) || defined(CONFIG_PROT_UDP)
 common:
 #endif
 		/* Fall through */
@@ -1580,7 +1532,7 @@ common:
 			puts("*** ERROR: `ipaddr' not set\n");
 			return 1;
 		}
-		/* Fall through */
+		fallthrough;
 
 #ifdef CONFIG_CMD_RARP
 	case RARP:

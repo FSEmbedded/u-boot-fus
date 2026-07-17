@@ -65,7 +65,7 @@ struct mii_dev *mdio_alloc(void)
 
 	memset(bus, 0, sizeof(*bus));
 
-	/* initalize mii_dev struct fields */
+	/* initialize mii_dev struct fields */
 	INIT_LIST_HEAD(&bus->link);
 
 	return bus;
@@ -541,28 +541,3 @@ int miiphy_is_1000base_x(const char *devname, unsigned char addr)
 	return 0;
 #endif
 }
-
-#ifdef CONFIG_SYS_FAULT_ECHO_LINK_DOWN
-/*****************************************************************************
- *
- * Determine link status
- */
-int miiphy_link(const char *devname, unsigned char addr)
-{
-	unsigned short reg;
-
-	/* dummy read; needed to latch some phys */
-	(void)miiphy_read(devname, addr, MII_BMSR, &reg);
-	if (miiphy_read(devname, addr, MII_BMSR, &reg)) {
-		puts("MII_BMSR read failed, assuming no link\n");
-		return 0;
-	}
-
-	/* Determine if a link is active */
-	if ((reg & BMSR_LSTATUS) != 0) {
-		return 1;
-	} else {
-		return 0;
-	}
-}
-#endif

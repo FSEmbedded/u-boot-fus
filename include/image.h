@@ -234,6 +234,8 @@ enum image_type_t {
 	IH_TYPE_RENESAS_SPKG,		/* Renesas SPKG image */
 	IH_TYPE_STARFIVE_SPL,		/* StarFive SPL image */
 	IH_TYPE_TFA_BL31,		/* TFA BL31 image */
+	IH_TYPE_STM32IMAGE_V2,		/* STMicroelectronics STM32 Image V2.0 */
+	IH_TYPE_AMLIMAGE,		/* Amlogic Boot Image */
 
 	IH_TYPE_COUNT,			/* Number of image types */
 };
@@ -657,10 +659,10 @@ int boot_get_fpga(struct bootm_headers *images);
  * boot_get_ramdisk() is responsible for finding a valid ramdisk image.
  * Currently supported are the following ramdisk sources:
  *      - multicomponent kernel/ramdisk image,
- *      - commandline provided address of decicated ramdisk image.
+ *      - commandline provided address of dedicated ramdisk image.
  *
  * returns:
- *     0, if ramdisk image was found and valid, or skiped
+ *     0, if ramdisk image was found and valid, or skipped
  *     rd_start and rd_end are set to ramdisk start/end addresses if
  *     ramdisk image is found and valid
  *
@@ -742,7 +744,7 @@ int boot_get_fdt_fit(struct bootm_headers *images, ulong addr,
  * @param bootstage_id	ID of starting bootstage to use for progress updates.
  *			This will be added to the BOOTSTAGE_SUB values when
  *			calling bootstage_mark()
- * @param load_op	Decribes what to do with the load address
+ * @param load_op	Describes what to do with the load address
  * @param datap		Returns address of loaded image
  * @param lenp		Returns length of loaded image
  * Return: node offset of image, or -ve error code on error:
@@ -815,7 +817,7 @@ int fit_get_node_from_config(struct bootm_headers *images,
  * boot_get_fdt() is responsible for finding a valid flat device tree image.
  * Currently supported are the following FDT sources:
  *      - multicomponent kernel/ramdisk/FDT image,
- *      - commandline provided address of decicated FDT image.
+ *      - commandline provided address of dedicated FDT image.
  *
  * Return:
  *     0, if fdt image was found and valid, or skipped
@@ -1107,6 +1109,8 @@ int booti_setup(ulong image, ulong *relocated_addr, ulong *size,
 #define FIT_STANDALONE_PROP	"standalone"
 #define FIT_SCRIPT_PROP		"script"
 #define FIT_PHASE_PROP		"phase"
+#define FIT_TFA_BL31_PROP	"tfa-bl31"
+#define FIT_TEE_PROP		"tee"
 #define FIT_COMPAT_PROP		"compatible"
 
 #define FIT_MAX_HASH_LEN	HASH_MAX_DIGEST_SIZE
@@ -1693,6 +1697,24 @@ struct sig_header_s {
  */
 int image_pre_load(ulong addr);
 
+#if defined(USE_HOSTCC) && CONFIG_IS_ENABLED(LIBCRYPTO)
+/**
+ * rsa_verify_openssl() - Verify a signature against some data with openssl API
+ *
+ * Verify a RSA PKCS1.5/PSS signature against an expected hash.
+ *
+ * @info:		Specifies the key and algorithms
+ * @region:		Pointer to the input data
+ * @region_count:	Number of region
+ * @sig:		Signature
+ * @sig_len:		Number of bytes in the signature
+ * Return: 0 if verified, -ve on error
+ */
+int rsa_verify_openssl(struct image_sign_info *info,
+		       const struct image_region region[], int region_count,
+		       uint8_t *sig, uint sig_len);
+#endif
+
 /**
  * fit_image_verify_required_sigs() - Verify signatures marked as 'required'
  *
@@ -1858,6 +1880,7 @@ struct vendor_boot_img_hdr_v3;
 int android_image_check_header_v3(uint8_t *boot_magic, uint8_t * vendor_boot_magic);
 int android_image_get_kernel_v3(const struct boot_img_hdr_v3 *hdr,
 				const struct vendor_boot_img_hdr_v3 *vendor_hdr,
+				void *fdt_addr,
 				bool bootconfig);
 int32_t add_bootconfig_trailer(uint64_t bootconfig_start_addr, uint32_t bootconfig_size);
 
@@ -2150,7 +2173,7 @@ struct fit_loadable_tbl {
  * _handler is the handler function to call after this image type is loaded
  */
 #define U_BOOT_FIT_LOADABLE_HANDLER(_type, _handler) \
-	ll_entry_declare(struct fit_loadable_tbl, _function, fit_loadable) = { \
+	ll_entry_declare(struct fit_loadable_tbl, _type, fit_loadable) = { \
 		.type = _type, \
 		.handler = _handler, \
 	}
