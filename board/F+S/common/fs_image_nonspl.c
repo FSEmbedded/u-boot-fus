@@ -2284,8 +2284,8 @@ static int fs_image_save_uboot(struct flash_info *fi,
 
 /* ------------- Generic Flash Handling ------------------------------------ */
 
-/* Get flash information for given boot device (rw=true: open read/write) */
-static int fs_image_get_flash_info(struct flash_info *fi, void *fdt, bool rw)
+/* Get flash information for given boot device (ro=true: open read-only) */
+static int fs_image_get_flash_info(struct flash_info *fi, void *fdt, bool ro)
 {
 	int err;
 
@@ -2299,7 +2299,7 @@ static int fs_image_get_flash_info(struct flash_info *fi, void *fdt, bool rw)
 	switch (fi->boot_dev) {
 #ifdef CONFIG_NAND_MXS
 	case NAND_BOOT:
-		err = fs_image_get_flash_nand(fi, 0, rw);
+		err = fs_image_get_flash_nand(fi, 0, ro);
 		break;
 #endif
 
@@ -2307,7 +2307,7 @@ static int fs_image_get_flash_info(struct flash_info *fi, void *fdt, bool rw)
 	case MMC1_BOOT:
 	case MMC2_BOOT:
 	case MMC3_BOOT:
-		err = fs_image_get_flash_mmc(fi, fi->boot_dev - MMC1_BOOT, rw);
+		err = fs_image_get_flash_mmc(fi, fi->boot_dev - MMC1_BOOT, ro);
 		break;
 #endif
 	default:
@@ -2384,7 +2384,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 	nboot_fsh = (void *)addr;
 
 	fdt = fs_image_get_cfg_fdt();
-	if (fs_image_get_flash_info(&fi, fdt, false)
+	if (fs_image_get_flash_info(&fi, fdt, true)
 	    || fs_image_get_nboot_info(&fi, fdt, &ni, -1, false))
 		return CMD_RET_FAILURE;
 
@@ -2537,7 +2537,7 @@ static int fs_image_save_imx8m_uboot(ulong addr, bool force,
 	uint woffset = 0;
 
 	fdt = fs_image_get_cfg_fdt();
-	if (fs_image_get_flash_info(&fi, fdt, true)
+	if (fs_image_get_flash_info(&fi, fdt, false)
 	    || fs_image_get_nboot_info(&fi, fdt, &ni, -1, false))
 		return CMD_RET_FAILURE;
 
@@ -2664,7 +2664,7 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 		return CMD_RET_FAILURE;
 	}
 
-	if (fs_image_get_flash_info(&fi, fdt, true)
+	if (fs_image_get_flash_info(&fi, fdt, false)
 	    || fs_image_get_nboot_info(&fi, fdt, &ni, boot_hwpart, false))
 		return CMD_RET_FAILURE;
 
@@ -3185,7 +3185,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
 	int ret;
 
 	fdt = fs_image_get_cfg_fdt();
-	ret = fs_image_get_flash_info(&fi, fdt, false);
+	ret = fs_image_get_flash_info(&fi, fdt, true);
 	if (ret)
 		return CMD_RET_FAILURE;
 
@@ -3617,7 +3617,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 
 	fs_image_region_create(&uboot_ri, &ni.uboot, &uboot_sub);
 
-	if (fs_image_get_flash_info(&fi, fdt, true))
+	if (fs_image_get_flash_info(&fi, fdt, false))
 		return CMD_RET_FAILURE;
 
 	ret = fs_image_get_nboot_info(&fi, fdt, &ni, -1, false);
@@ -3699,7 +3699,7 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		addr += fs_image_get_size((void *)addr, true);
 
 	/* Get Flash-Info */
-	if (fs_image_get_flash_info(&fi, fdt_new, true))
+	if (fs_image_get_flash_info(&fi, fdt_new, false))
 		return EINVAL;
 
 	ret = fs_image_check_boot_dev_fuses(fi.boot_dev, "save");
@@ -3859,7 +3859,7 @@ int fs_image_do_boot(int argc, char * const argv[])
 
 	/* Output is actually done in fs_image_get_nboot_info() */
 	fdt = fs_image_get_cfg_fdt();
-	if (fs_image_get_flash_info(&fi, fdt, false)
+	if (fs_image_get_flash_info(&fi, fdt, true)
 	    || fs_image_get_nboot_info(&fi, fdt, &ni, -1, true))
 		return CMD_RET_FAILURE;
 

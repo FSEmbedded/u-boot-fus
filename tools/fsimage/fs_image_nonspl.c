@@ -181,7 +181,7 @@ bool read_board_cfg(const char *boot_dev_name)
 	switch (fi.boot_dev) {
 #if 0 //###def CONFIG_NAND_MXS
 	case NAND_BOOT:
-		err = fs_image_get_flash_nand(&fi, 0, 0);
+		err = fs_image_get_flash_nand(&fi, 0, true);
 		break;
 #endif
 
@@ -189,7 +189,7 @@ bool read_board_cfg(const char *boot_dev_name)
 	case MMC1_BOOT:
 	case MMC2_BOOT:
 	case MMC3_BOOT:
-		err = fs_image_get_flash_mmc(&fi, fi.boot_dev - MMC1_BOOT, 0);
+		err = fs_image_get_flash_mmc(&fi, fi.boot_dev - MMC1_BOOT, true);
 		break;
 #endif
 	default:

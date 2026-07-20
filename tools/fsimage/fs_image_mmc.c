@@ -90,12 +90,43 @@ static int write_extcsd_value(int fd, u8 index, u8 value, uint timeout_ms)
 	return 0;
 }
 
+static bool read_sysfs_uint(int sysfs_fd, uint *val)
+{
+	char content[16];
+	char *endp;
+	ssize_t count;
+
+	count = pread(sysfs_fd, content, sizeof(content), 0);
+	if ((count == -1) || (count == 0))
+		return false;
+
+	*val = simple_strtoul(content, &endp, 0);
+	if (endp == content)
+		return false;
+
+	return true;
+}
+
+static bool read_sysfs_bool(int sysfs_fd, bool *flag)
+{
+	uint val;
+
+	if (!read_sysfs_uint(sysfs_fd, &val))
+		return false;
+
+	*flag = (val != 0);
+
+	return true;
+}
+
+
 /* ------------- MMC low-level access in Linux backend ---------------------- */
 
 static struct mmc_ll_linux {
 	int hwpart;		      /* Current hardware partition */
-	bool rw;		      /* false: read-only, true: read/write */
+	bool ro;		      /* false: read-only, true: read/write */
 	int fd[3];		      /* Filedescriptors user/boot1/boot2 */
+	int force_ro_fd[3];	      /* Filedescriptors for force_ro file */
 } mmc_ll_linux;
 
 /* Switch to a new hardware partition */
@@ -149,12 +180,9 @@ static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
 		return -EINVAL;		/* No partition selected */
 
 	fd = ll->fd[ll->hwpart];
-	if (lseek(fd, offs, SEEK_SET) == (off_t)-1)
-		return -errno;		/* Seek error */
-
-	count = read(fd, buf, size);
+	count = pread(fd, buf, size, offs);
 	if (count == -1)
-		return -errno;		/* Read error */
+		return -errno;		/* Seek or read error */
 
 	if (count != (ssize_t)size)
 		return -EIO;		/* EOF */
@@ -167,24 +195,19 @@ static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 			      uint lim, uint flags, u8 *buf)
 {
 	struct mmc_ll_linux *ll = &mmc_ll_linux;
-	off_t seek;
 	ssize_t count;
 	int fd;
 
-	if (!ll->rw)
+	if (ll->ro)
 		return -EROFS;		/* Read-only environment */
 
 	if (ll->hwpart < 0)
 		return -EINVAL;		/* No partition selected */
 
 	fd = ll->fd[ll->hwpart];
-	seek = lseek(fd, offs, SEEK_SET);
-	if (seek == (off_t)-1)
-		return -errno;		/* Seek error */
-
-	count = write(fd, buf, size);
+	count = pwrite(fd, buf, size, offs);
 	if (count == -1)
-		return -errno;		/* Write error */
+		return -errno;		/* Seek or write error */
 	if (count != (ssize_t)size)
 		return -ENOSPC;		/* No space left */
 
@@ -194,14 +217,24 @@ static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 static void fs_image_put_flash_mmc(struct flash_info *fi)
 {
 	struct mmc_ll_linux *ll = &mmc_ll_linux;
+	int hwpart;
 
 	ll->hwpart = -1;
-	if (ll->fd[0] != -1)
-		close(ll->fd[0]);
-	if (ll->fd[1] != -1)
-		close(ll->fd[1]);
-	if (ll->fd[2] != -1)
-		close(ll->fd[2]);
+	for (hwpart = 0; hwpart < 3; hwpart++) {
+		/* Close the hwpartition file */
+		if (ll->fd[hwpart] != -1) {
+			fsync(ll->fd[hwpart]);
+			close(ll->fd[hwpart]);
+			ll->fd[hwpart] = -1;
+		}
+
+		/* If force_ro file is still open here, set it back to 1 */
+		if (ll->force_ro_fd[hwpart] != -1) {
+			pwrite(ll->force_ro_fd[hwpart], "1\n", 3, 0);
+			close(ll->force_ro_fd[hwpart]);
+			ll->force_ro_fd[hwpart] = -1;
+		}
+	}
 }
 
 /* Known offsets for the BOARD-CFG in eMMC flash of previous versions */
@@ -233,11 +266,8 @@ static bool try_board_cfg(off_t offs, u8 hwpart, void *board_cfg)
 	ssize_t count;
 	size_t size;
 
-	if (lseek(fd, offs, SEEK_SET) == -1)
-		return -errno;
-
 	/* Read F&S header */
-	count = read(fd, fsh, FSH_SIZE);
+	count = pread(fd, fsh, FSH_SIZE, offs);
 	if (count == (ssize_t)-1)
 		return -errno;
 	if (count != FSH_SIZE)
@@ -247,8 +277,8 @@ static bool try_board_cfg(off_t offs, u8 hwpart, void *board_cfg)
 	if (!fs_image_match_board_id(fsh))
 		return 1;
 
-	size = fs_image_get_size(fsh, false);
-	count = read(fd, fsh + 1, size);
+	size = fs_image_get_size(fsh, true);
+	count = pread(fd, fsh, size, offs);
 	if (count == (ssize_t)-1)
 		return -errno;
 	if (count != (ssize_t)size)
@@ -316,28 +346,74 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi, int copy,
 /* Include the original file */
 #include "../../board/F+S/common/fs_image_mmc.c"
 
-int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool rw)
+int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool ro)
 {
 	struct mmc_ll_linux *ll = &mmc_ll_linux;
-	int flags = rw ? O_RDWR : O_RDONLY;
-	char devname[32];
+	const char *mmc_hwpart_name[3] = {"", "boot0", "boot1"};
+	int flags = ro ? O_RDONLY : O_RDWR;
+	char devname[64];
+	int hwpart;
+	bool force_ro;
+	int fd;
+	ssize_t count;
+	const char *reason;
 
-	ll->rw = rw;
+	ll->ro = ro;
 	ll->hwpart = 0;
 	ll->fd[0] = -1;
 	ll->fd[1] = -1;
 	ll->fd[2] = -1;
+	ll->force_ro_fd[0] = -1;
+	ll->force_ro_fd[1] = -1;
+	ll->force_ro_fd[2] = -1;
 
-	/* Open main device */
 	snprintf(fi->devname, MAX_FI_DEVNAME, "mmcblk%d", devnum);
-	snprintf(devname, 32, "/dev/%s", fi->devname);
-	ll->fd[0] = open(devname, flags);
-	if (ll->fd[0] == -1)
-		goto err;
 
+	/* In write mode, clear the force_ro flags and save previous state */
+	for (hwpart = 0; hwpart < 3; hwpart++) {
+		/*
+		 * In write mode, if force_ro is set, clear it and keep file
+		 * open to enable it later again in fs_image_put_flash_mmc().
+		 * If force_ro is already cleared, no action is required and
+		 * the file can be closed right here.
+		 */
+		if (!ro) {
+			snprintf(devname, sizeof(devname),
+				 "/sys/block/%s%s/force_ro",
+				 fi->devname, mmc_hwpart_name[hwpart]);
+			fd = open(devname, O_RDWR);
+			if (fd == -1)
+				goto open_err;
+			if (!read_sysfs_bool(fd, &force_ro)) {
+				printf("Cannot read %s\n", devname);
+				goto err;
+			}
+			if (force_ro) {
+				ll->force_ro_fd[hwpart] = fd;
+				count = pwrite(fd, "0\n", 3, 0);
+				if (count == -1)
+					goto err;
+				if (count < 3) {
+					reason = "clear";
+					goto show_err;
+				}
+			} else {
+				close(fd);
+			}
+		}
+
+		/* Open the corresponding hwpart in ro or rw mode */
+		snprintf(devname, sizeof(devname), "/dev/%s%s",
+			 fi->devname, mmc_hwpart_name[hwpart]);
+		ll->fd[hwpart] = open(devname, flags);
+		if (ll->fd[hwpart] == -1)
+			goto open_err;
+	}
+
+	/* Read Extenden CSD register to get some eMMC parameters */
 	if (read_extcsd(ll->fd[0])) {
-		printf("Cannot read extcsd of %s\n", fi->devname);
-		goto put;
+		printf("Cannot read extcsd of %s:\n", fi->devname);
+		goto err;
 	}
 
 	fi->boot_hwpart = (ext_csd[EXT_CSD_PART_CONFIG] >> 3) & 7;
@@ -345,25 +421,15 @@ int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool rw)
 		fi->boot_hwpart = 0;
 	fi->boot_part_size = ext_csd[EXT_CSD_BOOT_MULT] << 17;
 	fi->temp_size = 0x200;
-
-	/* Open boot1/2 partitions */
-	snprintf(devname, 32, "/dev/%sboot0", fi->devname);
-	ll->fd[1] = open(devname, flags);
-	if (ll->fd[1] == -1)
-		goto err;
-
-	snprintf(devname, 32, "/dev/%sboot1", fi->devname);
-	ll->fd[2] = open(devname, flags);
-	if (ll->fd[2] == -1)
-		goto err;
-
 	fi->ops = &flash_ops_mmc;
 
 	return 0;
 
+open_err:
+	reason = "open";
+show_err:
+	printf("Cannot %s %s: %s\n", reason, devname, strerror(errno));
 err:
-	printf("Cannot open %s: %s\n", devname, strerror(errno));
-put:
 	fs_image_put_flash_mmc(fi);
 
 	return -1;

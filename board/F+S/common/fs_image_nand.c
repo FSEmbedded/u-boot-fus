@@ -842,7 +842,7 @@ struct flash_ops flash_ops_nand = {
 
 /* ------------- Global access functions ----------------------------------- */
 
-int fs_image_get_flash_nand(struct flash_info *fi, int devnum, bool rw)
+int fs_image_get_flash_nand(struct flash_info *fi, int devnum, bool ro)
 {
 	fi->mtd = get_nand_dev_by_index(devnum);
 	if (!fi->mtd) {
@@ -889,7 +889,7 @@ int fs_image_get_known_env_nand(uint index, uint start[2], uint *size)
 }
 #else
 //### NAND not supported yet
-int fs_image_get_flash_nand(struct flash_info *fi, int devnum, bool rw)
+int fs_image_get_flash_nand(struct flash_info *fi, int devnum, bool ro)
 {
 	return -ENODEV;
 }
