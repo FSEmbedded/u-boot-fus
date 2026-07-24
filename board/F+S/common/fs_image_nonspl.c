@@ -1383,6 +1383,12 @@ int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 		memcpy(new_id, fsh->param.descr, MAX_DESCR_LEN);
 		new_id[MAX_DESCR_LEN] = '\0';
 		if (strncmp(new_id, old_id, MAX_DESCR_LEN)) {
+#ifndef __UBOOT__
+			/* Changing BOARD-ID is not allowed in Linux */
+			printf("Error: Current board is %s, refusing to %s"
+			       " for %s\n", old_id, action, new_id);
+			return -EINVAL;
+#else
 #if CONFIG_IS_ENABLED(FS_SECURE_BOOT) && CONFIG_IS_ENABLED(IMX_HAB)
 			if (fs_board_is_closed()) {
 				printf("Error: Current board is %s and board"
@@ -1399,6 +1405,7 @@ int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 
 			/* Set this BOARD-ID as compare_id */
 			fs_image_set_compare_id(fsh->param.descr);
+#endif /* !__UBOOT__ */
 		}
 		fsh++;
 	}
