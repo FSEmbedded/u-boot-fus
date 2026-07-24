@@ -809,6 +809,10 @@ struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 	remaining -= extra_size;
 
 	/* Get first subimg */
+#if CONFIG_IS_ENABLED(IMX_HAB)
+	if (fs_image_is_signed(fsh))
+		fsh = (void *)fsh + HAB_HEADER;
+#endif
 	fsh++;
 	fsh = (void *)((ulong)fsh + extra_size);
 	while (remaining > 0) {
@@ -2257,6 +2261,7 @@ static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
 		return -EINVAL;
 	}
 
+#ifdef __UBOOT__
 	/* Copy to verification address and check signature */
 	debug("Copy 0x%x bytes from 0x%08lx to validation address 0x%08lx\n",
 	      size, (ulong)fsh, (ulong)validate_addr);
@@ -2267,6 +2272,18 @@ static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
 	}
 
 	puts("Signature OK\n");
+#else
+	/* ### TODO: actually check signature in Linux, too */
+	{
+		int err;
+
+		printf("Skipping signature validation, just checking CRC32\n");
+		err = fs_image_check_crc32(fsh);
+		fs_image_print_crc32_status(fsh, err);
+		if (err < 0)
+			return err;
+	}
+#endif
 
 	return 0;
 }
@@ -2282,6 +2299,7 @@ static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh)
 	if (err)
 		return NULL;
 #if CONFIG_IS_ENABLED(IMX_HAB)
+#if 0 // ### do not move image, adjust pointer in fs_image_find() instead
 	else {
 		if (fs_image_is_signed(fsh)) {
 			memcpy((void *)((uintptr_t)fsh + 0x40),
@@ -2289,6 +2307,7 @@ static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh)
 			       fsh->info.file_size_low + 0x2000);
 		}
 	}
+#endif //###
 #endif
 
 	/* Look for BOARD-INFO subimage */
