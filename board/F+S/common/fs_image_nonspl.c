@@ -241,6 +241,13 @@ const char fsimage_usage[] =
 #endif
 	"";
 
+
+/* Forward declarations */
+
+static int fs_image_validate_signed(struct fs_header_v1_0 *fsh);
+
+static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh);
+
 /* ------------- Functions only in U-Boot, not SPL ------------------------- */
 
 #ifdef __UBOOT__
@@ -516,6 +523,7 @@ static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent,
 
 	pcs = (u32 *)&fsh->type[12];
 	fs_image_find(fsh_parent, fsh->type, fsh->param.descr, &idx_info);
+
 	if (fs_image_check_crc32_offset(fsh, idx_info.offset) >= 0)
 		crc_valid = true;
 
@@ -1194,46 +1202,6 @@ int fs_image_check_all_crc32(struct fs_header_v1_0 *fsh)
 	return 0;
 }
 
-#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-/* Validate a signed image; Return 0: OK, <0: Error */
-static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
-{
-	struct fs_header_v1_0 *validate_addr;
-	u32 size;
-
-	validate_addr = fs_image_get_ivt_info(fsh, &size);
-	if (!validate_addr || !size) {
-		puts("Error: Bad IVT, validation impossible\n");
-		return -EINVAL;
-	}
-
-	/* Copy to verification address and check signature */
-	debug("Copy 0x%x bytes from 0x%08lx to validation address 0x%08lx\n",
-	      size, (ulong)fsh, (ulong)validate_addr);
-	memcpy(validate_addr, fsh, size + FSH_SIZE);
-	if (!fs_image_is_valid_signature(validate_addr)) {
-		puts("Error: Invalid signature, refusing to save\n");
-		return -EILSEQ;
-	}
-
-	puts("Signature OK\n");
-
-	return 0;
-}
-#else
-
-static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
-{
-	if (!fs_image_is_valid_signature(fsh)) {
-		puts("Error: Invalid signature, refusing to save\n");
-		return -EILSEQ;
-	}
-
-	puts("Signature OK\n");
-	return 0;
-}
-#endif /* !CONFIG_IS_ENABLED(FS_CNTR_COMMON) */
-
 /* Validate an image, either check signature or CRC32; 0: OK, <0: Error */
 static int fs_image_validate(struct fs_header_v1_0 *fsh, const char *type,
 			     const char *descr, ulong addr)
@@ -1382,65 +1350,6 @@ int fs_image_get_size_from_header(struct flash_info *fi, uint offs, uint lim,
 
 	return err;
 }
-
-#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 *fsh)
-{
-	struct fs_header_v1_0 *cfg = fsh;
-	const char *arch = fs_image_get_arch();
-
-	if (!fs_image_match(fsh, "BOOT-INFO", arch))
-		return NULL;
-
-	cfg = (void *)cfg + fs_image_get_size(cfg, true);
-
-	if (!fs_image_match(cfg, "BOARD-ID", NULL))
-		return NULL;
-
-	cfg = (void *)cfg + fs_image_get_size(cfg, true);
-
-	if (fs_image_validate(cfg, "BOARD-INFO", arch, (ulong)cfg))
-		return NULL;
-
-	return cfg;
-}
-
-#else
-
-static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh)
-{
-	struct fs_header_v1_0 *cfg;
-	const char *arch = fs_image_get_arch();
-	int err;
-
-	/* Authenticate signature or check CRC32 */
-	err = fs_image_validate(fsh, "NBOOT", arch, (ulong)fsh);
-	if (err)
-		return NULL;
-#if CONFIG_IS_ENABLED(IMX_HAB)
-	else {
-		if (fs_image_is_signed(fsh)) {
-			memcpy((void *)((uintptr_t)fsh + 0x40),
-			       (void *)((uintptr_t)fsh + 0x80),
-			       fsh->info.file_size_low + 0x2000);
-		}
-	}
-#endif
-
-	/* Look for BOARD-INFO subimage */
-	cfg = fs_image_find(fsh, "BOARD-INFO", arch, NULL);
-	if (!cfg) {
-		/* Fall back to BOARD-CONFIGS for old NBoot variants */
-		cfg = fs_image_find(fsh, "BOARD-CONFIGS", arch, NULL);
-		if (!cfg) {
-			printf("No BOARD-INFO/CONFIGS found for %s\n", arch);
-			return NULL;
-		}
-	}
-
-	return cfg;
-}
-#endif /* FS_CNTR_COMMON */
 
 /*
  * Get pointer to BOARD-CFG image that is to be used and to NBOOT part
@@ -1795,21 +1704,6 @@ int fs_image_load_sub(struct flash_info *fi, uint offs, uint size, uint lim,
 
 	return 0;
 }
-
-#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-void fs_image_set_spl_secondary_bit(void *img, int copy)
-{
-	uint32_t *ivt = img;
-
-	uint32_t spl_csf = ivt[6];
-	uint32_t spl_self = ivt[5];
-	uint32_t offset_csf = spl_csf - spl_self;
-	uint32_t *real_csf = img + offset_csf;
-	uint32_t *copy_addr = real_csf - 1;
-
-	*copy_addr = copy;
-}
-#endif
 
 int fs_image_load_image(struct flash_info *fi, const struct storage_info *si,
 			struct sub_info *sub)
@@ -2337,6 +2231,79 @@ static void fs_image_put_flash_info(struct flash_info *fi)
 /* ------------- IVT Image Format (i.MX8M) --------------------------------- */
 
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+
+void fs_image_set_spl_secondary_bit(void *img, int copy)
+{
+	uint32_t *ivt = img;
+
+	uint32_t spl_csf = ivt[6];
+	uint32_t spl_self = ivt[5];
+	uint32_t offset_csf = spl_csf - spl_self;
+	uint32_t *real_csf = img + offset_csf;
+	uint32_t *copy_addr = real_csf - 1;
+
+	*copy_addr = copy;
+}
+
+/* Validate a signed image; Return 0: OK, <0: Error */
+static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
+{
+	struct fs_header_v1_0 *validate_addr;
+	u32 size;
+
+	validate_addr = fs_image_get_ivt_info(fsh, &size);
+	if (!validate_addr || !size) {
+		puts("Error: Bad IVT, validation impossible\n");
+		return -EINVAL;
+	}
+
+	/* Copy to verification address and check signature */
+	debug("Copy 0x%x bytes from 0x%08lx to validation address 0x%08lx\n",
+	      size, (ulong)fsh, (ulong)validate_addr);
+	memcpy(validate_addr, fsh, size + FSH_SIZE);
+	if (!fs_image_is_valid_signature(validate_addr)) {
+		puts("Error: Invalid signature, refusing to save\n");
+		return -EILSEQ;
+	}
+
+	puts("Signature OK\n");
+
+	return 0;
+}
+
+static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh)
+{
+	struct fs_header_v1_0 *cfg;
+	const char *arch = fs_image_get_arch();
+	int err;
+
+	/* Authenticate signature or check CRC32 */
+	err = fs_image_validate(fsh, "NBOOT", arch, (ulong)fsh);
+	if (err)
+		return NULL;
+#if CONFIG_IS_ENABLED(IMX_HAB)
+	else {
+		if (fs_image_is_signed(fsh)) {
+			memcpy((void *)((uintptr_t)fsh + 0x40),
+			       (void *)((uintptr_t)fsh + 0x80),
+			       fsh->info.file_size_low + 0x2000);
+		}
+	}
+#endif
+
+	/* Look for BOARD-INFO subimage */
+	cfg = fs_image_find(fsh, "BOARD-INFO", arch, NULL);
+	if (!cfg) {
+		/* Fall back to BOARD-CONFIGS for old NBoot variants */
+		cfg = fs_image_find(fsh, "BOARD-CONFIGS", arch, NULL);
+		if (!cfg) {
+			printf("No BOARD-INFO/CONFIGS found for %s\n", arch);
+			return NULL;
+		}
+	}
+
+	return cfg;
+}
 
 /*
  * Search the subimage with given type/descr and add it to the region. Return
@@ -3006,6 +2973,38 @@ struct _image_list{
 	struct fs_header_v1_0 *fsh;
 	struct _image_list *next;
 };
+
+static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
+{
+	if (!fs_image_is_valid_signature(fsh)) {
+		puts("Error: Invalid signature, refusing to save\n");
+		return -EILSEQ;
+	}
+
+	puts("Signature OK\n");
+	return 0;
+}
+
+static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 *fsh)
+{
+	struct fs_header_v1_0 *cfg = fsh;
+	const char *arch = fs_image_get_arch();
+
+	if (!fs_image_match(fsh, "BOOT-INFO", arch))
+		return NULL;
+
+	cfg = (void *)cfg + fs_image_get_size(cfg, true);
+
+	if (!fs_image_match(cfg, "BOARD-ID", NULL))
+		return NULL;
+
+	cfg = (void *)cfg + fs_image_get_size(cfg, true);
+
+	if (fs_image_validate(cfg, "BOARD-INFO", arch, (ulong)cfg))
+		return NULL;
+
+	return cfg;
+}
 
 /* append fsh at end of img list */
 static int append_image_list(struct _image_list *img_list,
