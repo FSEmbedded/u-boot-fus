@@ -123,7 +123,7 @@ static int script_read_bootflow_net(struct bootflow *bflow)
 
 	/* figure out the load address */
 	addr_str = env_get("scriptaddr");
-	addr = addr_str ? hextoul(addr_str, NULL) : image_load_addr;
+	addr = addr_str ? hextoul(addr_str, NULL) : get_loadaddr();
 
 	fname = env_get("boot_script_dhcp");
 	if (!fname)

@@ -1,0 +1,6 @@
+FSIMX95 architecture
+M:	Kay Müller <mueller@fs-net.de>
+S:	Maintained
+F:	board/F+S/fsimx95/
+F:	include/configs/fsimx95.h
+F:	configs/fsimx95_defconfig

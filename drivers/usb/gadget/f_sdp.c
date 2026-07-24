@@ -846,10 +846,6 @@ static void sdp_handle_in_ep(void)
 				spl_load_init(&load, sdp_load_read, header, 1);
 				ret = spl_load_simple_fit(spl_image, &load, 0,
 						    header);
-				if (ret)
-					return SDP_FAIL;
-
-				return SDP_EXIT;
 			}
 #endif
 			if (IS_ENABLED(CONFIG_SPL_LOAD_IMX_CONTAINER) &&
@@ -858,15 +854,10 @@ static void sdp_handle_in_ep(void)
 				int ret;
 
 				spl_load_init(&load, sdp_load_read, header, 1);
-				ret = spl_load_imx_container(spl_image, &load, 0);
-				if (ret)
-					return SDP_FAIL;
-
-				return SDP_EXIT;
+				ret = spl_load_imx_container(&spl_image, &load, 0);
 			}
 
 			/* In SPL, allow jumps to U-Boot images */
-			struct spl_image_info spl_image = {};
 			struct spl_boot_device bootdev = {};
 			spl_parse_image_header(&spl_image, &bootdev, header);
 			spl_board_prepare_for_boot();
@@ -889,8 +880,6 @@ static void sdp_handle_in_ep(void)
 	default:
 		break;
 	};
-
-	return 0;
 }
 
 void sdp_handle(struct udevice *udc,
@@ -920,6 +909,7 @@ void sdp_handle(struct udevice *udc,
 	}
 }
 
+#if 0
 static void sdp_handle_out_ep(void)
 {
 	int rc;
@@ -941,7 +931,6 @@ static void sdp_handle_out_ep(void)
 	}
 }
 
-#if 0
 #ifndef CONFIG_XPL_BUILD
 int sdp_handle(struct udevice *udc)
 #else

@@ -1,0 +1,12 @@
+if TARGET_FSIMX95
+
+config SYS_BOARD
+	default "fsimx95"
+
+config SYS_VENDOR
+	default "F+S"
+
+config SYS_CONFIG_NAME
+	default "fsimx95"
+
+endif

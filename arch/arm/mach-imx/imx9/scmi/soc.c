@@ -2147,8 +2147,8 @@ int disable_smmuv3(void)
 
 int timer_init(void)
 {
-	gd->arch.tbl = 0;
-	gd->arch.tbu = 0;
+	gd->timebase_l = 0;
+	gd->timebase_h = 0;
 
 	if (IS_ENABLED(CONFIG_XPL_BUILD)) {
 		unsigned long freq = 24000000;

@@ -31,9 +31,8 @@ int spl_sdp_handle(struct udevice *udc, struct spl_image_info *spl_image,
 int spl_sdp_stream_image(const struct sdp_stream_ops *ops, bool single);
 int spl_sdp_stream_continue(const struct sdp_stream_ops *ops, bool single);
 void spl_sdp_stream_done(void);
-#else
+#endif
 void sdp_handle(struct udevice *udc,
 		    const struct sdp_stream_ops *ops, bool single);
-#endif
 
 #endif /* __SDP_H_ */
