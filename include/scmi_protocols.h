@@ -28,6 +28,7 @@ enum scmi_std_protocol {
 	SCMI_PROTOCOL_ID_VENDOR_80 = 0x80,
 	SCMI_PROTOCOL_ID_IMX_BBM = 0x81,
 	SCMI_PROTOCOL_ID_VENDOR_82 = 0x82,
+	SCMI_PROTOCOL_ID_MISC = 0x84,
 };
 
 enum scmi_status_code {
@@ -57,6 +58,7 @@ enum scmi_discovery_id {
 enum scmi_imx_misc_message_id {
 	SCMI_MISC_ROM_PASSOVER_GET = 0x7,
 	SCMI_MISC_CFG_INFO = 0xC,
+	SCMI_MISC_CONTROL_EXT_SET = 0x20,
 	SCMI_MISC_DDR_INFO_GET = 0x22,
 };
 

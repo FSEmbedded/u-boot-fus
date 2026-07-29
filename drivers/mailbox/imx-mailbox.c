@@ -233,7 +233,7 @@ static int imx_mu_recv(struct mbox_chan *chan, void *data)
 	case IMX_MU_TYPE_RXDB:
 		/* check if GSR[GIRn] bit is set */
 		if (readx_poll_timeout(ioread32, plat->base + plat->dcfg->xSR[IMX_MU_GSR],
-			val, val & BIT(cp->idx), 1000000) < 0)
+			val, val & BIT(cp->idx), 10000000) < 0)
 			return -EBUSY;
 
 		ctrl = imx_mu_read(plat, plat->dcfg->xCR[IMX_MU_GIER]);

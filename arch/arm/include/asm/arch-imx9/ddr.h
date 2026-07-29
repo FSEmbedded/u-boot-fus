@@ -9,9 +9,15 @@
 #include <asm/io.h>
 #include <asm/types.h>
 
+#if defined(CONFIG_IMX95)
+#define DDR_CTL_BASE			0x5E080000
+#define DDR_PHY_BASE			0x5E800000
+#define DDRMIX_BLK_CTRL_BASE		0x5E010000
+#else
 #define DDR_CTL_BASE			0x4E300000
 #define DDR_PHY_BASE			0x4E100000
 #define DDRMIX_BLK_CTRL_BASE		0x4E010000
+#endif
 
 #define REG_DDR_SDRAM_MD_CNTL	(DDR_CTL_BASE + 0x120)
 #define REG_DDR_CS0_BNDS        (DDR_CTL_BASE + 0x0)
@@ -40,6 +46,14 @@
 #define IP2APB_DDRPHY_IPS_BASE_ADDR(X)	(DDR_PHY_BASE + ((X) * 0x2000000))
 #define DDRPHY_MEM(X)			(DDR_PHY_BASE + ((X) * 0x2000000) + 0x50000)
 
+#if defined(CONFIG_IMX95)
+#define NEW_DRAM_CFG
+#define ddrc_cfg_param dram_cfg_param
+#define ddrphy_cfg_param dram_cfg_param
+#define fsp_phy_cfg fsp_cfg
+#define fsp_phy_cfg_num fsp_cfg_num
+#endif
+
 /* PHY State */
 enum pstate {
 	PS0,
@@ -65,6 +79,65 @@ struct dram_cfg_param {
 	unsigned int val;
 };
 
+#ifdef NEW_DRAM_CFG
+struct dram_fsp_cfg
+{
+    struct ddrc_cfg_param *ddrc_cfg;
+    unsigned int ddrc_cfg_num;
+    struct ddrc_cfg_param *mr_cfg;
+    unsigned int mr_cfg_num;
+    unsigned int bypass;
+};
+
+struct dram_fsp_msg
+{
+    unsigned int drate;
+    bool ssc;
+    enum fw_type fw_type;
+    /* pstate ddrphy config */
+    struct ddrphy_cfg_param *fsp_phy_cfg;
+    unsigned int fsp_phy_cfg_num;
+    /* pstate message block(header) */
+    struct ddrphy_cfg_param *fsp_phy_msgh_cfg;
+    unsigned int fsp_phy_msgh_cfg_num;
+    /* pstate PIE */
+    struct ddrphy_cfg_param *fsp_phy_pie_cfg;
+    unsigned int fsp_phy_pie_cfg_num;
+
+    /* for simulation */
+    struct ddrphy_cfg_param *fsp_phy_prog_csr_ps_cfg;
+    unsigned int fsp_phy_prog_csr_ps_cfg_num;
+};
+
+struct dram_timing_info {
+	/* umctl2 config */
+	struct dram_cfg_param *ddrc_cfg;
+	unsigned int ddrc_cfg_num;
+	/* fsp config */
+	struct dram_fsp_cfg *fsp_cfg;
+	unsigned int fsp_cfg_num;
+	/* ddrphy config */
+	struct dram_cfg_param *ddrphy_cfg;
+	unsigned int ddrphy_cfg_num;
+	/* ddr fsp train info */
+	struct dram_fsp_msg *fsp_msg;
+	unsigned int fsp_msg_num;
+	/* ddr phy trained CSR */
+	struct dram_cfg_param *ddrphy_trained_csr;
+	unsigned int ddrphy_trained_csr_num;
+	/* ddr phy PIE */
+	struct dram_cfg_param *ddrphy_pie;
+	unsigned int ddrphy_pie_num;
+	/* initialized drate table */
+	unsigned int fsp_table[4];
+
+	/* for emulation */
+	unsigned int skip_fw;
+	unsigned int prog_csr;
+	struct ddrphy_cfg_param *ddrphy_prog_csr;
+	unsigned int ddrphy_prog_csr_num;
+};
+#else
 struct dram_fsp_cfg {
 	struct dram_cfg_param ddrc_cfg[20];
 	struct dram_cfg_param mr_cfg[10];
@@ -100,6 +173,7 @@ struct dram_timing_info {
 	/* initialized drate table */
 	unsigned int fsp_table[4];
 };
+#endif
 
 extern struct dram_timing_info dram_timing;
 

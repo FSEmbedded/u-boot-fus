@@ -30,6 +30,11 @@ int spl_sdp_handle(struct udevice *udc, struct spl_image_info *spl_image,
 		   struct spl_boot_device *bootdev);
 int spl_sdp_stream_image(const struct sdp_stream_ops *ops, bool single);
 int spl_sdp_stream_continue(const struct sdp_stream_ops *ops, bool single);
+#if defined(CONFIG_FS_SDP)
+void sdp_handle_single_rx(struct udevice *udc,
+		    const struct sdp_stream_ops *ops, bool single);
+int spl_sdp_stream_single_rx(const struct sdp_stream_ops *ops, bool single);
+#endif
 void spl_sdp_stream_done(void);
 #endif
 void sdp_handle(struct udevice *udc,

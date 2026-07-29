@@ -915,7 +915,7 @@ u32 fs_board_get_secondary_offset(void)
 	return val;
 }
 
-#elif   defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
+#elif defined(CONFIG_IMX95) || defined(CONFIG_IMX93) || defined(CONFIG_IMX91)
 /* Definitions in boot_cfg (fuse bank 3, word 0) */
 #define BOOT_CFG_BOOT_MODE_SHIFT 0
 #define BOOT_CFG_BOOT_MODE_MASK GENMASK(3, BOOT_CFG_BOOT_MODE_SHIFT)

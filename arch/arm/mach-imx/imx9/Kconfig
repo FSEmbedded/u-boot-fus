@@ -281,9 +281,9 @@ config TARGET_FSIMX93
 
 config TARGET_FSIMX95
 	bool "fsimx95"
+	select FSIMX_BOARDS
+	select BINMAN
 	select IMX95
-	imply BOOTSTD_BOOTCOMMAND
-	imply BOOTSTD_FULL
 
 endchoice
 

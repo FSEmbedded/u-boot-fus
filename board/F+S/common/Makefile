@@ -25,6 +25,7 @@ obj-$(CONFIG_FS_DRAM_COMMON)	+= fs_dram_common.o
 obj-$(CONFIG_FS_SPL_MEMTEST_COMMON)     += fs_memtest_common.o
 obj-$(CONFIG_FS_CNTR_COMMON)	+= fs_cntr_common.o
 obj-$(CONFIG_FS_BOOTROM)		+= fs_bootrom.o
+obj-$(CONFIG_FS_SDP)		+= fs_sdp.o
 
 ifdef CONFIG_SPL_BUILD
 obj-$(CONFIG_FS_IMAGE_COMMON)	+= fs_image_spl.o

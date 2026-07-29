@@ -45,6 +45,18 @@ struct efi_capsule_update_info update_info = {
 };
 #endif /* EFI_HAVE_CAPSULE_SUPPORT */
 
+int board_early_init_f(void)
+{
+#ifndef CONFIG_SPL_BUILD
+	//fs_setup_cfg_info();
+#endif
+
+	/* UART1: A55, UART2: M33, UART3: M7 */
+	init_uart_clk(0);
+
+	return 0;
+}
+
 #ifdef CONFIG_USB_TCPC
 struct tcpc_port port;
 #ifdef CONFIG_TARGET_IMX95_15X15_EVK

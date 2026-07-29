@@ -723,6 +723,35 @@ static ulong search_fit_header(ulong p, int size)
         return 0;
 }
 
+#ifdef CONFIG_FS_BOARD_CFG
+/* Return: -1: No U-Boot image, 0: No F&S Header, >0: size of F&S header */
+int spl_check_fs_header(void *header)
+{
+	struct fs_header_v1_0 *fsh = header;
+	bool is_signed;
+
+	if (!fs_image_is_fs_image(fsh))
+		return 0;
+
+	if (!fs_image_match(fsh, "U-BOOT", fs_image_get_arch())) {
+		puts("Not a valid F&S U-Boot image\n");
+		return -ENOENT;
+	}
+
+	is_signed = fs_image_is_signed(fsh);
+#ifdef CONFIG_FS_SECURE_BOOT
+	if (!is_signed && imx_hab_is_enabled()) {
+		printf("Error: Unsigned U-Boot on closed board!!\n");
+		return -EACCES;
+	}
+#endif
+
+	debug("Loading %ssigned F&S U-Boot...\n", is_signed ? "" : "un");
+
+	return FSH_SIZE;
+}
+#endif
+
 static int get_extra_offset(void *header, struct spl_image_info *spl_image)
 {
 	int extra_offset = 0;
@@ -733,6 +762,7 @@ static int get_extra_offset(void *header, struct spl_image_info *spl_image)
 	if (extra_offset < 0)
 		panic("Failed to jump to U-Boot\n");
 
+#ifndef CONFIG_FS_CNTR_COMMON
 	/* In case of signed U-Boot, load U-Boot image completely */
 	if ((extra_offset > 0) && fs_image_is_signed(header)) {
 		u32 size;
@@ -747,6 +777,7 @@ static int get_extra_offset(void *header, struct spl_image_info *spl_image)
 			panic("Failed to jump to U-Boot\n");
 		jump_to_image_no_args(spl_image);
 	}
+#endif
 #endif
 
 	return extra_offset;
@@ -908,6 +939,48 @@ void sdp_handle(struct udevice *udc,
 		}
 	}
 }
+
+#if defined(CONFIG_FS_SDP)
+void sdp_handle_single_rx(struct udevice *udc,
+		const struct sdp_stream_ops *ops, bool single)
+{
+	enum sdp_state last_state = SDP_STATE_IDLE;
+	u32 bytes_remaining = sdp_func->dnl_bytes_remaining;
+
+	stream_ops = ops;
+
+	while (1) {
+		if (ctrlc()) {
+			puts("\rCTRL+C - Operation aborted.\n");
+			return;
+		}
+
+		schedule();
+		dm_usb_gadget_handle_interrupts(udc);
+
+		if (sdp_func->state == SDP_STATE_JUMP)
+			return;
+
+		sdp_handle_in_ep();
+		if (single) {
+			if ((sdp_func->state == SDP_STATE_RX_FILE_DATA)
+			    /*&& (last_state == SDP_STATE_RX_FILE_DATA)*/) {
+				while (bytes_remaining == sdp_func->dnl_bytes_remaining) {
+					schedule();
+					dm_usb_gadget_handle_interrupts(udc);
+
+					sdp_handle_in_ep();
+				}
+				break;
+			}
+			if ((last_state != SDP_STATE_IDLE)
+			    && (sdp_func->state == SDP_STATE_IDLE))
+				break;
+			last_state = sdp_func->state;
+		}
+	}
+}
+#endif
 
 #if 0
 static void sdp_handle_out_ep(void)

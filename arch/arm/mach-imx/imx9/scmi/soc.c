@@ -588,15 +588,19 @@ static void spl_enable_caches(void)
 	if (pgtable_size > SZ_2M) /* Only first 2MB avaliable for SPL */
 		return;
 
+#if defined(CONFIG_SYS_ICACHE_OFF) || defined(CONFIG_SYS_DCACHE_OFF)
 	gd->arch.tlb_size = pgtable_size;
 	gd->arch.tlb_addr = (unsigned long)CFG_SYS_SECURE_SDRAM_BASE;
 
 	dcache_enable();
+#endif
 }
 
 void spl_board_prepare_for_boot(void)
 {
+#if defined(CONFIG_SYS_ICACHE_OFF) || defined(CONFIG_SYS_DCACHE_OFF)
 	dcache_disable();
+#endif
 }
 
 __weak int board_phys_sdram_size(phys_size_t *size)

@@ -39,6 +39,49 @@ int spl_sdp_stream_continue(const struct sdp_stream_ops *ops, bool single)
 	return 0;
 }
 
+#if defined(CONFIG_FS_SDP)
+int spl_sdp_stream_single_rx(const struct sdp_stream_ops *ops, bool single)
+{
+	static struct udevice *udc;
+	static int initdone;
+
+	if (!initdone) {
+		int ret;
+		/* Only init the USB controller once while in SPL */
+		ret = spl_sdp_get_controller(&udc);
+		if (ret)
+			return ret;
+
+		g_dnl_clear_detach();
+		ret = g_dnl_register("usb_dnl_sdp");
+		if (ret) {
+			pr_err("SDP dnl register failed: %d\n", ret);
+			goto err_detach;
+		}
+
+		ret = sdp_init(udc);
+		if (ret) {
+			pr_err("SDP init failed: %d\n", ret);
+			goto err_unregister;
+		}
+
+		initdone = 1;
+	}
+
+	/* Should not return, unless in single mode when it returns after one
+	   SDP command */
+	sdp_handle_single_rx(udc, ops, single);
+
+	return 0;
+
+err_unregister:
+	g_dnl_unregister();
+err_detach:
+	udc_device_put(udc);
+	return -1;
+}
+#endif
+
 void spl_sdp_stream_done(void)
 {
 	struct udevice *udc;
@@ -105,6 +148,22 @@ err_detach:
 	return ret;
 }
 
+#if defined(CONFIG_FS_SDP)/* && defined(CONFIG_SPL_BOOTROM_SUPPORT) */
+static int spl_return_to_sdp_stream(struct spl_image_info *spl_image,
+				 struct spl_boot_device *bootdev)
+{
+	/*
+	 * If the board implements a way to return to its ROM (with
+	 * the expectation that the next stage of will be booted by
+	 * the ROM), it will implement board_return_to_bootrom() and
+	 * should not return from it.
+	 */
+	return board_return_to_bootrom(spl_image, bootdev);
+}
+
+SPL_LOAD_IMAGE_METHOD("USB SDP", 0, BOOT_DEVICE_BOARD, spl_return_to_sdp_stream);
+#else
+
 /**
  * Load an image with Serial Download Protocol (SDP)
  *
@@ -120,3 +179,4 @@ static int spl_sdp_load_image(struct spl_image_info *spl_image,
 }
 
 SPL_LOAD_IMAGE_METHOD("USB SDP", 0, BOOT_DEVICE_BOARD, spl_sdp_load_image);
+#endif

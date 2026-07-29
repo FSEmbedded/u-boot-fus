@@ -35,6 +35,7 @@ static inline int _spl_load(struct spl_image_info *spl_image,
 	if (ret < 0)
 		return ret;
 
+#ifndef CONFIG_FS_CNTR_COMMON
 	/* In case of signed U-Boot, load U-Boot image completely */
 	if ((ret > 0) && fs_image_is_signed((void *)header)) {
 		u32 size;
@@ -48,7 +49,7 @@ static inline int _spl_load(struct spl_image_info *spl_image,
 		}
 		return secure_spl_load_simple_fit(spl_image, addr, size);
 	}
-
+#endif
 	/* Skip F&S Header */
 	header = (void *)header + ret;
 	info->extra_offset = ret;

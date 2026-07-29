@@ -416,10 +416,15 @@ static void dwc3_free_scratch_buffers(struct dwc3 *dwc)
 
 static void dwc3_core_num_eps(struct dwc3 *dwc)
 {
+#ifndef CONFIG_SPL_BUILD
 	struct dwc3_hwparams	*parms = &dwc->hwparams;
 
 	dwc->num_in_eps = DWC3_NUM_IN_EPS(parms);
 	dwc->num_out_eps = DWC3_NUM_EPS(parms) - dwc->num_in_eps;
+#else
+	dwc->num_in_eps = 2;
+	dwc->num_out_eps = 2;
+#endif
 
 	dev_vdbg(dwc->dev, "found %d IN and %d OUT endpoints\n",
 			dwc->num_in_eps, dwc->num_out_eps);

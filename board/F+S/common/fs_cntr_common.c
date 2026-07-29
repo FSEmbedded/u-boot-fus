@@ -151,7 +151,12 @@
 #endif
 
 #include "fs_dram_common.h"
+#ifdef CONFIG_FS_BOOTROM
 #include "fs_bootrom.h"
+#endif
+#ifdef CONFIG_FS_SDP
+#include "fs_sdp.h"
+#endif
 
 #else
 
@@ -708,6 +713,58 @@ static int fs_handle_board_id(struct fsh_load_info *fsh_info)
 	return 0;
 }
 
+static bool fs_cntr_is_dummy_id(struct fsh_load_info *fsh_info)
+{
+	struct fs_header_v1_0 *fsh;
+	fsh = fsh_info->fsh;
+
+	/* Check for BOARD-ID */
+	if (fs_image_match(fsh, "BOARD-ID", NULL)){
+		if (!strncmp(fsh->param.descr, "DUMMY-ID", 8)) {
+			debug("FSCNTR: Found DUMMY BOARD-ID\n");
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static inline void fs_cntr_skip_boot_info(struct fsh_load_info *fsh_info)
+{
+	struct fs_header_v1_0 *fsh;
+	fsh = fsh_info->fsh;
+	u64 file_size = 0;
+	ulong count;
+	u8 * buffer;
+
+	file_size = ((u64) fsh->info.file_size_high << 32) | fsh->info.file_size_low;
+
+	buffer = malloc(fsh_info->load_info->bl_len);
+
+	count = file_size / fsh_info->load_info->bl_len;
+	while (count > 0) {
+		fsh_info->load_info->read(fsh_info->load_info, 0, 1, buffer);
+		count--;
+	}
+
+	free(buffer);
+}
+
+static bool fs_cntr_is_boot_info(struct fsh_load_info *fsh_info)
+{
+	struct fs_header_v1_0 *fsh;
+	fsh = fsh_info->fsh;
+
+	/* Check for BOOT-INFO */
+	if (fs_image_match(fsh, "BOOT-INFO", NULL)){
+		debug("FSCNTR: Found IMX-CONTAINER FOR BOOT-INFO\n");
+		fs_cntr_skip_boot_info(fsh_info);
+		return true;
+	}
+
+	return false;
+}
+
 /**
  * init ram_info struct with values from board-cfg
  * retrun: 0 if ok; .-1 if failure;
@@ -1051,7 +1108,12 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 			return ret;
 		}
 
+#ifdef CFG_SPL_DRAM_FW_EXE_ADDR
+		if (CFG_SPL_DRAM_FW_ADDR != CFG_SPL_DRAM_FW_EXE_ADDR)
+			memcpy((void*)CFG_SPL_DRAM_FW_EXE_ADDR, (void *)dram_info.load_addr, dram_info.size);
+#else
 		memcpy(&_end, (void *)dram_info.load_addr, dram_info.size);
+#endif
 	}
 
 	/* search dram-timing */
@@ -1271,6 +1333,14 @@ static void fs_cntr_new_header(void *dnl_address, uint size)
 
 	fsh_info = (struct fsh_load_info *)dnl_address;
 
+	/* Skip dummy board-id, if one is found */
+	if (fs_cntr_is_dummy_id(fsh_info))
+		return;
+
+	/* Skip BOOT-INFO container, if one is found */
+	if (fs_cntr_is_boot_info(fsh_info))
+		return;
+
 	fs_cntr_handle(fsh_info);
 }
 
@@ -1278,6 +1348,30 @@ static const struct sdp_stream_ops fs_image_sdp_stream_ops = {
 	.new_file = fs_cntr_new_header, /* handels F&S ID and Info-Header */
 	.rx_data = NULL,
 };
+
+int stream_continue(const struct sdp_stream_ops *stream_ops)
+{
+#if defined(CONFIG_FS_BOOTROM)
+	return bootrom_stream_continue(stream_ops);
+#elif defined(CONFIG_FS_SDP)
+	return sdp_stream_continue(stream_ops);
+#else
+	printf("WARNING: %s not available; check FS_BOOTROM and FS_SDP!\n", __func__);
+	return -1;
+#endif
+}
+int seek_continue(const struct sdp_stream_ops *stream_ops)
+{
+#if defined(CONFIG_FS_BOOTROM)
+	return bootrom_seek_continue(stream_ops);
+#elif defined(CONFIG_FS_SDP)
+	printf("WARNING: %s not available; check FS_BOOTROM and FS_SDP!\n", __func__);
+	return -1;
+#else
+	printf("WARNING: %s not available; check FS_BOOTROM and FS_SDP!\n", __func__);
+	return -1;
+#endif
+}
 
 /* Load FIRMWARE and optionally BOARD-CFG via SDPS from BOOTROM */
 void fs_cntr_nboot_stream(bool need_cfg)
@@ -1293,7 +1387,7 @@ void fs_cntr_nboot_stream(bool need_cfg)
 	/* Stream until NBOOT Files are downloaded */
 	while (get_jobs()) {
 		debug("%s: Jobs not done: 0x%x\n", __func__, jobs);
-		bootrom_stream_continue(&fs_image_sdp_stream_ops);
+		stream_continue(&fs_image_sdp_stream_ops);
 	};
 }
 
@@ -1310,7 +1404,7 @@ void fs_cntr_nboot_mmc(bool need_cfg)
 	/* load files, until nboot is done */
 	while (get_jobs()) {
 		debug("%s: Jobs not done: 0x%x\n", __func__, jobs);
-		bootrom_seek_continue(&fs_image_sdp_stream_ops);
+		seek_continue(&fs_image_sdp_stream_ops);
 	};
 }
 
@@ -1338,7 +1432,7 @@ static void fs_cntr_board_id_stream(void)
 	/* Stream until BOARD-ID HDR is downloaded */
 	while (get_jobs()) {
 		debug("%s: Jobs not done: 0x%x\n", __func__, jobs);
-		bootrom_stream_continue(&fs_image_sdp_stream_ops);
+		stream_continue(&fs_image_sdp_stream_ops);
 	};
 }
 
@@ -1351,7 +1445,7 @@ static void fs_cntr_board_id_mmc(void)
 	/* load files, until BOARD-ID HDR is done */
 	while (get_jobs()) {
 		debug("%s: Jobs not done: 0x%x\n", __func__, jobs);
-		bootrom_seek_continue(&fs_image_sdp_stream_ops);
+		seek_continue(&fs_image_sdp_stream_ops);
 	};
 }
 
@@ -1400,6 +1494,18 @@ static int load_uboot(struct spl_image_info *spl_image)
 		return ret;
 
 	ret = fs_cntr_load_all_images(spl_image, &cntr_info, load_info, 1);
+
+#ifdef CONFIG_FS_SDP
+	/* In SDP mode, the alignment needs to be loaded as well */
+	{
+		const struct sdp_stream_ops dummy_stream_ops = {
+			.new_file = NULL,
+			.rx_data = NULL,
+		};
+
+		spl_sdp_stream_single_rx(&dummy_stream_ops, false);
+	}
+#endif
 
 	free_container(&cntr_info);
 

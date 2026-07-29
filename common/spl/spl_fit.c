@@ -1098,33 +1098,6 @@ int spl_load_fit_image(struct spl_image_info *spl_image,
 }
 
 #ifdef CONFIG_FS_BOARD_CFG
-/* Return: -1: No U-Boot image, 0: No F&S Header, >0: size of F&S header */
-int spl_check_fs_header(void *header)
-{
-	struct fs_header_v1_0 *fsh = header;
-	bool is_signed;
-
-	if (!fs_image_is_fs_image(fsh))
-		return 0;
-
-	if (!fs_image_match(fsh, "U-BOOT", fs_image_get_arch())) {
-		puts("Not a valid F&S U-Boot image\n");
-		return -ENOENT;
-	}
-
-	is_signed = fs_image_is_signed(fsh);
-#ifdef CONFIG_FS_SECURE_BOOT
-	if (!is_signed && imx_hab_is_enabled()) {
-		printf("Error: Unsigned U-Boot on closed board!!\n");
-		return -EACCES;
-	}
-#endif
-
-	debug("Loading %ssigned F&S U-Boot...\n", is_signed ? "" : "un");
-
-	return FSH_SIZE;
-}
-
 static ulong secure_load_read(struct spl_load_info *load, ulong sector,
 			      ulong count, void *buf)
 {
