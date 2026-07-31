@@ -273,7 +273,7 @@ static int sdp_download(u8 *dest, u32 offset, u32 size)
 
 	sdp_dest = dest;
 
-	debug("sdp_download: sdp_dest = 0x%p\n",sdp_dest);
+	debug("sdp_download: sdp_dest = 0x%lx\n",(ulong)sdp_dest);
 
 	ret = spl_sdp_stream_single_rx(&fs_image_sdp_stream_ops, true);
 
@@ -421,7 +421,7 @@ static ulong sdp_rx_data_stream(struct spl_load_info *load, ulong sector,
 	for(i = 0; i < count; i++){
 		buf_offset = load->bl_len * i;
 		debug("read_pages=%d\tcount=%ld\n", i, count);
-		debug("load_addr=0x%p, ptr_idx=%d, r_size=%d\n", buf + buf_offset, g_buffer.ptr_idx, g_buffer.r_size);
+		debug("load_addr=0x%lx, ptr_idx=%d, r_size=%d\n", (ulong)(buf + buf_offset), g_buffer.ptr_idx, g_buffer.r_size);
 
 		/* Copy FSH chunk */
 		memcpy(buf + buf_offset, g_buffer.buffer + g_buffer.ptr_idx, load->bl_len);
@@ -466,6 +466,8 @@ int sdp_stream_continue(const struct sdp_stream_ops *stream_ops)
 	fsh_info.fsh = &fsh;
 	fsh_info.load_info = &load_info;
 	fsh_info.offset = 0;
+
+	debug("%s: &fsh_info = 0x%lx\n",__func__,(ulong)&fsh_info);
 
 	stream_ops->new_file((void *)&fsh_info, FSH_SIZE);
 	return 0;

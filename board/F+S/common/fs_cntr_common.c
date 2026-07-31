@@ -383,8 +383,8 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 	if (!cntr)
 		return -ENOMEM;
 
-	debug("%s: container: 0x%p sector: 0x%lx count: 0x%x\n", __func__,
-	      cntr, sector, count);
+	debug("%s: container: 0x%lx sector: 0x%lx count: 0x%x\n", __func__,
+	      (ulong)cntr, sector, count);
 
 	if (info->read(info, sector, count, cntr) != count) {
 		ret = -EIO;
@@ -424,8 +424,8 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 		memcpy(cntr_tmp, cntr, size);
 		free(cntr);
 
-		debug("%s: container: 0x%p sector: 0x%lx count: 0x%x\n",
-		      __func__, cntr, sector, tmp_count);
+		debug("%s: container: 0x%lx sector: 0x%lx count: 0x%x\n",
+		      __func__, (ulong)cntr, sector, tmp_count);
 
 		if (info->read(info, (sector + count),
 				(tmp_count - count),
@@ -542,8 +542,8 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 	sector = (images[image_index].offset / info->bl_len) +
 		cntr_sector;
 
-	debug("%s: container: 0x%p sector: 0x%lx sectors: 0x%x\n", __func__,
-			container, sector, count);
+	debug("%s: container: 0x%lx sector: 0x%lx sectors: 0x%x\n", __func__,
+			(ulong)container, sector, count);
 	debug("%s: img_idx=%d, loadaddr=0x%lx \n", __func__,
 			image_index, (ulong)images[image_index].dst);
 	if (info->read(info, sector, count,
@@ -780,7 +780,7 @@ static int init_ram_info(struct ram_info_t *ram_info)
 	ram_info->type = fs_image_getprop(fdt, offs, rev_offs, "dram-type", NULL);
 	ram_info->timing = fs_image_getprop(fdt, offs, rev_offs, "dram-timing", NULL);
 
-	debug("%s: type at 0x%p; timing at 0x%p\n", __func__, ram_info->type, ram_info->timing);
+	debug("%s: type at 0x%lx; timing at 0x%lx\n", __func__, (ulong)ram_info->type, (ulong)ram_info->timing);
 	if(!ram_info->type || !ram_info->timing)
 		return -1;
 
