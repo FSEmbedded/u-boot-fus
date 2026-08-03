@@ -40,8 +40,5 @@ obj-$(CONFIG_FS_DEVICEINFO_COMMON)	+= fs_deviceinfo_common.o
 obj-$(CONFIG_USB_TCPC)		+= tcpc.o
 obj-$(CONFIG_FS_SELFTEST) += fs_processor_info.o
 obj-$(CONFIG_FS_SELFTEST) += fs_dram_test.o
-ifdef CONFIG_TARGET_FSIMX95
-obj-y				+= mmc.o
-endif
 endif
 endif

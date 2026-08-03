@@ -6,6 +6,8 @@
 #include <env.h>
 #include <efi_loader.h>
 #include <init.h>
+#include <mmc.h>
+#include <asm/global_data.h>
 #include <fdt_support.h>
 #include <asm/gpio.h>
 #include <asm/arch/clock.h>
@@ -22,8 +24,159 @@
 #include <asm/arch/sys_proto.h>
 #include <dm/uclass.h>
 #include <dm/uclass-internal.h>
+#include <hang.h>
+
+#include "fsimx95.h"
+#include "../common/fs_board_common.h"
+#include "../common/fs_eth_common.h"
+#include "../common/fs_image_common.h"
+#include "../common/fs_cntr_common.h"
+#include "../common/fs_fdt_common.h"
+
+DECLARE_GLOBAL_DATA_PTR;
 
 extern int board_fix_fdt_fuse(void *fdt);
+
+/* +++ Environment defines +++ */
+
+#define INSTALL_RAM "ram@94800000"
+
+#if CONFIG_IS_ENABLED(MMC) && CONFIG_IS_ENABLED(USB_STORAGE) && CONFIG_IS_ENABLED(FS_FAT)
+#define UPDATE_DEF "mmc,usb"
+#define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
+#elif CONFIG_IS_ENABLED(MMC) && CONFIG_IS_ENABLED(USB_STORAGE)
+#define UPDATE_DEF "mmc"
+#define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
+#elif CONFIG_IS_ENABLED(USB_STORAGE) && CONFIG_IS_ENABLED(FS_FAT)
+#define UPDATE_DEF "usb"
+#define INSTALL_DEF INSTALL_RAM "," UPDATE_DEF
+#else
+#define UPDATE_DEF NULL
+#define INSTALL_DEF INSTALL_RAM
+#endif
+
+#if CONFIG_IS_ENABLED(FS_UPDATE_SUPPORT)
+#define INIT_DEF ".init_fs_updater"
+#else
+#define INIT_DEF ".init_init"
+#endif
+
+/* --- Environment defines --- */
+const struct fs_board_info board_info[] = {
+	{	/* 0 (BT_IMX95EVK) */
+		.name = "iMX95EVK",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+};
+
+/* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
+
+#ifndef CONFIG_SPL_BUILD
+static int set_gd_board_type(void)
+{
+	struct fs_header_v1_0 *cfg_fsh;
+	const char *board_id;
+	const char *ptr;
+	int len;
+
+	cfg_fsh = fs_image_get_regular_cfg_addr();
+	board_id = cfg_fsh->param.descr;
+	ptr = strchr(board_id, '-');
+	len = (int)(ptr - board_id);
+
+	SET_BOARD_TYPE("iMX95EVK", BT_IMX95EVK, board_id, len);
+
+	return -EINVAL;
+}
+
+static void fs_setup_cfg_info(void)
+{
+	void *fdt;
+	int offs;
+	int rev_offs;
+	unsigned int features;
+	struct cfg_info *info;
+	const char *string;
+	u32 flags = 0;
+
+	/**
+	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
+	 * is fatal. However no output is possible this early, so simply stop.
+	 * If the BOARD-CFG is not at the expected location in OCRAM but is
+	 * found somewhere else, output a warning later in board_late_init().
+	 */
+	if(!fs_image_find_cfg_in_ocram())
+		hang();
+
+	if (!fs_image_is_ocram_cfg_valid())
+		hang();
+
+	info = fs_board_get_cfg_info();
+	memset(info, 0, sizeof(struct cfg_info));
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
+						    &info->board_rev);
+
+	set_gd_board_type();
+	info->board_type = gd->board_type;
+
+	string = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
+	info->boot_dev = fs_board_get_boot_dev_from_name(string);
+
+	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
+						"dram-chips", 1);
+
+	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
+					       "dram-size", 0x400);
+
+	info->flags = flags;
+
+	features = 0;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
+		features |= FEAT_EMMC;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
+		features |= FEAT_EXT_RTC;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
+		features |= FEAT_EEPROM;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
+		features |= FEAT_ETH_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
+		features |= FEAT_ETH_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
+		features |= FEAT_ETH_PHY_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
+		features |= FEAT_ETH_PHY_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
+		features |= FEAT_AUDIO;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
+		features |= FEAT_WLAN;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
+		features |= FEAT_SDIO_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
+		features |= FEAT_SDIO_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
+		features |= FEAT_MIPI_DSI;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
+		features |= FEAT_MIPI_CSI;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
+		features |= FEAT_LVDS;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
+		features |= FEAT_RGB;
+
+	info->features = features;
+}
+#endif
 
 #if CONFIG_IS_ENABLED(EFI_HAVE_CAPSULE_SUPPORT)
 #define IMX_BOOT_IMAGE_GUID \
@@ -48,7 +201,7 @@ struct efi_capsule_update_info update_info = {
 int board_early_init_f(void)
 {
 #ifndef CONFIG_SPL_BUILD
-	//fs_setup_cfg_info();
+	fs_setup_cfg_info();
 #endif
 
 	/* UART1: A55, UART2: M33, UART3: M7 */
@@ -382,11 +535,78 @@ int board_init(void)
 
 	lvds_backlight_on();
 
+	/* Copy NBoot args to variables and prepare command prompt string */
+	fs_board_init_common(&board_info[gd->board_type]);
+
 	return 0;
+}
+
+static const char* fsimx95_get_board_name(void)
+{
+	return board_info[gd->board_type].name;
+}
+
+static void fsimx95_get_board_rev(char *str, int len)
+{
+	uint rev = fs_image_get_board_rev();
+
+	snprintf(str, len, "REV%01d.%02d", rev / 100, rev % 100);
+}
+
+int mmc_map_to_kernel_blk(int devno)
+{
+	return devno;
+}
+
+void board_late_mmc_env_init(void)
+{
+	char cmd[32];
+	char mmcblk[32];
+	u32 dev_no = mmc_get_env_dev();
+
+	env_set_ulong("mmcdev", dev_no);
+
+	/**
+	 * TODO: consider F&S U-BOOT-ENV $rootfs_partition_mmc
+	 * This section will be replaced
+	*/
+	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw", mmc_map_to_kernel_blk(dev_no));
+	env_set("mmcroot", mmcblk);
+
+	sprintf(cmd, "mmc dev %d", dev_no);
+	run_command(cmd, 0);
+}
+
+void fs_ethaddr_init(void)
+{
+	int eth_id = 0;
+
+	/* Set MAC addresses as environment variables */
+	switch (gd->board_type)
+	{
+	case BT_IMX95EVK:
+		fs_eth_set_ethaddr(eth_id++);
+		fs_eth_set_ethaddr(eth_id++);
+		break;
+	default:
+		break;
+	}
 }
 
 int board_late_init(void)
 {
+	enum boot_device boot_dev = get_boot_device();
+	struct cfg_info *info = fs_board_get_cfg_info();
+	void *fdt;
+	int offs;
+	const char *board_fdt;
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
+
+	fs_image_set_board_id_from_cfg();
+
 	if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
 		board_late_mmc_env_init();
 
@@ -395,6 +615,28 @@ int board_late_init(void)
 	env_set("sec_boot", "yes");
 #endif
 
+	if(board_fdt)
+		env_set("platform", board_fdt);
+
+	/* Set up all board specific variables */
+	fs_board_late_init_common("ttyLP");	/* Set up all board specific variables */
+
+	/* Set mac addresses for corresponding boards */
+	fs_ethaddr_init();
+
+	/* Skip autoboot during USB-Boot*/
+	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
+		env_set_ulong("bootdelay", 0);
+
+#ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
+	char brev[MAX_DESCR_LEN] = {0};
+	fsimx95_get_board_rev(brev, MAX_DESCR_LEN);
+
+	env_set("board_name", fsimx95_get_board_name());
+	env_set("board_rev", brev);
+#endif
+
+	debug("FEATURES=0x%x\n", info->features);
 	return 0;
 }
 
