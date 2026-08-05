@@ -102,9 +102,9 @@ void *fs_image_get_cfg_addr(void)
 #endif /* __UBOOT__ */
 
 /* Return the fdt part of the given board configuration */
-void *fs_image_find_cfg_fdt(struct fs_header_v1_0 *fsh)
+const void *fs_image_find_cfg_fdt(const struct fs_header_v1_0 *fsh)
 {
-	void *fdt = fsh + 1;
+	const void *fdt = fsh + 1;
 
 #if defined(CONFIG_IMX_HAB)
 	if (fs_image_is_signed(fsh))
@@ -123,19 +123,17 @@ bool fs_image_is_fs_image(const struct fs_header_v1_0 *fsh)
 }
 
 /* Return the fdt part of the given board configuration with index header */
-void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info)
+const void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info)
 {
-	void *fdt;
+	const void *fdt;
 
 	if (!cfg_info)
 		return NULL;
 	
 	if (cfg_info->fsh_idx == NULL)
-		return fs_image_find_cfg_fdt(cfg_info->fsh_idx_entry);
+		return fs_image_find_cfg_fdt(cfg_info->fsh);
 	
-	fdt = (void *)cfg_info->fsh_idx_entry;
-	fdt += sizeof(struct fs_header_v1_0) + cfg_info->offset;
-
+	fdt = cfg_info->fsi;
 	if (fdt_check_header(fdt))
 		return NULL;
 
@@ -143,32 +141,32 @@ void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info)
 }
 
 /* Return the fdt part of the board configuration in OCRAM */
-void *fs_image_get_cfg_fdt(void)
+const void *fs_image_get_cfg_fdt(void)
 {
 	return fs_image_find_cfg_fdt(fs_image_get_cfg_addr());
 }
 
 /* Return the address of the /nboot-info node */
-int fs_image_get_nboot_info_offs(void *fdt)
+int fs_image_get_nboot_info_offs(const void *fdt)
 {
-	return fdt_path_offset(fdt, "/nboot-info");
+	return fdt_path_offset((void *)fdt, "/nboot-info");
 }
 
 /* Return the address of the /board-cfg node */
-int fs_image_get_board_cfg_offs(void *fdt)
+int fs_image_get_board_cfg_offs(const void *fdt)
 {
-	return fdt_path_offset(fdt, "/board-cfg");
+	return fdt_path_offset((void *)fdt, "/board-cfg");
 }
 
 /* Return pointer to string with NBoot version */
-const char *fs_image_get_nboot_version(void *fdt)
+const char *fs_image_get_nboot_version(const void *fdt)
 {
 	int offs;
 
 	if (!fdt)
 		fdt = fs_image_get_cfg_fdt();
 
-	offs = fs_image_get_nboot_info_offs(fdt);
+	offs = fs_image_get_nboot_info_offs((void *)fdt);
 	return fdt_getprop(fdt, offs, "version", NULL);
 }
 
@@ -262,7 +260,7 @@ static void fs_image_get_board_name_rev(const char id[MAX_DESCR_LEN],
 }
 
 /* Check if ID of the given BOARD-CFG matches the compare_id */
-bool fs_image_match_board_id(struct fs_header_v1_0 *cfg_fsh)
+bool fs_image_match_board_id(const struct fs_header_v1_0 *cfg_fsh)
 {
 	struct bnr bnr;
 
@@ -325,7 +323,7 @@ u32 fs_image_getprop_u32(const void *fdt, int cfg_offs, int rev_offs,
 
 #if !defined(CONFIG_FS_CNTR_COMMON)
 /* Check if the F&S image is signed (followed by an IVT) */
-bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
+bool fs_image_is_signed(const struct fs_header_v1_0 *fsh)
 {
 	struct ivt *ivt = (struct ivt *)(fsh + 1);
 
@@ -412,7 +410,7 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 	return true;
 }
 #else
-bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
+bool fs_image_is_signed(const struct fs_header_v1_0 *fsh)
 {
 	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
 
@@ -476,40 +474,41 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
  * 2: CRC32 was Image only (only FSH_FLAGS_CRC32 set)
  * 3: CRC32 was Header+Image (both FSH_FLAGS_SECURE and FSH_FLAGS_CRC32 set)
  */
-int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh,
-				unsigned int offset)
+int fs_image_check_crc32_split(const struct fs_header_v1_0 *fsh,
+			       const void *fsi)
 {
 	u32 expected_cs;
-	u32 computed_cs;
+	u32 computed_cs = 0;
 	u32 *pcs;
 	unsigned int size;
-	unsigned char *start;
+	const unsigned char *start;
 	int ret = 0;
 
 	if (!(fsh->info.flags & (FSH_FLAGS_SECURE | FSH_FLAGS_CRC32)))
 		return 0;		/* No CRC32 */
 
-	if (fsh->info.flags & FSH_FLAGS_SECURE) {
-		start = (unsigned char *)fsh;
-		size = FSH_SIZE;
-		ret |= 1;
-	} else {
-		start = (unsigned char *)(fsh + 1);
-		start += offset;
-		size = 0;
-	}
 
+	/* CRC32 is in type[12..15] */
+	pcs = (u32 *)&fsh->type[12];
+	expected_cs = *pcs;
+
+	if (fsh->info.flags & FSH_FLAGS_SECURE) {
+		/* Temporarily set CRC32 to 0 while computing CRC32 of header */
+		*pcs = 0;
+		start = (const unsigned char *)fsh;
+		size = FSH_SIZE;
+		computed_cs = crc32(computed_cs, start, size);
+		*pcs = expected_cs;
+		ret |= 1;
+	}
 	if (fsh->info.flags & FSH_FLAGS_CRC32) {
-		size += fs_image_get_size(fsh, false);
+		/* Compute CRC32 of image blob */
+		start = fsi;
+		size = fs_image_get_size(fsh, false);
+		computed_cs = crc32(computed_cs, start, size);
 		ret |= 2;
 	}
 
-	/* CRC32 is in type[12..15]; temporarily set to 0 while computing */
-	pcs = (u32 *)&fsh->type[12];
-	expected_cs = *pcs;
-	*pcs = 0;
-	computed_cs = crc32(0, start, size);
-	*pcs = expected_cs;
 	if (computed_cs != expected_cs)
 		return -EILSEQ;
 
@@ -518,7 +517,7 @@ int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh,
 
 int fs_image_check_crc32(const struct fs_header_v1_0 *fsh)
 {
-	return fs_image_check_crc32_offset(fsh, 0);
+	return fs_image_check_crc32_split(fsh, fsh + 1);
 }
 
 /* Update size, flags and padsize, calculate CRC32 if requested */

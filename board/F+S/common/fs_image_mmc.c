@@ -67,7 +67,7 @@ static bool fs_image_check_for_nboot_mmc(struct flash_info *fi,
 }
 
 /* Parse nboot-info for MMC settings and fill struct */
-static int fs_image_get_nboot_info_mmc(struct flash_info *fi, void *fdt,
+static int fs_image_get_nboot_info_mmc(struct flash_info *fi, const void *fdt,
 				       int offs, struct nboot_info *ni,
 				       int boot_hwpart, bool show, uint index)
 {

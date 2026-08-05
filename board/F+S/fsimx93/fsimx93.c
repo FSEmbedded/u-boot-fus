@@ -254,7 +254,7 @@ static int set_gd_board_type(void)
 /* definition for U-BOOT */
 int board_fit_config_name_match(const char *name)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 
@@ -279,7 +279,7 @@ int board_fit_config_name_match(const char *name)
 
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	unsigned int features;
@@ -385,11 +385,13 @@ int board_early_init_f(void)
 						     ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
+#if CONFIG_IS_ENABLED(IMX93)
 		case BT_PICOCOM93:
 		case BT_PICOCOM91:
 			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
 			init_uart_clk(LPUART5_CLK_ROOT);
 			break;
+#endif
 		default:
 			return -EINVAL;
 			break;
@@ -694,7 +696,7 @@ int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
 	struct cfg_info *info = fs_board_get_cfg_info();
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 

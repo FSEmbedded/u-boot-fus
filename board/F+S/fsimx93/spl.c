@@ -149,11 +149,13 @@ int board_early_init_f(void)
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
+#if CONFIG_IS_ENABLED(IMX93)
 		case BT_PICOCOM93:
 		case BT_PICOCOM91:
 			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
 			init_uart_clk(LPUART5_CLK_ROOT);
 			break;
+#endif
 		default:
 			return -EINVAL;
 			break;

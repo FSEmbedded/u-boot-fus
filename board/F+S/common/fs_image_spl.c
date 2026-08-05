@@ -492,7 +492,7 @@ static void fs_image_handle_header(void)
 			/* Cannot handle remaining images without BOARD-CFG */
 			break;
 		} else if (fs_image_match_check(&one_fsh, "DRAM-INFO", arch)) {
-			void *fdt = fs_image_get_cfg_fdt();
+			const void *fdt = fs_image_get_cfg_fdt();
 			int offs = fs_image_get_board_cfg_offs(fdt);
 			int rev_offs;
 
@@ -1065,7 +1065,7 @@ int fs_image_load_system_copy(struct flash_info_spl *fi, basic_init_t basic_init
 	void *cfg;
 	unsigned int start, atf_start;
 	unsigned int size;
-	void *fdt;
+	const void *fdt;
 	int offs, rev_offs;
 	int err;
 	void *atf_addr = (void *)CONFIG_SPL_ATF_ADDR;

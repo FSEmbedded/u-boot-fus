@@ -221,7 +221,7 @@ static iomux_v3_cfg_t const wdog_pads[] = {
 /* Parse the FDT of the BOARD-CFG in OCRAM and create binary info in OCRAM */
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	int i;
@@ -353,7 +353,7 @@ enum env_location env_get_location(enum env_operation op, int prio)
 #ifdef CONFIG_NAND_MXS
 static void fs_nand_get_env_info(struct mtd_info *mtd, struct cfg_info *info)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int layout;
 	unsigned int align;

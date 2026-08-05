@@ -18,9 +18,9 @@
 #define MAX_DESCR_LEN 32
 
 struct index_info {
-	struct fs_header_v1_0 *fsh_idx; // header of INDEX image
-	struct fs_header_v1_0 *fsh_idx_entry; // header within INDEX image
-	ulong offset;		// offset after fsh_entry to blob
+	const struct fs_header_v1_0 *fsh_idx;	/* Header of INDEX image */
+	const struct fs_header_v1_0 *fsh;	/* Header within INDEX */
+	const void *fsi;			/* Pointer to image part */
 };
 
 /* F&S header (V0.0) for a generic file */
@@ -75,26 +75,28 @@ void *fs_image_get_regular_cfg_addr(void);
 void *fs_image_get_cfg_addr(void);
 
 /* Return the fdt part of the board configuration in OCRAM */
-void *fs_image_get_cfg_fdt(void);
+const void *fs_image_get_cfg_fdt(void);
 
 /* Return the fdt part of the given board configuration */
-void *fs_image_find_cfg_fdt(struct fs_header_v1_0 *fsh);
+const void *fs_image_find_cfg_fdt(const struct fs_header_v1_0 *fsh);
 
 /* Return the fdt part of the given board configuration with index header */
-void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info);
+const void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info);
 
-struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
-				     const char *type, const char *descr,
-				     struct index_info *idx_info);
+#if 0 //###
+const struct fs_header_v1_0 *fs_image_find(const struct fs_header_v1_0 *fsh,
+					   const char *type, const char *descr,
+					   struct index_info *idx_info);
+#endif //###
 
 /* Return the address of the /board-cfg node */
-int fs_image_get_board_cfg_offs(void *fdt);
+int fs_image_get_board_cfg_offs(const void *fdt);
 
 /* Return the address of the /nboot-info node */
-int fs_image_get_nboot_info_offs(void *fdt);
+int fs_image_get_nboot_info_offs(const void *fdt);
 
 /* Return NBoot version by looking in given fdt (or BOARD-CFG if NULL) */
-const char *fs_image_get_nboot_version(void *fdt);
+const char *fs_image_get_nboot_version(const void *fdt);
 
 /* Read the image size (incl. padding) from an F&S header */
 unsigned int fs_image_get_size(const struct fs_header_v1_0 *fsh,
@@ -113,7 +115,7 @@ bool fs_image_match(const struct fs_header_v1_0 *fsh,
 		    const char *type, const char *descr);
 
 /* Check id, return also true if revision is less than revision of compare_id */
-bool fs_image_match_board_id(struct fs_header_v1_0 *fsh);
+bool fs_image_match_board_id(const struct fs_header_v1_0 *fsh);
 
 /* Read property from board-rev subnode or board-cfg main node */
 const void *fs_image_getprop(const void *fdt, int cfg_offs, int rev_offs,
@@ -159,7 +161,7 @@ int fs_image_get_board_rev_subnode_f(const void *fdt, int offs,
 				     uint *board_rev);
 
 /* Check if the F&S image is signed (followed by an IVT or SIG. HEADER) */
-bool fs_image_is_signed(struct fs_header_v1_0 *fsh);
+bool fs_image_is_signed(const struct fs_header_v1_0 *fsh);
 
 /* Validate a signed image; it has to be at the validation address */
 bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh);
@@ -170,7 +172,8 @@ void *fs_image_get_ivt_info(struct fs_header_v1_0 *fsh, u32 *size);
 #endif
 
 /* Verify CRC32 of given image at specific offset */
-int fs_image_check_crc32_offset(const struct fs_header_v1_0 *fsh, unsigned int offset);
+int fs_image_check_crc32_split(const struct fs_header_v1_0 *fsh,
+			       const void *fsi);
 
 /* Verify CRC32 of given image */
 int fs_image_check_crc32(const struct fs_header_v1_0 *fsh);
@@ -208,7 +211,7 @@ bool fs_image_is_secondary_uboot(void);
 bool fs_image_find_cfg_in_ocram(void);
 
 /* Get count values from given device tree property and check alignment */
-int fs_image_get_fdt_val(void *fdt, int offs, const char *name, uint align,
+int fs_image_get_fdt_val(const void *fdt, int offs, const char *name, uint align,
 			 int count, uint *val);
 
 
@@ -284,7 +287,7 @@ struct flash_ops {
 	bool (*check_for_uboot)(struct storage_info *si, bool force);
 	bool (*check_for_nboot)(struct flash_info *fi, struct storage_info *si,
 				bool force);
-	int (*get_nboot_info)(struct flash_info *fi, void *fdt, int offs,
+	int (*get_nboot_info)(struct flash_info *fi, const void *fdt, int offs,
 			      struct nboot_info *ni, int hwpart, bool show,
 			      uint index);
 	bool (*si_differs)(const struct storage_info *si1,
@@ -347,7 +350,7 @@ struct fs_image_params {
 extern const char fsimage_usage[];
 
 /* Get start[0..1] and size for a storage info */
-int fs_image_get_si(void *fdt, int offs, uint align, const char *type,
+int fs_image_get_si(const void *fdt, int offs, uint align, const char *type,
 		    struct storage_info *si);
 
 //###int fs_image_get_nboot_info(struct flash_info *fi, void *fdt,
@@ -424,18 +427,6 @@ int fs_image_check_all_crc32(struct fs_header_v1_0 *fsh);
 /* Get image length any header (F&S header, IVT or FIT header) */
 int fs_image_get_size_from_header(struct flash_info *fi, uint offs, uint lim,
 				  struct sub_info *sub, uint *size);
-
-/*
- * Get pointer to BOARD-CFG image that is to be used and to NBOOT part
- * Returns: <0: error; 0: aborted by user; 1: same ID; 2: new ID
- */
-int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
-			    struct index_info *cfg_info,
-			    struct fs_header_v1_0 **nboot);
-
-/* Get addr for image; 0 if "stored", <0: Error */
-//###ulong fs_image_get_loadaddr(int argc, char * const argv[],
-//###			    bool use_stored_if_empty);
 
 /* Invalidate the temp buffer read cache */
 void fs_image_drop_temp(struct flash_info *fi);

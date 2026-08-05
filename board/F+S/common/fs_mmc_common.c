@@ -182,7 +182,7 @@ int board_mmc_get_env_dev(int devno)
 
 static void fs_mmc_get_env_info(struct mmc *mmc, struct cfg_info *cfg)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int layout;
 	const char *layout_name;

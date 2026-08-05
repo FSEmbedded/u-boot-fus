@@ -188,7 +188,7 @@ int power_init_board(void)
 	pmic_reg_write(p, PCA9450_BUCK2OUT_DVS0, 0x1C);
 
 	if (board_type == BT_FSSMMX8MP) {
-		void *fdt = fs_image_get_cfg_fdt();
+		const void *fdt = fs_image_get_cfg_fdt();
 		int offs = fs_image_get_board_cfg_offs(fdt);
 		int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 		if (fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL)) {
@@ -474,7 +474,7 @@ static void mmc_get_parts(void)
 /* Do the basic board setup when we have our final BOARD-CFG */
 static void basic_init(const char *layout_name)
 {
-	void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
 	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	int i;

@@ -193,7 +193,7 @@ const struct fs_board_info board_info[] = {
 /* Parse the FDT of the BOARD-CFG in OCRAM and create binary info in OCRAM */
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	int i;

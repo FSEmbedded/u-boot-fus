@@ -149,7 +149,7 @@ static int set_gd_board_type(void)
 /* definition for U-BOOT */
 int board_fit_config_name_match(const char *name)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 
@@ -166,7 +166,7 @@ int board_fit_config_name_match(const char *name)
 
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	unsigned int features;
@@ -499,7 +499,7 @@ int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
 	struct cfg_info *info = fs_board_get_cfg_info();
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 

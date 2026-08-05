@@ -90,7 +90,7 @@ static int fs_image_set_hwpart_nand(struct flash_info *fi, int copy,
 }
 
 /* Parse nboot-info for NAND settings and fill struct */
-static int fs_image_get_nboot_info_nand(struct flash_info *fi, void *fdt,
+static int fs_image_get_nboot_info_nand(struct flash_info *fi, const void *fdt,
 					int offs, struct nboot_info *ni,
 					int boot_hwpart, bool show, uint index)
 {

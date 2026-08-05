@@ -364,7 +364,7 @@ static void mmc_get_parts(void)
 /* Do the basic board setup when we have our final BOARD-CFG */
 static void basic_init(const char *layout_name)
 {
-	void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
 	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	int i;

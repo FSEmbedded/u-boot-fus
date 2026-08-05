@@ -246,7 +246,11 @@ const char fsimage_usage[] =
 
 static int fs_image_validate_signed(struct fs_header_v1_0 *fsh);
 
-static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh);
+static const struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh);
+
+static const struct fs_header_v1_0 *fs_image_find(
+	const struct fs_header_v1_0 *fsh, const char *type, const char *descr,
+	struct index_info *idx_info);
 
 /* ------------- Functions only in U-Boot, not SPL ------------------------- */
 
@@ -337,7 +341,7 @@ static int fs_image_fdt_err(const char *name, const char *reason, int err)
 }
 
 /* Get count values from given device tree property and check alignment */
-int fs_image_get_fdt_val(void *fdt, int offs, const char *name, uint align,
+int fs_image_get_fdt_val(const void *fdt, int offs, const char *name, uint align,
 			 int count, uint *val)
 {
 	int len;
@@ -396,7 +400,7 @@ static void fs_image_build_nboot_info_name(char *name, const char *prefix,
 }
 
 /* Get start[0..1] and size for a storage info */
-int fs_image_get_si(void *fdt, int offs, uint align, const char *type,
+int fs_image_get_si(const void *fdt, int offs, uint align, const char *type,
 		    struct storage_info *si)
 {
 	int err;
@@ -417,7 +421,7 @@ int fs_image_get_si(void *fdt, int offs, uint align, const char *type,
 	return fs_image_get_fdt_val(fdt, offs, name, align, 1, &si->size);
 }
 
-static int fs_image_get_nboot_info(struct flash_info *fi, void *fdt,
+static int fs_image_get_nboot_info(struct flash_info *fi, const void *fdt,
 				   struct nboot_info *ni, int hwpart, bool show)
 {
 	int offs = fs_image_get_nboot_info_offs(fdt);
@@ -524,7 +528,7 @@ static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent,
 	pcs = (u32 *)&fsh->type[12];
 	fs_image_find(fsh_parent, fsh->type, fsh->param.descr, &idx_info);
 
-	if (fs_image_check_crc32_offset(fsh, idx_info.offset) >= 0)
+	if (fs_image_check_crc32_split(fsh, idx_info.fsi) >= 0)
 		crc_valid = true;
 
 	/* Show info for this image */
@@ -726,49 +730,45 @@ static void fs_image_set_header(struct fs_header_v1_0 *fsh, const char *type,
  * Search given INDEX for an F&S header of given type @type and (optional)
  * description @descr. Return a pointer to it if found, NULL otherwise.
  */
-static struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx,
-						  const char *type,
-						  const char *descr,
-						  struct index_info *idx_info)
+static const struct fs_header_v1_0 *fs_image_find_index(
+	const struct fs_header_v1_0 *fsh_idx, const char *type,
+	const char *descr, struct index_info *idx_info)
 {
-	uint img_offset = fs_image_get_size(fsh_idx, false);
 	uint num_images = fs_image_index_get_n(fsh_idx);
 	int i;
+	void *fsi;
+	const struct fs_header_v1_0 *fsh;
 
 	if (fs_image_match(fsh_idx, type, descr))
 		return fsh_idx;
 
-	for (i = 1; i <= num_images; i++) {
-		img_offset -= FSH_SIZE;
-		if (!fs_image_is_fs_image(&fsh_idx[i]))
-			continue;
+	fsi = (void *)fsh_idx + fs_image_get_size(fsh_idx, true);
+	fsh = fsh_idx + 1;
+	for (i = 0; i < num_images; i++) {
+		if (fs_image_match(fsh, type, descr)) {
+			if (idx_info) {
+				idx_info->fsh_idx = fsh_idx;
+				idx_info->fsh = fsh;
+				idx_info->fsi = fsi;
+			}
 
-		/* search F&S HEADER within Image blob */
-		if (!fs_image_match(&fsh_idx[i], type, descr)) {
-			void *img_blob;
-
-			img_blob = (void *)((ulong)&fsh_idx[i] + img_offset);
-			img_blob = fs_image_find(img_blob, type, descr, idx_info);
-			if (img_blob)
-				return img_blob;
-
-			img_offset += fs_image_get_size(&fsh_idx[i], false);
-			continue;
+			return fsh;
 		}
+#if 0 // For now, no indexed image has sub-images */
+		/* Check all subimages */
+		if (fs_image_is_fs_image(fsh)) {
+			void *sub;
 
-		break;
+			sub = fs_image_find(fsi, type, descr, idx_info);
+			if (sub)
+				return sub;
+		}
+#endif
+		fsi += fs_image_get_size(fsh, false);
+		fsh++;
 	}
 
-	if (i > num_images)
-		return NULL;
-
-	if (idx_info) {
-		idx_info->fsh_idx = fsh_idx;
-		idx_info->fsh_idx_entry = &fsh_idx[i];
-		idx_info->offset = img_offset;
-	}
-
-	return &fsh_idx[i];
+	return NULL;
 }
 
 /**
@@ -779,27 +779,29 @@ static struct fs_header_v1_0 *fs_image_find_index(struct fs_header_v1_0 *fsh_idx
  * @param *idx_info: struct holds additional infos if fsh is found. NULL is allowed.
  * @return ptr to fsh or NULL if not found
  */
-struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
-				     const char *type, const char *descr,
-				     struct index_info *idx_info)
+static const struct fs_header_v1_0 *fs_image_find(const struct fs_header_v1_0 *fsh,
+					   const char *type, const char *descr,
+					   struct index_info *idx_info)
 {
-	struct fs_header_v1_0 *fsh_found;
+	const struct fs_header_v1_0 *fsh_found;
 	uint size;
 	uint extra_size;
 	uint remaining;
 
 	if (idx_info) {
 		idx_info->fsh_idx = NULL;
-		idx_info->fsh_idx_entry = NULL;
-		idx_info->offset = 0;
+		idx_info->fsh = NULL;
+		idx_info->fsi = NULL;
 	}
 
 	if (!fs_image_is_fs_image(fsh))
 		return NULL;
 
 	if (fs_image_match(fsh, type, descr)) {
-		if (idx_info)
-			idx_info->fsh_idx_entry = fsh;
+		if (idx_info) {
+			idx_info->fsh = fsh;
+			idx_info->fsi = fsh + 1;
+		}
 
 		return fsh;
 	}
@@ -825,8 +827,10 @@ struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
 			return NULL;
 
 		if (fs_image_match(fsh, type, descr)) {
-			if (idx_info)
-				idx_info->fsh_idx_entry = fsh;
+			if (idx_info) {
+				idx_info->fsh = fsh;
+				idx_info->fsi = fsh + 1;
+			}
 
 			return fsh;
 		}
@@ -864,12 +868,11 @@ struct fs_header_v1_0 *fs_image_find(struct fs_header_v1_0 *fsh,
  * @param *idx_info: struct holds additional infos if fsh is index. NULL is allowed.
  * @return ptr to fsh or NULL if not found
  */
-static struct fs_header_v1_0 *fs_image_find_concat(struct fs_header_v1_0 *fsh,
-						   const char *type,
-						   const char *descr,
-						   struct index_info *idx_info)
+static const struct fs_header_v1_0 *fs_image_find_concat(
+	struct fs_header_v1_0 *fsh, const char *type, const char *descr,
+	struct index_info *idx_info)
 {
-	struct fs_header_v1_0 *fsh_sub;
+	const struct fs_header_v1_0 *fsh_sub;
 	uint size;
 
 	if (!fs_image_is_fs_image(fsh))
@@ -921,8 +924,9 @@ void fs_image_region_add_raw(struct region_info *ri, void *img,
  * subimage or 0 in case of error.
  */
 static uint fs_image_region_add(struct region_info *ri,
-				struct fs_header_v1_0 *fsh, const char *type,
-				const char *descr, uint woffset, uint flags)
+				struct fs_header_v1_0 *fsh,
+				const char *type, const char *descr,
+				uint woffset, uint flags)
 {
 	uint size;
 
@@ -1078,7 +1082,7 @@ static int fs_image_get_start_copy_uboot(void)
 #endif /* CONFIG_FS_BOOTROM */
 #endif /* __UBOOT__ */
 
-static int fs_image_get_boot_dev(void *fdt, enum boot_device *boot_dev,
+static int fs_image_get_boot_dev(const void *fdt, enum boot_device *boot_dev,
 				 const char **boot_dev_name)
 {
 	int offs;
@@ -1135,32 +1139,31 @@ int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action)
 /* Check CRC32 from indexed Images */
 static int fs_image_check_index_crc32(struct fs_header_v1_0 *fsh_idx)
 {
-	uint img_offset = fs_image_get_size(fsh_idx, true);
 	uint num_images = fs_image_index_get_n(fsh_idx);
 	int i;
 	int err = 0;
+	void *fsi = fsh_idx + fs_image_get_size(fsh_idx, true);
+	const struct fs_header_v1_0 *fsh = fsh_idx + 1;
 
-	for (i=1; i<= num_images; i++) {
-		void *img_blob;
-
-		img_offset -= FSH_SIZE;
-
-		if (!fs_image_is_fs_image(&fsh_idx[i]))
+	for (i = 0; i < num_images; i++) {
+		if (!fs_image_is_fs_image(fsh))
 			continue;
 
-		err = fs_image_check_crc32_offset(&fsh_idx[i], img_offset);
-		fs_image_print_crc32_status(&fsh_idx[i], err);
+		err = fs_image_check_crc32_split(fsh, fsi);
+		fs_image_print_crc32_status(fsh, err);
 		if (err)
 			return err;
 
-		img_blob = (void *)((ulong)(fsh_idx) + img_offset);
-		if (fs_image_is_fs_image(img_blob))
-			err = fs_image_check_all_crc32(img_blob);
-
-		if (err)
-			return err;
-
-		img_offset += fs_image_get_size(&fsh_idx[i], false);
+#if 0 // ### Currently, INDEX based images do not have subimages
+		/* Check CRC32 of subimages */
+		if (fs_image_is_fs_image(fsi)) {
+			err = fs_image_check_all_crc32(fsi);
+			if (err)
+				return err;
+		}
+#endif
+		fsi += fs_image_get_size(fsh, false);
+		fsh++;
 	}
 
 	return err;
@@ -1359,15 +1362,15 @@ int fs_image_get_size_from_header(struct flash_info *fi, uint offs, uint lim,
  * Get pointer to BOARD-CFG image that is to be used and to NBOOT part
  * Returns: <0: error; 0: aborted by user; 1: same ID; 2: new ID
  */
-int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
-			    struct index_info *cfg_info,
-			    struct fs_header_v1_0 **nboot)
+static int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
+				   struct index_info *cfg_info,
+				   struct fs_header_v1_0 **nboot)
 {
 	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)addr;
-	struct fs_header_v1_0 *cfg = NULL;
+	const struct fs_header_v1_0 *cfg = NULL;
 	char bcfg_name[MAX_DESCR_LEN + 1] = {0};
 	const char *nboot_version;
-	void *fdt;
+	const void *fdt;
 	int ret = 1;
 
 	if (!fs_image_is_fs_image(fsh)) {
@@ -2190,7 +2193,8 @@ static int fs_image_save_uboot(struct flash_info *fi,
 /* ------------- Generic Flash Handling ------------------------------------ */
 
 /* Get flash information for given boot device (ro=true: open read-only) */
-static int fs_image_get_flash_info(struct flash_info *fi, void *fdt, bool ro)
+static int fs_image_get_flash_info(struct flash_info *fi, const void *fdt,
+				   bool ro)
 {
 	int err;
 
@@ -2295,9 +2299,9 @@ static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
 	return 0;
 }
 
-static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh)
+static const struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh)
 {
-	struct fs_header_v1_0 *cfg;
+	const struct fs_header_v1_0 *cfg;
 	const char *arch = fs_image_get_arch();
 	int err;
 
@@ -2340,7 +2344,7 @@ static uint fs_image_region_find_add(struct region_info *ri,
 				     const char *type, const char *descr,
 				     uint woffset, uint flags)
 {
-	fsh = fs_image_find(fsh, type, descr, NULL);
+	fsh = (void *)fs_image_find(fsh, type, descr, NULL);
 	if (!fsh) {
 		printf("No %s found for %s\n", type, descr);
 		return 0;
@@ -2371,7 +2375,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 	struct fs_header_v1_0 *dram_info_fsh;
 	struct flash_info fi;
 	struct nboot_info ni;
-	void *fdt;
+	const void *fdt;
 	const char *arch;
 	const char *target = load_uboot ? "U-Boot" : "NBoot";
 
@@ -2522,7 +2526,7 @@ fail:
 static int fs_image_save_imx8m_uboot(ulong addr, bool force,
 				     bool system_atf, bool have_atf)
 {
-	void *fdt;
+	const void *fdt;
 	struct sub_info uboot_sub, atf_sub[2];
 	struct region_info uboot_ri, atf_ri, *patf_ri = NULL;
 	struct flash_info fi;
@@ -2624,7 +2628,7 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 	const char *arch = fs_image_get_arch();
 	const char *type;
 	uint flags;
-	void *fdt;
+	const void *fdt;
 	int board_cfg_offs;
 	int rev_offs;
 	const char *dram_type;
@@ -2654,7 +2658,7 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 	 * TODO: For non-Container Images,
 	 * it is not expected to handle index structures.
 	 */
-	cfg_fsh = cfg_info.fsh_idx_entry;
+	cfg_fsh = (struct fs_header_v1_0 *)cfg_info.fsh;
 	ignore_old = (ret == 2);	/* Ignore old BOARD-CFG if ID changed */
 
 	fdt = fs_image_find_cfg_fdt(cfg_fsh);
@@ -2685,7 +2689,7 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 	}
 
 	if (!ignore_old) {
-		void *fdt_old = fs_image_get_cfg_fdt();
+		const void *fdt_old = fs_image_get_cfg_fdt();
 
 		/* Check if U-Boot and/or environment need to be relocated */
 		if (fs_image_get_nboot_info(&fi, fdt_old, &ni_old, -1, false))
@@ -3033,7 +3037,7 @@ static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
 	return 0;
 }
 
-static struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 *fsh)
+static const struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 *fsh)
 {
 	struct fs_header_v1_0 *cfg = fsh;
 	const char *arch = fs_image_get_arch();
@@ -3227,7 +3231,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
 	uint size = 0x80000; // 512KiB
 	uint filesize;
 	uint lim;
-	void *fdt;
+	const void *fdt;
 	int i;
 	int ret;
 	const char *target = load_uboot ? "U-Boot" : "NBoot";
@@ -3357,7 +3361,7 @@ fail:
 
 }
 
-static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
+static int prepare_nboot_cntr_images(ulong addr, const void *fdt_new,
 				     struct flash_info *fi,
 				     struct region_info *spl_ri,
 				     struct region_info *nboot_ri,
@@ -3372,7 +3376,7 @@ static int prepare_nboot_cntr_images(ulong addr, void *fdt_new,
 	const char *arch = fs_image_get_arch();
 	const char board_id[MAX_DESCR_LEN + 1] = {0};
 	const char *dram_type;
-	void *fdt_old = fs_image_get_cfg_fdt();
+	const void *fdt_old = fs_image_get_cfg_fdt();
  	ulong uboot_addr, env_addr;
 	uint woffset;
 	int offs = fs_image_get_board_cfg_offs(fdt_new);
@@ -3624,7 +3628,7 @@ static void update_board_cfg(struct nboot_info *ni)
 {
 #ifdef __UBOOT__
 	uint uboot_size, nboot_size, uboot_offset;
-	void *fdt = fs_image_get_cfg_fdt();
+	void *fdt = (void *)fs_image_get_cfg_fdt();
 	int offs;
 
 	nboot_size = cpu_to_fdt32(ni->nboot.size);
@@ -3651,7 +3655,7 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 	const char *arch = fs_image_get_arch();
 	struct fs_header_v1_0 *cfg_fsh = fs_image_get_cfg_addr();
 	uint cfg_size = fs_image_get_size(cfg_fsh, false);
-	void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_cfg_fdt();
 	int ret = CMD_RET_SUCCESS;
 
 	if (fs_image_validate(uboot_fsh, "U-BOOT-INFO", arch, (ulong) uboot_fsh))
@@ -3704,16 +3708,14 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 {
 	const char *arch = fs_image_get_arch();
 	struct index_info cfg_info = {0};
-	struct fs_header_v1_0 *cfg_fsh;
 	struct flash_info fi;
 	struct nboot_info ni_new;
 	struct region_info nboot_ri, spl_ri;
 	struct region_info uboot_ri, env_ri;
 	struct sub_info spl_sub, nboot_sub[MAX_SUB_IMGS];
 	struct sub_info uboot_sub, env_sub;
-	void *fdt_new;
+	const void *fdt_new;
 	int failed = 0;
-	void *dest;
 
 	int ret = CMD_RET_SUCCESS;
 
@@ -3791,7 +3793,7 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 
 		printf("\nSaving copy 1 to %s:\n", fi.devname);
 		if (fs_image_save_region(&fi, 1, &env_ri))
-			env_failed |= BIT(0);
+			env_failed |= BIT(1);
 
 		if (failed || (env_failed == 3))
 			failed = env_failed;
@@ -3804,15 +3806,12 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		goto fail;
 
 	/* Success: Activate new BOARD-CFG by copying it to OCRAM */
-	cfg_fsh = cfg_info.fsh_idx_entry;
-	memcpy(fs_image_get_cfg_addr(), cfg_fsh, FSH_SIZE);
-	dest = (void *)cfg_fsh + FSH_SIZE + cfg_info.offset;
-	memcpy(fs_image_get_cfg_addr() + FSH_SIZE, dest,
-	       fs_image_get_size(cfg_fsh, false));
+	memcpy(fs_image_get_cfg_addr(), cfg_info.fsh, FSH_SIZE);
+	memcpy(fs_image_get_cfg_addr() + FSH_SIZE, cfg_info.fsi,
+	       fs_image_get_size(cfg_info.fsh, false));
 
-	cfg_fsh = fs_image_get_cfg_addr();
 	update_board_cfg(&ni_new);
-	fs_image_board_cfg_set_board_rev(cfg_fsh);
+	fs_image_board_cfg_set_board_rev(fs_image_get_cfg_addr());
 	puts("New BOARD-CFG is now active\n");
 
 	fs_image_put_flash_info(&fi);
@@ -3857,14 +3856,14 @@ int fs_image_do_boardcfg(int argc, char * const argv[])
 {
 	ulong addr;
 	int ret;
-	void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_cfg_fdt();
 	struct index_info cfg_info = {0};
 
 	argv++;
 	argc--;
 
 	if ((argc == 1) && !strncmp(argv[0], "stored", strlen(argv[0]))) {
-		cfg_info.fsh_idx_entry = fs_image_get_cfg_addr();
+		cfg_info.fsh = fs_image_get_cfg_addr();
 	} else {
 		ret = fs_image_locate_nboot(argc, argv, &addr);
 		if (ret)
@@ -3882,14 +3881,14 @@ int fs_image_do_boardcfg(int argc, char * const argv[])
 
 	printf("FDT part of BOARD-CFG located at 0x%lx\n", (ulong)fdt);
 
-	return fdt_print(fdt, "/", NULL, 5, ULONG_MAX);
+	return fdt_print((void *)fdt, "/", NULL, 5, ULONG_MAX);
 }
 #endif
 
 /* Show current boot settings */
 int fs_image_do_boot(int argc, char * const argv[])
 {
-	void *fdt;
+	const void *fdt;
 	struct flash_info fi;
 	struct nboot_info ni;
 	int ret;
@@ -4083,7 +4082,7 @@ int fs_image_do_save(int argc, char * const argv[])
 int fs_image_do_fuse(int argc, char * const argv[])
 {
 	struct index_info cfg_info = {0};
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	int ret;
@@ -4106,7 +4105,7 @@ int fs_image_do_fuse(int argc, char * const argv[])
 	}
 
 	if ((argc == 1) && !strncmp(argv[0], "stored", strlen(argv[0]))) {
-		cfg_info.fsh_idx_entry = fs_image_get_cfg_addr();
+		cfg_info.fsh = fs_image_get_cfg_addr();
 	} else {
 		ret = fs_image_locate_nboot(argc, argv, &addr);
 		if (ret)
@@ -4238,7 +4237,8 @@ static int fs_image_list_crc(ulong addr, uint offset)
 int fs_image_do_checksum(int argc, char * const argv[])
 {
 	struct index_info cfg_info = {0};
-	struct fs_header_v1_0 *nboot_fsh, *check_fsh = NULL;
+	struct fs_header_v1_0 *nboot_fsh;
+	const struct fs_header_v1_0 *check_fsh = NULL;
 	char fsh_type[MAX_TYPE_LEN + 1] = {0};
 	char fsh_descr[MAX_DESCR_LEN +1] = {0};
 	ulong addr;
@@ -4275,12 +4275,12 @@ int fs_image_do_checksum(int argc, char * const argv[])
 	if (type) {
 		/* Check BOARD-CFG Header */
 		if (!strncmp(type, "BOARD-CFG", MAX_DESCR_LEN)) {
-			check_fsh = cfg_info.fsh_idx_entry;
+			check_fsh = cfg_info.fsh;
 		}
 
 		/* Get correct HEADER for DRAM-TIMING */
 		if (!strcmp(type, "DRAM-TIMING")) {
-			void *fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
+			const void *fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
 			int offs = fs_image_get_board_cfg_offs(fdt);
 			int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 			const char *prop;
