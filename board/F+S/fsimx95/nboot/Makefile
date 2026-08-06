@@ -56,7 +56,7 @@ MKIMAGE_TYPE = imx8image
 # Rules for board_id.fsh.
 
 $(obj)/board_id.fsh:
-	${Q}cat /dev/null | $(FSIMG) -q -j -t BOARD-ID -d iMX95EVK-FERT0.100 > $@
+	${Q}cat /dev/null | $(FSIMG) -q -j -t BOARD-ID -d SM95S-FERT4.100 > $@
 
 # -----------------------------------------------------------------------------
 #
@@ -112,39 +112,31 @@ $(eval $(call fsc,board_info,-a 0x400 -t BOARD-INFO -d $(BOARD)))
 # 5. .<t>_<timing>_timing.elf.tmp --> (objcopy) --> <t>_DRAM-TIMING.fsi
 # 6. *_DRAM-TIMING.fsi --> (fsc) --> <t>_info.fs
 
-lpddr_imem = $(NXP_PATH)/lpddr5_imem_v202409.bin
-lpddr_dmem = $(NXP_PATH)/lpddr5_dmem_v202409.bin
-lpddr_imem_qb = $(NXP_PATH)/lpddr5_imem_qb_v202409.bin
-lpddr_dmem_qb = $(NXP_PATH)/lpddr5_dmem_qb_v202409.bin
-
-fw-header.bin: $(lpddr_imem) $(lpddr_dmem)
-	@imem_size=`wc -c $(lpddr_imem) | awk '{printf "%.8x", $$1}' | sed -e 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/'`; \
-		echo $$imem_size | xxd -r -p >  fw-header.bin
-	@dmem_size=`wc -c $(lpddr_dmem) | awk '{printf "%.8x", $$1}' | sed -e 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/'`; \
-		echo $$dmem_size | xxd -r -p >> fw-header.bin
-
-fw-header-qb.bin: $(lpddr_imem_qb) $(lpddr_dmem_qb)
-	@imem_size=`wc -c $(lpddr_imem_qb) | awk '{printf "%.8x", $$1}' | sed -e 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/'`; \
-		echo $$imem_size | xxd -r -p >  fw-header-qb.bin
-	@dmem_size=`wc -c $(lpddr_dmem_qb) | awk '{printf "%.8x", $$1}' | sed -e 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/'`; \
-		echo $$dmem_size | xxd -r -p >> fw-header-qb.bin
-
+define append_fw
+	imem_size=`wc -c < $(1) | awk '{printf "%.8x", $$1}' | sed 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/'`; \
+	dmem_size=`wc -c < $(2) | awk '{printf "%.8x", $$1}' | sed 's/\(..\)\(..\)\(..\)\(..\)/\4\3\2\1/'`; \
+	echo $$imem_size | xxd -r -p >> $@.unaligned; \
+	echo $$dmem_size | xxd -r -p >> $@.unaligned; \
+	cat $(1) $(2) >> $@.unaligned;
+endef
 
 LPDDR5_FW_FILES = \
-	$(lpddr_imem) \
-	$(lpddr_dmem) \
-	$(lpddr_imem_qb) \
-	$(lpddr_dmem_qb)
+	$(NXP_PATH)/lpddr5_imem_v202409.bin \
+	$(NXP_PATH)/lpddr5_dmem_v202409.bin \
+	$(NXP_PATH)/lpddr5_imem_qb_v202409.bin \
+	$(NXP_PATH)/lpddr5_dmem_qb_v202409.bin
 LPDDR5_CFG = $(srctree)/$(src)/lpddr5_info.cfg
 
-$(obj)/lpddr5_DRAM-FW.fsi: $(LPDDR5_FW_FILES) fw-header.bin fw-header-qb.bin
+$(obj)/lpddr5_DRAM-FW.fsi: $(LPDDR5_FW_FILES)
 
-#LPDDR4X_FW_FILES = \
-#	$(NXP_PATH)/lpddr4x_imem_v202409.bin \
-#	$(NXP_PATH)/lpddr4x_dmem_v202409.bin
-#LPDDR4X_CFG = $(srctree)/$(src)/lpddr4x_info.cfg
+LPDDR4X_FW_FILES = \
+	$(NXP_PATH)/lpddr4x_imem_v202409.bin \
+	$(NXP_PATH)/lpddr4x_dmem_v202409.bin \
+	$(NXP_PATH)/lpddr4x_imem_qb_v202409.bin \
+	$(NXP_PATH)/lpddr4x_dmem_qb_v202409.bin
+LPDDR4X_CFG = $(srctree)/$(src)/lpddr4x_info.cfg
 
-#$(obj)/lpddr4x_DRAM-FW.fsi: $(LPDDR4X_FW_FILES)
+$(obj)/lpddr4x_DRAM-FW.fsi: $(LPDDR4X_FW_FILES)
 
 # 1. Build final linker script by replacing ###DRAM_TIMING_ADDR### with value
 DRAM_TIMING_ADDR = ${CONFIG_SAVED_DRAM_TIMING_BASE}
@@ -157,10 +149,12 @@ $(DRAM_TIMINGS_LDS): $(SRC_PATH)/dram-timings.lds
 
 # 2. Prepare DRAM firmware by padding and concatenating single firmware files
 quiet_cmd_ddrfw = DDRFW   $@
-      cmd_ddrfw= \
-	cat fw-header.bin $(lpddr_imem) $(lpddr_dmem) fw-header-qb.bin $(lpddr_imem_qb) $(lpddr_dmem_qb) > $@.unaligned; \
+cmd_ddrfw = \
+	: > $@.unaligned; \
+	$(call append_fw,$(word 1,$^),$(word 2,$^)) \
+	$(call append_fw,$(word 3,$^),$(word 4,$^)) \
 	dd if=$@.unaligned of=$@ bs=8 conv=sync; \
-	rm -f $@.unaligned fw-header.bin fw-header-qb.bin;
+	rm -f $@.unaligned
 
 $(obj)/%_DRAM-FW.fsi:
 	$(call cmd,ddrfw)
@@ -183,9 +177,9 @@ ifneq ($(wildcard $(LPDDR5_CFG)),)
 $(eval $(call fsc,lpddr5_info,-a 0x400 -t DRAM-INFO -d lpddr5))
 endif
 
-#ifneq ($(wildcard $(LPDDR4X_CFG)),)
-#$(eval $(call fsc,lpddr4x_info,-a 0x400 -t DRAM-INFO -d lpddr4x))
-#endif
+ifneq ($(wildcard $(LPDDR4X_CFG)),)
+$(eval $(call fsc,lpddr4x_info,-a 0x400 -t DRAM-INFO -d lpddr4x))
+endif
 
 # -----------------------------------------------------------------------------
 #
@@ -225,6 +219,7 @@ NBOOT_FILES = \
 	$(obj)/board_id.fsh \
 	$(obj)/board_info.fs \
 	$(if $(wildcard $(LPDDR5_CFG)),$(obj)/lpddr5_info.fs) \
+	$(if $(wildcard $(LPDDR4X_CFG)),$(obj)/lpddr4x_info.fs) \
 	$(obj)/extra.fs
 
 nboot-$(BOARD)-$(NBOOT_SUFFIX).fs: $(NBOOT_FILES)

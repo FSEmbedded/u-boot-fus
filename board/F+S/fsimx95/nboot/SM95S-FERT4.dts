@@ -1,0 +1,47 @@
+/*
+ * Copyright (C) 2024 F&S Elektronik Systeme GmbH
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "nboot-info.dtsi"
+
+/ {
+	board-cfg {
+		board-name = "SM95S";
+		board-fdt = "sm95s";
+		board-rev = <100>;
+
+		/* DRAM: B.ICDRAM.60 */
+		dram-type = "lpddr4x";
+		dram-timing = "lpddr4x_sm_4g4266m2ch1cs";
+		dram-size = <0x1000>;		/* In MiB */
+		dram-chips = <1>;
+
+		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
+		boot-dev = "MMC1";
+
+		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
+		fuse-bankword = <0x00030000>;
+		fuse-mask =     <0x20000002>;
+		fuse-value =    <0x20000002>;
+
+		/* Common board features */
+		have-emmc;
+		have-ext-rtc;
+		have-eeprom;
+		have-usb-hub;
+		have-eth-a;
+		have-eth-b;
+		have-eth-phy-a;
+		have-eth-phy-b;
+		have-temp;
+		have-sec;
+		have-wlan;
+		have-edp;
+	};
+};
