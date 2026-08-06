@@ -2098,7 +2098,7 @@ static int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
 	sub.descr = arch;
 	sub.img = uboot_fsh;
 	sub.offset = 0;
-	sub.flags |= sub_flags;
+	sub.flags = sub_flags;
 	err = fs_image_load_image(fi, &ni->uboot, &sub);
 	if (err)
 		return err;

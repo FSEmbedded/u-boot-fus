@@ -165,36 +165,26 @@
  * typically formated with FAT.
  */
 #ifdef CONFIG_CMD_MMC
-#define BOOT_FROM_MMC                                                \
-	".boot_part_A=1\0"                                              \
-	".boot_part_B=2\0"                                              \
-	".rootfs_part_A=5\0"                                            \
-	".rootfs_part_B=6\0"                                            \
-	".kernel_mmc_A=setenv kernel mmc rescan\\\\;"                   \
-	" load mmc ${mmcdev}:${.boot_part_A}\0"                         \
-	".kernel_mmc_B=setenv kernel mmc rescan\\\\;"                   \
-	" load mmc ${mmcdev}:${.boot_part_B}\0"                         \
-	".kernel_mmc=setenv kernel mmc rescan\\\\;"                     \
-	" load mmc ${mmcdev} . ${bootfile}\0"                           \
-	".fdt_mmc_A=setenv fdt mmc rescan\\\\;"                         \
-	" load mmc ${mmcdev}:${.boot_part_A} ${fdtaddr} \\\\${bootfdt}" \
-	BOOT_WITH_FDT                                                   \
-	".fdt_mmc_B=setenv fdt mmc rescan\\\\;"                         \
-	" load mmc ${mmcdev}:${.boot_part_B} ${fdtaddr} \\\\${bootfdt}" \
-	BOOT_WITH_FDT                                                   \
-	".fdt_mmc=setenv fdt mmc rescan\\\\;"                           \
-	" load mmc ${mmcdev} ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT   \
-	".rootfs_mmc_A=setenv rootfs root=/dev/mmcblk${mmcdev}p${.rootfs_part_A}" \
-	" rootfstype=squashfs rootwait\0"                               \
-	".rootfs_mmc_B=setenv rootfs root=/dev/mmcblk${mmcdev}p${.rootfs_part_B}" \
-	" rootfstype=squashfs rootwait\0"                               \
-	".rootfs_mmc=setenv rootfs root=/dev/mmcblk${mmcdev}p2 rootwait\0"
+#define BOOT_FROM_MMC							\
+	".boot_part_A=1\0"						\
+	".boot_part_B=2\0"						\
+	".boot_part=1\0"						\
+	".rootfs_part_A=3\0"						\
+	".rootfs_part_B=4\0"						\
+	".rootfs_part=2\0"						\
+	".kernel_mmc=setenv kernel n=.boot_part\\\\${slot_}\\\\;"	\
+	" mmc rescan\\\\; load mmc ${mmcdev}:\\\\${!n} . ${bootfile}\0"	\
+	".fdt_mmc=setenv fdt n=.boot_part\\\\${slot_}\\\\; mmc rescan\\\\; " \
+	" load mmc ${mmcdev}:\\\\${!n} ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT \
+	".rootfs_mmc=setenv set_rootfs n=.rootfs_part\\\\${slot_}\\\\;" \
+	" part uuid mmc ${mmcdev}:\\\\${!n} rootfsuuid\\\\;" \
+	" setenv rootfs root=PARTUUID=\\\\${rootfsuuid} ${rootfstype} rootwait\0"
 #else
 #define BOOT_FROM_MMC
 #endif
 
 /* In case of USB, the layout is the same as on MMC (no A/B support). */
-#define BOOT_FROM_USB                                                \
+#define BOOT_FROM_USB							\
 	".kernel_usb=setenv kernel usb start\\\\;"                      \
 	" load usb 0 . ${bootfile}\0"                                   \
 	".fdt_usb=setenv fdt usb start\\\\;"                            \
@@ -202,59 +192,49 @@
 	".rootfs_usb=setenv rootfs root=/dev/sda1 rootwait\0"
 
 /* In case of TFTP, kernel and device tree are loaded from TFTP server */
-#define BOOT_FROM_TFTP                                               \
+#define BOOT_FROM_TFTP							\
 	".kernel_tftp=setenv kernel tftpboot . ${bootfile}\0"           \
 	".fdt_tftp=setenv fdt tftpboot ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT
 
 /* In case of NFS, kernel, device tree and rootfs are loaded from NFS server */
-#define BOOT_FROM_NFS                                                \
+#define BOOT_FROM_NFS							\
 	".kernel_nfs=setenv kernel nfs ."                               \
 	" ${serverip}:${rootpath}/${bootfile}\0"                        \
 	".fdt_nfs=setenv fdt nfs ${fdtaddr}"                            \
 	" ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT             \
 	".rootfs_nfs=setenv rootfs root=/dev/nfs"                       \
-	" nfsroot=${serverip}:${rootpath}\0"
+	" nfsroot=${serverip}:${rootpath},tcp,v3\0"
 
 /*
  * Generic settings for booting with updates on A/B.
  * RAUC-aligned: iterates BOOT_ORDER, decrements counter, single saveenv.
  */
-#define BOOT_SYSTEM                                                  \
-	".init_fs_updater=setenv init init=/sbin/preinit.sh\0"         \
-	"BOOT_ORDER=A B\0"                                              \
-	"BOOT_ORDER_OLD=A B\0"                                          \
-	"BOOT_A_LEFT=3\0"                                               \
-	"BOOT_B_LEFT=3\0"                                               \
-	"update_reboot_state=0\0"                                       \
-	"update=0000\0"                                                 \
-	"application=A\0"                                               \
-	"rauc_cmd=rauc.slot=A\0"                                        \
+#define BOOT_SYSTEM							\
+	".init_fs_updater=setenv init init=/sbin/preinit.sh\0"		\
+	"BOOT_ORDER=A B\0"						\
+	"BOOT_ORDER_OLD=A B\0"						\
+	"BOOT_A_LEFT=3\0"						\
+	"BOOT_B_LEFT=3\0"						\
+	"update_reboot_state=0\0"					\
+	"update=0000\0"							\
+	"application=A\0"						\
+	"rauc_cmd=rauc.slot=A\0"					\
 	"selector="                                                     \
+		"rootfstype=rootfstype=squashfs; " \
 		"for slot in ${BOOT_ORDER}; do "                        \
-			"if test \"x${slot}\" = \"xA\"; then "          \
-				"slot_cnt=${BOOT_A_LEFT}; "             \
-			"else "                                         \
-				"slot_cnt=${BOOT_B_LEFT}; "             \
-			"fi; "                                          \
+			"n=BOOT_${slot}_LEFT;"				\
+			"slot_cnt=${!n}; "                              \
 			"if test ${slot_cnt} -gt 0; then "              \
+				"slot_=_${slot}; "			\
 				"setexpr BOOT_${slot}_LEFT ${slot_cnt} - 1; " \
 				"setenv rauc_cmd rauc.slot=${slot}; "   \
 				"saveenv; "                             \
 				"echo \"Booting slot ${slot} (${slot_cnt} left)\"; " \
-				"run .kernel_${bd_kernel}_${slot}; "    \
-				"run .fdt_${bd_fdt}_${slot}; "          \
-				"run .rootfs_${bd_rootfs}_${slot}; "    \
 				"exit; "                                \
 			"fi; "                                          \
 		"done; "                                                \
-		"echo \"All boot tries exhausted, emergency boot\"; "  \
-		"for slot in ${BOOT_ORDER}; do "                        \
-			"setenv rauc_cmd rauc.slot=${slot}; "           \
-			"run .kernel_${bd_kernel}_${slot}; "            \
-			"run .fdt_${bd_fdt}_${slot}; "                  \
-			"run .rootfs_${bd_rootfs}_${slot}; "            \
-			"exit; "                                        \
-		"done;\0"
+		"echo \"Boot failed, system corrupted\"; "   \
+		"setenv boot_failed 1;\0"                    \
 
 
 /* Generic variables */
@@ -268,29 +248,23 @@
 /*
  * Boot mode dispatch: runtime selection between A/B update and legacy boot.
  * select_boot_mode is the single entry point called by CONFIG_BOOTCOMMAND.
- * No mtdparts re-evaluation needed — this board is eMMC-only.
  */
-#define BOOT_MODE_DISPATCH                                           \
-	"boot_legacy="                                                  \
-		"run set_bootargs; run kernel; run fdt\0"               \
-	"boot_ab="                                                      \
-		"run selector; run set_bootargs; run kernel; run fdt; " \
-		"run failed_update_reset\0"                             \
-	"select_boot_mode="                                             \
-		"if test \"x${use_ab}\" = \"xtrue\"; then "             \
-			"run .init_fs_updater; "                        \
-			"run boot_ab; "                                 \
-		"else "                                                 \
-			"setenv rauc_cmd; "                             \
-			"run .init_init; "                              \
-			"run .kernel_${bd_kernel}; "                    \
-			"run .fdt_${bd_fdt}; "                          \
-			"run .rootfs_${bd_rootfs}; "                    \
-			"run boot_legacy; "                             \
+#define BOOT_MODE_DISPATCH						\
+	"select_boot_mode="                         \
+		"if test -n \"${use_ab}\"; then "           \
+			"run .init_fs_updater selector; "   \
+			"if test -z \"${boot_failed}\"; then "\
+				"run set_bootargs kernel fdt; "	\
+				"run failed_update_reset; "     \
+			"fi; "                              \
+		"else "                                 \
+			"setenv rauc_cmd; "                 \
+			"run .init_init; "                  \
+			"run set_bootargs kernel fdt; "     \
 		"fi\0"
 
 #if defined(CONFIG_ENV_IS_IN_MMC)
-	#define FILSEIZE2BLOCKCOUNT "block_size=200\0" 	\
+	#define FILESIZE2BLOCKCOUNT "block_size=200\0" 	\
 		"filesize2blockcount=" \
 			"setexpr test_rest \\${filesize} % \\${block_size}; " \
 			"if test \\${test_rest} = 0; then " \
@@ -300,7 +274,7 @@
 				"setexpr blocckount \\${blockcount} + 1; " \
 			"fi;\0"
 #else
-	#define FILSEIZE2BLOCKCOUNT
+	#define FILESIZE2BLOCKCOUNT
 #endif
 
 /* Reset update process if uncaught error drops to u-boot shell */
@@ -333,7 +307,6 @@
 	".init_linuxrc=setenv init init=linuxrc\0"                      \
 	"mtdids=undef\0"                                                \
 	"mtdparts=undef\0"                                              \
-	"use_ab=false\0"                                                \
 	"netdev=eth0\0"                                                 \
 	"mmcdev=undef\0"                                                \
 	".network_off=setenv network\0"                                 \
@@ -351,7 +324,7 @@
 	BOOT_FROM_NFS                                                \
 	BOOT_SYSTEM                                                  \
 	BOOT_MODE_DISPATCH                                           \
-	FILSEIZE2BLOCKCOUNT                                             \
+	FILESIZE2BLOCKCOUNT                                             \
 	FSBOOTDELAY                                                     \
 	FAILED_UPDATE_RESET                                             \
 	"sercon=undef\0"                                                \
@@ -364,7 +337,7 @@
 	"m4_uart4=disable\0"                                            \
 	"fdt_high=0xffffffffffffffff\0"                                 \
 	"set_bootfdt=setenv bootfdt ${platform}.dtb\0"                  \
-	"set_bootargs=setenv bootargs ${console} ${login} ${mtdparts}"  \
+	"set_bootargs=run set_rootfs\\; setenv bootargs ${console} ${login} ${mtdparts}"  \
 	" ${network} ${rootfs} ${mode} ${init} ${extra} ${rauc_cmd}\0"
 
 /* Link Definitions */

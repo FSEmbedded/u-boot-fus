@@ -36,6 +36,9 @@ union fsdeviceinfo{
 
 		unsigned int displayinterface;
 		unsigned int displaypanel;
+
+		unsigned int logoblock;     // Startblock auf eMMC
+		unsigned int logosize;      // Größe in Bytes
 	}info;
 };
 

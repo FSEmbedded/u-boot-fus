@@ -100,6 +100,7 @@ enum {
 	IH_OS_TEE,			/* Trusted Execution Environment */
 	IH_OS_OPENSBI,			/* RISC-V OpenSBI */
 	IH_OS_EFI,			/* EFI Firmware (e.g. GRUB2) */
+	IH_OS_TIANOCORE,		/* Tianocore UEFI	*/
 
 	IH_OS_COUNT,
 };
@@ -1115,6 +1116,7 @@ int booti_setup(ulong image, ulong *relocated_addr, ulong *size,
 #define FIT_STANDALONE_PROP	"standalone"
 #define FIT_SCRIPT_PROP		"script"
 #define FIT_PHASE_PROP		"phase"
+#define FIT_COMPAT_PROP		"compatible"
 
 #define FIT_MAX_HASH_LEN	HASH_MAX_DIGEST_SIZE
 

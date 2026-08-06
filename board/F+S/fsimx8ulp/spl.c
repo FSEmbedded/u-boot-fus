@@ -107,6 +107,36 @@ void setup_iomux_pmic(void)
 	}
 }
 
+static void quirk_CIN202604022I(void)
+{
+	uint8_t otp_ver;
+	uint8_t otp_rev;
+	uint32_t reg_val;
+
+	/* Read OTP version and reference */
+	upower_pmic_i2c_read(0x01, &reg_val);
+	otp_rev = reg_val & 0xf;
+	otp_ver = (reg_val >> 4) & 0xf;
+
+	debug("%s: OTP version 0x%02x, revision 0x%02x\n", 
+					__func__, otp_ver, otp_rev);
+	if(otp_ver > 0x2 || otp_rev > 0x3)
+		return;
+	
+	debug("%s: Apply quirk\n", __func__);
+
+	/* NOTE: 
+	 * values from PCN attachment,
+	 * upower uses default addr 0x32
+	 */
+	upower_pmic_i2c_write(0x00, 0x83);
+	upower_pmic_i2c_write(0x3f, 0x3f);
+	upower_pmic_i2c_write(0xc3, 0x10);
+	upower_pmic_i2c_write(0xc5, 0x14);
+	upower_pmic_i2c_write(0x3f, 0x00);
+	upower_pmic_i2c_write(0x00, 0x30);
+}
+
 int power_init_board(void)
 {
 	u32 tmp;
@@ -130,6 +160,8 @@ int power_init_board(void)
 	upower_pmic_i2c_read(0x0b, &tmp);
 	tmp &= ~0x1c;
 	upower_pmic_i2c_write(0x0b, tmp);
+
+	quirk_CIN202604022I();
 
 	return 0;
 }

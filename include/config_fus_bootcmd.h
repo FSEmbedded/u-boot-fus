@@ -17,7 +17,7 @@
 #define BOOT_WITH_FDT "booti ${loadaddr} - ${fdt_addr_r}"
 
 #if defined(CONFIG_ENV_IS_IN_MMC)
-#define FILSEIZE2BLOCKCOUNT "block_size=200\0" 	\
+#define FILESIZE2BLOCKCOUNT "block_size=200\0" 	\
 		"filesize2blockcount=" \
 			"setexpr test_rest \\${filesize} % \\${block_size}; " \
 			"if test \\${test_rest} = 0; then " \
@@ -27,7 +27,7 @@
 				"setexpr blocckount \\${blockcount} + 1; " \
 			"fi;\0"
 #else
-#define FILSEIZE2BLOCKCOUNT
+#define FILESIZE2BLOCKCOUNT
 #endif /* CONFIG_ENV_IS_IN_MMC */
 
 /*
@@ -37,11 +37,11 @@
  */
 #ifdef CONFIG_CMD_MMC
 #define BOOT_FROM_MMC								\
-	".kernel_mmc=setenv kernel \"mmc rescan; "				\
-		" load mmc ${mmcdev} . ${bootfile}\"\0"				\
-	".fdt_mmc=setenv fdt \"mmc rescan; "					\
+	".kernel_mmc=setenv kernel \'mmc rescan; "				\
+		" load mmc ${mmcdev} . ${bootfile}\'\0"				\
+	".fdt_mmc=setenv fdt \'mmc rescan; "					\
 		"load mmc ${mmcdev} ${fdt_addr_r} ${fdtfile}; "			\
-		BOOT_WITH_FDT "\"\0"						\
+		BOOT_WITH_FDT "\'\0"						\
 	".rootfs_mmc=setenv root /dev/mmcblk${mmcdev}p2 rootwait\0"
 #else
 #define BOOT_FROM_MMC
@@ -49,26 +49,26 @@
 
 /* In case of USB, the layout is the same as on MMC. */
 #define BOOT_FROM_USB							\
-	".kernel_usb=setenv kernel \"usb start; "				\
-		"load usb 0 . ${bootfile}\"\0"				\
-	".fdt_usb=setenv fdt \"usb start; "				\
+	".kernel_usb=setenv kernel \'usb start; "				\
+		"load usb 0 . ${bootfile}\'\0"				\
+	".fdt_usb=setenv fdt \'usb start; "				\
 		"load usb 0 ${fdt_addr_r} ${fdtfile}; " 		\
-		BOOT_WITH_FDT "\"\0"					\
+		BOOT_WITH_FDT "\'\0"					\
 	".rootfs_usb=setenv root /dev/sda1 rootwait\0"
 
 /* In case of TFTP, kernel and device tree are loaded from TFTP server */
 #define BOOT_FROM_TFTP							\
-	".kernel_tftp=setenv kernel \"tftpboot . ${bootfile}\"\0"	\
-	".fdt_tftp=setenv fdt \"tftpboot ${fdt_addr_r} ${fdtfile}; " 	\
-		BOOT_WITH_FDT "\"\0"					\
+	".kernel_tftp=setenv kernel \'tftpboot . ${bootfile}\'\0"	\
+	".fdt_tftp=setenv fdt \'tftpboot ${fdt_addr_r} ${fdtfile}; " 	\
+		BOOT_WITH_FDT "\'\0"					\
 
 /* In case of NFS, kernel, device tree and rootfs are loaded from NFS server */
 #define BOOT_FROM_NFS							\
-	".kernel_nfs=setenv kernel \"nfs . "				\
-		"${serverip}:${rootpath}/${bootfile}\"\0"		\
-	".fdt_nfs=setenv fdt \"nfs ${fdt_addr_r} "			\
+	".kernel_nfs=setenv kernel \'nfs . "				\
+		"${serverip}:${rootpath}/${bootfile}\'\0"		\
+	".fdt_nfs=setenv fdt \'nfs ${fdt_addr_r} "			\
 		"${serverip}:${rootpath}/${fdtfile}; "			\
-		BOOT_WITH_FDT"\"\0"					\
+		BOOT_WITH_FDT"\'\0"					\
 	".rootfs_nfs=setenv root /dev/nfs "				\
 		"nfsroot=${serverip}:${rootpath},v3,tcp\0"
 
@@ -167,8 +167,8 @@
 	".console_serial=setenv console ${sercon},${baudrate}\0" 				\
 	".console_display=setenv console tty1\0"						\
 	"mode=undef\0"										\
-	".mode_rw=setenv mode rw rootwait\0"							\
-	".mode_ro=setenv mode ro rootwait\0"							\
+	".mode_rw=setenv mode rw\0"								\
+	".mode_ro=setenv mode ro\0"								\
 	"login=undef\0"										\
 	".login_none=setenv login login_tty=null\0"						\
 	".login_serial=setenv login login_tty=${sercon},${baudrate}\0"				\
@@ -207,7 +207,7 @@
 		"setenv root \"/dev/nfs "							\
 			"nfsroot=${serverip}:${nfsroot},v3,tcp\";\0"				\
 	".tftp_mmc_root="									\
-		"setenv root \"/dev/mmcblk${mmcdev}p${default_rootpart}\";\0"			\
+		"setenv root \"/dev/mmcblk${mmcdev}p${default_rootpart} rootwait\";\0"		\
 	"ramdisk_addr_r=-\0"									\
 	"bootcmd_tftp_mmc="									\
 		"run .tftp_mmc_root; "								\
@@ -288,7 +288,7 @@
 	"boot_a_image="										\
 		"load ${devtype} ${devnum}:${distro_bootpart} ${kernel_addr_r} ${bootfile}; "	\
 		"load ${devtype} ${devnum}:${distro_bootpart} ${fdt_addr_r} ${fdtfile}; "	\
-		"setenv root PARTUUID=${distro_rootpart_uuid}; "				\
+		"setenv root PARTUUID=${distro_rootpart_uuid} rootwait; "			\
 		"run set_bootargs; "								\
 		"booti ${kernel_addr_r} - ${fdt_addr_r};\0"					\
 
@@ -378,7 +378,7 @@
 		"fi;\0"										\
 	"boot_a_cntr_image="									\
 		"load ${devtype} ${devnum}:${distro_bootpart} ${cntr_addr_r} ${bootcntrfile}; "	\
-		"setenv root PARTUUID=${distro_rootpart_uuid}; "				\
+		"setenv root PARTUUID=${distro_rootpart_uuid} rootwait; "				\
 		"run set_bootargs; "								\
 		"echo \"check container signature ...\"; "					\
 		"if auth_cntr ${cntr_addr_r}; then "						\
@@ -408,7 +408,6 @@
 
 #endif
 
-#if defined(CONFIG_FS_WINIOT_SUPPORT)
 #define FUS_WIN_BOOT 										\
 	"mmc_boot="										\
 		"if mmc dev ${devnum}; then "							\
@@ -422,8 +421,5 @@
 			"bootm ${loadaddr}; "							\
 		"fi;\0"										\
 
-#else
-#define FUS_WIN_BOOT
-#endif
 
 #endif /* _CONFIG_FUS_BOOTCMD */

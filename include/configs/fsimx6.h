@@ -313,7 +313,7 @@
    single backslash. So we actually need an escaped backslash, i.e. two
    backslashes. Which finally results in having to type four backslashes here,
    as each backslash must also be escaped with a backslash in C. */
-#define BOOT_WITH_FDT "\\\\; bootm ${loadaddr} - ${fdtaddr}\0"
+#define BOOT_WITH_FDT "\\\\; bootz ${loadaddr} - ${fdtaddr}\0"
 
 #ifdef CONFIG_CMD_UBI
 #ifdef CONFIG_CMD_UBIFS
@@ -340,7 +340,7 @@
 #define FSBOOTDELAY "bootdelay=undef\0"
 #endif
 
-#define CONFIG_EXTRA_ENV_SETTINGS \
+#define CFG_EXTRA_ENV_SETTINGS \
 	"console=undef\0" \
 	".console_none=setenv console\0" \
 	".console_serial=setenv console console=${sercon},${baudrate}\0" \
@@ -369,7 +369,7 @@
 	".kernel_usb=setenv kernel usb start\\\\; load usb 0 . ${bootfile}\0" \
 	"fdt=undef\0" \
 	"fdtaddr=12000000\0" \
-	".fdt_none=setenv fdt bootm\0" \
+	".fdt_none=setenv fdt bootz\0" \
 	".fdt_nand=setenv fdt nand read ${fdtaddr} FDT" BOOT_WITH_FDT \
 	".fdt_tftp=setenv fdt tftpboot ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT \
 	".fdt_nfs=setenv fdt nfs ${fdtaddr} ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT \

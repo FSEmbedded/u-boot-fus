@@ -23,10 +23,6 @@
 #include "fs_board_common.h"		/* fs_board_issue_reset() */
 #include "fs_usb_common.h"		/* Own interface */
 
-#define USB_OTHERREGS_OFFSET	0x800
-#define UCTRL_PWR_POL		(1 << 9)
-#define UCTRL_OVER_CUR_DIS	(1 << 7)
-
 #define MAX_USB_PORTS CONFIG_USB_MAX_CONTROLLER_COUNT
 
 struct fs_usb_port {

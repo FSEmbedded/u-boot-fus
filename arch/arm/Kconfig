@@ -503,27 +503,27 @@ config TPL_USE_ARCH_MEMCPY
 	  but may increase the binary size.
 
 config USE_ARCH_MEMMOVE
-	bool "Use an assembly optimized implementation of memmove" if !ARM64
-	default USE_ARCH_MEMCPY if ARM64
-	depends on ARM64
+	bool "Use an assembly optimized implementation of memmove"
+	default USE_ARCH_MEMCPY if !ARM64
+	depends on !ARM64
 	help
 	  Enable the generation of an optimized version of memmove.
 	  Such an implementation may be faster under some conditions
 	  but may increase the binary size.
 
 config SPL_USE_ARCH_MEMMOVE
-	bool "Use an assembly optimized implementation of memmove for SPL" if !ARM64
-	default SPL_USE_ARCH_MEMCPY if ARM64
-	depends on SPL && ARM64
+	bool "Use an assembly optimized implementation of memmove for SPL"
+	default SPL_USE_ARCH_MEMCPY if !ARM64
+	depends on SPL && !ARM64
 	help
 	  Enable the generation of an optimized version of memmove.
 	  Such an implementation may be faster under some conditions
 	  but may increase the binary size.
 
 config TPL_USE_ARCH_MEMMOVE
-	bool "Use an assembly optimized implementation of memmove for TPL" if !ARM64
-	default TPL_USE_ARCH_MEMCPY if ARM64
-	depends on TPL && ARM64
+	bool "Use an assembly optimized implementation of memmove for TPL"
+	default TPL_USE_ARCH_MEMCPY if !ARM64
+	depends on TPL && !ARM64
 	help
 	  Enable the generation of an optimized version of memmove.
 	  Such an implementation may be faster under some conditions

@@ -379,8 +379,8 @@ nextchunk-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /* pad request bytes into a usable size */
 
 #define request2size(req) \
- (((long)((req) + (SIZE_SZ + MALLOC_ALIGN_MASK)) < \
-  (long)(MINSIZE + MALLOC_ALIGN_MASK)) ? MINSIZE : \
+ ((((req) + (SIZE_SZ + MALLOC_ALIGN_MASK)) < \
+  (MINSIZE + MALLOC_ALIGN_MASK)) ? MINSIZE : \
    (((req) + (SIZE_SZ + MALLOC_ALIGN_MASK)) & ~(MALLOC_ALIGN_MASK)))
 
 /* Check if m has acceptable alignment */
@@ -591,15 +591,15 @@ void *sbrk(ptrdiff_t increment)
 	ulong old = mem_malloc_brk;
 	ulong new = old + increment;
 
+	if ((new < mem_malloc_start) || (new > mem_malloc_end))
+		return (void *)MORECORE_FAILURE;
+
 	/*
 	 * if we are giving memory back make sure we clear it out since
 	 * we set MORECORE_CLEARS to 1
 	 */
 	if (increment < 0)
 		memset((void *)new, 0, -increment);
-
-	if ((new < mem_malloc_start) || (new > mem_malloc_end))
-		return (void *)MORECORE_FAILURE;
 
 	mem_malloc_brk = new;
 
@@ -1307,7 +1307,8 @@ Void_t* mALLOc(bytes) size_t bytes;
     return NULL;
   }
 
-  if ((long)bytes < 0) return NULL;
+  if (bytes > CONFIG_SYS_MALLOC_LEN || (long)bytes < 0)
+     return NULL;
 
   nb = request2size(bytes);  /* padded request size; */
 
@@ -1730,7 +1731,8 @@ Void_t* rEALLOc(oldmem, bytes) Void_t* oldmem; size_t bytes;
   }
 #endif
 
-  if ((long)bytes < 0) return NULL;
+  if (bytes > CONFIG_SYS_MALLOC_LEN || (long)bytes < 0)
+     return NULL;
 
   /* realloc of null is supposed to be same as malloc */
   if (oldmem == NULL) return mALLOc(bytes);
@@ -1960,7 +1962,8 @@ Void_t* mEMALIGn(alignment, bytes) size_t alignment; size_t bytes;
 		return memalign_simple(alignment, bytes);
 #endif
 
-  if ((long)bytes < 0) return NULL;
+  if (bytes > CONFIG_SYS_MALLOC_LEN || (long)bytes < 0)
+     return NULL;
 
 #if CONFIG_IS_ENABLED(SYS_MALLOC_F)
 	if (!(gd->flags & GD_FLG_FULL_MALLOC_INIT)) {

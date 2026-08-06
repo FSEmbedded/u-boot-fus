@@ -285,7 +285,7 @@ typedef struct {
 #define PARTITION_ID_M4		0
 #define PARTITION_ID_AP		1
 
-#define IMG_STACK_SIZE	128
+#define IMG_STACK_SIZE	(MAX_NUM_IMGS * 4)
 
 #define append(p, s, l) do { \
 	memcpy((p), (uint8_t *)(s), (l)); (p) += (l); \

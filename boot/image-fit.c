@@ -1751,7 +1751,7 @@ int fit_conf_find_compat(const void *fit, const void *fdt)
 			continue;
 
 		/* If there's a compat property in the config node, use that. */
-		if (fdt_getprop(fit, noffset, "compatible", NULL)) {
+		if (fdt_getprop(fit, noffset, FIT_COMPAT_PROP, NULL)) {
 			fdt = fit;		  /* search in FIT image */
 			compat_noffset = noffset; /* search under config node */
 		} else {	/* Otherwise extract it from the kernel FDT. */
@@ -2171,7 +2171,8 @@ int fit_image_load(struct bootm_headers *images, ulong addr,
 		fit_image_check_os(fit, noffset, IH_OS_TEE) ||
 		fit_image_check_os(fit, noffset, IH_OS_OPENRTOS) ||
 		fit_image_check_os(fit, noffset, IH_OS_EFI) ||
-		fit_image_check_os(fit, noffset, IH_OS_VXWORKS);
+		fit_image_check_os(fit, noffset, IH_OS_VXWORKS) ||
+		fit_image_check_os(fit, noffset, IH_OS_TIANOCORE);
 
 	/*
 	 * If either of the checks fail, we should report an error, but

@@ -1,0 +1,6 @@
+&fec {
+	// MX6QDL_PAD_GPIO_2__GPIO1_IO02
+	phy-reset-gpios = <&gpio1 2 GPIO_ACTIVE_LOW>;
+	phy-reset-duration = <1>;
+	phy-reset-post-delay = <170>;
+};

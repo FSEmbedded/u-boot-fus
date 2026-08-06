@@ -1117,8 +1117,17 @@ append = cat $(filter-out $< $(PHONY), $^) >> $@
 quiet_cmd_pad_cat = CAT     $@
 cmd_pad_cat = $(cmd_objcopy) && $(append) || { rm -f $@; false; }
 
+# Do not use -9 as it is only for files >32 MiB and needs 65 MiB of RAM for
+# decompression. -6, which is the default, works equally good for U-Boot's
+# file size and just needs 9 MiB of RAM for decompression. If decompression
+# RAM space is critical, consider -0. It only needs 1 MiB of RAM, though
+# compresses slightly worse.
 quiet_cmd_lzma = LZMA    $@
-cmd_lzma = lzma -c -z -k -9 $< > $@
+cmd_lzma = lzma -c -z -k $< > $@
+
+# You can add -M<n> to limit decompression RAM requirements to <n>MiB.
+quiet_cmd_zstd = ZSTD    $@
+cmd_zstd = zstd -q -c -z -19 -k $< > $@
 
 cfg: u-boot.cfg
 
@@ -1466,6 +1475,9 @@ MKIMAGEFLAGS_u-boot-lzma.img = -A $(ARCH) -T standalone -C lzma -O u-boot \
 	-a $(CONFIG_TEXT_BASE) -e $(CONFIG_SYS_UBOOT_START) \
 	-n "U-Boot $(UBOOTRELEASE) for $(BOARD) board"
 
+u-boot.bin.zst: u-boot.bin FORCE
+	$(call if_changed,zstd)
+
 u-boot.bin.lzma: u-boot.bin FORCE
 	$(call if_changed,lzma)
 
@@ -1503,13 +1515,6 @@ u-boot-with-spl.kwb: u-boot.bin spl/u-boot-spl.bin FORCE
 quiet_cmd_disasm = DISASM  $(2).dis
 cmd_disasm = $(OBJDUMP) -d $(2) > $(2).dis
 
-OBJCOPYFLAGS_uboot.nb0 = --pad-to $(CONFIG_BOARD_SIZE_LIMIT) -I binary -O binary
-uboot.nb0:	u-boot.bin
-		$(call if_changed,objcopy)
-#		dd if=/dev/zero bs=1K count=$(CONFIG_BOARD_SIZE_LIMIT) \
-#			 | tr '\000' '\377' >$@
-#		dd if=$< of=$@ conv=notrunc bs=1K
-
 quiet_cmd_addfsheader = FSIMG   $@
 cmd_addfsheader = $(srctree)/scripts/addfsheader.sh $2 > $@
 
@@ -1523,6 +1528,10 @@ FSIMG_OPT = -s -c -a 16 -t U-BOOT -d $(BOARD)
 endif
 ifeq ($(CONFIG_SPL_LOAD_FIT), y)
 addfsheader_target = u-boot-dtb.img
+else ifneq ($(CONFIG_FS_SFX_UBOOT),)
+addfsheader_target = uboot.sfx
+UBOOT_SFX-$(CONFIG_FS_SFX_UBOOT_ZSTD) = u-boot.bin.zst
+UBOOT_SFX-$(CONFIG_FS_SFX_UBOOT_LZMA) = u-boot.bin.lzma
 else
 addfsheader_target = u-boot.bin
 endif
@@ -1540,6 +1549,19 @@ tee.fs: $(FS_FW_PATH)/bl32.bin
 uboot-atf.fs: atf.fs $(if $(CONFIG_OPTEE),tee.fs) uboot.fs
 	$(call cmd,addfsheader,-s -c -a 16 -t U-BOOT-ATF -d $(BOARD) $^)
 endif
+
+uboot.sfx: $(UBOOT_SFX-y)
+	$(Q)$(MAKE) $(build)=board/$(BOARDDIR) $@
+
+# If uboot.nb0 is compressed, u-boot.bin may exceed 512KiB considerably and
+# BOARD_SIZE_LIMIT does not make sense anymore. But still uboot.nb0 must not
+# exceed 512KiB (or 384KiB on Vybrid). Do the check here.
+uboot-nb0-size-$(CONFIG_TARGET_FSVYBRID) = 393216
+uboot-nb0-size-$(CONFIG_ARCH_MX6) = 524288
+OBJCOPYFLAGS_uboot.nb0 = --pad-to $(uboot-nb0-size-y) -I binary -O binary
+uboot.nb0: $(addfsheader_target)
+	$(call if_changed,objcopy)
+	@ $(call size_check,$@,$(uboot-nb0-size-y))
 
 PHONY += nboot
 NBOOT_PATH = board/$(BOARDDIR)/nboot
@@ -2247,7 +2269,7 @@ CLEAN_DIRS  += $(MODVERDIR) \
 			$(filter-out include, $(shell ls -1 $d 2>/dev/null))))
 
 CLEAN_FILES += include/autoconf.mk* include/bmp_logo.h include/bmp_logo_data.h \
-	       uboot.nb0 uboot.fs			  \
+	       uboot.nb0 uboot.sfx uboot.fs			  \
 	       include/config.h include/generated/env.* drivers/video/u_boot_logo.S \
 	       tools/version.h u-boot* MLO* SPL System.map fit-dtb.blob* \
 	       u-boot-ivt.img.log u-boot-dtb.imx.log SPL.log u-boot.imx.log \

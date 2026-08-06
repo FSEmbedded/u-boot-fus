@@ -364,6 +364,12 @@ config BOOTM_RTEMS
 	help
 	  Support booting RTEMS images via the bootm command.
 
+config BOOTM_TIANOCORE
+	bool "Support booting Tianocre UEFI images"
+	default n
+	help
+	  Support booting Tianocore UEFI images via the bootm command.
+
 config CMD_SEAMA
 	bool "Support read SEAMA NAND images"
 	depends on MTD_RAW_NAND

@@ -20,6 +20,10 @@
 #define FS_USB_OTG_DEVICE (FS_USB_DEVICE + 2) /* DEV + HOST, DEV as default */
 #define FS_USB_OTG_HOST   (FS_USB_HOST + 2)   /* DEV + HOST, HOST as default */
 
+#define USB_OTHERREGS_OFFSET	0x800
+#define UCTRL_PWR_POL		(1 << 9)
+#define UCTRL_OVER_CUR_DIS	(1 << 7)
+
 /*
  * F&S USB port configuration
  *

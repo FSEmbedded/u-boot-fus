@@ -1,0 +1,6 @@
+&fec1 {
+	// MX6SX_PAD_ENET2_CRS__GPIO2_IO_7
+	phy-reset-gpios = <&gpio2 7 GPIO_ACTIVE_LOW>;
+	phy-reset-duration = <1>;
+	phy-reset-post-delay = <170>;
+};
