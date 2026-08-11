@@ -164,6 +164,9 @@
 
 #define FIT_IMAGES_PATH		"/images"
 
+/* Enable this if index images may have sub-images in the future */
+//#define INDEX_WITH_SUB
+
 /* Argument of option -e in fsimage save */
 static uint early_support_index;
 
@@ -173,6 +176,11 @@ static uint early_support_index;
 #define IMAGE_SPEC "<filename>"
 #define puts printf
 #endif
+
+enum parse_type {
+	PARSE_CONTENT,
+	PARSE_CHECKSUM,
+};
 
 /* Define the usage here just once, it is very similar for U-Boot and Linux */
 const char fsimage_usage[] =
@@ -186,19 +194,18 @@ const char fsimage_usage[] =
 	"    - Show current BOARD-ID\n"
 #ifdef CONFIG_CMD_FDT
 	"fsimage board-cfg [stored | " IMAGE_SPEC "]\n"
-	"    - List contents of current BOARD-CFG\n"
+	"    - Show contents of current BOARD-CFG or the one in the F&S image\n"
 #endif
 	"fsimage boot\n"
 	"    - Show the current boot settings\n"
-	"fsimage checksum [-t <type>] [" IMAGE_SPEC "]\n"
-	"    - List checksums of all headers or <type> if specified.\n"
-	"fsimage list [" IMAGE_SPEC "]\n"
-	"    - List the content of the F&S image at <addr>\n"
+	"fsimage list [-c] [-t <type> [-d <descr>]] [" IMAGE_SPEC "]\n"
+	"    - List all subimages of an F&S image, or of the one subimage\n"
+        "      specified by <type>/<descr>; in case of -c, show checksums\n"
 	"fsimage load [uboot | nboot] [" IMAGE_SPEC "]\n"
-	"    - Verify the current NBoot or U-Boot and load to <addr>\n"
-	"fsimage save [-f] [-e <n>] [-b <n>]"
+	"    - Load and verify the current NBoot or U-Boot\n"
+	"fsimage save [-f] [-b <n>]"
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	" [-s]"
+	" [-e <n>] [-s]"
 #endif
 	" [" IMAGE_SPEC "]\n"
 	"    - Save the F&S image at the right place (NBoot, U-Boot)\n"
@@ -244,9 +251,10 @@ const char fsimage_usage[] =
 
 /* Forward declarations */
 
-static int fs_image_validate_signed(struct fs_header_v1_0 *fsh);
+static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh);
 
-static const struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh);
+static const struct fs_header_v1_0 *find_board_info(
+	const struct fs_header_v1_0 *fsh);
 
 static const struct fs_header_v1_0 *fs_image_find(
 	const struct fs_header_v1_0 *fsh, const char *type, const char *descr,
@@ -491,212 +499,202 @@ static void fs_image_print_crc32_status(const struct fs_header_v1_0 *fsh,
 	}
 }
 
-static void fs_image_print_line(struct fs_header_v1_0 *fsh, uint offs, int level)
+/* Return whitespace string with len blanks */
+static const char *ws(int len)
+{
+	const char *whitespace = "                              ";
+
+	if (len < strlen(whitespace))
+		whitespace += strlen(whitespace) - len;
+
+	return whitespace;
+}
+
+/* Show info line for one F&S image */
+static void fs_image_print_line(enum parse_type ptype,
+				const struct fs_header_v1_0 *fsh,
+				const void *fsi, uint offs, int level)
 {
 	char info[MAX_DESCR_LEN + 1];
-	int i;
+	u32 *pcs;
+	bool crc_valid;
+	u16 flags;
 
-	/* Show info for this image */
-	printf("%08x %08x", offs, fs_image_get_size(fsh, false));
-	for (i = 0; i < level; i++)
-		printf(" ");
+	if (ptype == PARSE_CONTENT) {
+		flags = fsh->info.flags;
+		printf("%08x %08x %c%c%c%c%c", offs,
+		       fs_image_get_size(fsh, false),
+		       (flags & FSH_FLAGS_DESCR) ? 'D' : '-',
+		       (flags & FSH_FLAGS_CRC32) ? 'C' : '-',
+		       (flags & FSH_FLAGS_SECURE) ? 'S' : '-',
+		       (flags & FSH_FLAGS_INDEX) ? 'I' : '-',
+		       (flags & FSH_FLAGS_EXTRA) ? 'E' : '-');
+	} else if (ptype == PARSE_CHECKSUM) {
+		pcs = (u32 *)&fsh->type[12];
+		crc_valid = (fs_image_check_crc32_split(fsh, fsi) >= 0);
+		printf("%08x %08x %s", offs, *pcs, crc_valid ? "(OK)" : "BAD!");
+	}
+
+	puts(ws(level));
+
 	if (fsh->type[0]) {
 		memcpy(info, fsh->type, MAX_TYPE_LEN);
 		info[MAX_TYPE_LEN] = '\0';
 		printf(" %s", info);
 	}
+
 	if ((fsh->info.flags & FSH_FLAGS_DESCR) && fsh->param.descr[0]) {
 		memcpy(info, fsh->param.descr, MAX_DESCR_LEN);
 		info[MAX_DESCR_LEN] = '\0';
 		printf(" (%s)", info);
 	}
+
 	puts("\n");
 }
 
-static void fs_image_print_crc(struct fs_header_v1_0 *fsh_parent,
-			       struct fs_header_v1_0 *fsh, uint offs, int level)
+/* Parse extra data and show any IMX headers found */
+static void fs_image_parse_extra(const void *start, uint offs, uint remaining,
+				 int level)
 {
-	struct index_info idx_info = {0};
-	char info[MAX_DESCR_LEN + 1];
-	u32 *pcs;
-	bool crc_valid = false;
-	int i;
+#ifdef CONFIG_FS_CNTR_COMMON
+	/* Handle any IMX headers at beginning of extra data */
+	while (remaining >= 0x400) {
+		const struct container_hdr *imx_hdr;
+		uint size;
+		uint sig_offset;
 
-	if (!fsh_parent)
-		fsh_parent = fsh;
+		imx_hdr = start + offs;
+		if (!valid_container_hdr(imx_hdr))
+			break;
+		size = (imx_hdr->length_msb << 8) | imx_hdr->length_lsb;
+	        size = (size + 0x3ff) & ~0x3ff; /* Align to 1KB */
+		sig_offset = imx_hdr->sig_blk_offset + offs;
 
-	pcs = (u32 *)&fsh->type[12];
-	fs_image_find(fsh_parent, fsh->type, fsh->param.descr, &idx_info);
+		printf("%08x %08x ----- %sIMX Container Header (",
+		       offs, size, ws(level));
+		if (imx_hdr->num_images == 1)
+			puts("1 image, ");
+		else
+			printf("%d images, ", imx_hdr->num_images);
 
-	if (fs_image_check_crc32_split(fsh, idx_info.fsi) >= 0)
-		crc_valid = true;
-
-	/* Show info for this image */
-	printf("0x%08x %s ", *pcs, crc_valid ? "okay" : "fail");
-
-	for (i = 0; i < level; i++)
-		printf(" ");
-
-	if (fsh->type[0]) {
-		memcpy(info, fsh->type, MAX_TYPE_LEN);
-		info[MAX_TYPE_LEN] = 0;
-		printf(" %s", info);
-	}
-
-	if ((fsh->info.flags & FSH_FLAGS_DESCR) && fsh->param.descr[0]) {
-		memcpy(info, fsh->param.descr, MAX_DESCR_LEN);
-		info[MAX_DESCR_LEN] = 0;
-		printf(" (%s)", info);
-	}
-	puts("\n");
-}
-
-#ifdef CONFIG_FS_SECURE_BOOT
-/**
- *  A signed NBoot has an additional ivt header in between two fs-headers.
- *  We need to skip it if detected. This also causes the list command to
- *  show [padding/unknown data] for the CSF which is fine for now.
- */
-static struct fs_header_v1_0 *fs_image_check_for_ivt(struct fs_header_v1_0 *fsh,
-						     uint32_t *offs)
-{
-	if (fs_image_is_fs_image(fsh) || *(uint8_t*)fsh != 0xD1)
-		return fsh;
-
-	fsh += 1;
-	*offs += FSH_SIZE;
-	return fsh;
-}
-#endif
-
-static void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs,
-				 int level);
-static void fs_image_parse_index_image(enum parse_type ptype,
-		struct fs_header_v1_0 *fsh_parent, ulong addr, uint offs,
-		int level, uint remaining)
-{
-	struct fs_header_v1_0 *idx_fsh;
-	uint num_images;
-	int i;
-
-	idx_fsh = (struct fs_header_v1_0 *)(addr + offs);
-	num_images = fs_image_index_get_n(idx_fsh);
-
-	if (ptype == PARSE_CONTENT)
-		fs_image_print_line(idx_fsh, offs, level);
-	else if (ptype == PARSE_CHECKSUM)
-		fs_image_print_crc(fsh_parent, idx_fsh, offs, level);
-
-	/* skip index image */
-	offs += fs_image_get_size(idx_fsh, true);
-	remaining -= fs_image_get_size(idx_fsh, true);
-	level++;
-
-	for (i=1; i<=num_images; i++) {
-		if (!fs_image_is_fs_image(&idx_fsh[i]))
-			continue;
-
-		if (ptype == PARSE_CONTENT)
-			fs_image_print_line(&idx_fsh[i], offs, level);
-		else if (ptype == PARSE_CHECKSUM)
-			fs_image_print_crc(fsh_parent, &idx_fsh[i], offs, level);
-
-		/* Find next underlying subimage */
-		fs_image_parse_image(ptype, addr, offs, level + 1);
-		offs += fs_image_get_size(&idx_fsh[i], false);
-		remaining -= fs_image_get_size(&idx_fsh[i], false);
-	}
-
-	if (ptype == PARSE_CONTENT && remaining > 0) {
-		level--;
-		printf("%08x %08x", offs, remaining);
-		for (i = 0; i < level; i++)
-			printf(" ");
-		puts(" [padding/unknown data]\n");
-	}
-
-}
-
-static void fs_image_parse_subimage(enum parse_type ptype, ulong addr,
-				    uint offs, int level, uint remaining)
-{
-	struct fs_header_v1_0 *fsh;
-	uint size;
-	bool had_sub_image = false;
-	int i;
-
-	while (remaining > 0) {
-		fsh = (struct fs_header_v1_0 *)(addr + offs);
-		if (fs_image_is_fs_image(fsh)) {
-			had_sub_image = true;
-
-			/* Print line and find next underlying subimage */
-			fs_image_parse_image(ptype, addr, offs, level);
-			size = fs_image_get_size(fsh, true);
-		} else {
-			size = remaining;
-			if (had_sub_image && ptype == PARSE_CONTENT) {
-				printf("%08x %08x", offs, size);
-				for (i = 0; i < level; i++)
-					printf(" ");
-				puts(" [padding/unknown data]\n");
-			}
+		switch (imx_hdr->flags & 3) {
+		case 1:
+			printf("NXP signed @ 0x%x", sig_offset);
+			break;
+		case 2:
+			printf("OEM signed @ 0x%x", sig_offset);
+			break;
+		default:
+			puts("unsigned");
+			break;
 		}
+		puts(")\n");
 
 		offs += size;
 		remaining -= size;
 	}
+#endif
+
+	if (remaining > 0) {
+		printf("%08x %08x ----- %s[extra data]\n", offs, remaining,
+		       ws(level));
+	}
 }
 
-static void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs,
-				 int level)
+/* Parse an F&S image and print info, including all sub-images */
+
+const char *separator =
+	"-------------------------------------------------"
+	"------------------------------\n";
+
+static void fs_image_parse_image(enum parse_type ptype, const void *start,
+				 uint offs, uint remaining, int level)
 {
-	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)(addr + offs);
-	struct fs_header_v1_0 *fsh_sub;
-	uint remaining;
-	uint extra_size;
-	int i;
+	const struct fs_header_v1_0 *fsh = start + offs;
+	uint size;
 
 	if (!fs_image_is_fs_image(fsh))
 		return;
 
-	extra_size = fs_image_get_extra_size(fsh);
-	remaining = fs_image_get_size(fsh, false);
+	do {
+		if (!level)
+			puts(separator);
 
-	if (ptype == PARSE_CONTENT) {
-		fs_image_print_line(fsh, offs, level);
+		fs_image_print_line(ptype, fsh, fsh + 1, offs, level);
 
+		size = fs_image_get_size(fsh, false);
 		offs += FSH_SIZE;
-		if (extra_size) {
-			printf("%08x %08x", offs, extra_size);
-			for (i = 0; i < level; i++)
-					printf(" ");
-			printf(" %s\n", "[header/extra data]");
-		}
-	} else if (ptype == PARSE_CHECKSUM) {
-		fs_image_print_crc(NULL, fsh, offs, level);
-		offs += FSH_SIZE;
-	}
 
-	offs += extra_size;
-	remaining -= extra_size;
-	level++;
+#ifdef CONFIG_FS_CNTR_COMMON
+		if (fs_image_is_index(fsh)) {
+			uint count;
+			uint fsi_offs;
+			uint fsi_size;
 
-	fsh_sub = (struct fs_header_v1_0 *)(addr + offs);
+			/*
+			 * Index image: The index contains all the F&S headers
+			 * of the following images, followed by the image data
+			 * of the images themselves.
+			 */
+			for (count = size / FSH_SIZE; count; count--) {
+				fsh++;
+				if (!fs_image_is_fs_image(fsh))
+					break;
+				fsi_offs = offs + size;
+				fs_image_print_line(ptype, fsh, start + fsi_offs,
+						    fsi_offs, level);
 
-#ifdef CONFIG_FS_SECURE_BOOT
-	fsh_sub = fs_image_check_for_ivt(fsh_sub, &offs);
+				fsi_size = fs_image_get_size(fsh, false);
+#ifdef INDEX_WITH_SUB
+				/* Recursively handle sub-images */
+				fs_image_parse_image(ptype, start, fsi_offs,
+						     fsi_size, level + 1);
 #endif
+				size += fsi_size;
+			}
+		} else
+#endif /* FS_CNTR_COMMON */
+		if (size) {
+			uint extra_offs = 0;
+			uint extra_size;
 
-	if (!fs_image_is_fs_image(fsh_sub))
-		return;
+			/*
+			 * Regular image: The image data follows immediately
+			 * behind the F&S header (maybe offset by extra_size)
+			 * and may be a set of sub-images.
+			 */
+#if CONFIG_IS_ENABLED(IMX_HAB)
+			if (fs_image_is_signed(fsh))
+				extra_offs = HAB_HEADER;
+#endif
+			extra_size = fs_image_get_extra_size(fsh);
+			if (extra_size && (ptype == PARSE_CONTENT)) {
+				fs_image_parse_extra(start, offs + extra_offs,
+						     extra_size, level + 1);
+			}
+			extra_size += extra_offs;
 
-	if (fs_image_is_index(fsh_sub)) {
-		fs_image_parse_index_image(ptype, fsh, addr, offs, level,
-					   remaining);
-	} else {
-		fs_image_parse_subimage(ptype, addr, offs, level, remaining);
+			/* Recursively handle sub-images */
+			fs_image_parse_image(ptype, start, offs + extra_size,
+					     size - extra_size, level + 1);
+		}
+
+		/* Go to next image */
+		offs += size;
+		if (remaining) {
+			remaining -= size + FSH_SIZE;
+			if (!remaining)
+				break;
+		}
+		fsh = start + offs;
+	} while (fs_image_is_fs_image(fsh));
+
+	if (remaining && (ptype == PARSE_CONTENT)) {
+		printf("%08x %08x ----- %s[padding/unknown data]\n", offs,
+		       remaining, ws(level));
 	}
+
+	return;
 }
 
 /* Set all fields of the F&S header */
@@ -754,7 +752,7 @@ static const struct fs_header_v1_0 *fs_image_find_index(
 
 			return fsh;
 		}
-#if 0 // For now, no indexed image has sub-images */
+#ifdef INDEX_WITH_SUB
 		/* Check all subimages */
 		if (fs_image_is_fs_image(fsh)) {
 			void *sub;
@@ -779,9 +777,9 @@ static const struct fs_header_v1_0 *fs_image_find_index(
  * @param *idx_info: struct holds additional infos if fsh is found. NULL is allowed.
  * @return ptr to fsh or NULL if not found
  */
-static const struct fs_header_v1_0 *fs_image_find(const struct fs_header_v1_0 *fsh,
-					   const char *type, const char *descr,
-					   struct index_info *idx_info)
+static const struct fs_header_v1_0 *fs_image_find(
+	const struct fs_header_v1_0 *fsh, const char *type, const char *descr,
+	struct index_info *idx_info)
 {
 	const struct fs_header_v1_0 *fsh_found;
 	uint size;
@@ -869,23 +867,20 @@ static const struct fs_header_v1_0 *fs_image_find(const struct fs_header_v1_0 *f
  * @return ptr to fsh or NULL if not found
  */
 static const struct fs_header_v1_0 *fs_image_find_concat(
-	struct fs_header_v1_0 *fsh, const char *type, const char *descr,
+	const struct fs_header_v1_0 *fsh, const char *type, const char *descr,
 	struct index_info *idx_info)
 {
 	const struct fs_header_v1_0 *fsh_sub;
-	uint size;
 
-	if (!fs_image_is_fs_image(fsh))
-		return NULL;
+	while (fs_image_is_fs_image(fsh)) {
+		fsh_sub = fs_image_find(fsh, type, descr, idx_info);
+		if (fsh_sub)
+			return fsh_sub;
 
-	fsh_sub = fs_image_find(fsh, type, descr, idx_info);
-	if (fsh_sub)
-		return fsh_sub;
+		fsh = (void *)fsh + fs_image_get_size(fsh, true);
+	}
 
-	size = fs_image_get_size(fsh, true);
-	fsh = (void *)((ulong)fsh + size);
-	return fs_image_find_concat(fsh, type, descr, idx_info);
-
+	return NULL;
 }
 
 void fs_image_region_create(struct region_info *ri, struct storage_info *si,
@@ -1154,7 +1149,7 @@ static int fs_image_check_index_crc32(struct fs_header_v1_0 *fsh_idx)
 		if (err)
 			return err;
 
-#if 0 // ### Currently, INDEX based images do not have subimages
+#ifdef INDEX_WITH_SUB
 		/* Check CRC32 of subimages */
 		if (fs_image_is_fs_image(fsi)) {
 			err = fs_image_check_all_crc32(fsi);
@@ -1210,7 +1205,7 @@ int fs_image_check_all_crc32(struct fs_header_v1_0 *fsh)
 }
 
 /* Validate an image, either check signature or CRC32; 0: OK, <0: Error */
-static int fs_image_validate(struct fs_header_v1_0 *fsh, const char *type,
+static int fs_image_validate(const struct fs_header_v1_0 *fsh, const char *type,
 			     const char *descr, ulong addr)
 {
 	int err;
@@ -1373,11 +1368,6 @@ static int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 	const void *fdt;
 	int ret = 1;
 
-	if (!fs_image_is_fs_image(fsh)) {
-		printf("No F&S image found at address 0x%lx\n", addr);
-		return -ENOENT;
-	}
-
 	/* In case of an NBoot image with prepended BOARD-ID, use this ID */
 	if (fs_image_match(fsh, "BOARD-ID", NULL)) {
 		const char *old_id = fs_image_get_board_id();
@@ -1444,6 +1434,44 @@ static int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 		*nboot = fsh;
 
 	return ret;
+}
+
+/* Find the default description to given type by looking at BOARD-CFG */
+const char *fs_image_get_default_descr(ulong addr, const char *type)
+{
+	struct index_info cfg_info = {0};
+	const void *fdt;
+	int cfg_offs;
+	int rev_offs;
+	const char *prop_name;
+
+	/* BOARD-CFG and BOARD-ID need board_id */
+	if (!strcmp(type, "BOARD-CFG") || !strcmp(type, "BOARD-ID"))
+		return fs_image_get_board_id();
+
+	/* All others but DRAM settings need arch */
+	if (strcmp(type, "DRAM-FW")
+#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+	    && strcmp(type, "DRAM-INFO")
+#else
+	    && strcmp(type, "DRAM-TYPE")
+#endif
+	    && strcmp(type, "DRAM-TIMING"))
+		return fs_image_get_arch();
+
+	/* DRAM settings either need dram-type or dram-timing from BOARD-CFG */
+	if (fs_image_find_board_cfg(addr, false, "list", &cfg_info, NULL) <= 0)
+		return NULL;
+
+	fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
+	cfg_offs = fs_image_get_board_cfg_offs(fdt);
+	rev_offs = fs_image_get_board_rev_subnode(fdt, cfg_offs);
+	if (!strcmp(type, "DRAM-TIMING"))
+		prop_name = "dram-timing";
+	else
+		prop_name = "dram-type";
+
+	return fs_image_getprop(fdt, cfg_offs, rev_offs, prop_name, NULL);
 }
 
 #ifdef __UBOOT__
@@ -1585,6 +1613,14 @@ static int fs_image_locate(int argc, char *const argv[], ulong *addr)
 		if (!fs_image_provide_file(&ip))
 			return CMD_RET_FAILURE;
 		puts("\n");
+#ifdef __UBOOT__
+	} else {
+		printf("Using image at addr 0x%lx\n", ip.addr);
+#endif
+	}
+	if (!fs_image_is_fs_image((void *)ip.addr)) {
+		puts("Error: This is not an F&S image\n");
+		return CMD_RET_FAILURE;
 	}
 
 	/*
@@ -1613,8 +1649,8 @@ static int fs_image_locate_nboot(int argc, char *const argv[], ulong *addr)
 	arch = fs_image_get_arch();
 	if (!fs_image_match((void *)*addr, "NBOOT", arch)
 	    && !fs_image_match((void *)*addr, "BOOT-INFO", arch)) {
-		printf("No F&S NBoot image at 0x%lx, use 'stored'"
-		       " to refer to stored NBoot\n", *addr);
+		puts("Error: This is not an F&S NBoot image, use 'stored'"
+		       " to refer to stored NBoot\n");
 		return CMD_RET_FAILURE;
 	}
 
@@ -2261,7 +2297,7 @@ void fs_image_set_spl_secondary_bit(void *img, int copy)
 }
 
 /* Validate a signed image; Return 0: OK, <0: Error */
-static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
+static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh)
 {
 	struct fs_header_v1_0 *validate_addr;
 	u32 size;
@@ -2299,7 +2335,8 @@ static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
 	return 0;
 }
 
-static const struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 * fsh)
+static const struct fs_header_v1_0 *find_board_info(
+	const struct fs_header_v1_0 *fsh)
 {
 	const struct fs_header_v1_0 *cfg;
 	const char *arch = fs_image_get_arch();
@@ -2649,8 +2686,8 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 		return fs_image_save_imx8m_uboot(addr, force, system_atf, true);
 
 	/* Handle NBoot image */
-	ret = fs_image_find_board_cfg(addr, force, "save",
-				      &cfg_info, &nboot_fsh);
+	ret = fs_image_find_board_cfg(addr, force, "save", &cfg_info,
+				      &nboot_fsh);
 	if (ret <= 0)
 		return CMD_RET_FAILURE;
 
@@ -3026,7 +3063,7 @@ struct _image_list{
 	struct _image_list *next;
 };
 
-static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
+static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh)
 {
 	if (!fs_image_is_valid_signature(fsh)) {
 		puts("Error: Invalid signature, refusing to save\n");
@@ -3037,25 +3074,25 @@ static int fs_image_validate_signed(struct fs_header_v1_0 *fsh)
 	return 0;
 }
 
-static const struct fs_header_v1_0 *find_board_info(struct fs_header_v1_0 *fsh)
+static const struct fs_header_v1_0 *find_board_info(
+	const struct fs_header_v1_0 *fsh)
 {
-	struct fs_header_v1_0 *cfg = fsh;
 	const char *arch = fs_image_get_arch();
 
 	if (!fs_image_match(fsh, "BOOT-INFO", arch))
 		return NULL;
 
-	cfg = (void *)cfg + fs_image_get_size(cfg, true);
+	fsh = (void *)fsh + fs_image_get_size(fsh, true);
 
-	if (!fs_image_match(cfg, "BOARD-ID", NULL))
+	if (!fs_image_match(fsh, "BOARD-ID", NULL))
 		return NULL;
 
-	cfg = (void *)cfg + fs_image_get_size(cfg, true);
+	fsh = (void *)fsh + fs_image_get_size(fsh, true);
 
-	if (fs_image_validate(cfg, "BOARD-INFO", arch, (ulong)cfg))
+	if (fs_image_validate(fsh, "BOARD-INFO", arch, (ulong)fsh))
 		return NULL;
 
-	return cfg;
+	return fsh;
 }
 
 /* append fsh at end of img list */
@@ -3912,35 +3949,91 @@ int fs_image_do_boot(int argc, char * const argv[])
 /* List contents of an F&S image */
 int fs_image_do_list(int argc, char * const argv[])
 {
+	struct index_info idx_info = {0};
+	enum parse_type ptype = PARSE_CONTENT;
 	ulong addr;
-	ulong offs = 0;
-	struct fs_header_v1_0 *fsh;
+	const char *type = NULL;
+	const char *descr = NULL;
+	uint offs;
 	int ret;
+	const char *headline = "\nContent:\n\n"
+	     "offset   size     flags type (description)\n";
+
+	early_support_index = 0;
 
 	argv++;
 	argc--;
+
+	while ((argc > 0) && (argv[0][0] == '-')) {
+		if (!strcmp(argv[0], "-c")) {
+			ptype = PARSE_CHECKSUM;
+			argv++;
+			argc--;
+		} else if (!strcmp(argv[0], "-t")) {
+			if (argc < 2) {
+				puts("Missing argument for option -t\n");
+				return CMD_RET_USAGE;
+			}
+			type = argv[1];
+			argv += 2;
+			argc -= 2;
+		} else if (!strcmp(argv[0], "-d")) {
+			if (argc < 2) {
+				puts("Missing argument for option -d\n");
+				return CMD_RET_USAGE;
+			}
+			descr = argv[1];
+			argv += 2;
+			argc -= 2;
+		} else
+			return CMD_RET_USAGE;
+	}
+
+	if (descr && !type)
+		return CMD_RET_USAGE;	/* A description also needs a type */
 
 	ret = fs_image_locate(argc, argv, &addr);
 	if (ret)
 		return ret;
 
-	fsh = (struct fs_header_v1_0 *)addr;
-	if (!fs_image_is_fs_image(fsh)) {
-		printf("No F&S image found at addr 0x%lx\n", addr);
-		return CMD_RET_FAILURE;
+	/* If no type is given, show a list of all files */
+	if (!type) {
+		puts(headline);
+		fs_image_parse_image(ptype, (void *)addr, 0, 0, 0);
+
+		return CMD_RET_SUCCESS;
 	}
-	printf("Content of F&S image at addr 0x%lx\n\n", addr);
 
-	puts("offset   size     type (description)\n");
+	/* If no description is given, use BOARD-CFG to find a default value */
+	if (!descr && strcmp(type, "BOARD-CFG")) {
+		descr = fs_image_get_default_descr(addr, type);
+		if (!descr) {
+			printf("Cannot find description for type %s\n", type);
+			return CMD_RET_FAILURE;
+		}
+	}
 
-	/* Find padded Images if available */
-	do {
-		puts("---------------------------------------------------------"
-		     "----------------------\n");
-		fs_image_parse_image(PARSE_CONTENT, addr, offs, 0);
-		offs += fs_image_get_size(fsh, true);
-		fsh = (struct fs_header_v1_0 *)(addr + offs);
-	} while (fs_image_is_fs_image(fsh));
+	/* Search for the image */
+	if (!descr) {
+		/* The only case which can have an empty descr is BOARD-CFG */
+		fs_image_find_board_cfg(addr, false, "show", &idx_info, NULL);
+	} else {
+		if (!fs_image_find_concat((void *)addr, type, descr, &idx_info))
+		{
+			printf("No entry of type %s (%s) found\n", type, descr);
+			return CMD_RET_FAILURE;
+		}
+	}
+
+	/* Print result */
+	if (idx_info.fsi != idx_info.fsh + 1)
+		offs = (ulong)idx_info.fsi - addr;
+	else
+		offs = (ulong)idx_info.fsh - addr;
+
+	puts(headline);
+	puts(separator);
+	fs_image_print_line(ptype, idx_info.fsh, idx_info.fsi, offs, 0);
 
 	return CMD_RET_SUCCESS;
 }
@@ -4208,110 +4301,3 @@ int fs_image_do_fuse(int argc, char * const argv[])
 	return CMD_RET_SUCCESS;
 }
 #endif /* __UBOOT__ */
-
-static int fs_image_list_crc(ulong addr, uint offset)
-{
-	struct fs_header_v1_0 *fsh = (void *)addr;
-	ulong offs = offset;
-
-	if (!fs_image_is_fs_image(fsh)) {
-		printf("No F&S image found at addr 0x%lx\n", (ulong)fsh);
-		return -EINVAL;
-	}
-
-	printf("Checksums of F&S image at addr 0x%lx\n\n", (ulong)fsh);
-	puts("checksum   valid type (description)\n");
-	do {
-		puts("---------------------------------------------------------"
-		     "---\n");
-		fs_image_parse_image(PARSE_CHECKSUM, addr, offs, 0);
-		offs += fs_image_get_size(fsh, true);
-		fsh = (struct fs_header_v1_0 *)(addr + offs);
-	} while (fs_image_is_fs_image(fsh));
-
-	return 0;
-}
-
-/* Load DRAM timings from the boot device (NAND or MMC) to DRAM,
-   look for the CRC and print it out */
-int fs_image_do_checksum(int argc, char * const argv[])
-{
-	struct index_info cfg_info = {0};
-	struct fs_header_v1_0 *nboot_fsh;
-	const struct fs_header_v1_0 *check_fsh = NULL;
-	char fsh_type[MAX_TYPE_LEN + 1] = {0};
-	char fsh_descr[MAX_DESCR_LEN +1] = {0};
-	ulong addr;
-	char *type = NULL;
-	u32 *pcs;
-	int ret;
-
-	early_support_index = 0;
-
-	argv++;
-	argc--;
-
-	if ((argc > 0) && (argv[0][0] == '-')) {
-		if (strcmp(argv[0], "-t"))
-			return CMD_RET_USAGE;
-		if (argc < 2) {
-			puts("Missing argument for option -t\n");
-			return CMD_RET_USAGE;
-		}
-		type = argv[1];
-		argv += 2;
-		argc -= 2;
-	}
-
-	ret = fs_image_locate(argc, argv, &addr);
-	if (ret)
-		return ret;
-
-	ret = fs_image_find_board_cfg(addr, false, "checksum", &cfg_info,
-				      &nboot_fsh);
-	if (ret <= 0)
-		return CMD_RET_FAILURE;
-
-	if (type) {
-		/* Check BOARD-CFG Header */
-		if (!strncmp(type, "BOARD-CFG", MAX_DESCR_LEN)) {
-			check_fsh = cfg_info.fsh;
-		}
-
-		/* Get correct HEADER for DRAM-TIMING */
-		if (!strcmp(type, "DRAM-TIMING")) {
-			const void *fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
-			int offs = fs_image_get_board_cfg_offs(fdt);
-			int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
-			const char *prop;
-
-			prop = fs_image_getprop(fdt, offs, rev_offs,
-						"dram-timing", NULL);
-			if (!prop)
-				return CMD_RET_FAILURE;
-
-			strncpy(fsh_type, "DRAM-TIMING", MAX_TYPE_LEN);
-			strncpy(fsh_descr, prop, MAX_DESCR_LEN);
-
-			check_fsh = fs_image_find_concat(nboot_fsh, fsh_type,
-							 fsh_descr, NULL);
-		}
-
-		if (!check_fsh) {
-			printf("No entry of %s!\n",type);
-			return CMD_RET_FAILURE;
-		}
-
-		pcs = (u32 *)&check_fsh->type[12];
-		if (check_fsh->info.flags & FSH_FLAGS_CRC32) {
-			strncpy(fsh_type, check_fsh->type, MAX_TYPE_LEN);
-			strncpy(fsh_descr, check_fsh->param.descr,
-				MAX_DESCR_LEN);
-			printf("Checksum[%s] = 0x%x\n", fsh_type, *pcs);
-		}
-	} else {
-		fs_image_list_crc(addr, 0);
-	}
-
-	return CMD_RET_SUCCESS;
-}

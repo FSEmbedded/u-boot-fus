@@ -75,15 +75,6 @@ static int do_fsimage_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 	return fs_image_do_fuse(argc, argv);
 }
 
-/* Load DRAM timings from the boot device (NAND or MMC) to DRAM,
-   look for the CRC and print it out */
-static int do_fsimage_checksum(struct cmd_tbl *cmdtp, int flag, int argc,
-			   char * const argv[])
-{
-	return fs_image_do_checksum(argc, argv);
-}
-
-
 /* Subcommands for "fsimage" */
 static struct cmd_tbl cmd_fsimage_sub[] = {
 	U_BOOT_CMD_MKENT(arch, 0, 1, do_fsimage_arch, "", ""),
@@ -92,11 +83,10 @@ static struct cmd_tbl cmd_fsimage_sub[] = {
 	U_BOOT_CMD_MKENT(board-cfg, 4, 1, do_fsimage_boardcfg, "", ""),
 #endif
 	U_BOOT_CMD_MKENT(boot, 0, 1, do_fsimage_boot, "", ""),
-	U_BOOT_CMD_MKENT(list, 4, 1, do_fsimage_list, "", ""),
+	U_BOOT_CMD_MKENT(list, 9, 1, do_fsimage_list, "", ""),
 	U_BOOT_CMD_MKENT(load, 5, 1, do_fsimage_load, "", ""),
 	U_BOOT_CMD_MKENT(save, 8, 0, do_fsimage_save, "", ""),
 	U_BOOT_CMD_MKENT(fuse, 6, 0, do_fsimage_fuse, "", ""),
-	U_BOOT_CMD_MKENT(checksum, 6, 1, do_fsimage_checksum, "", ""),
 };
 
 static int do_fsimage(struct cmd_tbl *cmdtp, int flag, int argc,
@@ -151,6 +141,6 @@ static int do_fsimage(struct cmd_tbl *cmdtp, int flag, int argc,
 
 /* fsimage_usage[] is defined in fs_image_nonspl.c */
 U_BOOT_CMD(fsimage, 9, 1, do_fsimage,
-	   "Handle F&S board configuration and F&S images, e.g. U-Boot, NBOOT",
+	   "Handle F&S board configuration and F&S images, e.g. U-Boot, NBoot",
 	   fsimage_usage
 );

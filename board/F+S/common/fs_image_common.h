@@ -164,11 +164,11 @@ int fs_image_get_board_rev_subnode_f(const void *fdt, int offs,
 bool fs_image_is_signed(const struct fs_header_v1_0 *fsh);
 
 /* Validate a signed image; it has to be at the validation address */
-bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh);
+bool fs_image_is_valid_signature(const struct fs_header_v1_0 *fsh);
 
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 /* Check IVT integrity of F&S image and return size and validation address */
-void *fs_image_get_ivt_info(struct fs_header_v1_0 *fsh, u32 *size);
+void *fs_image_get_ivt_info(const struct fs_header_v1_0 *fsh, u32 *size);
 #endif
 
 /* Verify CRC32 of given image at specific offset */
@@ -356,11 +356,6 @@ int fs_image_get_si(const void *fdt, int offs, uint align, const char *type,
 //###int fs_image_get_nboot_info(struct flash_info *fi, void *fdt,
 //###			    struct nboot_info *ni, int hwpart, bool show);
 
-enum parse_type {
-	PARSE_CONTENT,
-	PARSE_CHECKSUM,
-};
-
 //###void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs,
 //###			  int level);
 
@@ -501,10 +496,6 @@ int fs_image_do_save(int argc, char * const argv[]);
 
 /* Burn the fuses according to the NBoot in DRAM */
 int fs_image_do_fuse(int argc, char * const argv[]);
-
-/* Load DRAM timings from the boot device (NAND or MMC) to DRAM,
-   look for the CRC and print it out */
-int fs_image_do_checksum(int argc, char * const argv[]);
 
 #endif /* !CONFIG_SPL_BUILD */
 

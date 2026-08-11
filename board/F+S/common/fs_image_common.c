@@ -331,7 +331,7 @@ bool fs_image_is_signed(const struct fs_header_v1_0 *fsh)
 }
 
 /* Check IVT integrity of F&S image and return size and validation address */
-void *fs_image_get_ivt_info(struct fs_header_v1_0 *fsh, u32 *size)
+void *fs_image_get_ivt_info(const struct fs_header_v1_0 *fsh, u32 *size)
 {
 	struct ivt *ivt = (struct ivt *)(fsh + 1);
 	struct boot_data *boot;
@@ -362,7 +362,7 @@ void *fs_image_get_ivt_info(struct fs_header_v1_0 *fsh, u32 *size)
 }
 
 /* Validate a signed image; it has to be at the validation address */
-bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
+bool fs_image_is_valid_signature(const struct fs_header_v1_0 *fsh)
 {
 	struct ivt *ivt = (struct ivt *)(fsh + 1);
 	void *start;
@@ -375,6 +375,7 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 
 #ifdef CONFIG_FS_SECURE_BOOT
 	{
+		struct fs_header_v1_0 *fsh_write = (struct fs_header_v1_0 *)fsh;
 		u16 flags;
 		u32 file_size_high;
 		u32 *pcs = (u32 *)&fsh->type[12];
@@ -387,9 +388,9 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 		 * temporarily.
 		 */
 		file_size_high = fsh->info.file_size_high;
-		fsh->info.file_size_high = 0;
+		fsh_write->info.file_size_high = 0;
 		flags = fsh->info.flags;
-		fsh->info.flags &= ~(FSH_FLAGS_SECURE | FSH_FLAGS_CRC32);
+		fsh_write->info.flags &= ~(FSH_FLAGS_SECURE | FSH_FLAGS_CRC32);
 		crc32 = *pcs;
 		*pcs = 0;
 
@@ -398,8 +399,8 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 				fs_image_get_size(fsh, true), FSH_SIZE);
 
 		/* Bring back the saved values */
-		fsh->info.file_size_high = file_size_high;
-		fsh->info.flags = flags;
+		fsh_write->info.file_size_high = file_size_high;
+		fsh_write->info.flags = flags;
 		*pcs = crc32;
 
 		if (err)
@@ -425,7 +426,7 @@ bool fs_image_is_signed(const struct fs_header_v1_0 *fsh)
 	return fs_cntr_is_signed(cntr_hdr);
 }
 
-bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
+bool fs_image_is_valid_signature(const struct fs_header_v1_0 *fsh)
 {
 	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
 	struct signature_block_hdr *sig_hdr;
