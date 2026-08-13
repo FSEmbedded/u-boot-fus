@@ -253,9 +253,6 @@ const char fsimage_usage[] =
 
 static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh);
 
-static const struct fs_header_v1_0 *find_board_info(
-	const struct fs_header_v1_0 *fsh);
-
 static const struct fs_header_v1_0 *fs_image_find(
 	const struct fs_header_v1_0 *fsh, const char *type, const char *descr,
 	struct index_info *idx_info);
@@ -872,6 +869,9 @@ static const struct fs_header_v1_0 *fs_image_find_concat(
 {
 	const struct fs_header_v1_0 *fsh_sub;
 
+	if (!strcmp(type, "BOARD-CFG"))
+		fs_image_set_compare_id(descr);
+
 	while (fs_image_is_fs_image(fsh)) {
 		fsh_sub = fs_image_find(fsh, type, descr, idx_info);
 		if (fsh_sub)
@@ -1206,23 +1206,23 @@ int fs_image_check_all_crc32(struct fs_header_v1_0 *fsh)
 
 /* Validate an image, either check signature or CRC32; 0: OK, <0: Error */
 static int fs_image_validate(const struct fs_header_v1_0 *fsh, const char *type,
-			     const char *descr, ulong addr)
+			     const char *descr, ulong offs)
 {
 	int err;
 
 	if (!fs_image_match(fsh, type, descr)) {
-		printf("Error: No %s image for %s found at address 0x%lx\n",
-		       type, descr, addr);
+		printf("Error: No %s image for %s found at offset 0x%lx\n",
+		       type, descr, offs);
 		return -EINVAL;
 	}
 
 	if (fs_image_is_signed(fsh)) {
-		printf("Found signed %s image at 0x%08lx\n", type, addr);
+		printf("Found signed %s image at offset 0x%08lx\n", type, offs);
 
 		return fs_image_validate_signed(fsh);
 	}
 
-	printf("Found unsigned %s image at 0x%08lx\n", type, addr);
+	printf("Found unsigned %s image at offset 0x%08lx\n", type, offs);
 
 	if (fs_board_is_closed()) {
 		puts("\nError: Board is closed, refusing to save unsigned"
@@ -1237,6 +1237,29 @@ static int fs_image_validate(const struct fs_header_v1_0 *fsh, const char *type,
 		return 0;
 
 	return err;
+}
+
+/* Validate all image parts of the loaded image, e.g. NBoot and U-Boot */
+static int fs_image_validate_full(ulong addr)
+{
+	const struct fs_header_v1_0 *fsh = (void *)addr;
+	ulong offs = 0;
+	int err;
+	uint size;
+
+	while (fs_image_is_fs_image(fsh)) {
+		if (strcmp(fsh->type, "BOARD-ID")) {
+			err = fs_image_validate(fsh, fsh->type,
+						fsh->param.descr, offs);
+			if (err)
+				return err;
+		}
+		size = fs_image_get_size(fsh, true);
+		offs += size;
+		fsh = (void *)fsh + size;
+	}
+
+	return 0;
 }
 
 /* Get the full size of a FIT image, including all external images */
@@ -1363,54 +1386,45 @@ static int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 {
 	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)addr;
 	const struct fs_header_v1_0 *cfg = NULL;
-	char bcfg_name[MAX_DESCR_LEN + 1] = {0};
+	const char *board_id = fs_image_get_board_id();
+	char new_id[MAX_DESCR_LEN + 1];
 	const char *nboot_version;
 	const void *fdt;
 	int ret = 1;
 
 	/* In case of an NBoot image with prepended BOARD-ID, use this ID */
 	if (fs_image_match(fsh, "BOARD-ID", NULL)) {
-		const char *old_id = fs_image_get_board_id();
-		char new_id[MAX_DESCR_LEN + 1];
-
 		memcpy(new_id, fsh->param.descr, MAX_DESCR_LEN);
 		new_id[MAX_DESCR_LEN] = '\0';
-		if (strncmp(new_id, old_id, MAX_DESCR_LEN)) {
+		if (strncmp(new_id, board_id, MAX_DESCR_LEN)) {
 #ifndef __UBOOT__
 			/* Changing BOARD-ID is not allowed in Linux */
 			printf("Error: Current board is %s, refusing to %s"
-			       " for %s\n", old_id, action, new_id);
+			       " for %s\n", board_id, action, new_id);
 			return -EINVAL;
 #else
 #if CONFIG_IS_ENABLED(FS_SECURE_BOOT) && CONFIG_IS_ENABLED(IMX_HAB)
 			if (fs_board_is_closed()) {
 				printf("Error: Current board is %s and board"
 				       " is closed\nRefusing to %s for %s\n",
-				       old_id, action, new_id);
+				       board_id, action, new_id);
 				return -EINVAL;
 			}
 #endif
 			printf("Warning! Current board is %s but you will\n"
-			       "%s for %s\n", old_id, action, new_id);
+			       "%s for %s\n", board_id, action, new_id);
 			if (!force && !fs_image_confirm()) {
 				return 0; /* used_cfg == NULL in this case */
 			}
 
 			/* Set this BOARD-ID as compare_id */
-			fs_image_set_compare_id(fsh->param.descr);
+			board_id = new_id;
 #endif /* !__UBOOT__ */
 		}
 		fsh++;
 	}
 
-	fs_image_get_bcfg_name(bcfg_name, MAX_DESCR_LEN);
-
-	/* In case of an imx8m NBoot image */
-	cfg = find_board_info(fsh);
-	if (!cfg)
-		return -ENOENT;
-
-	cfg = fs_image_find(cfg, "BOARD-CFG", bcfg_name, cfg_info);
+	cfg = fs_image_find_concat(fsh, "BOARD-CFG", board_id, cfg_info);
 	if (!cfg)
 		return -ENOENT;
 
@@ -1418,10 +1432,6 @@ static int fs_image_find_board_cfg(ulong addr, bool force, const char *action,
 	fdt = fs_image_find_cfg_fdt_idx(cfg_info);
 	if (!fdt)
 		return -ENOENT;
-
-	if (!fs_image_match_board_id(cfg)) {
-		return -EINVAL;
-	}
 
 	nboot_version = fs_image_get_nboot_version(fdt);
 	if (!nboot_version) {
@@ -2335,43 +2345,6 @@ static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh)
 	return 0;
 }
 
-static const struct fs_header_v1_0 *find_board_info(
-	const struct fs_header_v1_0 *fsh)
-{
-	const struct fs_header_v1_0 *cfg;
-	const char *arch = fs_image_get_arch();
-	int err;
-
-	/* Authenticate signature or check CRC32 */
-	err = fs_image_validate(fsh, "NBOOT", arch, (ulong)fsh);
-	if (err)
-		return NULL;
-#if CONFIG_IS_ENABLED(IMX_HAB)
-#if 0 // ### do not move image, adjust pointer in fs_image_find() instead
-	else {
-		if (fs_image_is_signed(fsh)) {
-			memcpy((void *)((uintptr_t)fsh + 0x40),
-			       (void *)((uintptr_t)fsh + 0x80),
-			       fsh->info.file_size_low + 0x2000);
-		}
-	}
-#endif //###
-#endif
-
-	/* Look for BOARD-INFO subimage */
-	cfg = fs_image_find(fsh, "BOARD-INFO", arch, NULL);
-	if (!cfg) {
-		/* Fall back to BOARD-CONFIGS for old NBoot variants */
-		cfg = fs_image_find(fsh, "BOARD-CONFIGS", arch, NULL);
-		if (!cfg) {
-			printf("No BOARD-INFO/CONFIGS found for %s\n", arch);
-			return NULL;
-		}
-	}
-
-	return cfg;
-}
-
 /*
  * Search the subimage with given type/descr and add it to the region. Return
  * offset for next image or 0 in case of error.
@@ -2623,9 +2596,6 @@ static int fs_image_save_imx8m_uboot(ulong addr, bool force,
 	if (ni.flags & NI_UBOOT_WITH_FSH)
 		flags |= SUB_HAS_FS_HEADER; /* Save with F&S header */
 	if (!fs_image_region_find_add(&uboot_ri, fsh, type, arch, 0, flags))
-		goto fail;
-
-	if (fs_image_validate(fsh, have_atf ? "U-BOOT-ATF" : type, arch, addr))
 		goto fail;
 
 	/* Check if all prerequisites for U-Boot are valid */
@@ -3074,27 +3044,6 @@ static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh)
 	return 0;
 }
 
-static const struct fs_header_v1_0 *find_board_info(
-	const struct fs_header_v1_0 *fsh)
-{
-	const char *arch = fs_image_get_arch();
-
-	if (!fs_image_match(fsh, "BOOT-INFO", arch))
-		return NULL;
-
-	fsh = (void *)fsh + fs_image_get_size(fsh, true);
-
-	if (!fs_image_match(fsh, "BOARD-ID", NULL))
-		return NULL;
-
-	fsh = (void *)fsh + fs_image_get_size(fsh, true);
-
-	if (fs_image_validate(fsh, "BOARD-INFO", arch, (ulong)fsh))
-		return NULL;
-
-	return fsh;
-}
-
 /* append fsh at end of img list */
 static int append_image_list(struct _image_list *img_list,
 			     struct fs_header_v1_0 *fsh)
@@ -3180,7 +3129,7 @@ static int create_image_list(struct _image_list **img_list, ulong addr,
 	return 0;
 }
 
-static bool is_img_list_valid(struct _image_list *img_list)
+static bool is_img_list_valid(struct _image_list *img_list, ulong addr)
 {
 	struct _image_list *ptr;
 	bool ret = true;
@@ -3197,7 +3146,7 @@ static bool is_img_list_valid(struct _image_list *img_list)
 		}
 
 		if (fs_image_validate(ptr->fsh, ptr->fsh->type, NULL,
-				      (ulong)ptr->fsh))
+				      (ulong)ptr->fsh - addr))
 			ret = false;
 
 		ptr = ptr->next;
@@ -3374,7 +3323,9 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
 		ram_offset += filesize - flash_offset;
 	}
 
-	if (!is_img_list_valid(img_list)) {
+	//### Is this necessary? Stored files should be valid, toggled bits are
+	//### found when loading. If not, we could drop	is_img_list_valid().
+	if (!is_img_list_valid(img_list, addr)) {
 		puts("WARNING: Firmware is invalid\n");
 		goto fail;
 	}
@@ -3590,11 +3541,6 @@ static int prepare_nboot_cntr_images(ulong addr, const void *fdt_new,
 		}
 	}
 
-	if (!is_img_list_valid(img_list)) {
-		free_image_list(img_list);
-		return -EINVAL;
-	}
-
 	ptr = img_list;
 
 	/* --- Prepare SPL region --- */
@@ -3689,14 +3635,10 @@ static int fsimage_cntr_save_uboot(ulong addr, uint boot_hwpart, bool force)
 	struct nboot_info ni;
 	struct region_info uboot_ri;
 	struct sub_info uboot_sub;
-	const char *arch = fs_image_get_arch();
 	struct fs_header_v1_0 *cfg_fsh = fs_image_get_cfg_addr();
 	uint cfg_size = fs_image_get_size(cfg_fsh, false);
 	const void *fdt = fs_image_get_cfg_fdt();
 	int ret = CMD_RET_SUCCESS;
-
-	if (fs_image_validate(uboot_fsh, "U-BOOT-INFO", arch, (ulong) uboot_fsh))
-		return CMD_RET_FAILURE;
 
 	fs_image_region_create(&uboot_ri, &ni.uboot, &uboot_sub);
 
@@ -4005,7 +3947,7 @@ int fs_image_do_list(int argc, char * const argv[])
 	}
 
 	/* If no description is given, use BOARD-CFG to find a default value */
-	if (!descr && strcmp(type, "BOARD-CFG")) {
+	if (!descr) {
 		descr = fs_image_get_default_descr(addr, type);
 		if (!descr) {
 			printf("Cannot find description for type %s\n", type);
@@ -4014,15 +3956,10 @@ int fs_image_do_list(int argc, char * const argv[])
 	}
 
 	/* Search for the image */
-	if (!descr) {
-		/* The only case which can have an empty descr is BOARD-CFG */
-		fs_image_find_board_cfg(addr, false, "show", &idx_info, NULL);
-	} else {
-		if (!fs_image_find_concat((void *)addr, type, descr, &idx_info))
-		{
-			printf("No entry of type %s (%s) found\n", type, descr);
-			return CMD_RET_FAILURE;
-		}
+	if (!fs_image_find_concat((void *)addr, type, descr, &idx_info))
+	{
+		printf("No entry of type %s (%s) found\n", type, descr);
+		return CMD_RET_FAILURE;
 	}
 
 	/* Print result */
@@ -4160,6 +4097,10 @@ int fs_image_do_save(int argc, char * const argv[])
 	ret = fs_image_locate(argc, argv, &addr);
 	if (ret)
 		return ret;
+
+	/* Check if loaded image is valid, only valid images may be saved */
+	if (fs_image_validate_full(addr) < 0)
+		return CMD_RET_FAILURE;
 
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	ret = fsimage_cntr_save(addr, boot_hwpart, force);

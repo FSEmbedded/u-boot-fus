@@ -203,29 +203,8 @@ unsigned int fs_image_index_get_n(const struct fs_header_v1_0 *fsh)
 	return size / FSH_SIZE;
 }
 
+
 /* Check image magic, type and descr; return true on match */
-bool fs_image_match(const struct fs_header_v1_0 *fsh,
-		    const char *type, const char *descr)
-{
-	if (!type)
-		return false;
-
-	if (!fs_image_is_fs_image(fsh))
-		return false;
-
-	if (strncmp(fsh->type, type, MAX_TYPE_LEN))
-		return false;
-
-	if (descr && descr[0] != 0) {
-		if (!(fsh->info.flags & FSH_FLAGS_DESCR))
-			return false;
-		if (strncmp(fsh->param.descr, descr, MAX_DESCR_LEN))
-			return false;
-	}
-
-	return true;
-}
-
 static void fs_image_get_board_name_rev(const char id[MAX_DESCR_LEN],
 					struct bnr *bnr)
 {
@@ -259,24 +238,37 @@ static void fs_image_get_board_name_rev(const char id[MAX_DESCR_LEN],
 	}
 }
 
-/* Check if ID of the given BOARD-CFG matches the compare_id */
-bool fs_image_match_board_id(const struct fs_header_v1_0 *cfg_fsh)
+bool fs_image_match(const struct fs_header_v1_0 *fsh,
+		    const char *type, const char *descr)
 {
 	struct bnr bnr;
 
-	/* Compare magic and type */
-	if (!fs_image_match(cfg_fsh, "BOARD-CFG", NULL))
+	if (!type)
 		return false;
 
-	/* A config must include a description, this is the board ID */
-	if (!(cfg_fsh->info.flags & FSH_FLAGS_DESCR))
+	if (!fs_image_is_fs_image(fsh))
 		return false;
 
-	/* Split board ID of the config we look at into name and rev */
-	fs_image_get_board_name_rev(cfg_fsh->param.descr, &bnr);
+	if (strncmp(fsh->type, type, MAX_TYPE_LEN))
+		return false;
+
+	/* If no description is given, we are done now */
+	if (!descr || !descr[0])
+		return true;
+
+	/* We have a description, so entry we look at must also have one */
+	if (!(fsh->info.flags & FSH_FLAGS_DESCR))
+		return false;
+
+	/* If not looking at a BOARD-CFG, simply compare descriptions */
+	if (strcmp(type, "BOARD-CFG"))
+		return !strncmp(fsh->param.descr, descr, MAX_DESCR_LEN);
+
+	/* Split board ID of the BOARD-CFG we look at into name and rev */
+	fs_image_get_board_name_rev(fsh->param.descr, &bnr);
 
 	/*
-	 * Compare with name and rev of the BOARD-ID we are looking for (in
+	 * Compare with name and rev of the BOARD-ID we are searching for (in
 	 * compare_bnr). In the new layout, the BOARD-CFG does not have a
 	 * revision anymore, so here bnr.rev is 0 and is accepted for any
 	 * BOARD-ID of this board type.
@@ -287,6 +279,19 @@ bool fs_image_match_board_id(const struct fs_header_v1_0 *cfg_fsh)
 		return false;
 
 	return true;
+}
+
+/* Check if ID of the given BOARD-CFG matches the compare_id */
+bool fs_image_match_board_id(const struct fs_header_v1_0 *cfg_fsh)
+{
+	/*
+	 * Pass non-NULL pointer to descr. In case of "BOARD-CFG", the value
+	 * is actually not used because the match is done via the board ID in
+	 * compare_id (which has to be set before). But the pointer is still
+	 * tested for NULL to differentiate between a match for any BOARD-CFG
+	 * and a match for a BOARD-CFG with a specific board ID.
+	 */
+	return fs_image_match(cfg_fsh, "BOARD-CFG", "(unused)");
 }
 
 /* Read property from board-rev subnode or board-cfg main node */
@@ -607,7 +612,7 @@ void fs_image_set_board_id(void)
 	fs_image_get_compare_id(board_id, MAX_DESCR_LEN + 1);
 }
 
-/* Set the compare_id that will be used in fs_image_match_board_id() */
+/* Set the compare_id that will be used in fs_image_match() */
 void fs_image_set_compare_id(const char id[MAX_DESCR_LEN])
 {
 	fs_image_get_board_name_rev(id, &compare_bnr);
