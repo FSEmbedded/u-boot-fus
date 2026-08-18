@@ -23,6 +23,9 @@
 #include "fs_image_common.h"
 #include "fs_cntr_common.h"
 
+extern ulong h_spl_load_read(struct spl_load_info *load, ulong off,
+			     ulong size, void *buf);
+
 int get_bootrom_bootdev(u32 *bdev)
 {
 	int ret;
@@ -88,28 +91,21 @@ int get_sdp_pagesize(u32 *pagesize)
  */
 int is_boot_from_stream_device()
 {
-#if 0
-	int ret;
-	u32 interface;
-	u32 boot;
+	enum boot_device dev = get_boot_device();
 
-	ret = get_bootrom_bootdev(&boot);
-	if (ret < 0)
-		return ret;
-
-	interface = boot >> 16;
-
-	if (interface >= BT_DEV_TYPE_USB)
+	switch (dev) {
+	case SD1_BOOT:
+	case SD2_BOOT:
+	case SD3_BOOT:
+	case MMC1_BOOT:
+	case MMC2_BOOT:
+	case MMC3_BOOT:
+		return 0;
+	case USB_BOOT:
+	case USB2_BOOT:
+	default:
 		return 1;
-
-	/* EMMC FASTBOOT MODE */
-	if (interface == BT_DEV_TYPE_MMC && (boot & 1))
-		return 1;
-
-	return 0;
-#else
-	return 1;
-#endif
+	}
 }
 
 void print_bootstage()
@@ -356,7 +352,7 @@ static int sdp_find_fshdr_stream(struct fs_header_v1_0 *fsh)
 	}
 
 	if(!phdr){
-		printf("Can't find F&S Header in 256K range\n");
+		debug("Can't find F&S Header in 256K range\n");
 		return -ENODATA;
 	}
 
@@ -368,17 +364,15 @@ static int sdp_find_fshdr_stream(struct fs_header_v1_0 *fsh)
 	return 0;
 }
 
-ulong spl_romapi_read(u32 offset, u32 size, void *buf)
+ulong spl_load_read_aligned(struct spl_load_info *load, u32 offset, u32 size, void *buf)
 {
 	u32 off_in_page;
 	u32 aligned_size;
 	u32 pagesize;
-	int ret;
 	u8 *tmp_buf;
+	u32 return_size;
 
-	ret = get_sdp_pagesize(&pagesize);
-	if(ret)
-		return ret;
+	pagesize = load->bl_len;
 
 	off_in_page = offset % pagesize;
 	aligned_size = ALIGN(size + off_in_page, pagesize);
@@ -390,7 +384,9 @@ ulong spl_romapi_read(u32 offset, u32 size, void *buf)
 			return 0;
 		}
 
-		if(sdp_download(tmp_buf, offset - off_in_page, aligned_size)) {
+		return_size = load->read(load, offset - off_in_page, aligned_size, tmp_buf);
+
+		if(return_size != aligned_size) {
 			free(tmp_buf);
 			return 0;
 		}
@@ -400,7 +396,9 @@ ulong spl_romapi_read(u32 offset, u32 size, void *buf)
 		return size;
 	}
 
-	if(sdp_download(buf, offset, size))
+	return_size = load->read(load, offset, size, buf);
+
+	if(return_size != size)
 		return 0;
 
 	return size;
@@ -414,9 +412,9 @@ static ulong sdp_rx_data_stream(struct spl_load_info *load, ulong sector,
 {
 	int ret, i;
 	ulong buf_offset;
-	u32 pagesize = 0;
 
-	get_sdp_pagesize(&pagesize);
+	sector /= load->bl_len;
+	count /= load->bl_len;
 
 	for(i = 0; i < count; i++){
 		buf_offset = load->bl_len * i;
@@ -435,7 +433,7 @@ static ulong sdp_rx_data_stream(struct spl_load_info *load, ulong sector,
 		}
 	}
 
-	return i;
+	return i*load->bl_len;
 }
 
 /**
@@ -451,14 +449,14 @@ int sdp_stream_continue(const struct sdp_stream_ops *stream_ops)
 	memset(&fsh, 0, sizeof(struct fs_header_v1_0));
 	memset(&load_info, 0, sizeof(struct spl_load_info));
 
-	ret = sdp_find_fshdr_stream(&fsh);
-	if(ret){
-		printf("Failed to find F&S Header: %d\n", ret);
-		return ret;
-	}
-
 	load_info.bl_len = FSH_SIZE;
 	load_info.read = sdp_rx_data_stream;
+
+	ret = sdp_find_fshdr_stream(&fsh);
+	if(ret){
+		debug("Failed to find F&S Header: %d\n", ret);
+		return ret;
+	}
 
 	fsh.type[15] = 0; /* just in case */
 	debug("Found: %s at buffer idx=%d\n", fsh.type, g_buffer.ptr_idx);
@@ -470,6 +468,95 @@ int sdp_stream_continue(const struct sdp_stream_ops *stream_ops)
 	debug("%s: &fsh_info = 0x%lx\n",__func__,(ulong)&fsh_info);
 
 	stream_ops->new_file((void *)&fsh_info, FSH_SIZE);
+	return 0;
+}
+
+/**
+ * Load next F&S HEADER during normal boot
+ */
+int sdp_seek_continue(const struct sdp_stream_ops *stream_ops)
+{
+	static uint offset = 0;
+
+	struct fsh_load_info fsh_info;
+	struct spl_load_info load_info;
+	struct fs_header_v1_0 fsh;
+	struct blk_desc * blk_desc;
+	struct mmc *mmc;
+	int part;
+	int ret = 0;
+
+	memset(&fsh, 0, sizeof(struct fs_header_v1_0));
+	memset(&load_info, 0, sizeof(struct spl_load_info));
+
+	/* Start mmc device once */
+	blk_desc = blk_get_devnum_by_uclass_id(UCLASS_MMC, 0);
+	if (!blk_desc) {
+		printf("Cannot start MMC boot device\n");
+		return -ENODEV;
+	}
+	mmc = find_mmc_device(blk_desc->devnum);
+	if (!mmc) {
+		printf("Cannot find MMC device\n");
+		return -ENODEV;
+	}
+
+	part = spl_mmc_emmc_boot_partition(mmc);
+
+	if (CONFIG_IS_ENABLED(MMC_TINY))
+		ret = mmc_switch_part(mmc, part);
+	else
+		ret = blk_dselect_hwpart(mmc_get_blk_desc(mmc), part);
+
+	if (ret) {
+		puts("spl: mmc partition switch failed\n");
+		return ret;
+	}
+
+	spl_load_init(&load_info, h_spl_load_read, blk_desc, blk_desc->blksz);
+
+	if (!offset){
+		struct container_hdr container;
+		struct boot_img_t boot_img;
+
+		memset(&container, 0, sizeof(struct container_hdr));
+
+		/* Set offset to V2X(-DUMMY) container */
+		offset = 0x8000;
+
+		/* Load second container hdr */
+		spl_load_read_aligned(&load_info, offset, sizeof(struct container_hdr), &container);
+
+		/* V2X(-DUMMY) container has 4 images */
+		if (container.num_images == 4) {
+			uint bin_offset;
+
+			bin_offset = offset + sizeof(struct container_hdr);
+			bin_offset += (container.num_images - 1) * sizeof(struct boot_img_t);
+			spl_load_read_aligned(&load_info, bin_offset, sizeof(struct boot_img_t), &boot_img);
+
+			offset += boot_img.offset + boot_img.size;
+			spl_load_read_aligned(&load_info, offset, sizeof(struct container_hdr), &container);
+
+			/* Skip to F&S header before next alignment of 0x400 */
+			/* BOARD-ID & BOARD-INFO -> 0x400 - 2*0x40 = 0x380   */
+			offset += 0x380;
+		}
+	}
+
+	spl_load_read_aligned(&load_info, offset, FSH_SIZE, &fsh);
+	if(!search_fus_header((u8 *)&fsh, 4)){
+		printf("%s: Wrong offset to F&S Image\n", __func__);
+		hang();
+	}
+
+	fsh_info.fsh = &fsh;
+	fsh_info.load_info = &load_info;
+	fsh_info.offset = offset;
+
+	stream_ops->new_file((void *)&fsh_info, FSH_SIZE);
+	offset += fs_image_get_size(&fsh, true);
+
 	return 0;
 }
 #endif

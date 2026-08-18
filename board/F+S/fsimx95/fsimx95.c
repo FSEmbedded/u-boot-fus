@@ -76,6 +76,19 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
+	{	/* 1 (BT_FSSM95S) */
+		.name = "FSSM95S",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
 };
 
 /* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
@@ -94,6 +107,7 @@ static int set_gd_board_type(void)
 	len = (int)(ptr - board_id);
 
 	SET_BOARD_TYPE("iMX95EVK", BT_IMX95EVK, board_id, len);
+	SET_BOARD_TYPE("SM95S", BT_FSSM95S, board_id, len);
 
 	return -EINVAL;
 }
@@ -272,38 +286,19 @@ static void setup_typec(void)
 
 	tca_base = USB1_BASE_ADDR + 0xfc000;
 
-#ifdef CONFIG_TARGET_IMX95_15X15_EVK
-	struct gpio_desc ext_12v_desc;
-
-	ret = tcpc_init(&portpd, portpd_config, NULL);
-	if (ret) {
-		printf("%s: tcpc portpd init failed, err=%d\n",
-		       __func__, ret);
-	} else if (tcpc_pd_sink_check_charging(&portpd)) {
-		printf("Power supply on USB PD\n");
-
-		/* Enable EXT 12V */
-		ret = dm_gpio_lookup_name("gpio@22_1", &ext_12v_desc);
+	switch (gd->board_type)
+	{
+	case BT_IMX95EVK:
+		ret = tcpc_init(&port, port_config, &tca_mux_select);
 		if (ret) {
-			printf("%s lookup gpio@22_1 failed ret = %d\n", __func__, ret);
+			printf("%s: tcpc init failed, err=%d\n", __func__, ret);
 			return;
 		}
-
-		ret = dm_gpio_request(&ext_12v_desc, "ext_12v_en");
-		if (ret) {
-			printf("%s request ext_12v_en failed ret = %d\n", __func__, ret);
-			return;
-		}
-
-		/* Enable PER 12V regulator */
-		dm_gpio_set_dir_flags(&ext_12v_desc, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);
-	}
-#endif
-
-	ret = tcpc_init(&port, port_config, &tca_mux_select);
-	if (ret) {
-		printf("%s: tcpc init failed, err=%d\n", __func__, ret);
-		return;
+		break;
+	case BT_FSSM95S:
+		break;
+	default:
+		break;
 	}
 }
 #endif
@@ -370,14 +365,20 @@ static void netc_phy_rst(const char *gpio_name, const char *label)
 		return;
 	}
 
-	/* assert the ENET_RST_B */
-	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE | GPIOD_ACTIVE_LOW);
-	udelay(10000);
-	dm_gpio_set_value(&desc, 0); /* deassert the ENET_RST_B */
-	udelay(80000);
+	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE);
 
+	/* assert ETH_x_PHY_RST for 10ms*/
+	dm_gpio_set_value(&desc, 0);
+	udelay(10000);
+
+	/* deassert ETH_x_PHY_RST again */
+	dm_gpio_set_value(&desc, 1);
+
+	/* Wait 100ms before accessing MDIO registers */
+	udelay(100000);
 }
 
+#if 0
 static void __maybe_unused netc_regulator_enable(const char *devname, bool enable)
 {
 	int ret;
@@ -396,6 +397,7 @@ static void __maybe_unused netc_regulator_enable(const char *devname, bool enabl
 		return;
 	}
 }
+#endif
 
 void netc_init(void)
 {
@@ -411,6 +413,20 @@ void netc_init(void)
 		return;
 	}
 
+	/* Reset PHYs */
+	switch (gd->board_type)
+	{
+	case BT_IMX95EVK:
+		break;
+	case BT_FSSM95S:
+		netc_phy_rst("gpio@21_5", "eth_a_phy_rst");
+		netc_phy_rst("gpio@21_6", "eth_b_phy_rst");
+		break;
+	default:
+		break;
+	}
+
+#if 0
 #ifdef CONFIG_TARGET_IMX95_15X15_EVK
 	netc_phy_rst("gpio@22_4", "ENET1_RST_B");
 	netc_phy_rst("gpio@22_5", "ENET2_RST_B");
@@ -434,6 +450,7 @@ void netc_init(void)
 	netc_regulator_enable("regulator-aqr-stby", true);
 	netc_regulator_enable("regulator-mac-stby", true);
 
+#endif
 #endif
 }
 
@@ -522,16 +539,17 @@ int board_init(void)
 #if defined(CONFIG_USB_TCPC)
 	setup_typec();
 #endif
-
+#if 0
 #if IS_ENABLED(CONFIG_TARGET_IMX95_19X19_EVK)
 	netc_regulator_enable("regulator-m2-pwr", true);
+#endif
 #endif
 
 	netc_init();
 
 	flexspi_nor_steup();
 
-	power_on_m7("mx95evkrpmsg");
+	//power_on_m7("mx95evkrpmsg");
 
 	lvds_backlight_on();
 
@@ -585,6 +603,10 @@ void fs_ethaddr_init(void)
 	switch (gd->board_type)
 	{
 	case BT_IMX95EVK:
+		fs_eth_set_ethaddr(eth_id++);
+		fs_eth_set_ethaddr(eth_id++);
+		break;
+	case BT_FSSM95S:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
 		break;

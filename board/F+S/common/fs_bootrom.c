@@ -354,7 +354,7 @@ static int bootrom_find_fshdr_stream(struct fs_header_v1_0 *fsh)
 	}
 
 	if(!phdr){
-		printf("Can't find F&S Header in 256K range\n");
+		debug("Can't find F&S Header in 256K range\n");
 		return -ENODATA;
 	}
 
@@ -466,7 +466,7 @@ int bootrom_stream_continue(const struct sdp_stream_ops *stream_ops)
 
 	ret = bootrom_find_fshdr_stream(&fsh);
 	if(ret){
-		printf("Failed to find F&S Header: %d\n", ret);
+		debug("Failed to find F&S Header: %d\n", ret);
 		return ret;
 	}
 

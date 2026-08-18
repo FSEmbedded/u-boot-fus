@@ -32,6 +32,8 @@
  * 0x8A20_0000: AHAB_BASE            (64KB)
  * 0x8C00_0000: TEE                  (32MB)
  * 0x9020_0000: UBOOT                (3MB)
+ * 0x9050_0000: AHAB_BASE_NS         (64KB)
+ * 0x9051_0000: TEE_NS               (32MB)
  */
 
 #ifndef __FSIMX95_H
@@ -55,6 +57,14 @@
 #define CFG_SPL_ATF_ADDR		0x4AA04000
 //#define CFG_MALLOC_F_ADDR		0x4AA80000 // -> Breaks U-Boot (NPU SRAM usage?)
 #define CFG_SPL_TEE_ADDR		0x8C000000
+
+/* On boards with a running SM, eMMC is already configured in TRDC.
+ * SPL has all rights to write to ATF and OPTee range, but USDHC
+ * already lost access to it. The workaround is to define non secure
+ * destinations for ATF and OPTee via container and later copy them
+ * to the right addresses after container handling. */
+#define CFG_SPL_ATF_SECURE_ADDR		0x8A200000
+#define CFG_SPL_TEE_SECURE_ADDR		0x8C000000
 
 #define CFG_SYS_INIT_RAM_ADDR	0x90000000
 #define CFG_SYS_INIT_RAM_SIZE	0x200000

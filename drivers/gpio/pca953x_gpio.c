@@ -355,6 +355,26 @@ static int pca953x_probe(struct udevice *dev)
 		snprintf(name, sizeof(name), "gpio@%x_", info->addr);
 	}
 
+	/* Configure output: set open-drain or default to push-pull */
+	if (ofnode_read_bool(dev_ofnode(dev), "pcal6416,open-drain")
+		|| ofnode_read_bool(dev_ofnode(dev), "pcal6416,port0-open-drain")
+		|| ofnode_read_bool(dev_ofnode(dev), "pcal6416,port1-open-drain")) {
+		u8 val = 0;
+
+		if (ofnode_read_bool(dev_ofnode(dev), "pcal6416,open-drain"))
+			val |= 0x3; /* Enable ODEN0 and ODEN1 */
+		if (ofnode_read_bool(dev_ofnode(dev), "pcal6416,port0-open-drain"))
+			val |= 0x1; /* Enable ODEN0 */
+		if (ofnode_read_bool(dev_ofnode(dev), "pcal6416,port1-open-drain"))
+			val |= 0x2; /* Enable ODEN1 */
+
+		ret = dm_i2c_write(dev, 0x4F, &val, 1);
+		if (ret) {
+			dev_err(dev, "%s error\n", __func__);
+			return ret;
+		}
+	}
+
 	/* Clear the polarity registers to no invert */
 	memset(val, 0, MAX_BANK);
 	ret = pca953x_write_regs(dev, info->regs->invert, val);

@@ -281,7 +281,6 @@ config TARGET_FSIMX93
 config TARGET_FSIMX95
 	bool "fsimx95"
 	select FSIMX_BOARDS
-	select BINMAN
 	select IMX95
 
 endchoice

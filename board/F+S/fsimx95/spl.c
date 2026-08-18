@@ -107,7 +107,7 @@ static int scmi_ddr_init(void)
 
 	numVal = sizeof(struct ddr_init_params) / sizeof(uint32_t);
 
-	msg_in.ctrlId = 0x8008;
+	msg_in.ctrlId = 0x800D;
 	msg_in.addr = 0x0;
 	msg_in.len = numVal;
 	msg_in.numVal = numVal;
@@ -122,8 +122,10 @@ static int scmi_ddr_init(void)
 
 	ret = devm_scmi_process_msg(dev, &msg);
 
-	printf("DDR_INIT(SCMI) ret = %d\n", ret);
-	printf("DDR_INIT(SCMI) status = %d\n", msg_out.status);
+	if (ret || msg_out.status) {
+		printf("DDR_INIT(SCMI) ret = %d\n", ret);
+		printf("DDR_INIT(SCMI) status = %d\n", msg_out.status);
+	}
 
 	if (!ret)
 		ret = msg_out.status;

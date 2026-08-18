@@ -354,6 +354,27 @@ static void free_container(struct spl_image_info *cntr_info)
 	free((struct container_hdr *)cntr_info->load_addr);
 }
 
+static ulong info_read_sectors(struct spl_load_info *load,
+				ulong off, ulong size, void *buf)
+{
+	ulong bytes_read;
+
+	off *= load->bl_len;
+	size *= load->bl_len;
+
+	bytes_read = load->read(load, off, size, buf);
+
+	if (!(bytes_read % load->bl_len))
+		return (bytes_read / load->bl_len);
+	else {
+		debug("%s: bytes_read not aligned to bl_len!\n",__func__);
+		debug("%s: bytes_read = 0x%lx\n",__func__,bytes_read);
+		debug("%s: load->bl_len = 0x%x\n",__func__,load->bl_len);
+
+		return 0;
+	}
+}
+
 /**
  * reads a imx container hdr
  * this function will initialize ahab.
@@ -373,6 +394,7 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 	struct container_hdr *authhdr = NULL;
 	u16 length;
 	u32 count;
+	u32 return_count;
 	int size, ret = 0;
 
 	size = roundup(CONTAINER_HDR_ALIGNMENT, info->bl_len);
@@ -386,7 +408,12 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 	debug("%s: container: 0x%lx sector: 0x%lx count: 0x%x\n", __func__,
 	      (ulong)cntr, sector, count);
 
-	if (info->read(info, sector, count, cntr) != count) {
+	return_count = info_read_sectors(info, sector, count, cntr);
+
+	if (return_count != count) {
+		printf("Wrong read count for info_read_sectors\n");
+		printf("return_count = 0x%x\n",return_count);
+		printf("count = 0x%x\n",count);
 		ret = -EIO;
 		goto free_cntr;
 	}
@@ -427,7 +454,7 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 		debug("%s: container: 0x%lx sector: 0x%lx count: 0x%x\n",
 		      __func__, (ulong)cntr, sector, tmp_count);
 
-		if (info->read(info, (sector + count),
+		if (info_read_sectors(info, (sector + count),
 				(tmp_count - count),
 				(void *)((ulong)(cntr_tmp) + size)) !=
 				(tmp_count - count)) {
@@ -484,7 +511,7 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 		debug("load padding with count=%d\n", pad_count);
 
 		for (;pad_count > 0; pad_count--) {
-			info->read(info, 0, 1, padding);
+			info_read_sectors(info, 0, 1, padding);
 		}
 
 		free(padding);
@@ -546,7 +573,7 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 			(ulong)container, sector, count);
 	debug("%s: img_idx=%d, loadaddr=0x%lx \n", __func__,
 			image_index, (ulong)images[image_index].dst);
-	if (info->read(info, sector, count,
+	if (info_read_sectors(info, sector, count,
 		       (void *)images[image_index].dst) != count) {
 		printf("%s: failed to load image %d\n", __func__, image_index);
 		return NULL;
@@ -743,7 +770,7 @@ static inline void fs_cntr_skip_boot_info(struct fsh_load_info *fsh_info)
 
 	count = file_size / fsh_info->load_info->bl_len;
 	while (count > 0) {
-		fsh_info->load_info->read(fsh_info->load_info, 0, 1, buffer);
+		info_read_sectors(fsh_info->load_info, 0, 1, buffer);
 		count--;
 	}
 
@@ -1365,7 +1392,7 @@ int seek_continue(const struct sdp_stream_ops *stream_ops)
 #if defined(CONFIG_FS_BOOTROM)
 	return bootrom_seek_continue(stream_ops);
 #elif defined(CONFIG_FS_SDP)
-	printf("WARNING: %s not available; check FS_BOOTROM and FS_SDP!\n", __func__);
+	return sdp_seek_continue(stream_ops);
 	return -1;
 #else
 	printf("WARNING: %s not available; check FS_BOOTROM and FS_SDP!\n", __func__);
@@ -1472,6 +1499,33 @@ int fs_cntr_load_board_id()
  */
 #if defined(CONFIG_SPL_BUILD)
 
+static void __maybe_unused quirk_copy_ns_to_sec(struct spl_image_info *spl_image,
+				struct spl_image_info *cntr_info,
+				int image_index, ulong dst)
+{
+	struct container_hdr *container = (struct container_hdr *)cntr_info->load_addr;
+	struct boot_img_t *images;
+	u64 offset;
+	u32 size;
+
+	images = (struct boot_img_t *)((u8 *)container +
+				       sizeof(struct container_hdr));
+
+	offset = images[image_index].dst;
+	size = (u64) images[image_index].size;
+
+	memcpy((void *) dst, (void *) offset, size);
+
+	/* For ATF overwrite the spl_image addresses */
+	if (image_index == 1) {
+		spl_image->load_addr = dst;
+		spl_image->entry_point = dst;
+
+		debug("image[%d]: load_addr=0x%lx, entry_point=0x%lx, image_size=0x%x (altered)\n",
+			image_index, spl_image->load_addr, spl_image->entry_point, spl_image->size);
+	}
+}
+
 static int load_uboot(struct spl_image_info *spl_image)
 {
 	struct fsh_load_info *uboot_info;
@@ -1497,6 +1551,7 @@ static int load_uboot(struct spl_image_info *spl_image)
 
 #ifdef CONFIG_FS_SDP
 	/* In SDP mode, the alignment needs to be loaded as well */
+	if(is_boot_from_stream_device())
 	{
 		const struct sdp_stream_ops dummy_stream_ops = {
 			.new_file = NULL,
@@ -1505,6 +1560,14 @@ static int load_uboot(struct spl_image_info *spl_image)
 
 		spl_sdp_stream_single_rx(&dummy_stream_ops, false);
 	}
+
+#ifdef CFG_SPL_ATF_SECURE_ADDR
+	quirk_copy_ns_to_sec(spl_image, &cntr_info, 1, CFG_SPL_ATF_SECURE_ADDR);
+#endif
+
+#ifdef CFG_SPL_TEE_SECURE_ADDR
+	quirk_copy_ns_to_sec(spl_image, &cntr_info, 2, CFG_SPL_TEE_SECURE_ADDR);
+#endif
 #endif
 
 	free_container(&cntr_info);

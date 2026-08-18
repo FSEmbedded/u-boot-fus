@@ -67,6 +67,7 @@ int mmc_load_image_raw_sector(struct spl_image_info *spl_image,
 	return ret;
 }
 
+#if !defined(CONFIG_FS_SDP)
 static int spl_mmc_get_device_index(uint boot_device)
 {
 	switch (boot_device) {
@@ -292,6 +293,7 @@ static int spl_mmc_do_fs_boot(struct spl_image_info *spl_image,
 #endif
 }
 #endif
+#endif
 
 u32 __weak spl_mmc_boot_mode(struct mmc *mmc, const u32 boot_device)
 {
@@ -364,6 +366,8 @@ int __weak spl_mmc_emmc_boot_partition(struct mmc *mmc)
 {
 	return arch_spl_mmc_emmc_boot_partition(mmc);
 }
+
+#if !defined(CONFIG_FS_SDP)
 
 static int spl_mmc_get_mmc_devnum(struct mmc *mmc)
 {
@@ -524,3 +528,23 @@ int spl_mmc_load_image_redundant(struct spl_image_info *spl_image,
 SPL_LOAD_IMAGE_METHOD("MMC1", 0, BOOT_DEVICE_MMC1, spl_mmc_load_image_redundant);
 SPL_LOAD_IMAGE_METHOD("MMC2", 0, BOOT_DEVICE_MMC2, spl_mmc_load_image);
 SPL_LOAD_IMAGE_METHOD("MMC2_2", 0, BOOT_DEVICE_MMC2_2, spl_mmc_load_image);
+
+#else //defined(CONFIG_FS_SDP)
+
+int spl_mmc_load_image(struct spl_image_info *spl_image,
+				 struct spl_boot_device *bootdev)
+{
+	int ret = board_return_to_bootrom(spl_image, bootdev);
+	/*
+	 * If the board implements a way to return to its ROM (with
+	 * the expectation that the next stage of will be booted by
+	 * the ROM), it will implement board_return_to_bootrom() and
+	 * should not return from it.
+	 */
+	return ret;
+}
+
+SPL_LOAD_IMAGE_METHOD("MMC1", 0, BOOT_DEVICE_MMC1, spl_mmc_load_image);
+SPL_LOAD_IMAGE_METHOD("MMC2", 0, BOOT_DEVICE_MMC2, spl_mmc_load_image);
+SPL_LOAD_IMAGE_METHOD("MMC2_2", 0, BOOT_DEVICE_MMC2_2, spl_mmc_load_image);
+#endif

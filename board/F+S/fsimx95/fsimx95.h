@@ -52,7 +52,8 @@
  */
 
 enum fsimx95_board_types {
-	BT_IMX95EVK
+	BT_IMX95EVK,
+	BT_FSSM95S
 };
 
 #endif /* __BOARD_FSIMX95_H */

@@ -43,20 +43,23 @@ MKIMAGE_TYPE = imx8image
 # 1. u-boot-spl.bin -> (cp) -> fsimx95_SPL.fsi
 # 1. fsimx95_SPL.fsi -> (fsc) -> boot_info.fs
 
-#$(obj)/%_SPL.fsi: spl/u-boot-spl.bin
-#	$(call cmd,copy)
+$(obj)/%_SM.fsi: $(NXP_PATH)/m33_image.bin
+	$(call cmd,copy)
+
+$(obj)/%_SPL.fsi: spl/u-boot-spl.bin
+	$(call cmd,copy)
 
 #$(obj)/%_CORTEX-M.fsi: $(srctree)/board/$(BOARDDIR)/m33_image.bin
 #	$(call cmd,copy)
 
-#$(eval $(call fsc,boot_info,-a 0x400-0x40 -t BOOT-INFO -d $(BOARD)))
+$(eval $(call fsc,boot_info,-a 0x400-0x40 -t BOOT-INFO -d $(BOARD)))
 
 # -----------------------------------------------------------------------------
 #
 # Rules for board_id.fsh.
 
 $(obj)/board_id.fsh:
-	${Q}cat /dev/null | $(FSIMG) -q -j -t BOARD-ID -d SM95S-FERT4.100 > $@
+	${Q}cat /dev/null | $(FSIMG) -q -j -t BOARD-ID -d DUMMY-ID > $@
 
 # -----------------------------------------------------------------------------
 #
@@ -88,9 +91,10 @@ quiet_cmd_cfg_dts_tmp = CAT     $@
 	(echo "/* Macros with varying content */"; \
 	echo "\#define NBOOT_VERSION \"$(NBOOT_VERSION)\""; \
 	echo "\#define BOARD_CFG_NAME \"$(*F)\""; \
+	echo "\#define SPL_SIZE $$(($$(stat -c %s $(obj)/boot_info.fs)))"; \
 	cat $<) > $@
 
-$(obj)/.%.dts.tmp: $(SRC_PATH)/%.dts
+$(obj)/.%.dts.tmp: $(SRC_PATH)/%.dts $(obj)/boot_info.fs
 	$(call cmd,cfg_dts_tmp)
 
 # 2. Call device tree compiler (dtc) to build dtb files
@@ -206,16 +210,8 @@ $(obj)/extra.fs: $(EXTRA_FILES_OBJ)
 # 1. $(NBOOT_FILES) --> (cat) --> nboot-<arch>-<vers>.fs
 # 2. nboot-<arch>-<vers>.fs --> (cp) --> nboot.fs
 
-#NBOOT_FILES = \
-#	$(obj)/boot_info.fs \
-#	$(obj)/board_id.fsh \
-#	$(obj)/board_info.fs \
-#	$(if $(wildcard $(LPDDR5_CFG)),$(obj)/lpddr5_info.fs) \
-#	$(if $(wildcard $(LPDDR4X_CFG)),$(obj)/lpddr4x_info.fs) \
-#	$(obj)/extra.fs
-
-# For now, skip boot_info and lpddr4x container
 NBOOT_FILES = \
+	$(obj)/boot_info.fs \
 	$(obj)/board_id.fsh \
 	$(obj)/board_info.fs \
 	$(if $(wildcard $(LPDDR5_CFG)),$(obj)/lpddr5_info.fs) \

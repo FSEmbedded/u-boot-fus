@@ -12,8 +12,8 @@
 
 / {
 	board-cfg {
-		board-name = "SM95S";
-		board-fdt = "sm95s";
+		board-name = "FSSM95S";
+		board-fdt = "fssm95s";
 		board-rev = <100>;
 
 		/* DRAM: B.ICDRAM.60 */
@@ -27,8 +27,8 @@
 
 		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
 		fuse-bankword = <0x00030000>;
-		fuse-mask =     <0x20000002>;
-		fuse-value =    <0x20000002>;
+		fuse-mask =     <0x2000000a>;
+		fuse-value =    <0x2000000a>;
 
 		/* Common board features */
 		have-emmc;
