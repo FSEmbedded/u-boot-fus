@@ -207,13 +207,17 @@ static int set_gd_board_type(void)
 	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
 	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
-	SET_BOARD_TYPE("NDCU93", BT_NDCU93, board_id, len);
-
+	SET_BOARD_TYPE("ND93", BT_NDCU93, board_id, len);
 	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
 	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
-
 	SET_BOARD_TYPE("PCOM93", BT_PICOCOM93, board_id, len);
 
+	/**
+	 * NOTE:
+	 * NetDCU has a new Board ID.
+	 * check for NDCU93 board-cfg in case of old nboot.
+	 */
+	SET_BOARD_TYPE("NDCU93", BT_NDCU93, board_id, len);
 	return -EINVAL;
 }
 
@@ -236,6 +240,14 @@ int board_fit_config_name_match(const char *name)
 
 	if(board_fdt && !strncmp(name, board_fdt, 64))
 		return 0;
+
+
+	/*
+	 * NOTE:
+	 * NetDCU has a new Board ID and DTS name.
+	 * check for netdcu93.dtb in case of old nboot.
+	 */
+	CHECK_BOARD_TYPE_AND_NAME("netdcu93", BT_NDCU93, name);
 
 	return -EINVAL;
 }
@@ -707,19 +719,3 @@ int board_late_init(void)
 	return 0;
 }
 
-#if 0 //### defined in serial-uclass.c
-int serial_get_alias_seq(void)
-{
-	int seq, err;
-
-	if (!gd->cur_serial_dev)
-		return -ENXIO;
-
-	err = fdtdec_get_alias_seq(gd->fdt_blob, "serial",
-				   dev_of_offset(gd->cur_serial_dev), &seq);
-	if (err < 0)
-		return err;
-
-	return seq;
-}
-#endif
