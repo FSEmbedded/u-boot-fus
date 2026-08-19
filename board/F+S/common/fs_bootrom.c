@@ -207,12 +207,27 @@ struct buffer_t {
 static struct buffer_t g_buffer;
 
 #ifdef DEBUG
+static inline void debug_print_char(char *ptr, int n)
+{
+	int c;
+	printf(" [");
+	for(c = 0; c < n; c++){
+		if(ptr[c] > 0x20 && ptr[c] < 0x7e)
+			printf("%c", ptr[c]);
+		else
+			printf(".");
+	}
+	printf("]");
+}
+
 void debug_dump_mem(char *ptr, int size)
 {
 	int c;
 	for(c = 0; c < size; c++){
+		if (!(c % 16) && c != 0)
+			debug_print_char(&ptr[c-16], 16);
 		if (!(c % 16))
-			printf("\n%08x", c);
+			printf("\n%08x: ", c);
 		if(!(c % 4))
 			puts(" ");
 
