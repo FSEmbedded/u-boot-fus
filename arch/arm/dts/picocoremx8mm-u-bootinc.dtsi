@@ -226,9 +226,6 @@
 };
 
 &iomuxc {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_hog>;
-
 	imx8mm-picocoremx8mm {
 
 		pinctrl_usbotg1: usbotg1grp {

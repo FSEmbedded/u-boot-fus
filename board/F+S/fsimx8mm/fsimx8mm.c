@@ -65,6 +65,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BT_PICOCOREMX8MMr2	2
 #define BT_TBS2 		3
 #define BT_OSM8MM 		4
+#define BT_PICOCOREMX8MMr4	5
 
 /* Board features; these values can be resorted and redefined at will */
 #define FEAT_ETH_A	(1<<0)
@@ -82,6 +83,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define FEAT_SEC_CHIP	(1<<12)
 #define FEAT_CAN	(1<<13)
 #define FEAT_EEPROM	(1<<14)
+#define FEAT_ETH_LED2	(1<<15)
 
 #define FEAT_ETH_MASK 	(FEAT_ETH_A | FEAT_ETH_B)
 
@@ -166,6 +168,20 @@ const struct fs_board_info board_info[] = {
 	},
 	{	/* 0 (BT_OSM8MM) */
 		.name = "OSM8MM",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 5 (BT_PICOCOREMX8MMr4) */
+		.name = "PicoCoreMX8MMr4-LPDDR4",
+		.alias = "PicoCoreMX8MMr4",
 		.bootdelay = "3",
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -288,6 +304,9 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_CAN;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-led2", NULL))
+		features |= FEAT_ETH_LED2;
+
 	info->features = features;
 }
 
@@ -1146,7 +1165,8 @@ static int setup_typec(void)
 	switch (fs_board_get_type())
 	{
 	case BT_PICOCOREMX8MM:
-    case BT_PICOCOREMX8MMr2:
+	case BT_PICOCOREMX8MMr2:
+	case BT_PICOCOREMX8MMr4:
 		port_config.i2c_bus = 3;
 		break;
 	case BT_PICOCOREMX8MX:
@@ -1595,6 +1615,8 @@ void board_preboot_os(void)
 }
 
 #define MIIM_RTL8211F_PAGE_SELECT      0x1f
+#define LED1_MASK 0x8360
+#define LED2_MASK 0xEC00
 
 int board_phy_config(struct phy_device *phydev)
 {
@@ -1617,7 +1639,27 @@ int board_phy_config(struct phy_device *phydev)
 		/* Set LED1 for Link, LED1 for Activity */
 		phy_write(phydev, MDIO_DEVAD_NONE,
 			  MIIM_RTL8211F_PAGE_SELECT, 0xd04);
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, 0x8360);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, LED1_MASK);
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0x0);
+
+		/* Disable CLKOUT*/
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0xa43);
+		reg = phy_read(phydev, MDIO_DEVAD_NONE, 0x19);
+		reg &= ~(1 << 0);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x19, reg);
+		break;
+	case BT_PICOCOREMX8MMr4:
+		unsigned int features = fs_board_get_features();
+
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0xd04);
+		/* Set LED for Link and Activity */
+		if (features & FEAT_ETH_LED2)
+			phy_write(phydev, MDIO_DEVAD_NONE, 0x10, LED2_MASK);
+		else
+			phy_write(phydev, MDIO_DEVAD_NONE, 0x10, LED1_MASK);
 		phy_write(phydev, MDIO_DEVAD_NONE,
 			  MIIM_RTL8211F_PAGE_SELECT, 0x0);
 
@@ -1632,7 +1674,7 @@ int board_phy_config(struct phy_device *phydev)
 		/* Set LED2 for Link, LED2 for Activity */
 		phy_write(phydev, MDIO_DEVAD_NONE,
 			  MIIM_RTL8211F_PAGE_SELECT, 0xd04);
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, 0xEC00);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, LED2_MASK);
 		phy_write(phydev, MDIO_DEVAD_NONE,
 			  MIIM_RTL8211F_PAGE_SELECT, 0x0);
 
@@ -1661,6 +1703,7 @@ int board_phy_config(struct phy_device *phydev)
 #define FDT_CAN         "mcp2518fd"
 #define FDT_SGTL5000    "sgtl5000"
 #define FDT_I2C_SWITCH  "i2c4"
+#define FDT_ETH_PHY     "ethphy4"
 #define FDT_TEMP_ALERT   "/thermal-zones/cpu-thermal/trips/trip0"
 #define FDT_TEMP_CRIT    "/thermal-zones/cpu-thermal/trips/trip1"
 /* Do all fixups that are done on both, U-Boot and Linux device tree */
@@ -1723,6 +1766,16 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 	if (!(features & FEAT_ETH_A) && (board_type == BT_PICOCOREMX8MX))
 		fs_fdt_enable(fdt, FDT_I2C_SWITCH, 0);
 
+	/* Set led-link and led-act for LED2 */
+	if ((features & FEAT_ETH_LED2)) {
+		offs = fs_fdt_path_offset(fdt, FDT_ETH_PHY);
+		if (offs >= 0) {
+			fs_fdt_set_u32(fdt, offs, \
+				"rtl821x,led-link", 2, 1, true);
+			fs_fdt_set_u32(fdt, offs, \
+				"rtl821x,led-act", 2, 1, true);
+		}
+	}
 	/* Set bdinfo entries */
 	offs = fs_fdt_path_offset(fdt, "/bdinfo");
 	if (offs >= 0) {
