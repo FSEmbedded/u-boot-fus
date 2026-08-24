@@ -5,10 +5,10 @@
 
 include board/$(VENDOR)/common/fus-common.mk
 
-obj-y += fsimx95.o
-
 ifdef CONFIG_SPL_BUILD
 obj-y += spl.o
+else
+obj-y += fsimx95.o
 endif
 
 # Image type for mkimage
