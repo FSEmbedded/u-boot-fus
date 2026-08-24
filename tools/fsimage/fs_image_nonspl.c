@@ -22,28 +22,6 @@ static u8 image_ram[2 * MAX_IMAGE_SIZE];
 static u8 board_cfg[MAX_BOARD_CFG_SIZE];
 
 
-int fs_image_get_start_copy(void)
-{
-	int start_copy = 1;
-
-	printf("TODO: Cannot determine SPL start copy, assuming Primary\n");
-	printf("Booted from %s SPL, so starting with copy %d\n", \
-	       start_copy ? "Primary" : "Secondary", start_copy);
-
-	return start_copy;
-}
-
-int fs_image_get_start_copy_uboot(void)
-{
-	int start_copy = 1;
-
-	printf("TODO: Cannot determine UBOOT start copy, assuming Primary\n");
-	printf("Booted from %s UBOOT, so starting with copy %d\n", \
-	       start_copy ? "Primary" : "Secondary", start_copy);
-
-	return start_copy;
-}
-
 /* Return the address of the board configuration */
 void *fs_image_get_cfg_addr(void)
 {

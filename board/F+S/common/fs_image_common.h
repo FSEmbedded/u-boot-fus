@@ -17,6 +17,10 @@
 #define MAX_TYPE_LEN 16
 #define MAX_DESCR_LEN 32
 
+/* Bit values for boot_copy */
+#define BOOT_COPY_SECONDARY_NBOOT BIT(0) /* Running from secondary NBoot */
+#define BOOT_COPY_SECONDARY_UBOOT BIT(1) /* Running from secondary U-Boot */
+
 struct index_info {
 	const struct fs_header_v1_0 *fsh_idx;	/* Header of INDEX image */
 	const struct fs_header_v1_0 *fsh;	/* Header within INDEX */
@@ -199,10 +203,7 @@ struct sb_info {
 #ifndef CONFIG_SPL_BUILD
 
 /* Return if currently running from Secondary SPL. */
-bool fs_image_is_secondary(void);
-
-/* Return if currently running from Secondary UBoot. */
-bool fs_image_is_secondary_uboot(void);
+u8 fs_image_get_secondary_boot_info(void);
 
 /*
  * Search board configuration in OCRAM; return true if it was found.
@@ -407,7 +408,10 @@ void fs_image_show_sub_status(int err);
 int fs_image_confirm(void);
 
 /* Determine first copy to modify depending on which SPL copy we booted */
-int fs_image_get_start_copy(void);
+int fs_image_get_start_copy(bool uboot, bool opposite);
+
+/* Determine first copy to modify depending on which SPL copy we booted */
+unsigned int fs_image_get_boot_copy(void);
 
 /* Check boot device; Return 0: OK, 1: Not fused yet, <0: Error */
 int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action);

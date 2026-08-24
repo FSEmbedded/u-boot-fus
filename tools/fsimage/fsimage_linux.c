@@ -28,9 +28,12 @@
 #define SYS_ARCH SYS_BDINFO "arch"
 #define SYS_BOARD_ID SYS_BDINFO "board-id"
 #define SYS_BOOT_DEV SYS_BDINFO "boot_dev"
+#define SYS_BOOT_COPY SYS_BDINFO "boot_copy"
 #define SYS_VERSION  SYS_BDINFO "nboot_version"
 
-static char bdinfo_board_id[MAX_DESCR_LEN + 1];
+static char sys_board_id[MAX_DESCR_LEN + 1];
+static char sys_boot_copy[10];
+static unsigned int boot_copy;
 static char nboot_version[20];
 static char boot_dev_name[10];
 
@@ -413,7 +416,10 @@ bool fs_board_is_closed(void)
 	return false;
 }
 
-
+unsigned int fs_image_get_boot_copy(void)
+{
+	return boot_copy;
+}
 
 /* ------------- Linux command line handling ------------------------------- */
 
@@ -452,20 +458,22 @@ int do_fsimage(int argc, char *argv[])
 	return CMD_RET_USAGE;
 }
 
-static bool read_bdinfo(const char *name, char *value, uint size)
+static bool read_sys(const char *name, char *value, uint size, bool needed)
 {
 	int fd;
 	ssize_t count;
 
 	fd = open(name, O_RDONLY);
 	if (fd == -1) {
-		printf("Cannot open %s: %s", name, strerror(errno));
+		if (needed)
+			printf("Cannot open %s: %s\n", name, strerror(errno));
 		return false;
 	}
 
 	count = read(fd, value, size);
 	if (count == -1) {
-		printf("Cannot read %s: %s", name, strerror(errno));
+		if (needed)
+			printf("Cannot read %s: %s\n", name, strerror(errno));
 		close(fd);
 		return false;
 	}
@@ -473,7 +481,8 @@ static bool read_bdinfo(const char *name, char *value, uint size)
 	close(fd);
 
 	if (count == 0) {
-		fprintf(stderr, "%s has no content\n", name);
+		if (needed)
+			fprintf(stderr, "%s has no content\n", name);
 		return false;
 	}
 
@@ -495,7 +504,7 @@ static bool check_current_arch(void)
 	char current_arch[MAX_DESCR_LEN + 1];
 	const char *compiled_arch = fs_image_get_arch();
 
-	if (!read_bdinfo(SYS_ARCH, current_arch, MAX_DESCR_LEN + 1))
+	if (!read_sys(SYS_ARCH, current_arch, MAX_DESCR_LEN + 1, true))
 	    return false;
 
 	if (strcmp(current_arch, compiled_arch)) {
@@ -517,16 +526,26 @@ int main(int argc, char *argv[])
 		return 1;
 
 	/* Read board-id from bdinfo */
-	if (!read_bdinfo(SYS_BOARD_ID, bdinfo_board_id, sizeof(bdinfo_board_id)))
+	if (!read_sys(SYS_BOARD_ID, sys_board_id, sizeof(sys_board_id), true))
 		return 1;
-	fs_image_set_compare_id(bdinfo_board_id);
+	fs_image_set_compare_id(sys_board_id);
+
+	/* If available, read boot_copy from bdinfo*/
+	if (!read_sys(SYS_BOOT_COPY, sys_boot_copy,
+			 sizeof(sys_boot_copy), false)) {
+		printf("Warning: Cannot read %s, assuming boot from copy 0\n",
+		       SYS_BOOT_COPY);
+		boot_copy = 0;
+	} else {
+		boot_copy = strtoul(sys_boot_copy, NULL, 0);
+	}
 
 	/* Read NBoot version from bdinfo */
-	if (!read_bdinfo(SYS_VERSION, nboot_version, sizeof(nboot_version)))
+	if (!read_sys(SYS_VERSION, nboot_version, sizeof(nboot_version), true))
 		return 1;
 
 	/* Read boot device */
-	if (!read_bdinfo(SYS_BOOT_DEV, boot_dev_name, sizeof(boot_dev_name)))
+	if (!read_sys(SYS_BOOT_DEV, boot_dev_name, sizeof(boot_dev_name), true))
 		return 1;
 
 	/* Read BOARD-CFG from flash */

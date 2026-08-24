@@ -101,6 +101,9 @@ struct fs_board_info {
 /* Get the configured boot device (also valid before fuses are programmed) */
 enum boot_device fs_board_get_boot_dev(void);
 
+/* Get the copy that SPL and U-Boot were booted from */
+unsigned int fs_board_get_boot_copy(void);
+
 /* Get the boot device that is programmed in the fuses. */
 enum boot_device fs_board_get_boot_dev_from_fuses(void);
 

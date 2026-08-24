@@ -285,7 +285,7 @@ static void fs_setup_cfg_info(void)
 	unsigned int features;
 	struct cfg_info *info;
 	const char *string;
-	u32 flags = 0;
+	u8 boot_copy = 0;
 
 	/*
 	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
@@ -303,8 +303,7 @@ static void fs_setup_cfg_info(void)
 	 * SPL and U-Boot are both loaded from the same copy.
 	 * ### TODO ###  In the future we might load either from either copy.
 	 */
-	if (is_boot_from_secondary())
-		flags |= CI_FLAGS_SECONDARY | CI_FLAGS_SECONDARY_UBOOT;
+	boot_copy = fs_image_get_secondary_boot_info();
 
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));
@@ -319,6 +318,7 @@ static void fs_setup_cfg_info(void)
 
 	string = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
 	info->boot_dev = fs_image_get_boot_dev_from_name(string);
+	info->boot_copy = boot_copy;
 
 	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 						"dram-chips", 1);
@@ -326,7 +326,7 @@ static void fs_setup_cfg_info(void)
 	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 					       "dram-size", 0x400);
 
-	info->flags = flags;
+	info->flags = 0;
 
 	features = 0;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))

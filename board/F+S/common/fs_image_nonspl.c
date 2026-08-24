@@ -261,13 +261,14 @@ static const struct fs_header_v1_0 *fs_image_find(
 
 #ifdef __UBOOT__
 /*
- * Return if currently running from Secondary SPL. This function is called
- * early in boot_f phase of U-Boot and must not access any variables.
+ * Return if currently running from Primary or Secondary copy. This function
+ * is called early in boot_f phase of U-Boot and must not access any variables.
  */
-bool fs_image_is_secondary(void)
+u8 fs_image_get_secondary_boot_info(void)
 {
 	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr();
 	u8 *size = (u8 *)&fsh->info.file_size_low;
+	u8 boot_copy = 0;
 
 	/*
 	 * We know that a BOARD-CFG is smaller than 64KiB. So only the first
@@ -278,29 +279,18 @@ bool fs_image_is_secondary(void)
 	 */
 	if (size[7]) {
 		size[7] = 0;
-		return true;
+		boot_copy |= BOOT_COPY_SECONDARY_NBOOT;
 	}
-
-	return false;
-}
-
-bool fs_image_is_secondary_uboot(void)
-{
-	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr();
-	u8 *size = (u8 *)&fsh->info.file_size_low;
-
 	/*
-	 * Similar to the SPL, we use the "file_size_high" field of the
-	 * BOARD-CFG as an indicator that we booted the UBoot from the
-	 * secondary partition.
+	 * Similar to primary/secondary SPL, SPL uses the 7th byte to indicate
+	 * if U-Boot is running from Primary (0) or Secondary (<>0) copy.
 	 */
 	if (size[6]) {
 		size[6] = 0;
-		return true;
+		boot_copy |= BOOT_COPY_SECONDARY_UBOOT;
 	}
 
-	printf("UBoot is secondary\n");
-	return false;
+	return boot_copy;
 }
 
 /*
@@ -335,6 +325,12 @@ bool fs_image_find_cfg_in_ocram(void)
 	} while ((ulong)fsh < (CFG_SYS_OCRAM_BASE + CFG_SYS_OCRAM_SIZE));
 
 	return false;
+}
+
+/* Return the copy that SPL and U-Boot were booted from */
+unsigned int fs_image_get_boot_copy(void)
+{
+	return fs_board_get_boot_copy();
 }
 #endif /* __UBOOT__ */
 
@@ -383,7 +379,7 @@ int fs_image_get_fdt_val(const void *fdt, int offs, const char *name, uint align
 
 /* Build lowercase nboot-info property name from upper-case region name */
 static void fs_image_build_nboot_info_name(char *name, const char *prefix,
-				const char *suffix)
+					   const char *suffix)
 {
 	char c;
 
@@ -995,87 +991,30 @@ int fs_image_confirm(void)
 	return yes;
 }
 
-#ifdef __UBOOT__
-
-#if 0 //###CONFIG_IS_ENABLED(FS_BOOTROM)
-
-#include "fs_bootrom.h"
-
-static int _fs_image_get_start_copy(const char *img_type)
+/* Determine start copy depending on the copy NBoot or U-Boot were booted from */
+int fs_image_get_start_copy(bool uboot, bool opposite)
 {
-	u32 bstage;
-	int start_copy = 0;
-	int ret;
+	int start_copy;
+	const char *loader_name;
+	const char *copy_name;
+	unsigned int boot_copy = fs_image_get_boot_copy();
 
-	ret = get_bootrom_bootstage(&bstage);
-	if (ret) {
-		printf("Failed to get bootstage from bootrom, assume Primary\n");
-		bstage = BT_STAGE_PRIMARY;
+	if (uboot) {
+		start_copy = !!(boot_copy & BOOT_COPY_SECONDARY_UBOOT);
+		loader_name = "U-Boot";
+	} else {
+		start_copy = !!(boot_copy & BOOT_COPY_SECONDARY_NBOOT);
+		loader_name = "NBoot";
 	}
-
-	switch (bstage) {
-	case BT_STAGE_PRIMARY:
-		start_copy = 1;
-		break;
-	case BT_STAGE_SECONDARY:
-		start_copy = 0;
-		break;
-	default:
-		start_copy = 1;
-		break;
-	}
+	copy_name = start_copy ? "Secondary" : "Primary";
+	if (opposite)
+		start_copy = 1 - start_copy;
 
 	printf("Booted from %s %s, so starting with copy %d\n",
-	       start_copy ? "Primary" : "Secondary", img_type, start_copy);
+	       copy_name, loader_name, start_copy);
 
 	return start_copy;
 }
-
-int fs_image_get_start_copy(void)
-{
-	return _fs_image_get_start_copy("SPL");
-}
-
-static int fs_image_get_start_copy_uboot(void)
-{
-	return _fs_image_get_start_copy("U-BOOT");
-}
-
-#else /* !CONFIG_FS_BOOTROM */
-
-/* Determine NBoot copy to modify first depending on which SPL copy we booted */
-int fs_image_get_start_copy(void)
-{
-	int start_copy;
-
-	if (fs_board_get_cfg_info()->flags & CI_FLAGS_SECONDARY)
-		start_copy = 0;
-	else
-		start_copy = 1;
-
-	printf("Booted from %s SPL, so starting with copy %d\n",
-	       start_copy ? "Primary" : "Secondary", start_copy);
-
-	return start_copy;
-}
-
-/* Determine U-Boot copy to modify first depending on U-Boot copy we booted */
-static int fs_image_get_start_copy_uboot(void)
-{
-	int start_copy;
-
-	if (fs_board_get_cfg_info()->flags & CI_FLAGS_SECONDARY_UBOOT)
-		start_copy = 0;
-	else
-		start_copy = 1;
-
-	printf("Booted from %s UBOOT, so starting with copy %d\n",
-	       start_copy ? "Primary" : "Secondary", start_copy);
-
-	return start_copy;
-}
-#endif /* CONFIG_FS_BOOTROM */
-#endif /* __UBOOT__ */
 
 static int fs_image_get_boot_dev(const void *fdt, enum boot_device *boot_dev,
 				 const char **boot_dev_name)
@@ -2222,7 +2161,7 @@ static int fs_image_save_uboot(struct flash_info *fi,
 	int copy, start_copy;
 
 	failed = 0;
-	start_copy = fs_image_get_start_copy_uboot();
+	start_copy = fs_image_get_start_copy(true, true);
 	copy = start_copy;
 	do {
 		printf("\nSaving copy %d to %s:\n", copy, fi->devname);

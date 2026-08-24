@@ -783,7 +783,7 @@ static int fs_image_save_nboot_nand(struct flash_info *fi,
 	 * copy it was booting. Currently this is not true on i.MX8MN/MP/X.
 	 */
 	failed = 0;
-	start_copy = fs_image_get_start_copy();
+	start_copy = fs_image_get_start_copy(false, true);
 	copy = start_copy;
 	do {
 		printf("\nSaving copy %d to %s:\n", copy, fi->devname);

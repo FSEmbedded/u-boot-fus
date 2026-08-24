@@ -181,6 +181,11 @@ enum boot_device fs_board_get_boot_dev(void)
 	return fs_board_get_cfg_info()->boot_dev;
 }
 
+unsigned int fs_board_get_boot_copy(void)
+{
+	return fs_board_get_cfg_info()->boot_copy;
+}
+
 /* Get board type (zero-based) */
 unsigned int fs_board_get_type(void)
 {

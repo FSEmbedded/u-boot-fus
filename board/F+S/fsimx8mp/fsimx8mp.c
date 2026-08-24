@@ -200,7 +200,7 @@ static void fs_setup_cfg_info(void)
 	struct cfg_info *info;
 	const char *tmp;
 	unsigned int features;
-	u32 flags = 0;
+	u8 boot_copy;
 
 	/*
 	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
@@ -216,11 +216,7 @@ static void fs_setup_cfg_info(void)
 	 * misusing a byte in the BOARD-CFG in OCRAM, so we have to remove this
 	 * before validating the BOARD-CFG.
 	 */
-	if (fs_image_is_secondary())
-		flags |= CI_FLAGS_SECONDARY;
-
-	if (fs_image_is_secondary_uboot())
-		flags |= CI_FLAGS_SECONDARY_UBOOT;
+	boot_copy = fs_image_get_secondary_boot_info();
 
 	/* Make sure that the BOARD-CFG in OCRAM is still valid */
 	if (!fs_image_is_ocram_cfg_valid())
@@ -244,12 +240,13 @@ static void fs_setup_cfg_info(void)
 
 	tmp = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
 	info->boot_dev = fs_image_get_boot_dev_from_name(tmp);
+	info->boot_copy = boot_copy;
 
 	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 						"dram-chips", 1);
 	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 					       "dram-size", 0x400);
-	info->flags = flags;
+	info->flags = 0;
 
 	features = 0;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-nand", NULL))

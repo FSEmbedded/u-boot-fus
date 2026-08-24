@@ -204,6 +204,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 
 	fs_image_set_board_id_from_cfg();
 	fs_fdt_set_string(fdt, offs, "board-id", fs_image_get_board_id(), 1);
+	fs_fdt_set_u32str(fdt, offs, "boot_copy", fs_board_get_boot_copy(), 1);
 #endif
 
 #ifdef CONFIG_FS_SELFTEST
