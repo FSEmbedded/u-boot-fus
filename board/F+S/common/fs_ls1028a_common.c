@@ -128,7 +128,7 @@ static inline uint32_t get_gal2_features(enum board_rev brev, enum board_config 
 	features |= FEAT_USB1;
 	features |= FEAT_USB2;
 
-	if(brev == REV10){
+	if(brev >= REV10 && brev <= REV11){
 		/*default features for all Configs*/
 		features |= 0;
 

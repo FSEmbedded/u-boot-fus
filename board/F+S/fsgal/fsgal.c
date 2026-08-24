@@ -84,7 +84,7 @@ static void prepare_pci(void){
 	/* Enable PCIe Power */
 	fs_set_gpio(GPIO_PCIe1_PWR_EN, 1);
 	fs_set_gpio(GPIO_PCIe2_PWR_EN, 1);
-	
+
 	/* Enable clock */
 	fs_set_gpio(GPIO_PCIe_CLK_EN, 0);
 }
