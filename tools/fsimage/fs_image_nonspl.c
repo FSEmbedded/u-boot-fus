@@ -151,6 +151,7 @@ bool read_board_cfg(const char *boot_dev_name)
 {
 	struct flash_info fi;
 	int err;
+	struct storage_info si;
 
 	fi.boot_dev_name = boot_dev_name;
 	fi.boot_dev = fs_image_get_boot_dev_from_name(boot_dev_name);
@@ -168,6 +169,19 @@ bool read_board_cfg(const char *boot_dev_name)
 	case MMC2_BOOT:
 	case MMC3_BOOT:
 		err = fs_image_get_flash_mmc(&fi, fi.boot_dev - MMC1_BOOT, true);
+		if (fi.boot_hwpart) {
+			si.start[0] = 0x00000000;
+			si.start[1] = 0x00000000;
+			si.size = fi.boot_part_size;
+			si.hwpart[0] = fi.boot_hwpart;
+			si.hwpart[1] = 3 - fi.boot_hwpart;
+		} else {
+			si.start[0] = 0x00008000; /* skip GPT in first 32KiB */
+			si.start[1] = 0x00400000;
+			si.size = 0x003f8000;
+			si.hwpart[0] = 0;
+			si.hwpart[1] = 0;
+		}
 		break;
 #endif
 	default:
@@ -181,23 +195,12 @@ bool read_board_cfg(const char *boot_dev_name)
 	/* Try to find a valid BOARD-CFG copy */
 	printf("Reading BOARD-CFG from %s\n", fi.devname);
 
-	if (fi.ops->read_board_cfg(&fi, 0, board_cfg)) {
-		err = fi.ops->read_board_cfg(&fi, 1, board_cfg);
-		if (err) {
-			printf("Reading BOARD-CFG failed: %s\n",
-			       strerror(-err));
-			fi.ops->put_flash(&fi);
-			return false;
-		}
-	}
-
+	err = fi.ops->read_board_cfg(&fi, &si, board_cfg);
 	fi.ops->put_flash(&fi);
-
-	/*
-	 * Set the current board_id name and the compare_id that is used in
-	 * fs_image_find_board_cfg().
-	 */
-	fs_image_set_board_id_from_cfg();
+	if (err) {
+		printf("Reading BOARD-CFG failed: %s\n", strerror(-err));
+		return false;
+	}
 
 	return true;
 }

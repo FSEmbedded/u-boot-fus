@@ -127,6 +127,24 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, const void *fdt,
 		ni->uboot.hwpart[1] = 0;
 	}
 
+#ifndef __UBOOT__
+#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+	/* Fill in values found when loading the BOARD-CFG from flash */
+	if (!ni->nboot.start[0]) {
+		ni->nboot.start[0] = nboot_info_fixup.nboot_start;
+		ni->nboot.start[1] = nboot_info_fixup.nboot_start;
+	}
+	if (!ni->nboot.size)
+		ni->nboot.size = nboot_info_fixup.nboot_size;
+	if (!ni->uboot.start[0]) {
+		ni->uboot.start[0] = nboot_info_fixup.uboot_start;
+		ni->uboot.start[1] = nboot_info_fixup.uboot_start;
+	}
+	if (!ni->uboot.size)
+		ni->uboot.size = nboot_info_fixup.uboot_size;
+#endif
+#endif
+
 #ifndef CONFIG_IMX8MM
 	/*
 	 * In the old layout some addresses were given for the User hwpart
@@ -172,25 +190,25 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, const void *fdt,
 		return 0;
 #endif
 
-	printf("- nboot-info@0x%lx (%s layout): Booting from %s hwpart %d\n",
-	       (ulong)fdt, layout_name, fi->devname, first);
+	printf("\nnboot-info (%s layout): Booting from %s hwpart %d\n",
+	       layout_name, fi->devname, first);
 	if (ni->board_cfg_size)
 		printf("- board-cfg-size=0x%08x\n", ni->board_cfg_size);
-	printf("- spl:   start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
+	printf("  spl:   start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
 	       ni->spl.hwpart[0], ni->spl.start[0],
 	       ni->spl.hwpart[1], ni->spl.start[1], ni->spl.size);
-	printf("- nboot: start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
+	printf("  nboot: start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
 	       ni->nboot.hwpart[0], ni->nboot.start[0],
 	       ni->nboot.hwpart[1], ni->nboot.start[1], ni->nboot.size);
 	if (ni->flags & NI_SUPPORT_U_ATF) {
-		printf("- atf:   start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
+		printf("  atf:   start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
 		       ni->atf.hwpart[0], ni->atf.start[0],
 		       ni->atf.hwpart[1], ni->atf.start[1], ni->atf.size);
 	}
-	printf("- uboot: start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
+	printf("  uboot: start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
 	       ni->uboot.hwpart[0], ni->uboot.start[0],
 	       ni->uboot.hwpart[1], ni->uboot.start[1], ni->uboot.size);
-	printf("- env:   start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
+	printf("  env:   start=%d:0x%08x/%d:0x%08x size=0x%08x\n",
 	       ni->env.hwpart[0], ni->env.start[0],
 	       ni->env.hwpart[1], ni->env.start[1], ni->env.size);
 
@@ -567,7 +585,7 @@ static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 
 /* Read image at offset with given size */
 static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
-			     uint lim, uint flags, u8 *buf)
+			     uint lim, uint flags, void *buf)
 {
 	ulong count;
 	ulong blksz = fi->temp_size;
@@ -588,7 +606,7 @@ static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
 
 /* Save some data (only full blocks) to eMMC */
 static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
-			      uint lim, uint flags, u8 *buf)
+			      uint lim, uint flags, void *buf)
 {
 	ulong count;
 	ulong blksz = fi->temp_size;
@@ -608,7 +626,8 @@ static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 	return 0;
 }
 
-static int fs_image_read_board_cfg_mmc(struct flash_info *fi, int copy,
+static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
+				       const struct storage_info *si,
 				       void *board_cfg)
 {
 	return -EINVAL;

@@ -87,7 +87,7 @@ const void *fs_image_find_cfg_fdt(const struct fs_header_v1_0 *fsh);
 /* Return the fdt part of the given board configuration with index header */
 const void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info);
 
-#if 0 //###
+#if 1 //###
 const struct fs_header_v1_0 *fs_image_find(const struct fs_header_v1_0 *fsh,
 					   const char *type, const char *descr,
 					   struct index_info *idx_info);
@@ -294,7 +294,7 @@ struct flash_ops {
 	bool (*si_differs)(const struct storage_info *si1,
 			   const struct storage_info *si2);
 	int (*read)(struct flash_info *fi, uint offs, uint size, uint lim,
-		    uint flags, u8 *buf);
+		    uint flags, void *buf);
 	int (*load_image)(struct flash_info *fi, int copy,
 			  const struct storage_info *si, struct sub_info *sub);
 	int (*load_extra)(struct flash_info *fi, struct storage_info *spl,
@@ -302,7 +302,7 @@ struct flash_ops {
 	int (*invalidate)(struct flash_info *fi, int copy,
 			  const struct storage_info *si);
 	int (*write)(struct flash_info *fi, uint offs, uint size, uint lim,
-		     uint flags, u8 *buf);
+		     uint flags, void *buf);
 	int (*prepare_region)(struct flash_info *fi, int copy,
 			      struct storage_info *si);
 	int (*save_nboot)(struct flash_info *fi, struct region_info *nboot_ri,
@@ -311,7 +311,8 @@ struct flash_ops {
 	int (*set_hwpart)(struct flash_info *fi, int copy,
 			  const struct storage_info *si);
 	int (*set_boot_hwpart)(struct flash_info *fi, int boot_hwpart);
-	int (*read_board_cfg)(struct flash_info *fi, int copy, void *board_cfg);
+	int (*read_board_cfg)(struct flash_info *fi,
+			      const struct storage_info *si, void *board_cfg);
 	void (*put_flash)(struct flash_info *fi);
 };
 

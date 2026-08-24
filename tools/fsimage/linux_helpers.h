@@ -39,7 +39,7 @@ struct __packed boot_data {
 };
 
 #ifdef DEBUG
-#define debug(fmt, ...) fprintf(stderr, "DEBUG: " fmt "\n", ##__VA_ARGS__)
+#define debug(fmt, args...) printf(fmt, ##args)
 #else
 #define debug(fmt, ...) do {} while (0)
 #endif

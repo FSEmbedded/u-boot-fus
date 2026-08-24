@@ -37,90 +37,6 @@ static unsigned int boot_copy;
 static char nboot_version[20];
 static char boot_dev_name[10];
 
-#if 0 //###
-static int load_saved_nboot(void)
-{
-	size_t bytes_read;
-	const char *fname = "/dev/mmcblk0boot1";
-	FILE *hwpart = fopen(fname, "ro");
-
-	if (!hwpart) {
-		fprintf(stderr, "Error opening %s, exiting...\n", fname);
-		return -ENOENT;
-	}
-
-	bytes_read = fread(saved_nboot_buffer + FSH_SIZE, 1,
-			   MAX_NBOOT_SIZE - FSH_SIZE, hwpart);
-	if (!bytes_read) {
-		fprintf(stderr, "Error reading from %s, exiting...\n", fname);
-		fclose(hwpart);
-		return -EINVAL;
-	}
-	fclose(hwpart);
-
-	return 0;
-}
-#endif
-
-#if 0 //###
-//### TODO: Statt sich an den Containern entlang zu hangeln, sollte man
-//### einfach gezielt das BOARD-ID Image über die F&S-Header-Kette suchen.
-int extract_board_config(void)
-{
-	u64 search = (u64)(saved_nboot_buffer + 0x40);
-	int i;
-	char board_id[MAX_DESCR_LEN + 1];
-	char *point;
-	struct fs_header_v1_0* fsh;
-	struct fs_header_v1_0 *cfg_fsh;
-	void *cfg_img;
-	struct index_info idx_info;
-
-	/* Search the second container header, i.e. the BOARD-INFO container */
-	for (i = 0; i < 2; i++) {
-		do {
-			/* Next container is 1K aligned */
-			search += 0x400;
-		} while (!valid_container_hdr((struct container_hdr *)search));
-	}
-
-	/* Get BOARD-ID which is two F&S headers before */
-	fsh = (struct fs_header_v1_0 *)(search - 2 * FSH_SIZE);
-	strncpy(board_id, fsh->param.descr, MAX_DESCR_LEN);
-	board_id[MAX_DESCR_LEN] = 0;
-
-	/* Strip board revision */
-	point = strchr(board_id, '.');
-	if (point)
-		*point = 0;
-
-	/* Find the BOARD-CFG header for this BOARD-ID in index */
-	cfg_fsh = fs_image_find(++fsh , "BOARD-CFG", board_id, &idx_info);
-
-	/* Find the real BOARD-CFG image */
-	cfg_img = fs_image_find_cfg_fdt_idx(&idx_info);
-
-	/* Copy header and image to saved_board_cfg_buffer[] */
-	memcpy(saved_board_cfg_buffer, (void *)cfg_fsh, FSH_SIZE);
-	memcpy(saved_board_cfg_buffer + FSH_SIZE, cfg_img,
-	       fs_image_get_size(cfg_fsh, false));
-
-	/* Check if BOARD-CFG is valid */
-	if (!fs_image_is_ocram_cfg_valid()) {
-		fprintf(stderr, "Error, no valid BOARD-CFG found.\n");
-		return -EINVAL;
-	}
-
-	/*
-	 * Set the current board_id name and the compare_id that is used in
-	 * fs_image_find_board_cfg().
-	 */
-	fs_image_set_board_id_from_cfg();
-
-	return 0;
-}
-#endif
-
 
 /* ------------- Functions needed to avoid large libraries ----------------- */
 
@@ -529,6 +445,7 @@ int main(int argc, char *argv[])
 	if (!read_sys(SYS_BOARD_ID, sys_board_id, sizeof(sys_board_id), true))
 		return 1;
 	fs_image_set_compare_id(sys_board_id);
+	fs_image_set_board_id();
 
 	/* If available, read boot_copy from bdinfo*/
 	if (!read_sys(SYS_BOOT_COPY, sys_boot_copy,
@@ -551,16 +468,6 @@ int main(int argc, char *argv[])
 	/* Read BOARD-CFG from flash */
 	if (!read_board_cfg(boot_dev_name))
 		return 1;
-
-#if 0
-	/* Load NBoot from flash, store in saved_nboot_buffer[] */
-	if (load_saved_nboot() < 0)
-		return 1;
-
-	/* Extract BOARD-CFG from NBoot, store in saved_board_cfg_buffer[] */
-	if (extract_board_config() < 0)
-		return 1;
-#endif
 
 	/* fsimage_usage[] is defined in fs_image_nonspl.c */
 	status = do_fsimage(argc, argv);

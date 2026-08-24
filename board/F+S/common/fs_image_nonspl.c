@@ -253,9 +253,11 @@ const char fsimage_usage[] =
 
 static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh);
 
+#if 0 //###
 static const struct fs_header_v1_0 *fs_image_find(
 	const struct fs_header_v1_0 *fsh, const char *type, const char *descr,
 	struct index_info *idx_info);
+#endif //###
 
 /* ------------- Functions only in U-Boot, not SPL ------------------------- */
 
@@ -770,7 +772,7 @@ static const struct fs_header_v1_0 *fs_image_find_index(
  * @param *idx_info: struct holds additional infos if fsh is found. NULL is allowed.
  * @return ptr to fsh or NULL if not found
  */
-static const struct fs_header_v1_0 *fs_image_find(
+const struct fs_header_v1_0 *fs_image_find(
 	const struct fs_header_v1_0 *fsh, const char *type, const char *descr,
 	struct index_info *idx_info)
 {
@@ -1550,7 +1552,7 @@ static int fs_image_store_file(struct fs_image_params *ip)
 }
 #endif /* __UBOOT__ */
 
-static int fs_image_locate(int argc, char *const argv[], ulong *addr)
+static int fs_image_locate(int argc, char *const argv[], ulong *paddr)
 {
 	struct fs_image_params ip;
 
@@ -1581,25 +1583,41 @@ static int fs_image_locate(int argc, char *const argv[], ulong *addr)
 	if (ip.size)
 		*(u32 *)(ip.addr + ip.size) = 0;
 
-	*addr = ip.addr;
+	*paddr = ip.addr;
 
 	return CMD_RET_SUCCESS;
 }
 
-static int fs_image_locate_nboot(int argc, char *const argv[], ulong *addr)
+static int fs_image_locate_nboot(int argc, char *const argv[], ulong *paddr)
 {
 	const char *arch;
 	int ret;
+	const struct fs_header_v1_0 *fsh;
+#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+	const char *nboot_start_image = "BOOT-INFO";
+#else
+	const char *nboot_start_image = "NBOOT";
+#endif
 
-	ret = fs_image_locate(argc, argv, addr);
+	ret = fs_image_locate(argc, argv, paddr);
 	if (ret)
 		return ret;
 
 	arch = fs_image_get_arch();
-	if (!fs_image_match((void *)*addr, "NBOOT", arch)
-	    && !fs_image_match((void *)*addr, "BOOT-INFO", arch)) {
+	fsh = (void *)*paddr;
+
+	/*
+	 * Skip a leading BOARD-ID. Do *not* simply add fs_image_get_size()
+	 * here. On i.MX8M boards, the prepended BOARD-ID may be used as
+	 * surrounding image where NBOOT is a sub-image of. Adding the image
+	 * size would skip the whole NBoot image then.
+	 */
+	if (fs_image_match(fsh, "BOARD-ID", NULL))
+		fsh++;
+
+	if (!fs_image_match(fsh, nboot_start_image, arch)) {
 		puts("Error: This is not an F&S NBoot image, use 'stored'"
-		       " to refer to stored NBoot\n");
+		     " to refer to stored NBoot\n");
 		return CMD_RET_FAILURE;
 	}
 

@@ -158,21 +158,21 @@ static int fs_image_get_nboot_info_nand(struct flash_info *fi, const void *fdt,
 		return 0;
 #endif
 
-	printf("nboot-info@0x%lx (%s layout): Booting from %s\n",
-	       (ulong)fdt, layout_name, fi->devname);
+	printf("\nnboot-info (%s layout): Booting from %s\n",
+	       layout_name, fi->devname);
 	if (ni->board_cfg_size)
-		printf("- board-cfg-size=0x%08x\n", ni->board_cfg_size);
-	printf("- spl:   start=0x%08x/0x%08x size=0x%08x\n",
+		printf("  board-cfg-size=0x%08x\n", ni->board_cfg_size);
+	printf("  spl:   start=0x%08x/0x%08x size=0x%08x\n",
 	       ni->spl.start[0], ni->spl.start[1], ni->spl.size);
-	printf("- nboot: start=0x%08x/0x%08x size=0x%08x\n",
+	printf("  nboot: start=0x%08x/0x%08x size=0x%08x\n",
 	       ni->nboot.start[0], ni->nboot.start[1], ni->nboot.size);
 	if (ni->flags & NI_SUPPORT_U_ATF) {
-		printf("- atf:   start=0x%08x/0x%08x size=0x%08x\n",
+		printf("  atf:   start=0x%08x/0x%08x size=0x%08x\n",
 		       ni->atf.start[0], ni->atf.start[1], ni->atf.size);
 	}
-	printf("- uboot: start=0x%08x/0x%08x size=0x%08x\n",
+	printf("  uboot: start=0x%08x/0x%08x size=0x%08x\n",
 	       ni->uboot.start[0], ni->uboot.start[1], ni->uboot.size);
-	printf("- env:   start=0x%08x/0x%08x size=0x%08x env_used=0x%08x\n",
+	printf("  env:   start=0x%08x/0x%08x size=0x%08x env_used=0x%08x\n",
 	       ni->env.start[0], ni->env.start[1], ni->env.size, fi->env_used);
 
 	return 0;
@@ -225,7 +225,7 @@ static int fs_image_check_bcb_checksum(void *data, size_t size,
 
 /* Load some data from offset with given size */
 static int fs_image_read_nand(struct flash_info *fi, uint offs, uint size,
-			      uint lim, uint flags, u8 *buf)
+			      uint lim, uint flags, void *buf)
 {
 	int err;
 	size_t rsize;
@@ -486,7 +486,7 @@ static int fs_image_invalidate_nand(struct flash_info *fi, int copy,
 
 /* Save some data (only full pages) to NAND; return 1 if new bad block */
 static int fs_image_write_nand(struct flash_info *fi, uint offs, uint size,
-			       uint lim, uint flags, u8 *buf)
+			       uint lim, uint flags, void *buf)
 {
 	int err;
 	size_t wsize;
@@ -811,8 +811,9 @@ static int fs_image_set_boot_hwpart_nand(struct flash_info *fi, int boot_hwpart)
 }
 
 
-static int fs_image_read_board_cfg_nand(struct flash_info *fi, int copy,
-				       void *board_cfg)
+static int fs_image_read_board_cfg_nand(struct flash_info *fi,
+					const struct storage_info *si,
+					void *board_cfg)
 {
 	return -EINVAL;
 }
