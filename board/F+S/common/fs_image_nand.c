@@ -158,7 +158,7 @@ static int fs_image_get_nboot_info_nand(struct flash_info *fi, const void *fdt,
 		return 0;
 #endif
 
-	printf("\nnboot-info (%s layout): Booting from %s\n",
+	printf("nboot-info (%s layout): Booting from %s\n",
 	       layout_name, fi->devname);
 	if (ni->board_cfg_size)
 		printf("  board-cfg-size=0x%08x\n", ni->board_cfg_size);

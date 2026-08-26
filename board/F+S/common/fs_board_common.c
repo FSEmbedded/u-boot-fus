@@ -207,7 +207,10 @@ unsigned int fs_board_get_features(void)
 /* Get the NBoot version */
 const char *fs_board_get_nboot_version(void)
 {
-	return fs_image_get_nboot_version(NULL);
+	const void *cfg = fs_image_get_cfg_addr();
+	const void *fdt = fs_image_find_cfg_fdt(cfg);
+
+	return fs_image_get_nboot_version(fdt);
 }
 
 /* Set RAM size; optee will be subtracted in dram_init() */
@@ -408,15 +411,22 @@ void fs_board_late_init_common(const char *serial_name)
 	bool conflict = false;
 
 #ifdef CONFIG_FS_BOARD_CFG
-	ulong found_cfg = (ulong)fs_image_get_cfg_addr();
-	ulong expected_cfg = (ulong)fs_image_get_regular_cfg_addr();
+	void *found_cfg = fs_image_get_ocram_cfg_addr();
+	void *expected_cfg = fs_image_get_regular_cfg_addr();
+	void *target_cfg = fs_image_get_cfg_addr();
 
-	printf("CFG:   Found at 0x%lx", found_cfg);
+	printf("CFG:   Found at 0x%lx", (ulong)found_cfg);
 	if (found_cfg != expected_cfg) {
-		printf(" *** Warning - expected at 0x%lx", expected_cfg);
+		printf(" *** Warning - expected at 0x%lx", (ulong)expected_cfg);
 		conflict = true;
 	}
 	putc('\n');
+
+	/* Set the current board_id */
+	fs_image_set_board_id_from_cfg();
+
+	/* To get OCRAM free, copy BOARD-CFG to DRAM (see fs_image_nonspl.c) */
+	memcpy(target_cfg, found_cfg, fs_image_get_size(found_cfg, true));
 #endif
 
 	printf("NBoot: %s", fs_board_get_nboot_version());

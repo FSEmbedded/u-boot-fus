@@ -190,7 +190,7 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, const void *fdt,
 		return 0;
 #endif
 
-	printf("\nnboot-info (%s layout): Booting from %s hwpart %d\n",
+	printf("nboot-info (%s layout): Booting from %s hwpart %d\n",
 	       layout_name, fi->devname, first);
 	if (ni->board_cfg_size)
 		printf("- board-cfg-size=0x%08x\n", ni->board_cfg_size);

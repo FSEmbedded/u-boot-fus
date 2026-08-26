@@ -76,16 +76,16 @@ bool fs_image_is_fs_image(const struct fs_header_v1_0 *fsh);
 void *fs_image_get_regular_cfg_addr(void);
 
 /* Return the real address of the board configuration in OCRAM */
-void *fs_image_get_cfg_addr(void);
+void *fs_image_get_ocram_cfg_addr(void);
 
 /* Return the fdt part of the board configuration in OCRAM */
-const void *fs_image_get_cfg_fdt(void);
+const void *fs_image_get_ocram_cfg_fdt(void);
+
+/* Return the address of the BOARD-CFG in DRAM (board_cfg[]) */
+struct fs_header_v1_0 *fs_image_get_cfg_addr(void);
 
 /* Return the fdt part of the given board configuration */
 const void *fs_image_find_cfg_fdt(const struct fs_header_v1_0 *fsh);
-
-/* Return the fdt part of the given board configuration with index header */
-const void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info);
 
 #if 1 //###
 const struct fs_header_v1_0 *fs_image_find(const struct fs_header_v1_0 *fsh,
@@ -202,12 +202,12 @@ struct sb_info {
 
 #ifndef CONFIG_SPL_BUILD
 
-/* Return if currently running from Secondary SPL. */
-u8 fs_image_get_secondary_boot_info(void);
+/* Return if currently running from Secondary SPL/U-Boot */
+u8 fs_image_get_boot_copy_from_ocram(void);
 
 /*
  * Search board configuration in OCRAM; return true if it was found.
- * From now on, fs_image_get_cfg_addr() will return the right address.
+ * From now on, fs_image_get_ocram_cfg_addr() will return the right address.
  */
 bool fs_image_find_cfg_in_ocram(void);
 
@@ -413,6 +413,9 @@ int fs_image_get_start_copy(bool uboot, bool opposite);
 
 /* Determine first copy to modify depending on which SPL copy we booted */
 unsigned int fs_image_get_boot_copy(void);
+
+/* Get boot device of currently active BOARD-CFG */
+enum boot_device fs_image_get_boot_dev(void);
 
 /* Check boot device; Return 0: OK, 1: Not fused yet, <0: Error */
 int fs_image_check_boot_dev_fuses(enum boot_device boot_dev, const char *action);

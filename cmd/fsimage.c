@@ -93,8 +93,6 @@ static int do_fsimage(struct cmd_tbl *cmdtp, int flag, int argc,
 		      char * const argv[])
 {
 	struct cmd_tbl *cp;
-	void *found_cfg;
-	void *expected_cfg;
 
 	if (argc < 2)
 		return CMD_RET_USAGE;
@@ -111,30 +109,9 @@ static int do_fsimage(struct cmd_tbl *cmdtp, int flag, int argc,
 		return CMD_RET_SUCCESS;
 
 	/*
-	 * All fsimage commands will access the BOARD-CFG in OCRAM. Make sure
-	 * it is still valid and not compromised in any way.
+	 * The BOARD-CFG is already copied from OCRAM to boarc_cfg[], see
+	 * fs_board_late_init_common(). Nothing else to do here.
 	 */
-	if (!fs_image_is_ocram_cfg_valid()) {
-		printf("Error: BOARD-CFG in OCRAM at 0x%lx damaged\n",
-		       (ulong)fs_image_get_cfg_addr());
-		return CMD_RET_FAILURE;
-	}
-
-	/*
-	 * Set the current board_id name and the compare_id that is used in
-	 * fs_image_find_board_cfg().
-	 */
-	fs_image_set_board_id_from_cfg();
-
-	found_cfg = fs_image_get_cfg_addr();
-	expected_cfg = fs_image_get_regular_cfg_addr();
-	if (found_cfg != expected_cfg) {
-		printf("\n"
-		       "*** Warning!\n"
-		       "*** BOARD-CFG found at 0x%lx, expected at 0x%lx\n"
-		       "*** Installed NBoot and U-Boot are not compatible!\n"
-		       "\n", (ulong)found_cfg, (ulong)expected_cfg);
-	}
 
 	return cp->cmd(cmdtp, flag, argc, argv);
 }

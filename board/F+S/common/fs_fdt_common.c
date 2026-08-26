@@ -197,7 +197,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 
 	/* Add board-config to bdinfo node */
 #ifdef CONFIG_FUS_BOARDCFG_ADDR
-	void *fdt_cfg = (void *)fs_image_get_cfg_fdt();
+	void *fdt_cfg = (void *)fs_image_get_ocram_cfg_fdt();
 	int offs_cfg = fs_image_get_board_cfg_offs(fdt_cfg);
 	int offs_bdinfo_cfg = fdt_add_subnode(fdt, offs, "board-cfg");
 	fdt_overlay_apply_node(fdt, offs_bdinfo_cfg, fdt_cfg, offs_cfg);

@@ -16,17 +16,8 @@
 #include "../../board/F+S/common/fs_image_common.h"
 
 #define MAX_IMAGE_SIZE (4 * 1024 * 1024)
-#define MAX_BOARD_CFG_SIZE 0x2000
 
 static u8 image_ram[2 * MAX_IMAGE_SIZE];
-static u8 board_cfg[MAX_BOARD_CFG_SIZE];
-
-
-/* Return the address of the board configuration */
-void *fs_image_get_cfg_addr(void)
-{
-	return board_cfg;
-}
 
 /* Simply get the filename */
 static bool fs_image_get_image_params(int argc, char *const argv[],
@@ -147,20 +138,22 @@ out:
 /* Include the original file */
 #include "../../board/F+S/common/fs_image_nonspl.c"
 
-bool read_board_cfg(const char *boot_dev_name)
+/* Read the BOARD-CFG from flash */
+static int fs_image_read_board_cfg(void)
 {
 	struct flash_info fi;
 	int err;
 	struct storage_info si;
 
-	fi.boot_dev_name = boot_dev_name;
-	fi.boot_dev = fs_image_get_boot_dev_from_name(boot_dev_name);
+	err = fs_image_get_flash_info(&fi, NULL, true);
+	if (err)
+		return err;
 
 	/* Prepare flash information from where to load */
 	switch (fi.boot_dev) {
 #if 0 //###def CONFIG_NAND_MXS
 	case NAND_BOOT:
-		err = fs_image_get_flash_nand(&fi, 0, true);
+		// ### TODO: set si according to NAND
 		break;
 #endif
 
@@ -168,7 +161,6 @@ bool read_board_cfg(const char *boot_dev_name)
 	case MMC1_BOOT:
 	case MMC2_BOOT:
 	case MMC3_BOOT:
-		err = fs_image_get_flash_mmc(&fi, fi.boot_dev - MMC1_BOOT, true);
 		if (fi.boot_hwpart) {
 			si.start[0] = 0x00000000;
 			si.start[1] = 0x00000000;
@@ -185,22 +177,20 @@ bool read_board_cfg(const char *boot_dev_name)
 		break;
 #endif
 	default:
-		printf("Cannot handle %s boot device\n", fi.boot_dev_name);
-		return false;
+		return -ENODEV;
 	}
-
-	if (err)
-		return false;
 
 	/* Try to find a valid BOARD-CFG copy */
 	printf("Reading BOARD-CFG from %s\n", fi.devname);
 
-	err = fi.ops->read_board_cfg(&fi, &si, board_cfg);
+	err = fi.ops->read_board_cfg(&fi, &si, fs_image_get_cfg_addr());
 	fi.ops->put_flash(&fi);
 	if (err) {
 		printf("Reading BOARD-CFG failed: %s\n", strerror(-err));
-		return false;
+		return -ENOENT;
 	}
 
-	return true;
+	puts("\n");
+
+	return 0;
 }

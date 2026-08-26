@@ -183,18 +183,20 @@ int power_init_board(void)
 	pmic_reg_write(p, PCA9450_BUCK1OUT_DVS1, 0x14);
 	pmic_reg_write(p, PCA9450_BUCK1CTRL, 0x59);
 
-	/* Kernel uses OD/OD freq for SOC */
-	/* To avoid timing risk from SOC to ARM,increase VDD_ARM to OD voltage 0.95v */
+	/*
+	 * Kernel uses OD/OD freq for SOC. To avoid timing risk from SOC to
+	 * ARM,increase VDD_ARM to OD voltage 0.95v.
+	 */
 	pmic_reg_write(p, PCA9450_BUCK2OUT_DVS0, 0x1C);
 
+	/* Force I2C level translator enable, if we have temp sensors */
 	if (board_type == BT_FSSMMX8MP) {
-		const void *fdt = fs_image_get_cfg_fdt();
+		const void *fdt = fs_image_get_ocram_cfg_fdt();
 		int offs = fs_image_get_board_cfg_offs(fdt);
 		int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
-		if (fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL)) {
-			/* Force I2C level translator enable, if we have temp sensors */
+
+		if (fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL))
 			pmic_reg_write(p, PCA9450_CONFIG2, 0x3);
-		}
 	}
 
 	/* set WDOG_B_CFG to cold reset */
@@ -474,7 +476,7 @@ static void mmc_get_parts(void)
 /* Do the basic board setup when we have our final BOARD-CFG */
 static void basic_init(const char *layout_name)
 {
-	const void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_ocram_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
 	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	int i;
@@ -644,7 +646,7 @@ void board_init_f(ulong dummy)
 #ifdef CONFIG_FS_SPL_MEMTEST_COMMON
 void dram_test(void)
 {
-	void *fdt = fs_image_get_cfg_fdt();
+	void *fdt = fs_image_get_ocram_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
 	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	unsigned long dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,

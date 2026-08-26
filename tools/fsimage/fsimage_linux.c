@@ -35,7 +35,7 @@ static char sys_board_id[MAX_DESCR_LEN + 1];
 static char sys_boot_copy[10];
 static unsigned int boot_copy;
 static char nboot_version[20];
-static char boot_dev_name[10];
+static char sys_boot_dev_name[10];
 
 
 /* ------------- Functions needed to avoid large libraries ----------------- */
@@ -334,7 +334,18 @@ bool fs_board_is_closed(void)
 
 unsigned int fs_image_get_boot_copy(void)
 {
+	if (boot_copy == ~0) {
+		printf("Warning: Cannot read %s, assuming Primary boot"
+		       " (copy 0)\n", SYS_BOOT_COPY);
+		boot_copy = 0;
+	}
+
 	return boot_copy;
+}
+
+enum boot_device fs_image_get_boot_dev(void)
+{
+	return fs_image_get_boot_dev_from_name(sys_boot_dev_name);
 }
 
 /* ------------- Linux command line handling ------------------------------- */
@@ -432,7 +443,6 @@ static bool check_current_arch(void)
 	return true;
 }
 
-extern bool read_board_cfg(const char *boot_dev_name);
 int main(int argc, char *argv[])
 {
 	int status;
@@ -450,9 +460,7 @@ int main(int argc, char *argv[])
 	/* If available, read boot_copy from bdinfo*/
 	if (!read_sys(SYS_BOOT_COPY, sys_boot_copy,
 			 sizeof(sys_boot_copy), false)) {
-		printf("Warning: Cannot read %s, assuming boot from copy 0\n",
-		       SYS_BOOT_COPY);
-		boot_copy = 0;
+		boot_copy = ~0;
 	} else {
 		boot_copy = strtoul(sys_boot_copy, NULL, 0);
 	}
@@ -462,11 +470,8 @@ int main(int argc, char *argv[])
 		return 1;
 
 	/* Read boot device */
-	if (!read_sys(SYS_BOOT_DEV, boot_dev_name, sizeof(boot_dev_name), true))
-		return 1;
-
-	/* Read BOARD-CFG from flash */
-	if (!read_board_cfg(boot_dev_name))
+	if (!read_sys(SYS_BOOT_DEV, sys_boot_dev_name,
+		      sizeof(sys_boot_dev_name), true))
 		return 1;
 
 	/* fsimage_usage[] is defined in fs_image_nonspl.c */

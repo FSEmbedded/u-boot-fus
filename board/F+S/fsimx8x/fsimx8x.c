@@ -138,7 +138,7 @@ static void fs_setup_cfg_info(void)
 	 * byte in the BOARD-CFG in OCRAM, so we have to remove this before
 	 * validating the BOARD-CFG.
 	 */
-	boot_copy = fs_image_get_secondary_boot_info();
+	boot_copy = fs_image_get_boot_copy_from_ocram();
 
 	/* Make sure that the BOARD-CFG in OCRAM is still valid */
 	if (!fs_image_is_ocram_cfg_valid())
@@ -147,7 +147,7 @@ static void fs_setup_cfg_info(void)
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);

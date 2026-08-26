@@ -162,13 +162,15 @@
 #include <asm/mach-imx/hab.h>
 #endif
 
-#define FIT_IMAGES_PATH		"/images"
+#define FIT_IMAGES_PATH	"/images"
+#define MAX_BOARD_CFG_SIZE 0x2000
 
 /* Enable this if index images may have sub-images in the future */
 //#define INDEX_WITH_SUB
 
 /* Argument of option -e in fsimage save */
 static uint early_support_index;
+u8 board_cfg[MAX_BOARD_CFG_SIZE];
 
 #ifdef __UBOOT__
 #define IMAGE_SPEC "<addr>  [<size> | <file>]"
@@ -252,6 +254,7 @@ const char fsimage_usage[] =
 /* Forward declarations */
 
 static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh);
+static int fs_image_read_board_cfg(void);
 
 #if 0 //###
 static const struct fs_header_v1_0 *fs_image_find(
@@ -265,10 +268,11 @@ static const struct fs_header_v1_0 *fs_image_find(
 /*
  * Return if currently running from Primary or Secondary copy. This function
  * is called early in boot_f phase of U-Boot and must not access any variables.
+ * It expects a pointer to the BOARD-CFG in OCRAM passed from SPL to U-Boot.
  */
-u8 fs_image_get_secondary_boot_info(void)
+u8 fs_image_get_boot_copy_from_ocram(void)
 {
-	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr();
+	struct fs_header_v1_0 *fsh = fs_image_get_ocram_cfg_addr();
 	u8 *size = (u8 *)&fsh->info.file_size_low;
 	u8 boot_copy = 0;
 
@@ -334,6 +338,13 @@ unsigned int fs_image_get_boot_copy(void)
 {
 	return fs_board_get_boot_copy();
 }
+
+/* Return the boot device of the currently active BOARD-CFG */
+enum boot_device fs_image_get_boot_dev(void)
+{
+	return fs_board_get_boot_dev();
+}
+
 #endif /* __UBOOT__ */
 
 static int fs_image_fdt_err(const char *name, const char *reason, int err)
@@ -376,6 +387,34 @@ int fs_image_get_fdt_val(const void *fdt, int offs, const char *name, uint align
 	return 0;
 }
 
+struct fs_header_v1_0 *fs_image_get_cfg_addr(void)
+{
+	return (void *)board_cfg;
+}
+
+/* Return the fdt part of the board configuration in OCRAM */
+static const void *fs_image_get_cfg_fdt(void)
+{
+	return fs_image_find_cfg_fdt(fs_image_get_cfg_addr());
+}
+
+/* Return the fdt part of the given board configuration with index header */
+static const void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info)
+{
+	const void *fdt;
+
+	if (!cfg_info)
+		return NULL;
+
+	if (cfg_info->fsh_idx == NULL)
+		return fs_image_find_cfg_fdt(cfg_info->fsh);
+
+	fdt = cfg_info->fsi;
+	if (fdt_check_header(fdt))
+		return NULL;
+
+	return fdt;
+}
 
 /* ------------- Common helper function ------------------------------------ */
 
@@ -1018,33 +1057,29 @@ int fs_image_get_start_copy(bool uboot, bool opposite)
 	return start_copy;
 }
 
-static int fs_image_get_boot_dev(const void *fdt, enum boot_device *boot_dev,
-				 const char **boot_dev_name)
+static enum boot_device fs_image_get_boot_dev_fdt(const void *fdt)
 {
 	int offs;
 	int rev_offs;
 	const char *boot_dev_prop;
+	enum boot_device boot_dev;
 
 	offs = fs_image_get_board_cfg_offs(fdt);
 	if (offs < 0) {
 		puts("Cannot find BOARD-CFG\n");
-		return -ENOENT;
+		return UNKNOWN_BOOT;
 	}
 	rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	boot_dev_prop = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
 	if (boot_dev_prop < 0) {
 		puts("Cannot find boot-dev in BOARD-CFG\n");
-		return -ENOENT;
+		return UNKNOWN_BOOT;
 	}
-	*boot_dev = fs_image_get_boot_dev_from_name(boot_dev_prop);
-	if (*boot_dev == UNKNOWN_BOOT) {
+	boot_dev = fs_image_get_boot_dev_from_name(boot_dev_prop);
+	if (boot_dev == UNKNOWN_BOOT)
 		printf("Unknown boot device %s in BOARD-CFG\n", boot_dev_prop);
-		return -EINVAL;
-	}
 
-	*boot_dev_name = fs_image_get_name_from_boot_dev(*boot_dev);
-
-	return 0;
+	return boot_dev;
 }
 
 /* Check boot device; Return 0: OK, 1: Not fused yet, <0: Error */
@@ -1548,6 +1583,12 @@ static int fs_image_store_file(struct fs_image_params *ip)
 	    || (len < ip->size))
 		return -EIO;
 
+	return 0;
+}
+
+/* In U-Boot, the current BOARD-CFG is already in board_cfg[] */
+static int fs_image_read_board_cfg(void)
+{
 	return 0;
 }
 #endif /* __UBOOT__ */
@@ -2203,9 +2244,11 @@ static int fs_image_get_flash_info(struct flash_info *fi, const void *fdt,
 
 	memset(fi, 0, sizeof(struct flash_info));
 
-	err = fs_image_get_boot_dev(fdt, &fi->boot_dev, &fi->boot_dev_name);
-	if (err)
-		return err;
+	if (fdt)
+		fi->boot_dev = fs_image_get_boot_dev_fdt(fdt);
+	else
+		fi->boot_dev = fs_image_get_boot_dev();
+	fi->boot_dev_name = fs_image_get_name_from_boot_dev(fi->boot_dev);
 
 	/* Prepare flash information from where to load */
 	switch (fi->boot_dev) {
@@ -3799,6 +3842,9 @@ int fs_image_do_boardcfg(int argc, char * const argv[])
 	argc--;
 
 	if ((argc == 1) && !strncmp(argv[0], "stored", strlen(argv[0]))) {
+		if (fs_image_read_board_cfg())
+			return CMD_RET_FAILURE;
+
 		cfg_info.fsh = fs_image_get_cfg_addr();
 	} else {
 		ret = fs_image_locate_nboot(argc, argv, &addr);
@@ -3815,7 +3861,7 @@ int fs_image_do_boardcfg(int argc, char * const argv[])
 	if (!fdt)
 		return CMD_RET_FAILURE;
 
-	printf("FDT part of BOARD-CFG located at 0x%lx\n", (ulong)fdt);
+	puts("FDT part of BOARD-CFG\n");
 
 	return fdt_print((void *)fdt, "/", NULL, 5, ULONG_MAX);
 }
@@ -3833,6 +3879,9 @@ int fs_image_do_boot(int argc, char * const argv[])
 		return CMD_RET_USAGE;
 
 	early_support_index = 0;
+
+	if (fs_image_read_board_cfg())
+		return CMD_RET_FAILURE;
 
 	/* Output is actually done in fs_image_get_nboot_info() */
 	fdt = fs_image_get_cfg_fdt();
@@ -3965,6 +4014,9 @@ int fs_image_do_load(int argc, char * const argv[])
 	if (!fs_image_get_image_params(argc, argv, &ip, def_fname))
 		return CMD_RET_USAGE;
 
+	if (fs_image_read_board_cfg())
+		return CMD_RET_FAILURE;
+
 	/* Invalidate any old image */
 	fsh = (struct fs_header_v1_0 *)ip.addr;
 	memset(fsh->info.magic, 0, 4);
@@ -4059,6 +4111,9 @@ int fs_image_do_save(int argc, char * const argv[])
 	if (fs_image_validate_full(addr) < 0)
 		return CMD_RET_FAILURE;
 
+	if (fs_image_read_board_cfg())
+		return CMD_RET_FAILURE;
+
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	ret = fsimage_cntr_save(addr, boot_hwpart, force);
 #else
@@ -4096,6 +4151,8 @@ int fs_image_do_fuse(int argc, char * const argv[])
 	}
 
 	if ((argc == 1) && !strncmp(argv[0], "stored", strlen(argv[0]))) {
+		if (fs_image_read_board_cfg())
+			return CMD_RET_FAILURE;
 		cfg_info.fsh = fs_image_get_cfg_addr();
 	} else {
 		ret = fs_image_locate_nboot(argc, argv, &addr);
@@ -4109,8 +4166,13 @@ int fs_image_do_fuse(int argc, char * const argv[])
 	}
 
 	fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
-	if (fs_image_get_boot_dev(fdt, &boot_dev, &boot_dev_name)
-	    || fs_image_check_boot_dev_fuses(boot_dev, "fuse") < 0)
+
+	boot_dev = fs_image_get_boot_dev_fdt(fdt);
+	if (boot_dev == UNKNOWN_BOOT)
+		return CMD_RET_FAILURE;
+	boot_dev_name = fs_image_get_name_from_boot_dev(boot_dev);
+
+	if (fs_image_check_boot_dev_fuses(boot_dev, "fuse") < 0)
 		return CMD_RET_FAILURE;
 
 	/* No contradictions, do an in-depth check */

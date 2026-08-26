@@ -719,7 +719,7 @@ static int fs_handle_board_id(struct fsh_load_info *fsh_info)
 */
 static int init_ram_info(struct ram_info_t *ram_info)
 {
-	const void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_ocram_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
 	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);;
 
@@ -1169,8 +1169,8 @@ static struct fsh_load_info *get_uboot_info(void)
 static int fs_handle_uboot(struct fsh_load_info *fsh_info)
 {
 	struct fs_header_v1_0 *fsh = fsh_info->fsh;
-	struct fs_header_v1_0 *cfg_fsh = fs_image_get_cfg_addr();
-	void *fdt = (void *)fs_image_get_cfg_fdt();
+	struct fs_header_v1_0 *cfg_fsh = fs_image_get_ocram_cfg_addr();
+	void *fdt = (void *)fs_image_find_cfg_fdt(cfg_fsh);
 	unsigned int uboot_size;
 	unsigned int uboot_offset;
 	unsigned int nboot_start;

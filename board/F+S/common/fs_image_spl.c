@@ -231,7 +231,7 @@ struct flash_info_spl {
 /* Mark BOARD_CFG to tell U-Boot that we are running on Secondary SPL */
 void fs_image_mark_secondary(void)
 {
-	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr();
+	struct fs_header_v1_0 *fsh = fs_image_get_ocram_cfg_addr();
 	u8 *size = (u8 *)&fsh->info.file_size_low;
 
 	/*
@@ -248,7 +248,7 @@ void fs_image_mark_secondary(void)
 /* Mark BOARD_CFG to tell U-Boot that we are running on Secondary UBoot */
 void fs_image_mark_secondary_uboot(void)
 {
-	struct fs_header_v1_0 *fsh = fs_image_get_cfg_addr();
+	struct fs_header_v1_0 *fsh = fs_image_get_ocram_cfg_addr();
 	u8 *size = (u8 *)&fsh->info.file_size_low;
 
 	/*
@@ -492,7 +492,7 @@ static void fs_image_handle_header(void)
 			/* Cannot handle remaining images without BOARD-CFG */
 			break;
 		} else if (fs_image_match_check(&one_fsh, "DRAM-INFO", arch)) {
-			const void *fdt = fs_image_get_cfg_fdt();
+			const void *fdt = fs_image_get_ocram_cfg_fdt();
 			int offs = fs_image_get_board_cfg_offs(fdt);
 			int rev_offs;
 
@@ -512,7 +512,8 @@ static void fs_image_handle_header(void)
 
 	case FSIMG_STATE_BOARD_CFG:
 		if (fs_image_match_board_id(&one_fsh)) {
-			fs_image_copy(fs_image_get_cfg_addr(), NULL, size, true);
+			fs_image_copy(fs_image_get_ocram_cfg_addr(),
+				      NULL, size, true);
 			handled = true;
 		}
 		break;
@@ -582,7 +583,7 @@ static void fs_image_handle_image(void)
 		/* If BOARD-CFG is OK, set BOARD-ID and mark job as done */
 		if (fs_image_validate_spl("BOARD-CFG", fs_image_get_board_id())) {
 			fs_image_board_cfg_set_board_rev(
-				fs_image_get_cfg_addr());
+				fs_image_get_ocram_cfg_addr());
 			jobs &= ~FSIMG_JOB_CFG;
 		}
 
@@ -1084,7 +1085,7 @@ int fs_image_load_system_copy(struct flash_info_spl *fi, basic_init_t basic_init
 	if (!fs_image_match(&one_fsh, "BOARD-CFG", NULL))
 		return -ENOENT;
 	size = fs_image_get_size(&one_fsh, true);
-	cfg = fs_image_get_cfg_addr();
+	cfg = fs_image_get_ocram_cfg_addr();
 	err = fi->load(start, size, cfg);
 	if (err)
 		return err;
@@ -1100,7 +1101,7 @@ int fs_image_load_system_copy(struct flash_info_spl *fi, basic_init_t basic_init
 		return 0;
 
 	/* Load necessary data from BOARD-CFG */
-	fdt = fs_image_find_cfg_fdt(cfg);
+	fdt = fs_image_get_ocram_cfg_fdt();
 	if (!fdt)
 		return -EINVAL;
 

@@ -82,6 +82,84 @@ const char *fs_image_get_arch(void)
 	return CONFIG_SYS_BOARD;
 }
 
+/* Check image magic, type and descr; return true on match */
+static void fs_image_get_board_name_rev(const char id[MAX_DESCR_LEN],
+					struct bnr *bnr)
+{
+	char c;
+	int i;
+	int rev = -1;
+
+	/* Copy string and look for rightmost '.' */
+	bnr->rev = 0;
+	i = 0;
+	do {
+		c = id[i];
+		bnr->name[i] = c;
+		if (!c)
+			break;
+		if (c == '.')
+			rev = i;
+	} while (++i < sizeof(bnr->name));
+
+	/* No revision found, assume 0 */
+	if (rev < 0)
+		return;
+
+	bnr->name[rev] = '\0';
+	while (++rev < i) {
+		char c = bnr->name[rev];
+
+		if ((c < '0') || (c > '9'))
+			break;
+		bnr->rev = bnr->rev * 10 + c - '0';
+	}
+}
+
+/*
+ * Find board_rev and return board-cfg subnode matching the given id_rev, 0 if
+ * no subnode was found.
+ */
+static int _get_board_rev_subnode(const void *fdt, int offs, uint id_rev)
+{
+	int subnode;
+	int rev_subnode = 0;
+	int rev = 0;
+	unsigned int temp;
+
+	subnode = fdt_first_subnode(fdt, offs);
+	while (subnode >= 0) {
+		temp = fdt_getprop_u32_default_node(fdt, subnode, 0,
+						    "board-rev", 100);
+		if ((temp > rev) && (temp <= id_rev)) {
+			rev = temp;
+			rev_subnode = subnode;
+			if (rev == id_rev)
+				break;
+		}
+		subnode = fdt_next_subnode(fdt, subnode);
+	}
+
+	/* If no subnode was found, try the board-cfg node itself */
+	if (!rev_subnode) {
+		rev = fdt_getprop_u32_default_node(fdt, offs, 0,
+						   "board-rev", 100);
+	}
+
+	debug("BOARD-ID rev=%u, BOARD-CFG rev=%u\n", id_rev, rev);
+
+	return rev_subnode;
+}
+
+/*
+ * Find board_rev of BOARD-ID (in compare-id) and return board-cfg subnode
+ * matching it. The compare-id has to be set before this call.
+ */
+int fs_image_get_board_rev_subnode(const void *fdt, int offs)
+{
+	return _get_board_rev_subnode(fdt, offs, compare_bnr.rev);
+}
+
 #ifdef __UBOOT__
 /* Return the intended address of the board configuration in OCRAM */
 void *fs_image_get_regular_cfg_addr(void)
@@ -90,7 +168,7 @@ void *fs_image_get_regular_cfg_addr(void)
 }
 
 /* Return the real address of the board configuration in OCRAM */
-void *fs_image_get_cfg_addr(void)
+void *fs_image_get_ocram_cfg_addr(void)
 {
 	DECLARE_GLOBAL_DATA_PTR;
 
@@ -98,6 +176,99 @@ void *fs_image_get_cfg_addr(void)
 		gd->board_cfg = (ulong)fs_image_get_regular_cfg_addr();
 
 	return (void *)gd->board_cfg;
+}
+
+/* Return the fdt part of the board configuration in OCRAM */
+const void *fs_image_get_ocram_cfg_fdt(void)
+{
+	return fs_image_find_cfg_fdt(fs_image_get_ocram_cfg_addr());
+}
+
+/* Get the BOARD-ID from the BOARD-CFG in OCRAM */
+static void _get_board_id_from_cfg(struct bnr *bnr)
+{
+	struct fs_header_v1_0 *cfg_fsh = fs_image_get_ocram_cfg_addr();
+	unsigned int rev;
+
+	/* Take base ID from descr; in old layout, this includes the rev */
+	fs_image_get_board_name_rev(cfg_fsh->param.descr, bnr);
+
+	/* The BOARD-ID rev is stored in file_size_high, 0 for old layout */
+	rev = cfg_fsh->info.file_size_high;
+	if (rev) {
+		debug("Taking BOARD-ID rev from BOARD-CFG: %d\n", rev);
+		bnr->rev = rev;
+	}
+}
+
+/* Set the board_id and compare_id from the BOARD-CFG */
+void fs_image_set_board_id_from_cfg(void)
+{
+	_get_board_id_from_cfg(&compare_bnr);
+
+	fs_image_set_board_id();
+}
+
+/*
+ * In the f-phase of U-Boot, when there are no variables available, we cannot
+ * call fs_image_get_board_rev_subnode() because it uses the compare-id. We
+ * have to determine the BOARD-ID directly from the BOARD-CFG in OCRAM. Also
+ * return the board-rev (from the BOARD-ID) in this case.
+ */
+int fs_image_get_board_rev_subnode_f(const void *fdt, int offs, uint *board_rev)
+{
+	struct bnr bnr;
+
+	/* Get the BOARD-ID from the BOARD-CFG in OCRAM */
+	_get_board_id_from_cfg(&bnr);
+	if (board_rev)
+		*board_rev = bnr.rev;
+
+	return _get_board_rev_subnode(fdt, offs, bnr.rev);
+}
+
+/*
+ * Make sure that BOARD-CFG in OCRAM is valid. This function is called early
+ * in the boot_f phase of U-Boot, and therefore must not access any variables.
+ */
+bool fs_image_is_ocram_cfg_valid(void)
+{
+	struct fs_header_v1_0 *cfg_fsh = fs_image_get_ocram_cfg_addr();
+	int err;
+	const char *type = "BOARD-CFG";
+
+	if (!fs_image_match(cfg_fsh, type, NULL))
+		return false;
+
+	/*
+	 * Check the additional CRC32. The BOARD-CFG in OCRAM also holds the
+	 * BOARD-ID, which is not covered by the signature, but it is covered
+	 * by the CRC32. So also do the check in case of Secure Boot.
+	 *
+	 * The BOARD-ID is given by the board-revision that is stored (as
+	 * number) in unused entry file_size_high and is typically between 100
+	 * and 999. This is the only part that may differ, the base name is
+	 * always the same as of the ID of the BOARD-CFG itself (in descr).
+	 */
+	err = fs_image_check_crc32(cfg_fsh);
+	if (err < 0)
+		return false;
+
+#if defined(CONFIG_IMX_HAB)
+	/* Handle signed image */
+	if (fs_image_is_signed(cfg_fsh))
+		return fs_image_is_valid_signature(cfg_fsh);
+#endif
+
+	/* Handle unsigned image */
+#ifdef CONFIG_FS_SECURE_BOOT
+	if (fs_board_is_closed()) {
+		printf("\nError: Refusing unsigned %s on closed board\n", type);
+		return false;
+	}
+#endif
+
+	return true;
 }
 #endif /* __UBOOT__ */
 
@@ -122,30 +293,6 @@ bool fs_image_is_fs_image(const struct fs_header_v1_0 *fsh)
 	return !strncmp(fsh->info.magic, "FSLX", sizeof(fsh->info.magic));
 }
 
-/* Return the fdt part of the given board configuration with index header */
-const void *fs_image_find_cfg_fdt_idx(struct index_info *cfg_info)
-{
-	const void *fdt;
-
-	if (!cfg_info)
-		return NULL;
-	
-	if (cfg_info->fsh_idx == NULL)
-		return fs_image_find_cfg_fdt(cfg_info->fsh);
-	
-	fdt = cfg_info->fsi;
-	if (fdt_check_header(fdt))
-		return NULL;
-
-	return fdt;
-}
-
-/* Return the fdt part of the board configuration in OCRAM */
-const void *fs_image_get_cfg_fdt(void)
-{
-	return fs_image_find_cfg_fdt(fs_image_get_cfg_addr());
-}
-
 /* Return the address of the /nboot-info node */
 int fs_image_get_nboot_info_offs(const void *fdt)
 {
@@ -162,9 +309,6 @@ int fs_image_get_board_cfg_offs(const void *fdt)
 const char *fs_image_get_nboot_version(const void *fdt)
 {
 	int offs;
-
-	if (!fdt)
-		fdt = fs_image_get_cfg_fdt();
 
 	offs = fs_image_get_nboot_info_offs((void *)fdt);
 	return fdt_getprop(fdt, offs, "version", NULL);
@@ -203,40 +347,6 @@ unsigned int fs_image_index_get_n(const struct fs_header_v1_0 *fsh)
 	return size / FSH_SIZE;
 }
 
-
-/* Check image magic, type and descr; return true on match */
-static void fs_image_get_board_name_rev(const char id[MAX_DESCR_LEN],
-					struct bnr *bnr)
-{
-	char c;
-	int i;
-	int rev = -1;
-
-	/* Copy string and look for rightmost '.' */
-	bnr->rev = 0;
-	i = 0;
-	do {
-		c = id[i];
-		bnr->name[i] = c;
-		if (!c)
-			break;
-		if (c == '.')
-			rev = i;
-	} while (++i < sizeof(bnr->name));
-
-	/* No revision found, assume 0 */
-	if (rev < 0)
-		return;
-
-	bnr->name[rev] = '\0';
-	while (++rev < i) {
-		char c = bnr->name[rev];
-
-		if ((c < '0') || (c > '9'))
-			break;
-		bnr->rev = bnr->rev * 10 + c - '0';
-	}
-}
 
 bool fs_image_match(const struct fs_header_v1_0 *fsh,
 		    const char *type, const char *descr)
@@ -622,135 +732,4 @@ void fs_image_set_compare_id(const char id[MAX_DESCR_LEN])
 unsigned int fs_image_get_board_rev(void)
 {
 	return compare_bnr.rev;
-}
-
-/* Get the BOARD-ID from the BOARD-CFG in OCRAM */
-static void _get_board_id_from_cfg(struct bnr *bnr)
-{
-	struct fs_header_v1_0 *cfg_fsh = fs_image_get_cfg_addr();
-	unsigned int rev;
-
-	/* Take base ID from descr; in old layout, this includes the rev */
-	fs_image_get_board_name_rev(cfg_fsh->param.descr, bnr);
-
-	/* The BOARD-ID rev is stored in file_size_high, 0 for old layout */
-	rev = cfg_fsh->info.file_size_high;
-	if (rev) {
-		debug("Taking BOARD-ID rev from BOARD-CFG: %d\n", rev);
-		bnr->rev = rev;
-	}
-}
-
-/* Set the board_id and compare_id from the BOARD-CFG */
-void fs_image_set_board_id_from_cfg(void)
-{
-	_get_board_id_from_cfg(&compare_bnr);
-
-	fs_image_set_board_id();
-}
-
-/*
- * Find board_rev and return board-cfg subnode matching the given id_rev, 0 if
- * no subnode was found.
- */
-static int _get_board_rev_subnode(const void *fdt, int offs, uint id_rev)
-{
-	int subnode;
-	int rev_subnode = 0;
-	int rev = 0;
-	unsigned int temp;
-
-	subnode = fdt_first_subnode(fdt, offs);
-	while (subnode >= 0) {
-		temp = fdt_getprop_u32_default_node(fdt, subnode, 0,
-						    "board-rev", 100);
-		if ((temp > rev) && (temp <= id_rev)) {
-			rev = temp;
-			rev_subnode = subnode;
-			if (rev == id_rev)
-				break;
-		}
-		subnode = fdt_next_subnode(fdt, subnode);
-	}
-
-	/* If no subnode was found, try the board-cfg node itself */
-	if (!rev_subnode) {
-		rev = fdt_getprop_u32_default_node(fdt, offs, 0,
-						   "board-rev", 100);
-	}
-
-	debug("BOARD-ID rev=%u, BOARD-CFG rev=%u\n", id_rev, rev);
-
-	return rev_subnode;
-}
-
-/*
- * Find board_rev of BOARD-ID (in compare-id) and return board-cfg subnode
- * matching it. The compare-id has to be set before this call.
- */
-int fs_image_get_board_rev_subnode(const void *fdt, int offs)
-{
-	return _get_board_rev_subnode(fdt, offs, compare_bnr.rev);
-}
-
-/*
- * In the f-phase of U-Boot, when there are no variables available, we cannot
- * call fs_image_get_board_rev_subnode() because it uses the compare-id. We
- * have to determine the BOARD-ID directly from the BOARD-CFG in OCRAM. Also
- * return the board-rev (from the BOARD-ID) in this case.
- */
-int fs_image_get_board_rev_subnode_f(const void *fdt, int offs, uint *board_rev)
-{
-	struct bnr bnr;
-
-	/* Get the BOARD-ID from the BOARD-CFG in OCRAM */
-	_get_board_id_from_cfg(&bnr);
-	if (board_rev)
-		*board_rev = bnr.rev;
-
-	return _get_board_rev_subnode(fdt, offs, bnr.rev);
-}
-
-/*
- * Make sure that BOARD-CFG in OCRAM is valid. This function is called early
- * in the boot_f phase of U-Boot, and therefore must not access any variables.
- */
-bool fs_image_is_ocram_cfg_valid(void)
-{
-	struct fs_header_v1_0 *cfg_fsh = fs_image_get_cfg_addr();
-	int err;
-	const char *type = "BOARD-CFG";
-
-	if (!fs_image_match(cfg_fsh, type, NULL))
-		return false;
-
-	/*
-	 * Check the additional CRC32. The BOARD-CFG in OCRAM also holds the
-	 * BOARD-ID, which is not covered by the signature, but it is covered
-	 * by the CRC32. So also do the check in case of Secure Boot.
-	 *
-	 * The BOARD-ID is given by the board-revision that is stored (as
-	 * number) in unused entry file_size_high and is typically between 100
-	 * and 999. This is the only part that may differ, the base name is
-	 * always the same as of the ID of the BOARD-CFG itself (in descr).
-	 */
-	err = fs_image_check_crc32(cfg_fsh);
-	if (err < 0)
-		return false;
-
-#if defined(CONFIG_IMX_HAB)
-	/* Handle signed image */
-	if (fs_image_is_signed(cfg_fsh))
-		return fs_image_is_valid_signature(cfg_fsh);
-#endif
-
-	/* Handle unsigned image */
-#ifdef CONFIG_FS_SECURE_BOOT
-	if (fs_board_is_closed()) {
-		printf("\nError: Refusing unsigned %s on closed board\n", type);
-		return false;
-	}
-#endif
-
-	return true;
 }

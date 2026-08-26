@@ -416,7 +416,7 @@ static void fs_board_early_init(void)
 /* Do the basic board setup when we have our final BOARD-CFG */
 static void basic_init(const char *layout_name)
 {
-	const void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_ocram_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
 	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	int i;
