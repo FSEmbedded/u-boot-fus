@@ -307,6 +307,7 @@ struct flash_ops {
 			  const struct storage_info *si);
 	int (*write)(struct flash_info *fi, uint offs, uint size, uint lim,
 		     uint flags, void *buf);
+	int (*sync)(struct flash_info *fi);
 	int (*prepare_region)(struct flash_info *fi, int copy,
 			      struct storage_info *si);
 	int (*save_nboot)(struct flash_info *fi, struct region_info *nboot_ri,

@@ -2053,7 +2053,11 @@ static int fs_image_save_sub(struct flash_info *fi, uint offs, uint size,
 		}
 	}
 
-	return 0;
+	/*
+	 * Make sure data is on flash. On Linux, this might return delayed
+	 * errors from asynchronous writing.
+	 */
+	return fi->ops->sync(fi);
 }
 
 /* Save the given region to flash */

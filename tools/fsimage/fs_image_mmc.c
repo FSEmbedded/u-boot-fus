@@ -217,6 +217,18 @@ static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 	return 0;
 }
 
+/* Sync data with flash */
+static int fs_image_sync_mmc(struct flash_info *fi)
+{
+	struct mmc_ll_linux *ll = &mmc_ll_linux;
+
+	/* Writing asynchronously may return delayed errors */
+	if (fsync(ll->fd[ll->hwpart]) == -1)
+		return -errno;
+
+	return 0;
+}
+
 static void fs_image_put_flash_mmc(struct flash_info *fi)
 {
 	struct mmc_ll_linux *ll = &mmc_ll_linux;

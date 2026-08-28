@@ -377,6 +377,9 @@ static int fs_image_invalidate_mmc(struct flash_info *fi, int copy,
 	fs_image_drop_temp(fi);
 	err = fi->ops->write(fi, offs, fi->temp_size, lim, 0, fi->temp);
 
+	if (!err)
+		err = fi->ops->sync(fi);
+
 	fs_image_show_sub_status(err);
 
 	return err;
@@ -627,6 +630,12 @@ static int fs_image_read_mmc(struct flash_info *fi, uint offs, uint size,
 	return 0;
 }
 
+/* Sync data with flash */
+static int fs_image_sync_mmc(struct flash_info *fi)
+{
+	return 0;			/* U-Boot always writes synchronously */
+}
+
 /* Save some data (only full blocks) to eMMC */
 static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 			      uint lim, uint flags, void *buf)
@@ -680,6 +689,7 @@ static struct flash_ops flash_ops_mmc = {
 	.set_boot_hwpart = fs_image_set_boot_hwpart_mmc,
 	.read = fs_image_read_mmc,
 	.write = fs_image_write_mmc,
+	.sync = fs_image_sync_mmc,
 	.read_board_cfg = fs_image_read_board_cfg_mmc,
 	.put_flash = fs_image_put_flash_mmc,
 };

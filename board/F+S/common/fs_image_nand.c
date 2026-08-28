@@ -550,6 +550,12 @@ static int fs_image_write_nand(struct flash_info *fi, uint offs, uint size,
 	return 0;
 }
 
+/* Sync data with flash */
+static int fs_image_sync_nand(struct flash_info *fi)
+{
+	return 0;			/* U-Boot always writes synchronously */
+}
+
 /* Show region info */
 static int fs_image_prepare_region_nand(struct flash_info *fi, int copy,
 					struct storage_info *si)
@@ -833,6 +839,7 @@ struct flash_ops flash_ops_nand = {
 	.load_extra = fs_image_load_extra_nand,
 	.invalidate = fs_image_invalidate_nand,
 	.write = fs_image_write_nand,
+	.sync = fs_image_sync_nand,
 	.prepare_region = fs_image_prepare_region_nand,
 	.save_nboot = fs_image_save_nboot_nand,
 	.set_hwpart = fs_image_set_hwpart_nand,
