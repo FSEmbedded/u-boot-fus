@@ -728,6 +728,13 @@ void fs_image_set_compare_id(const char id[MAX_DESCR_LEN])
 	fs_image_get_board_name_rev(id, &compare_bnr);
 }
 
+/* Set the compare_id if the type is "BOARD-CFG" */
+void fs_image_set_compare_id_if_cfg(const char *type, const char *descr)
+{
+	if (!strcmp(type, "BOARD-CFG"))
+		fs_image_set_compare_id(descr);
+}
+
 /* Get the board-rev from BOARD-ID (in compare-id) */
 unsigned int fs_image_get_board_rev(void)
 {

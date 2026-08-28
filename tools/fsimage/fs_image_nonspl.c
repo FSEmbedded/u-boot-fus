@@ -76,7 +76,7 @@ static bool fs_image_provide_file(struct fs_image_params *ip)
 		goto err;
 	}
 
-	printf("done!\n");
+	printf("OK\n");
 	ip->size = stat.st_size;
 
 	return true;
@@ -87,7 +87,7 @@ out:
 	if (fd != -1)
 		close(fd);
 
-	printf("failed: %s\n", strerror(err));
+	printf("FAILED: %s\n", strerror(err));
 
 	return false;
 }
@@ -120,8 +120,7 @@ static bool fs_image_store_file(struct fs_image_params *ip)
 		goto err;
 	}
 
-	printf("done!\n");
-
+	printf("OK\n");
 	return true;
 
 err:
@@ -130,8 +129,7 @@ out:
 	if (fd != -1)
 		close(fd);
 
-	printf("failed: %s\n", strerror(err));
-
+	printf("FAILED: %s\n", strerror(err));
 	return false;
 }
 
@@ -161,19 +159,7 @@ static int fs_image_read_board_cfg(void)
 	case MMC1_BOOT:
 	case MMC2_BOOT:
 	case MMC3_BOOT:
-		if (fi.boot_hwpart) {
-			si.start[0] = 0x00000000;
-			si.start[1] = 0x00000000;
-			si.size = fi.boot_part_size;
-			si.hwpart[0] = fi.boot_hwpart;
-			si.hwpart[1] = 3 - fi.boot_hwpart;
-		} else {
-			si.start[0] = 0x00008000; /* skip GPT in first 32KiB */
-			si.start[1] = 0x00400000;
-			si.size = 0x003f8000;
-			si.hwpart[0] = 0;
-			si.hwpart[1] = 0;
-		}
+		fs_image_get_generic_si_mmc(&fi, &si);
 		break;
 #endif
 	default:

@@ -231,7 +231,7 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 				   const struct storage_info *si,
 				   struct sub_info *sub)
 {
-	uint size;
+	uint size = sub->size;
 	uint offs = si->start[copy] + sub->offset;
 	uint lim = si->start[copy] + si->size;
 	uint hwpart = si->hwpart[copy];
@@ -252,6 +252,8 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 
 	if (sub->flags & SUB_IS_ENV) {
 		size = si->size;
+	} else if (sub->flags & SUB_IS_CNTR) {
+		size = size;
 	} else {
 		err = fs_image_get_size_from_header(fi, offs, lim, sub, &size);
 		if (err)
@@ -344,11 +346,32 @@ static int fs_image_invalidate_mmc(struct flash_info *fi, int copy,
 				   const struct storage_info *si)
 {
 	uint offs = si->start[copy];
-	uint lim = offs + si->size;
+	uint size = si->size;
+	uint lim = offs + size;
+	uint chunk_mask = fi->temp_size - 1;
 	int err;
 
+	/*
+	 * In container versions, offs may not be on an MMC block boundary
+	 * (e.g. when writing U-Boot). However then offs points to an F&S
+	 * header (fsh) where the main image (fsi) is 1 KiB aligned and the
+	 * previous image ends on the 1 KiB boundary before. Which means there
+	 * is an empty slot of 1 KiB that just contains the F&S header at the
+	 * end. This is why the whole MMC block containing the F&S header can
+	 * be cleared here when invalidating the region and can later be
+	 * written back when re-activating the region without ever touching
+	 * the image before.
+	 *
+	 * Pleas note that this is not true for the BOARD-INFO. Here the
+	 * BOARD-ID preceeds the BOARD-INFO F&S header. This means a
+	 * BOARD-INFO must not be written alone, just as part of a longer
+	 * sub sequence of a region.
+	 */
+	size += offs & chunk_mask;
+	offs &= ~chunk_mask;
+
 	printf("  Invalidating %s at offset 0x%08x size 0x%x...",
-	       si->type, offs, si->size);
+	       si->type, offs, size);
 	debug("\n");
 
 	fs_image_drop_temp(fi);
@@ -769,4 +792,22 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size)
 		*size = env_info->size;
 
 	return 0;
+}
+
+void fs_image_get_generic_si_mmc(struct flash_info *fi, struct storage_info *si)
+{
+	si->type = "NBOOT";
+	if (fi->boot_hwpart) {
+		si->start[0] = 0x00000000;
+		si->start[1] = 0x00000000;
+		si->size = 0x003f8000;	/* Leave room for env at end */
+		si->hwpart[0] = fi->boot_hwpart;
+		si->hwpart[1] = 3 - fi->boot_hwpart;
+	} else {
+		si->start[0] = 0x00008000; /* skip GPT in first 32KiB */
+		si->start[1] = 0x00400000;
+		si->size = 0x003f8000;	/* env is at end of 2nd copy */
+		si->hwpart[0] = 0;
+		si->hwpart[1] = 0;
+	}
 }

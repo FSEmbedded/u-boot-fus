@@ -145,6 +145,9 @@ void fs_image_get_bcfg_name(char *bcfg_name, ulong len);
 /* Set the compare_id that will be used in fs_image_match_board_id() */
 void fs_image_set_compare_id(const char id[MAX_DESCR_LEN]);
 
+/* Set the compare_id if the type is "BOARD-CFG" */
+void fs_image_set_compare_id_if_cfg(const char *type, const char *descr);
+
 /* Get the compare_id that will be used in fs_image_match_board_id() */
 void fs_image_get_compare_id(char *id, uint len);
 
@@ -260,11 +263,12 @@ struct nboot_info {
 #define SUB_SYNC          BIT(0)	/* After writing image, flush temp */
 #define SUB_HAS_FS_HEADER BIT(1)	/* Image has an F&S header in flash */
 #define SUB_IS_SPL        BIT(2)	/* SPL: has IVT, may beed offset */
-#define SUB_IS_ENV        BIT(3)	/* Environment data */
+#define SUB_IS_CNTR       BIT(3)	/* Container with given size */
+#define SUB_IS_ENV        BIT(4)	/* Environment data */
 #ifdef CONFIG_NAND_MXS
-#define SUB_IS_FCB        BIT(4)	/* FCB: needs other ECC */
-#define SUB_IS_DBBT       BIT(5)
-#define SUB_IS_DBBT_DATA  BIT(6)
+#define SUB_IS_FCB        BIT(5)	/* FCB: needs other ECC */
+#define SUB_IS_DBBT       BIT(6)
+#define SUB_IS_DBBT_DATA  BIT(7)
 #endif
 
 struct sub_info {
@@ -377,7 +381,7 @@ void fs_image_region_create(struct region_info *ri, struct storage_info *si,
  * Add a subimage with any format to the region. Return offset for next
  * subimage or 0 in case of error.
  */
-void fs_image_region_add_raw(struct region_info *ri, void *img,
+void fs_image_region_add_raw(struct region_info *ri, const void *img,
 			     const char *type, const char *descr, uint woffset,
 			     uint flags, uint size);
 
@@ -476,6 +480,7 @@ int fs_image_get_known_env_nand(uint index, uint start[2], uint *size);
 
 int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool rw);
 int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size);
+void fs_image_get_generic_si_mmc(struct flash_info *fi, struct storage_info *si);
 
 
 /* ------------- Command implementation ------------------------------------ */
