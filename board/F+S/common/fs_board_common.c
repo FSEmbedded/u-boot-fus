@@ -227,6 +227,11 @@ int board_phys_sdram_size(phys_size_t *size)
 {
 	*size = (phys_size_t)fs_board_get_cfg_info()->dram_size << 20;
 
+#if CONFIG_IS_ENABLED(ARCH_IMX9) && CONFIG_IS_ENABLED(SCMI_FIRMWARE)
+	/* Secure memory before U-Boot needs to be subtracted */
+	*size -= 0x10000000;
+#endif
+
 	return 0;
 }
 #endif /* __UBOOT__ */
