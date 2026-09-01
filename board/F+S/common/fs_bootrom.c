@@ -207,12 +207,27 @@ struct buffer_t {
 static struct buffer_t g_buffer;
 
 #ifdef DEBUG
+static inline void debug_print_char(char *ptr, int n)
+{
+	int c;
+	printf(" [");
+	for(c = 0; c < n; c++){
+		if(ptr[c] > 0x20 && ptr[c] < 0x7e)
+			printf("%c", ptr[c]);
+		else
+			printf(".");
+	}
+	printf("]");
+}
+
 void debug_dump_mem(char *ptr, int size)
 {
 	int c;
 	for(c = 0; c < size; c++){
+		if (!(c % 16) && c != 0)
+			debug_print_char(&ptr[c-16], 16);
 		if (!(c % 16))
-			printf("\n%08x", c);
+			printf("\n%08x: ", c);
 		if(!(c % 4))
 			puts(" ");
 
@@ -415,16 +430,22 @@ ulong spl_romapi_read(u32 offset, u32 size, void *buf)
 /**
  * read method for spl_load_info
  */
-static ulong bootrom_rx_data_stream(struct spl_load_info *load, ulong sector,
+static ulong bootrom_rx_data_stream(struct spl_load_info *load, ulong offset,
 	ulong count, void *buf)
 {
 	int ret, i;
-	ulong buf_offset;
+	ulong buf_offset, blk_count;
 
-	for(i = 0; i < count; i++){
+	/* NOTE:
+	 * spl_load_reader expects count and sector in bytes.
+	 * convert in count = bytes / blocksize, like sane people do.
+	 */
+	blk_count = count / load->bl_len;
+
+	for(i = 0; i < blk_count; i++){
 		buf_offset = PAGESIZE_USB * i;
 		align_buffer(&g_buffer);
-		debug("read_pages=%d\tcount=%ld\n", i, count);
+		debug("read_pages=%d\tcount=%ld\n", i, blk_count);
 		debug("load_addr=0x%p, ptr_idx=%d, r_size=%d\n", buf + buf_offset, g_buffer.ptr_idx, g_buffer.r_size);
 		ret = bootrom_download_page(&g_buffer, 0, PAGESIZE_USB);
 		if(ret < 0)
@@ -434,17 +455,15 @@ static ulong bootrom_rx_data_stream(struct spl_load_info *load, ulong sector,
 		seek_buffer(&g_buffer, g_buffer.r_size);
 	}
 
-	return i;
+	return count;
 }
 
-static ulong bootrom_rx_data_seek(struct spl_load_info *load, ulong sector,
+static ulong bootrom_rx_data_seek(struct spl_load_info *load, ulong offset,
 	ulong count, void *buf)
 {
-	int bl_len;
 	int ret;
 
-	bl_len = load->bl_len;
-	ret = bootrom_download(buf, sector * bl_len, count * bl_len);
+	ret = bootrom_download(buf, offset, count);
 	if(ret)
 		return 0;
 

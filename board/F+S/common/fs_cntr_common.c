@@ -355,24 +355,20 @@ static void free_container(struct spl_image_info *cntr_info)
 }
 
 static ulong info_read_sectors(struct spl_load_info *load,
-				ulong off, ulong size, void *buf)
+				ulong sectors, ulong count, void *buf)
 {
-	ulong bytes_read;
+	ulong off, size;
 
-	off *= load->bl_len;
-	size *= load->bl_len;
 
-	bytes_read = load->read(load, off, size, buf);
+	off = sectors * load->bl_len;
+	size = count * load->bl_len;
 
-	if (!(bytes_read % load->bl_len))
-		return (bytes_read / load->bl_len);
-	else {
-		debug("%s: bytes_read not aligned to bl_len!\n",__func__);
-		debug("%s: bytes_read = 0x%lx\n",__func__,bytes_read);
-		debug("%s: load->bl_len = 0x%x\n",__func__,load->bl_len);
-
+	if (load->read(load, off, size, buf) != size) {
+		debug("%s: read failed\n",__func__);
 		return 0;
 	}
+
+	return count;
 }
 
 /**
@@ -394,7 +390,6 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 	struct container_hdr *authhdr = NULL;
 	u16 length;
 	u32 count;
-	u32 return_count;
 	int size, ret = 0;
 
 	size = roundup(CONTAINER_HDR_ALIGNMENT, info->bl_len);
@@ -405,15 +400,10 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 	if (!cntr)
 		return -ENOMEM;
 
-	debug("%s: container: 0x%lx sector: 0x%lx count: 0x%x\n", __func__,
-	      (ulong)cntr, sector, count);
+	debug("%s: container: 0x%p sector: 0x%lx count: 0x%x\n", __func__,
+	      cntr, sector, count);
 
-	return_count = info_read_sectors(info, sector, count, cntr);
-
-	if (return_count != count) {
-		printf("Wrong read count for info_read_sectors\n");
-		printf("return_count = 0x%x\n",return_count);
-		printf("count = 0x%x\n",count);
+	if (info_read_sectors(info, sector, count, cntr) != count) {
 		ret = -EIO;
 		goto free_cntr;
 	}
@@ -451,8 +441,8 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 		memcpy(cntr_tmp, cntr, size);
 		free(cntr);
 
-		debug("%s: container: 0x%lx sector: 0x%lx count: 0x%x\n",
-		      __func__, (ulong)cntr, sector, tmp_count);
+		debug("%s: container: 0x%p sector: 0x%lx count: 0x%x\n",
+		      __func__, cntr, sector, tmp_count);
 
 		if (info_read_sectors(info, (sector + count),
 				(tmp_count - count),
@@ -519,7 +509,7 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 
 	return ret;
 
-	free_cntr:
+free_cntr:
 	spl_image->load_addr = (uintptr_t)cntr;
 	free_container(spl_image);
 	return ret;
@@ -569,8 +559,8 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 	sector = (images[image_index].offset / info->bl_len) +
 		cntr_sector;
 
-	debug("%s: container: 0x%lx sector: 0x%lx sectors: 0x%x\n", __func__,
-			(ulong)container, sector, count);
+	debug("%s: container: 0x%p sector: 0x%lx sectors: 0x%x\n", __func__,
+			container, sector, count);
 	debug("%s: img_idx=%d, loadaddr=0x%lx \n", __func__,
 			image_index, (ulong)images[image_index].dst);
 	if (info_read_sectors(info, sector, count,
@@ -807,7 +797,7 @@ static int init_ram_info(struct ram_info_t *ram_info)
 	ram_info->type = fs_image_getprop(fdt, offs, rev_offs, "dram-type", NULL);
 	ram_info->timing = fs_image_getprop(fdt, offs, rev_offs, "dram-timing", NULL);
 
-	debug("%s: type at 0x%lx; timing at 0x%lx\n", __func__, (ulong)ram_info->type, (ulong)ram_info->timing);
+	debug("%s: type at 0x%p; timing at 0x%p\n", __func__, ram_info->type, ram_info->timing);
 	if(!ram_info->type || !ram_info->timing)
 		return -1;
 
@@ -1393,7 +1383,6 @@ int seek_continue(const struct sdp_stream_ops *stream_ops)
 	return bootrom_seek_continue(stream_ops);
 #elif defined(CONFIG_FS_SDP)
 	return sdp_seek_continue(stream_ops);
-	return -1;
 #else
 	printf("WARNING: %s not available; check FS_BOOTROM and FS_SDP!\n", __func__);
 	return -1;
@@ -1501,25 +1490,25 @@ int fs_cntr_load_board_id()
 
 static void __maybe_unused quirk_copy_ns_to_sec(struct spl_image_info *spl_image,
 				struct spl_image_info *cntr_info,
-				int image_index, ulong dst)
+				int image_index, void *dst)
 {
 	struct container_hdr *container = (struct container_hdr *)cntr_info->load_addr;
 	struct boot_img_t *images;
-	u64 offset;
+	void *src;
 	u32 size;
 
 	images = (struct boot_img_t *)((u8 *)container +
 				       sizeof(struct container_hdr));
 
-	offset = images[image_index].dst;
-	size = (u64) images[image_index].size;
+	src = (void *)images[image_index].dst;
+	size = images[image_index].size;
 
-	memcpy((void *) dst, (void *) offset, size);
+	memcpy(dst, src, size);
 
 	/* For ATF overwrite the spl_image addresses */
 	if (image_index == 1) {
-		spl_image->load_addr = dst;
-		spl_image->entry_point = dst;
+		spl_image->load_addr = (ulong)dst;
+		spl_image->entry_point = (ulong)dst;
 
 		debug("image[%d]: load_addr=0x%lx, entry_point=0x%lx, image_size=0x%x (altered)\n",
 			image_index, spl_image->load_addr, spl_image->entry_point, spl_image->size);
@@ -1562,13 +1551,13 @@ static int load_uboot(struct spl_image_info *spl_image)
 	}
 
 #ifdef CFG_SPL_ATF_SECURE_ADDR
-	quirk_copy_ns_to_sec(spl_image, &cntr_info, 1, CFG_SPL_ATF_SECURE_ADDR);
+	quirk_copy_ns_to_sec(spl_image, &cntr_info, 1, (void *)CFG_SPL_ATF_SECURE_ADDR);
 #endif
 
 #ifdef CFG_SPL_TEE_SECURE_ADDR
-	quirk_copy_ns_to_sec(spl_image, &cntr_info, 2, CFG_SPL_TEE_SECURE_ADDR);
+	quirk_copy_ns_to_sec(spl_image, &cntr_info, 2, (void *)CFG_SPL_TEE_SECURE_ADDR);
 #endif
-#endif
+#endif /* CONFIG_FS_SDP */
 
 	free_container(&cntr_info);
 
