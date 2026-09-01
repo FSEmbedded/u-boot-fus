@@ -29,31 +29,28 @@
 			return 0;			\
 	}
 
-/* TODO: IN PREPARATION */
-#define FEAT_EMMC 	BIT(0)
+#define FEAT_EEPROM 	BIT(0)
 #define FEAT_EXT_RTC 	BIT(1)
-#define FEAT_EEPROM	BIT(2)
-#define FEAT_ETH_A	BIT(3)
-#define FEAT_ETH_B	BIT(4)
-#define FEAT_ETH_PHY_A	BIT(5)
-#define FEAT_ETH_PHY_B	BIT(6)
-#define FEAT_AUDIO	BIT(7)
+#define FEAT_USB_HUB	BIT(2)
+#define FEAT_ETH_PHY_A	BIT(3)
+#define FEAT_ETH_PHY_B	BIT(4)
+#define FEAT_TEMP	BIT(5)
+#define FEAT_SEC	BIT(6)
+#define FEAT_GPIO_EXP	BIT(7)
 #define FEAT_WLAN	BIT(8)
-#define FEAT_SDIO_A	BIT(9)
-#define FEAT_SDIO_B	BIT(10)
-#define FEAT_SDIO_C	BIT(11)
-#define FEAT_MIPI_DSI	BIT(12)
-#define FEAT_MIPI_CSI	BIT(13)
-#define FEAT_LVDS	BIT(14)
-#define FEAT_RGB	BIT(15)
+#define FEAT_UART_C	BIT(9)
+#define FEAT_EDP	BIT(10)
+#define FEAT_AUDIO	BIT(11)
+#define FEAT_ADC_0	BIT(12)
+#define FEAT_ADC_1	BIT(13)
 
 /**
  *  TODO: WDOG PAD
  */
 
 enum fsimx95_board_types {
-	BT_IMX95EVK,
-	BT_FSSM95S
+	BT_FSSM95S,
+	BT_PICOCOREMX95
 };
 
 #endif /* __BOARD_FSIMX95_H */

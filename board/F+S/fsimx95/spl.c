@@ -17,6 +17,7 @@
 #include <asm/mach-imx/ele_api.h>
 #include <asm/mach-imx/qb.h>
 #include <asm/gpio.h>
+#include <dm/root.h>
 #include <linux/delay.h>
 #ifdef CONFIG_SCMI_FIRMWARE
 #include <scmi_agent.h>
@@ -27,6 +28,8 @@
 #include "scmi_ddr_init.h"
 #endif
 #include "../common/fs_cntr_common.h"
+#include "../common/fs_image_common.h"
+#include "fsimx95.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -133,32 +136,50 @@ static int scmi_ddr_init(void)
 	return ret;
 }
 
-static void flexspi_nor_reset(void)
+static int set_gd_board_type(void)
 {
-	int ret;
-	struct gpio_desc desc;
+	const char *board_id;
+	const char *ptr;
+	int len;
 
-	/* 15x15 EVK use M.2 QSPI card, not support booting */
-	if (IS_ENABLED(CONFIG_TARGET_IMX95_15X15_EVK))
-		return;
+	board_id = fs_image_get_board_id();
+	ptr = strchr(board_id, '-');
+	len = (int)(ptr - board_id);
 
-	ret = dm_gpio_lookup_name("GPIO5_11", &desc);
-	if (ret) {
-		printf("%s lookup GPIO5_11 failed ret = %d\n", __func__, ret);
-		return;
-	}
+	SET_BOARD_TYPE("SM95S", BT_FSSM95S, board_id, len);
+	SET_BOARD_TYPE("PC95S", BT_PICOCOREMX95, board_id, len);
 
-	ret = dm_gpio_request(&desc, "XSPI_RST_B");
-	if (ret) {
-		printf("%s request XSPI_RST_B failed ret = %d\n", __func__, ret);
-		return;
-	}
-
-	/* assert the XSPI_RST_B */
-	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT | GPIOD_IS_OUT_ACTIVE | GPIOD_ACTIVE_LOW);
-	udelay(200); /* 50 ns at least, so use 200ns */
-	dm_gpio_set_value(&desc, 0); /* deassert the XSPI_RST_B */
+	return -EINVAL;
 }
+
+int board_early_init_f(void)
+{
+	int rescan = 0;
+
+	set_gd_board_type();
+
+	/* UART1: A55, UART2: M33, UART3: M7 */
+	init_uart_clk(0);
+
+	fdtdec_resetup(&rescan);
+
+	if(rescan) {
+		dm_uninit();
+		dm_init_and_scan(!CONFIG_IS_ENABLED(OF_PLATDATA));
+	}
+
+	return 0;
+}
+
+#if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
+int board_fit_config_name_match(const char *name)
+{
+	CHECK_BOARD_TYPE_AND_NAME("fssm95s", BT_FSSM95S, name);
+	CHECK_BOARD_TYPE_AND_NAME("picocoremx95", BT_PICOCOREMX95, name);
+
+	return -EINVAL;
+}
+#endif
 
 void board_init_f(ulong dummy)
 {
@@ -192,8 +213,6 @@ void board_init_f(ulong dummy)
 	get_reset_reason(true, false);
 
 	disable_smmuv3();
-
-	flexspi_nor_reset();
 
 	/*load F&S NBOOT-Images*/
 	fs_cntr_init(true);

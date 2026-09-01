@@ -12,13 +12,13 @@
 
 / {
 	board-cfg {
-		board-name = "FSSM95S";
-		board-fdt = "fssm95s";
+		board-name = "PicoCoreMX95";
+		board-fdt = "picocoremx95";
 		board-rev = <100>;
 
 		/* DRAM: B.ICDRAM.60 */
 		dram-type = "lpddr4x";
-		dram-timing = "lpddr4x_sm_4g4266m2ch1cs";
+		dram-timing = "lpddr4x_pc_4g4266m2ch1cs";
 		dram-size = <0x1000>;		/* In MiB */
 		dram-chips = <1>;
 
@@ -31,16 +31,12 @@
 		fuse-value =    <0x2000000a>;
 
 		/* Common board features */
-		have-eeprom;
 		have-ext-rtc;
-		have-usb-hub;
 		have-eth-phy-a;
 		have-eth-phy-b;
-		have-temp;
-		have-sec;
-		have-gpio-exp;
-		have-wlan;
-		have-uart-c;
-		have-edp;
+		have-eeprom;
+		have-audio;
+		have-adc-0;
+		have-adc-1;
 	};
 };

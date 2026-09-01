@@ -63,8 +63,8 @@ extern int board_fix_fdt_fuse(void *fdt);
 
 /* --- Environment defines --- */
 const struct fs_board_info board_info[] = {
-	{	/* 0 (BT_IMX95EVK) */
-		.name = "iMX95EVK",
+	{	/* 0 (BT_FSSM95S) */
+		.name = "FSSM95S",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -76,8 +76,8 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 1 (BT_FSSM95S) */
-		.name = "FSSM95S",
+	{	/* 1 (BT_PICOCOREMX95) */
+		.name = "PicoCoreMX95",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -106,11 +106,30 @@ static int set_gd_board_type(void)
 	ptr = strchr(board_id, '-');
 	len = (int)(ptr - board_id);
 
-	SET_BOARD_TYPE("iMX95EVK", BT_IMX95EVK, board_id, len);
 	SET_BOARD_TYPE("SM95S", BT_FSSM95S, board_id, len);
+	SET_BOARD_TYPE("PC95S", BT_PICOCOREMX95, board_id, len);
 
 	return -EINVAL;
 }
+
+#if CONFIG_IS_ENABLED(MULTI_DTB_FIT)
+/* definition for U-BOOT */
+int board_fit_config_name_match(const char *name)
+{
+	void *fdt;
+	int offs;
+	const char *board_fdt;
+
+	fdt = fs_image_get_cfg_fdt();
+	offs = fs_image_get_board_cfg_offs(fdt);
+	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
+
+	if(board_fdt && !strncmp(name, board_fdt, 64))
+		return 0;
+
+	return -EINVAL;
+}
+#endif
 
 static void fs_setup_cfg_info(void)
 {
@@ -157,36 +176,34 @@ static void fs_setup_cfg_info(void)
 	info->flags = flags;
 
 	features = 0;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
-		features |= FEAT_EMMC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
-		features |= FEAT_EXT_RTC;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
-		features |= FEAT_ETH_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
-		features |= FEAT_ETH_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
+		features |= FEAT_EXT_RTC;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-usb-hub", NULL))
+		features |= FEAT_USB_HUB;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
 		features |= FEAT_ETH_PHY_A;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
 		features |= FEAT_ETH_PHY_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
-		features |= FEAT_AUDIO;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL))
+		features |= FEAT_TEMP;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sec", NULL))
+		features |= FEAT_SEC;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-gpio-exp", NULL))
+		features |= FEAT_GPIO_EXP;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
-		features |= FEAT_SDIO_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
-		features |= FEAT_SDIO_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
-		features |= FEAT_MIPI_DSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
-		features |= FEAT_MIPI_CSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
-		features |= FEAT_LVDS;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
-		features |= FEAT_RGB;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-uart-c", NULL))
+		features |= FEAT_UART_C;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-edp", NULL))
+		features |= FEAT_EDP;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
+		features |= FEAT_AUDIO;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-adc-0", NULL))
+		features |= FEAT_ADC_0;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-adc-1", NULL))
+		features |= FEAT_ADC_1;
 
 	info->features = features;
 }
@@ -212,17 +229,17 @@ struct efi_capsule_update_info update_info = {
 };
 #endif /* EFI_HAVE_CAPSULE_SUPPORT */
 
+#ifndef CONFIG_SPL_BUILD
 int board_early_init_f(void)
 {
-#ifndef CONFIG_SPL_BUILD
 	fs_setup_cfg_info();
-#endif
 
 	/* UART1: A55, UART2: M33, UART3: M7 */
 	init_uart_clk(0);
 
 	return 0;
 }
+#endif
 
 #ifdef CONFIG_USB_TCPC
 struct tcpc_port port;
@@ -282,19 +299,10 @@ void tca_mux_select(enum typec_cc_polarity pol)
 
 static void setup_typec(void)
 {
-	int ret;
-
 	tca_base = USB1_BASE_ADDR + 0xfc000;
 
 	switch (gd->board_type)
 	{
-	case BT_IMX95EVK:
-		ret = tcpc_init(&port, port_config, &tca_mux_select);
-		if (ret) {
-			printf("%s: tcpc init failed, err=%d\n", __func__, ret);
-			return;
-		}
-		break;
 	case BT_FSSM95S:
 		break;
 	default:
@@ -378,27 +386,6 @@ static void netc_phy_rst(const char *gpio_name, const char *label)
 	udelay(100000);
 }
 
-#if 0
-static void __maybe_unused netc_regulator_enable(const char *devname, bool enable)
-{
-	int ret;
-	struct udevice *dev;
-
-	ret = regulator_get_by_devname(devname, &dev);
-	if (ret) {
-		printf("Get %s regulator failed %d\n", devname, ret);
-		return;
-	}
-
-	ret = regulator_set_enable_if_allowed(dev, enable);
-	if (ret) {
-		printf("%s %s regulator %d\n",
-			enable ? "Enable": "Disable", devname, ret);
-		return;
-	}
-}
-#endif
-
 void netc_init(void)
 {
 	int ret;
@@ -416,8 +403,6 @@ void netc_init(void)
 	/* Reset PHYs */
 	switch (gd->board_type)
 	{
-	case BT_IMX95EVK:
-		break;
 	case BT_FSSM95S:
 		netc_phy_rst("gpio@21_5", "eth_a_phy_rst");
 		netc_phy_rst("gpio@21_6", "eth_b_phy_rst");
@@ -425,33 +410,6 @@ void netc_init(void)
 	default:
 		break;
 	}
-
-#if 0
-#ifdef CONFIG_TARGET_IMX95_15X15_EVK
-	netc_phy_rst("gpio@22_4", "ENET1_RST_B");
-	netc_phy_rst("gpio@22_5", "ENET2_RST_B");
-#else
-	netc_phy_rst("i2c5_io@21_2", "ENET1_RST_B");
-
-	/* Enable in SW count */
-	netc_regulator_enable("regulator-aqr-stby", true);
-	netc_regulator_enable("regulator-mac-stby", true);
-	netc_regulator_enable("regulator-aqr-en", true);
-	netc_regulator_enable("regulator-mac-en", true);
-
-	/* Disable regulator to have explicit reset to AQR PHY and clock generator */
-	udelay(10000);
-	netc_regulator_enable("regulator-aqr-stby", false);
-	netc_regulator_enable("regulator-mac-stby", false);
-	netc_regulator_enable("regulator-aqr-en", false);
-	netc_regulator_enable("regulator-mac-en", false);
-
-	udelay(10000);
-	netc_regulator_enable("regulator-aqr-stby", true);
-	netc_regulator_enable("regulator-mac-stby", true);
-
-#endif
-#endif
 }
 
 static void flexspi_nor_steup(void)
@@ -539,11 +497,6 @@ int board_init(void)
 #if defined(CONFIG_USB_TCPC)
 	setup_typec();
 #endif
-#if 0
-#if IS_ENABLED(CONFIG_TARGET_IMX95_19X19_EVK)
-	netc_regulator_enable("regulator-m2-pwr", true);
-#endif
-#endif
 
 	netc_init();
 
@@ -602,10 +555,6 @@ void fs_ethaddr_init(void)
 	/* Set MAC addresses as environment variables */
 	switch (gd->board_type)
 	{
-	case BT_IMX95EVK:
-		fs_eth_set_ethaddr(eth_id++);
-		fs_eth_set_ethaddr(eth_id++);
-		break;
 	case BT_FSSM95S:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
@@ -728,55 +677,6 @@ void board_quiesce_devices(void)
 }
 
 #if IS_ENABLED(CONFIG_OF_BOARD_FIXUP)
-
-#if IS_ENABLED(CONFIG_TARGET_IMX95_15X15_EVK)
-static void change_fdt_mido_pins(void *fdt)
-{
-	int nodeoff, ret;
-	u32 enet1_pins[12] = { 0x00B8, 0x02BC, 0x0424, 0x00, 0x00, 0x57e,
-		0x00BC, 0x02C0, 0x0428, 0x00, 0x00, 0x97e};
-
-	nodeoff = fdt_path_offset(fdt, "/firmware/scmi/protocol@19/emdiogrp");
-	if (nodeoff > 0) {
-
-		int i;
-		for (i = 0; i < 12; i++) {
-			enet1_pins[i] = cpu_to_fdt32(enet1_pins[i]);
-		}
-
-		ret = fdt_setprop(fdt, nodeoff, "fsl,pins", enet1_pins, 12 * sizeof(u32));
-		if (ret)
-			printf("fdt_setprop fsl,pins error %d\n", ret);
-		else
-			debug("Update MDIO pins ok\n");
-	}
-}
-
-static int board_fix_15x15_evk(void *fdt)
-{
-	int ret;
-	struct udevice *bus;
-	struct udevice *i2c_dev = NULL;
-
-	ret = uclass_get_device_by_seq(UCLASS_I2C, 2, &bus);
-	if (ret) {
-		printf("%s: Can't find I2C bus 2\n", __func__);
-		return 0;
-	}
-
-	ret = dm_i2c_probe(bus, 0x50, 0, &i2c_dev);
-	if (ret) {
-		ret = dm_i2c_probe(bus, 0x20, 0, &i2c_dev);
-		if (!ret) {
-			debug("Find Audio board\n");
-			change_fdt_mido_pins(fdt);
-		}
-	}
-
-	return 0;
-}
-
-#else
 static void disable_fdt_resources(void *fdt)
 {
 	int i = 0;
@@ -819,18 +719,13 @@ static int board_fix_19x19_evk(void *fdt)
 
 	return 0;
 }
-#endif
 
 int board_fix_fdt(void *fdt)
 {
 	/* Remove nodes based on fuses. */
 	board_fix_fdt_fuse(fdt);
 	
-#if IS_ENABLED(CONFIG_TARGET_IMX95_15X15_EVK)
-	return board_fix_15x15_evk(fdt);
-#else
 	return board_fix_19x19_evk(fdt);
-#endif
 }
 #endif
 #ifdef CONFIG_FSL_FASTBOOT

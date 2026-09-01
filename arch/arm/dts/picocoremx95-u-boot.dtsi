@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2026 F+S
+ */
+
+#include "imx95-u-boot.dtsi"
+
+/ {
+	/* F&S specific layout, so delete NXP binman node */
+	/delete-node/ binman;
+
+	binman {
+		multiple-images;
+
+		imx-boot {
+			filename = "flash.bin";
+			pad-byte = <0x00>;
+
+			spl {
+				type = "nxp-imx9image";
+				cfg-path = "spl/u-boot-spl.cfgout";
+				args;
+
+#ifndef CONFIG_IMX95_A0
+				cntr-version = <2>;
+#endif
+				boot-from = "sd";
+				soc-type = "IMX9";
+#ifdef CONFIG_IMX95_A0
+				append = "board/F+S/NXP-Firmware/fsimx95/mx95a0-ahab-container.img";
+#else
+				append = "board/F+S/NXP-Firmware/fsimx95/mx95b0-ahab-container.img";
+#endif
+				container;
+#ifndef CONFIG_IMX95_A0
+				dummy-ddr;
+#endif
+
+				image0 = "m33", "board/F+S/NXP-Firmware/fsimx95/m33_image.bin", "0x1ffc0000";
+				image1 = "a55", "spl/u-boot-spl.bin", "0x20480000";
+				dummy-v2x = <0x4aa00000>;
+			};
+		};
+	};
+
+	aliases {
+		pci0 = &netc_bus0;
+		pci1 = &netc_bus1;
+		usb0 = &usb3_dwc3;
+		usb1 = &usb2;
+		usb_gadget0 = &usb3_dwc3;
+		usb_gadget1 = &usbg2;
+	};
+
+	usbg2: usbg2 {
+		compatible = "fsl,imx27-usb-gadget";
+		dr_mode = "peripheral";
+		chipidea,usb = <&usb2>;
+		bootph-pre-ram;
+		status = "okay";
+	};
+};
+
+&scmi_iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog>;
+
+	pinctrl_hog: hoggrp {
+		bootph-pre-ram;
+
+		fsl,pins = <
+			IMX95_PAD_XSPI1_SS1_B__GPIO5_IO_BIT11			0x3fe
+			IMX95_PAD_GPIO_IO12__TPM3_CH2           0x51e
+			IMX95_PAD_CCM_CLKO1__GPIO3_IO_BIT26			0x30e
+			IMX95_PAD_CCM_CLKO2__GPIO3_IO_BIT27			0x30e
+		>;
+	};
+};
+
+&fs_uart_a {
+	bootph-pre-ram;
+};
+
+&emmc {
+	bootph-pre-ram;
+};
+
+&fs_sdio_a {
+	bootph-pre-ram;
+};
+
+&wdog3 {
+	status = "disabled";
+};
+
+&pinctrl_lpuart7 {
+	bootph-pre-ram;
+};
+
+&pinctrl_usdhc1 {
+	bootph-pre-ram;
+};
+
+&pinctrl_usdhc1_100mhz {
+	bootph-pre-ram;
+};
+
+&pinctrl_usdhc1_200mhz {
+	bootph-pre-ram;
+};
+
+&pinctrl_usdhc2 {
+	bootph-pre-ram;
+};
+
+&pinctrl_usdhc2_100mhz {
+	bootph-pre-ram;
+};
+
+&pinctrl_usdhc2_200mhz {
+	bootph-pre-ram;
+};
+
+&fs_usb_otg {
+	compatible = "fsl,imx8mm-usb", "fsl,imx7d-usb";
+	/delete-property/power-domains;
+	bootph-pre-ram;
+};
+
+&usbmisc {
+	bootph-pre-ram;
+};
+
+&usbphynop {
+	bootph-pre-ram;
+};
+
+&usb3_phy {
+	bootph-pre-ram;
+};
+
+&fs_usb_host {
+	clocks = <&scmi_clk IMX95_CLK_HSIO>,
+			 <&scmi_clk IMX95_CLK_24M>,
+			 <&scmi_clk IMX95_CLK_32K>;
+	clock-names = "hsio", "ref", "suspend";
+
+	/delete-property/power-domains;
+	bootph-pre-ram;
+};
+
+&usb3_dwc3 {
+	bootph-pre-ram;
+};
+

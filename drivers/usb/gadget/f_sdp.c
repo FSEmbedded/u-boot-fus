@@ -875,7 +875,7 @@ static void sdp_handle_in_ep(void)
 
 				debug("Found FIT\n");
 				spl_load_init(&load, sdp_load_read, header, 1);
-				ret = spl_load_simple_fit(spl_image, &load, 0,
+				ret = spl_load_simple_fit(&spl_image, &load, 0,
 						    header);
 			}
 #endif
