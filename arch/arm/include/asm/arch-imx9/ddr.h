@@ -9,15 +9,9 @@
 #include <asm/io.h>
 #include <asm/types.h>
 
-#if defined(CONFIG_IMX95)
-#define DDR_CTL_BASE			0x5E080000
-#define DDR_PHY_BASE			0x5E800000
-#define DDRMIX_BLK_CTRL_BASE		0x5E010000
-#else
 #define DDR_CTL_BASE			0x4E300000
 #define DDR_PHY_BASE			0x4E100000
 #define DDRMIX_BLK_CTRL_BASE		0x4E010000
-#endif
 
 #define REG_DDR_SDRAM_MD_CNTL	(DDR_CTL_BASE + 0x120)
 #define REG_DDR_CS0_BNDS        (DDR_CTL_BASE + 0x0)
@@ -46,8 +40,8 @@
 #define IP2APB_DDRPHY_IPS_BASE_ADDR(X)	(DDR_PHY_BASE + ((X) * 0x2000000))
 #define DDRPHY_MEM(X)			(DDR_PHY_BASE + ((X) * 0x2000000) + 0x50000)
 
-#if defined(CONFIG_IMX95)
-#define NEW_DRAM_CFG
+#if defined(CONFIG_IMX95) && !defined(CONFIG_IMX9_DRAM)
+#define SCMI_DRAM_CFG
 #define ddrc_cfg_param dram_cfg_param
 #define ddrphy_cfg_param dram_cfg_param
 #define fsp_phy_cfg fsp_cfg
@@ -79,7 +73,7 @@ struct dram_cfg_param {
 	unsigned int val;
 };
 
-#ifdef NEW_DRAM_CFG
+#ifdef SCMI_DRAM_CFG
 struct dram_fsp_cfg
 {
     struct ddrc_cfg_param *ddrc_cfg;
