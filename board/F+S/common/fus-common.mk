@@ -253,7 +253,7 @@ MKIMAGEFLAGS_.$(1)_cntr.tmp = \
 # 3. Build the container by calling mkimage
 $$(obj)/.$(1)_log.tmp: $$(obj)/.$(1)_cntr.tmp
 $$(obj)/.$(1)_cntr.tmp: MKIMAGEOUTPUT := $$(obj)/.$(1)_log.tmp
-$$(obj)/.$(1)_cntr.tmp: /dev/null $$($(1)_index) $$($(1)_cfg_tmp)
+$$(obj)/.$(1)_cntr.tmp: /dev/null $$($(1)_index) $$($(1)_cfg_tmp) FORCE
 #	$$(Q)$(srctree)/tools/imx_cntr_image.sh $$(obj)/.$(1)_cfg.tmp
 	$$(call if_changed,mkimage)
 
