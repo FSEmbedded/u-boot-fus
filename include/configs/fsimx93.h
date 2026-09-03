@@ -114,14 +114,14 @@
 		"mmc0 mmc1 usb0 usb1;\0"					\
 	"boot_targets=fus_legacy mmc0 mmc1 usb0 usb1\0"
 
-
 /* Link Definitions */
 
 #define CFG_SYS_INIT_RAM_ADDR		0x80000000
 #define CFG_SYS_INIT_RAM_SIZE		0x200000
 
-#define CFG_SYS_SDRAM_BASE		0x80000000
 #define CFG_SPL_FUS_EARLY_AHAB_BASE	CFG_SPL_ATF_ADDR
+
+#define CFG_SYS_SDRAM_BASE		0x80000000
 #define PHYS_SDRAM			0x80000000
 #define PHYS_SDRAM_SIZE			0x40000000 /* 1GB DDR */
 

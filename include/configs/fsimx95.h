@@ -58,6 +58,54 @@
 //#define CFG_MALLOC_F_ADDR		0x4AA80000 // -> Breaks U-Boot (NPU SRAM usage?)
 #define CFG_SPL_TEE_ADDR		0x8C000000
 
+#include <config_fus_bootcmd.h>
+/* Initial environment variables */
+#define CFG_EXTRA_ENV_SETTINGS		\
+	"arch=" CONFIG_SYS_BOARD "\0" 						\
+	"script=boot_script.scr\0"						\
+	"scriptaddr=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0" 			\
+	"kernel_addr_r=0x90400000\0"						\
+	"fdt_addr_r=0x93000000\0"						\
+	"fdt_addr=0x93000000\0"							\
+	"fdt_high=0xffffffffffffffff\0"						\
+	"set_bootfdt=setenv fdtfile ${platform}.dtb\0"				\
+	"fdtfile=undef\0" 							\
+	"cntr_addr_r=0xa8000000\0"						\
+	"cntr_loadaddr=0x94000000\0"						\
+	"bootcntrfile=os_cntr_signed.cntr\0" 					\
+	"splashimage=0xa0000000\0" 						\
+	"bootfile=Image\0" 							\
+	"prepare_mcore=setenv mcore_clk pd_ignore_unused;\0" 		\
+	"bootm_size=0x10000000\0" 						\
+	"mmcdev=" __stringify(CONFIG_SYS_MMC_ENV_DEV)"\0" 			\
+	"prefix=/\0"								\
+	"updatecheck=undef\0"							\
+	"installcheck=undef\0"							\
+	"recovercheck=undef\0"							\
+	FUS_BOOT_ENV								\
+	FUS_AHAB_ENV								\
+	FUS_AB_BOOT								\
+	MCORE_BOOT								\
+	FUS_LEGACY_BOOT								\
+	FUS_WIN_BOOT								\
+	".default_boot=setenv boot_targets fus_legacy "				\
+		"mmc0 mmc1 usb0 usb1;\0"					\
+	"boot_targets=fus_legacy mmc0 mmc1 usb0 usb1\0"
+
+/* Link Definitions */
+
+#define CFG_SYS_INIT_RAM_ADDR	0x90000000
+#define CFG_SYS_INIT_RAM_SIZE	0x200000
+
+#define CFG_SPL_FUS_EARLY_AHAB_BASE	CFG_SPL_ATF_ADDR
+
+#define CFG_SYS_SDRAM_BASE		0x90000000
+#define PHYS_SDRAM				0x90000000
+#define PHYS_SDRAM_SIZE			0x70000000 /* 2GB - 256MB DDR */
+
+#define CFG_SYS_SECURE_SDRAM_BASE	0x8A000000 /* Secure DDR region for A55, SPL could use first 2MB */
+#define CFG_SYS_SECURE_SDRAM_SIZE	0x06000000
+
 /* On boards with a running SM, eMMC is already configured in TRDC.
  * SPL has all rights to write to ATF and OPTee range, but USDHC
  * already lost access to it. The workaround is to define non secure
@@ -66,21 +114,10 @@
 #define CFG_SPL_ATF_SECURE_ADDR		0x8A200000
 #define CFG_SPL_TEE_SECURE_ADDR		0x8C000000
 
-#define CFG_SYS_INIT_RAM_ADDR	0x90000000
-#define CFG_SYS_INIT_RAM_SIZE	0x200000
-
-#define CFG_SYS_SDRAM_BASE		0x90000000
-#define PHYS_SDRAM				0x90000000
-
-#define PHYS_SDRAM_SIZE			0x70000000 /* 2GB - 256MB DDR */
-
-#define CFG_SYS_SECURE_SDRAM_BASE	0x8A000000 /* Secure DDR region for A55, SPL could use first 2MB */
-#define CFG_SYS_SECURE_SDRAM_SIZE	0x06000000
-
 #define WDOG_BASE_ADDR			WDG3_BASE_ADDR
 
 #ifdef CONFIG_ANDROID_SUPPORT
 #include "imx95_evk_android.h"
 #endif
 
-#endif
+#endif /* __FSIMX95_H */
