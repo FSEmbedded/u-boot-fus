@@ -174,6 +174,8 @@
 #include "fs_image_common.h"
 #include "fs_cntr_common.h"
 
+#define FUS_CNTR_ALIGNMENT 0x400
+
 struct ram_info_t {
 	const char *type;
 	const char *timing;
@@ -408,7 +410,7 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 		goto free_cntr;
 	}
 
-	if (cntr->tag != 0x87 || cntr->version != 0x0) {
+	if (!valid_container_hdr(cntr)) {
 		printf("Wrong container header\n");
 		ret = -ENOENT;
 		goto free_cntr;
@@ -611,6 +613,7 @@ static int __maybe_unused fs_cntr_load_single_image(struct spl_image_info *image
 
 	if (!image)
 		return -EINVAL;
+
 	image_info->load_addr = image->dst;
 	image_info->entry_point = image->entry;
 	image_info->size = image->size;
@@ -925,7 +928,7 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	fsh = fsh_info->fsh;
 	load_info = fsh_info->load_info;
 
-	offset = roundup(fsh_info->offset, CONTAINER_HDR_ALIGNMENT);
+	offset = roundup(fsh_info->offset, FUS_CNTR_ALIGNMENT);
 	offset = ALIGN(offset, load_info->bl_len);
 	sector = offset / load_info->bl_len;
 
@@ -1066,7 +1069,7 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	fsh = fsh_info->fsh;
 	load_info = fsh_info->load_info;
 
-	offset = roundup(fsh_info->offset, CONTAINER_HDR_ALIGNMENT);
+	offset = roundup(fsh_info->offset, FUS_CNTR_ALIGNMENT);
 	offset = ALIGN(offset, load_info->bl_len);
 	sector = offset / load_info->bl_len;
 
@@ -1193,8 +1196,8 @@ static int fs_handle_dram(struct fsh_load_info *fsh_info, struct ram_info_t *ram
 	fsh = fsh_info->fsh;
 
 	/* State and file does not match */
-	if (!fs_image_match(fsh, "DRAM-INFO", NULL)){
-		debug("F&S HDR is not type DRAM-INFO.\n");
+	if (!fs_image_match(fsh, "DRAM-INFO", ram_info->type)){
+		debug("F&S HDR is not type DRAM-INFO (%s).\n", ram_info->type);
 		return -EINVAL;
 	}
 
@@ -1527,8 +1530,7 @@ static int load_uboot(struct spl_image_info *spl_image)
 	uboot_info = get_uboot_info();
 	load_info = uboot_info->load_info;
 
-	offset = uboot_info->offset;
-	offset = roundup(offset, CONTAINER_HDR_ALIGNMENT);
+	offset = roundup(uboot_info->offset, FUS_CNTR_ALIGNMENT);
 	offset = ALIGN(offset, load_info->bl_len);
 	sector = offset / load_info->bl_len;
 
