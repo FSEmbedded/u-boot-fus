@@ -202,12 +202,27 @@ struct buffer_t {
 static struct buffer_t g_buffer;
 
 #ifdef DEBUG
+static inline void debug_print_char(char *ptr, int n)
+{
+	int c;
+	printf(" [");
+	for(c = 0; c < n; c++){
+		if(ptr[c] > 0x20 && ptr[c] < 0x7e)
+			printf("%c", ptr[c]);
+		else
+			printf(".");
+	}
+	printf("]");
+}
+
 void debug_dump_mem(char *ptr, int size)
 {
 	int c;
 	for(c = 0; c < size; c++){
+		if (!(c % 16) && c != 0)
+			debug_print_char(&ptr[c-16], 16);
 		if (!(c % 16))
-			printf("\n%08x", c);
+			printf("\n%08x: ", c);
 		if(!(c % 4))
 			puts(" ");
 
@@ -514,32 +529,16 @@ int sdp_seek_continue(const struct sdp_stream_ops *stream_ops)
 	spl_load_init(&load_info, h_spl_load_read, blk_desc, blk_desc->blksz);
 
 	if (!offset){
-		struct container_hdr container;
-		struct boot_img_t boot_img;
+		offset = 0;
 
-		memset(&container, 0, sizeof(struct container_hdr));
+		/* arch_spl_mmc_get_uboot_raw_sector does not find uboot,
+		 * but next img (BOARD-ID) after boot-info
+		 */
+		offset = arch_spl_mmc_get_uboot_raw_sector(mmc, offset);
+		offset = offset * blk_desc->blksz;
 
-		/* Set offset to V2X(-DUMMY) container */
-		offset = 0x8000;
-
-		/* Load second container hdr */
-		spl_load_read_aligned(&load_info, offset, sizeof(struct container_hdr), &container);
-
-		/* V2X(-DUMMY) container has 4 images */
-		if (container.num_images == 4) {
-			uint bin_offset;
-
-			bin_offset = offset + sizeof(struct container_hdr);
-			bin_offset += (container.num_images - 1) * sizeof(struct boot_img_t);
-			spl_load_read_aligned(&load_info, bin_offset, sizeof(struct boot_img_t), &boot_img);
-
-			offset += boot_img.offset + boot_img.size;
-			spl_load_read_aligned(&load_info, offset, sizeof(struct container_hdr), &container);
-
-			/* Skip to F&S header before next alignment of 0x400 */
-			/* BOARD-ID & BOARD-INFO -> 0x400 - 2*0x40 = 0x380   */
-			offset += 0x380;
-		}
+		/* offset to BOARD-ID */
+		offset += 0x380;
 	}
 
 	spl_load_read_aligned(&load_info, offset, FSH_SIZE, &fsh);
