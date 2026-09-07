@@ -403,6 +403,18 @@ config SPL_SYS_MALLOC_SIMPLE
 	  this will make the SPL binary smaller at the cost of more heap
 	  usage as the *_simple malloc functions do not re-use free-ed mem.
 
+config SPL_SYS_FREE_SIMPLE
+    bool "Enable free_simple() with malloc_simple in SPL"
+    depends on SPL_SYS_MALLOC_SIMPLE
+    help
+        Select Y here to enable the free_simple() function alongside
+        malloc_simple in SPL. 
+
+        free_simple allows freeing the most recent heap allocation,
+        which helps save valuable heap memory during operations such
+        as firmware loading and configuration.
+
+
 config SPL_SHARES_INIT_SP_ADDR
 	bool "SPL and U-Boot use the same initial stack pointer location"
 	depends on (ARM || ARCH_JZ47XX || MICROBLAZE || RISCV) && SPL_FRAMEWORK

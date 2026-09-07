@@ -883,7 +883,7 @@ void malloc_disable_testing(void);
 #define malloc malloc_simple
 #define realloc realloc_simple
 #define memalign memalign_simple
-#if IS_ENABLED(CONFIG_VALGRIND)
+#if IS_ENABLED(CONFIG_VALGRIND) || CONFIG_IS_ENABLED(SYS_FREE_SIMPLE)
 #define free free_simple
 #else
 static inline void free(void *ptr) {}
@@ -939,6 +939,9 @@ int initf_malloc(void);
 /* Simple versions which can be used when space is tight */
 void *malloc_simple(size_t size);
 void *memalign_simple(size_t alignment, size_t bytes);
+#if CONFIG_IS_ENABLED(SYS_FREE_SIMPLE)
+void free_simple(void *ptr);
+#endif
 
 #pragma GCC visibility push(hidden)
 # if __STD_C

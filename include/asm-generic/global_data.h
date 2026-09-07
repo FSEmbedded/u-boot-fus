@@ -333,6 +333,12 @@ struct global_data {
 	 * @malloc_ptr: currently used bytes of early malloc()
 	 */
 	unsigned int malloc_ptr;
+#if CONFIG_IS_ENABLED(SYS_FREE_SIMPLE)
+	/**
+	 * @malloc_last_size: size of last early malloc() allocation
+	 */
+	unsigned int malloc_last_size;
+#endif
 #endif
 #ifdef CONFIG_CONSOLE_RECORD
 	/**

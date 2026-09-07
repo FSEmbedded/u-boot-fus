@@ -33,6 +33,9 @@ static void *alloc_simple(size_t bytes, int align)
 
 	ptr = map_sysmem(addr, bytes);
 	gd->malloc_ptr = ALIGN(new_ptr, sizeof(new_ptr));
+#if CONFIG_IS_ENABLED(SYS_FREE_SIMPLE)
+	gd->malloc_last_size = ALIGN(bytes, sizeof(new_ptr));
+#endif
 
 	return ptr;
 }
@@ -82,6 +85,17 @@ void *calloc(size_t nmemb, size_t elem_size)
 void free_simple(void *ptr)
 {
 	VALGRIND_FREELIKE_BLOCK(ptr, 0);
+}
+#elif CONFIG_IS_ENABLED(SYS_FREE_SIMPLE)
+void free_simple(void *ptr)
+{
+	ulong addr = (ulong)ptr;
+
+	if (addr == gd->malloc_base + gd->malloc_ptr - gd->malloc_last_size) {
+		log_debug("free 0x%lx\n, size = 0x%x", addr, gd->malloc_last_size);
+		unmap_sysmem(ptr);
+		gd->malloc_ptr -= gd->malloc_last_size;
+	}
 }
 #endif
 #endif
