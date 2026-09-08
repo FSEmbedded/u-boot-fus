@@ -38,6 +38,11 @@ int fs_cntr_load_board_id(void);
 bool cntr_image_check_sha(struct boot_img_t *img, void *blob);
 bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr);
 bool fs_cntr_is_signed(struct container_hdr *cntr);
+bool fs_cntr_is_nxp_signed(struct container_hdr *cntr);
+bool fs_cntr_is_oem_signed(struct container_hdr *cntr);
+bool fs_cntr_is_ele_fw(struct container_hdr *cntr);
+bool fs_cntr_is_v2x_fw(struct container_hdr *cntr);
+ulong fs_cntr_get_boot_cntr_size(struct container_hdr *cntr_hdr, uint *oem_offset);
 
 
 #endif /* !__FS_CNTR_COMMON_H__ */

@@ -176,6 +176,12 @@
 
 #define FUS_CNTR_ALIGNMENT 0x400
 
+#define IMX_IMG_TYPE_ELE_FW 	0x06   /* ELE-FW */
+#define IMX_IMG_TYPE_V2X_PRI_FW	0x0B   /* Primary V2X FW */
+#define IMX_IMG_TYPE_V2X_SND_FW	0x0C   /* Secondary V2X FW */
+#define IMX_IMG_CORE_V2X_PRI 9
+#define IMX_IMG_CORE_V2X_SND 10
+
 struct ram_info_t {
 	const char *type;
 	const char *timing;
@@ -234,6 +240,94 @@ bool fs_cntr_is_signed(struct container_hdr *cntr)
 {
 	/* CHECK CNTR FLAG SRK Set*/
 	return !!(cntr->flags & GENMASK(1,0) );
+}
+
+bool fs_cntr_is_nxp_signed(struct container_hdr *cntr)
+{
+	/* CHECK CNTR FLAG SRK Set*/
+	return (cntr->flags & GENMASK(1,0)) == 0x1;
+}
+
+bool fs_cntr_is_oem_signed(struct container_hdr *cntr)
+{
+	/* CHECK CNTR FLAG SRK Set*/
+	return (cntr->flags & GENMASK(1,0)) == 0x2;
+}
+
+bool fs_cntr_is_ele_fw(struct container_hdr *cntr)
+{
+	struct boot_img_t *img_entry;
+
+	if (!valid_container_hdr(cntr))
+		return false;
+
+	if (!fs_cntr_is_nxp_signed(cntr))
+		return false;
+
+	/* Check Image Flags for ELE */
+	img_entry = (struct boot_img_t *)((u8 *)cntr + sizeof(struct container_hdr));
+	if (!(img_entry->hab_flags & IMX_IMG_TYPE_ELE_FW))
+		return false;
+
+	return true;
+}
+
+bool fs_cntr_is_v2x_fw(struct container_hdr *cntr)
+{
+	struct boot_img_t *img_entry;
+
+	if (!valid_container_hdr(cntr))
+		return false;
+
+	if (!fs_cntr_is_nxp_signed(cntr))
+		return false;
+
+	/* Check Image Flags for V2X */
+	img_entry = (struct boot_img_t *)((u8 *)cntr + sizeof(struct container_hdr));
+	if (!(img_entry->hab_flags & IMX_IMG_TYPE_V2X_PRI_FW))
+		return false;
+
+	if(!(img_entry->hab_flags & IMX_IMG_CORE_V2X_PRI))
+		return false;
+
+	img_entry++;
+	if(!(img_entry->hab_flags & IMX_IMG_TYPE_V2X_SND_FW))
+		return false;
+
+	if(!(img_entry->hab_flags & IMX_IMG_CORE_V2X_SND))
+		return false;
+
+	return true;
+}
+
+ulong fs_cntr_get_boot_cntr_size(struct container_hdr *cntr_hdr, uint *oem_offset)
+{
+	struct container_hdr * phdr = cntr_hdr;
+	u32 hdr_length;
+	u32 offset;
+
+	if (!fs_cntr_is_ele_fw(phdr))
+		return 0;
+
+	hdr_length = phdr->length_lsb + (phdr->length_msb << 8);
+	offset = ALIGN(hdr_length, CONTAINER_HDR_ALIGNMENT);
+	phdr = (void *)cntr_hdr + offset;
+
+	if (fs_cntr_is_v2x_fw(phdr)){
+		hdr_length = phdr->length_lsb + (phdr->length_msb << 8);
+		offset += ALIGN(hdr_length, CONTAINER_HDR_ALIGNMENT);
+		phdr = (void *)cntr_hdr + offset;
+	}
+
+	if (!valid_container_hdr(phdr))
+		return 0;
+
+	if (oem_offset)
+		*oem_offset = offset;
+
+	offset += get_container_size((ulong)phdr, NULL);
+
+	return offset;
 }
 
 #ifdef __UBOOT__
