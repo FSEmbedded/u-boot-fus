@@ -411,8 +411,6 @@ bool fs_image_is_signed(struct fs_header_v1_0 *fsh)
 bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 {
 	struct container_hdr *cntr_hdr = (struct container_hdr *)(fsh + 1);
-	struct signature_block_hdr *sig_hdr;
-	unsigned int offset;
 
 	if(!valid_container_hdr(cntr_hdr)){
 		char type[MAX_TYPE_LEN + 1];
@@ -426,23 +424,27 @@ bool fs_image_is_valid_signature(struct fs_header_v1_0 *fsh)
 		return fs_cntr_is_valid_signature(cntr_hdr);
 
 	/**
-	 * BOOT-INFO image contains two bootcntr.
+	 * BOOT-INFO image contains multiple bootcntr.
 	 * One container contains the ELE-FW,
-	 * the second contains the SPL and optionally an M33_Image
+	 * the second contains V2X,
+	 * the third contains the OEM-Container with SPL, M33-FW, ...
 	 */
-	sig_hdr = (void *)cntr_hdr + cntr_hdr->sig_blk_offset;
-	offset = cntr_hdr->sig_blk_offset + sig_hdr->length_lsb + (sig_hdr->length_msb << 8);
-	offset = ALIGN(offset, CONTAINER_HDR_ALIGNMENT);
-	cntr_hdr = (void *)cntr_hdr + offset;
+	if(!fs_cntr_is_ele_fw(cntr_hdr))
+		return false;
+
+	cntr_hdr = (void *)cntr_hdr + CONTAINER_HDR_ALIGNMENT;
+
+	if(fs_cntr_is_v2x_fw(cntr_hdr))
+		cntr_hdr = (void *)cntr_hdr + CONTAINER_HDR_ALIGNMENT;
 
 	if(!valid_container_hdr(cntr_hdr)){
 		printf("No IMX-Container found!\n");
 		return false;
 	}
 
-	/* if second cntr is not signed then it is OK when board is OEM open */
-	if(!fs_cntr_is_signed(cntr_hdr) && !fs_board_is_closed()){
-		printf("NOTE: Second BOOT-CNTR is unsigned\n");
+	/* if oem cntr is not signed then it is OK when board is OEM open */
+	if(!fs_cntr_is_oem_signed(cntr_hdr) && !fs_board_is_closed()){
+		printf("NOTE: OEM BOOT-CNTR is unsigned\n");
 		return true;
 	}
 

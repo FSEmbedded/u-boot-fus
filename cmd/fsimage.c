@@ -154,6 +154,7 @@
 
 #include "../board/F+S/common/fs_board_common.h"	/* fs_board_*() */
 #include "../board/F+S/common/fs_image_common.h"	/* fs_image_*() */
+#include "../board/F+S/common/fs_cntr_common.h"
 #include "../board/F+S/common/fs_bootrom.h"
 #else
 #include <linux/kconfig.h>		/* Get kconfig macros only */
@@ -4536,6 +4537,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 	ulong ram_offset = addr;
 	uint size = 0x80000; // 512KiB
 	uint filesize;
+	uint oem_offset;
 	uint lim;
 	void *fdt;
 	int i;
@@ -4586,29 +4588,18 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart)
 	 * BOOT-INFO provides two Container.
 	 * search directly for the second container, which is 1KiB aligned
 	 */
-	for(i = 1; i < 8; i++)	{
-		cntr = (void *)(fsh + 1);
-		cntr = (void *)((ulong)cntr + (i * CONTAINER_HDR_ALIGNMENT));
-		debug("search imx_cntr at 0x%lx\n", (ulong)cntr);
-		if(valid_container_hdr(cntr))
-			break;
-	}
-
-	if(i >= 8){
-		fs_image_put_flash_info(&fi);
-		puts("Failed to find BOOT-INFO Container\n");
+	cntr = (void *)(fsh + 1);
+	filesize = fs_cntr_get_boot_cntr_size(cntr, &oem_offset);
+	if (!filesize)
 		return CMD_RET_FAILURE;
-	}
-	debug("found cntr at 0x%lx\n", (ulong)cntr);
-	filesize = i * CONTAINER_HDR_ALIGNMENT;
-	filesize += get_container_size((ulong)cntr, NULL);
+
 	filesize += 0x380; // PADDING TO NEXT FSH
 	img_entry = (struct boot_img_t *)((ulong)cntr + sizeof(struct container_hdr));
 
 	/* Update FSH and set Extra Data offset */
 	fs_image_update_header(fsh, filesize,
 			FSH_FLAGS_CRC32 | FSH_FLAGS_INDEX |FSH_FLAGS_EXTRA);
-	fsh->param.p32[7] = i * CONTAINER_HDR_ALIGNMENT;
+	fsh->param.p32[7] = oem_offset;
 	fsh->param.p32[7] += img_entry->offset;
 
 	/**
