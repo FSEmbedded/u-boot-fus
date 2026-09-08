@@ -19,7 +19,7 @@
  * 0x4AA3_C000: DRAM-FW              (320KB)    CFG_SPL_DRAM_FW_ADDR (max size from oei-ddr)
  * 0x4AA8_C000: Limit of Stack       (0KB)      End of DRAM-FW
  * 0x4AAE_6C00: Stack                (363KB)    CONFIG_SPL_STACK - MALLOC_F_LEN (descending)
- * 0x4AAE_6C00: MALLOC_F             (96KB)     CONFIG_SPL_STACK - MALLOC_F_LEN
+ * 0x4AAE_6C00: MALLOC_F             (128KB)     CONFIG_SPL_STACK - MALLOC_F_LEN
  * 0x4AAF_EC00: BSS                  (4KB)      CONFIG_SPL_BSS_START_ADDR / CONFIG_SPL_STACK
  * 0x4AAF_FC00: SDP loadbuffer       (1KB)      CONFIG_SDP_LOADADDR
  * 0x4AB0_0000: (end of SRAM)
