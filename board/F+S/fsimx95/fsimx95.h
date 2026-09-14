@@ -29,24 +29,55 @@
 			return 0;			\
 	}
 
-#define FEAT_EEPROM 	BIT(0)
+/* TODO: IN PREPARATION */
+#define FEAT_EMMC 	BIT(0)
 #define FEAT_EXT_RTC 	BIT(1)
-#define FEAT_USB_HUB	BIT(2)
-#define FEAT_ETH_PHY_A	BIT(3)
-#define FEAT_ETH_PHY_B	BIT(4)
-#define FEAT_TEMP	BIT(5)
-#define FEAT_SEC	BIT(6)
-#define FEAT_GPIO_EXP	BIT(7)
+#define FEAT_EEPROM	BIT(2)
+#define FEAT_ETH_A	BIT(3)
+#define FEAT_ETH_B	BIT(4)
+#define FEAT_ETH_PHY_A	BIT(5)
+#define FEAT_ETH_PHY_B	BIT(6)
+#define FEAT_AUDIO	BIT(7)
 #define FEAT_WLAN	BIT(8)
-#define FEAT_UART_C	BIT(9)
-#define FEAT_EDP	BIT(10)
-#define FEAT_AUDIO	BIT(11)
-#define FEAT_ADC_0	BIT(12)
-#define FEAT_ADC_1	BIT(13)
+#define FEAT_BT		BIT(9)
+#define FEAT_SDIO_A	BIT(10)
+#define FEAT_SDIO_B	BIT(11)
+#define FEAT_SDIO_C	BIT(12)
+#define FEAT_MIPI_DSI	BIT(13)
+#define FEAT_MIPI_CSI	BIT(14)
+#define FEAT_LVDS	BIT(15)
+#define FEAT_USB_HUB	BIT(16)
+#define FEAT_TEMP	BIT(17)
+#define FEAT_SEC	BIT(18)
+#define FEAT_GPIO_EXP	BIT(19)
+#define FEAT_EDP	BIT(20)
 
-/**
- *  TODO: WDOG PAD
- */
+/* SCMI Protocols */
+#define SCMI_BRD_FLAG 0x8000U
+/* IO_CTRLs */
+#define SCMI_FUS_MISC_IO_T_SENSE_EV       (0U)
+#define SCMI_FUS_MISC_IO_BATLOW           (1U)
+#define SCMI_FUS_MISC_IO_CHARGER_PRSNT    (2U)
+#define SCMI_FUS_MISC_IO_CHARGING         (3U)
+#define SCMI_FUS_MISC_IO_SMB_ALERT        (4U)
+#define SCMI_FUS_MISC_IO_TEST             (5U)
+#define SCMI_FUS_MISC_IO_SLEEP            (6U)
+#define SCMI_FUS_MISC_IO_LID              (7U)
+#define SCMI_FUS_MISC_IO_SEC_EN_IRQ       (8U)
+#define SCMI_FUS_MISC_IO_PCIe_A_WAKE      (9U)
+#define SCMI_FUS_MISC_IO_WLAN_WAKE_HOST   (10U)
+#define SCMI_FUS_MISC_IO_BT_WAKE_HOST     (11U)
+#define SCMI_FUS_MISC_IO_SN65DSI86_INT    (12U)
+#define SCMI_FUS_MISC_IO_RSTOUT           (13U)
+#define SCMI_FUS_MISC_IO_PCIE_PERST       (14U)
+#define SCMI_FUS_MISC_IO_ETH_A_PHY_RST    (15U)
+#define SCMI_FUS_MISC_IO_ETH_B_PHY_RST    (16U)
+
+/* MISC_CTRLs */
+#define SCMI_FUS_MISC_DDR_INIT        (17U)
+#define SCMI_FUS_MISC_RTC             (18U)
+#define SCMI_FUS_MISC_TEST            (19U)
+#define SCMI_FUS_MISC_TEST_A          (20U)
 
 enum fsimx95_board_types {
 	BT_FSSM95S,

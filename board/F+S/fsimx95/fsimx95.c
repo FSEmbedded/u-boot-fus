@@ -1,29 +1,35 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2025 NXP
- */
+* Copyright 2026 F&S Elektronik Systeme GmbH
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
 
+#include <command.h>
 #include <env.h>
-#include <efi_loader.h>
 #include <init.h>
 #include <mmc.h>
 #include <asm/global_data.h>
-#include <fdt_support.h>
-#include <asm/gpio.h>
+#include <asm/arch/sys_proto.h>
 #include <asm/arch/clock.h>
+#include <dm/device.h>
+#include <dm/uclass.h>
 #include <usb.h>
-#include "../common/tcpc.h"
 #include <dwc3-uboot.h>
-#include <linux/bitfield.h>
-#include <linux/bitops.h>
 #include <linux/delay.h>
 #include <power/regulator.h>
 #include <scmi_agent.h>
+#include <scmi_nxp_protocols.h>
 #include "../dts/upstream/src/arm64/freescale/imx95-power.h"
-#include <i2c.h>
-#include <asm/arch/sys_proto.h>
-#include <dm/uclass.h>
-#include <dm/uclass-internal.h>
+#include <asm/gpio.h>
+#include <fdt_support.h>
 #include <hang.h>
 
 #include "fsimx95.h"
@@ -93,7 +99,6 @@ const struct fs_board_info board_info[] = {
 
 /* ---- Stage 'f': RAM not valid, variables can *not* be used yet ---------- */
 
-#ifndef CONFIG_SPL_BUILD
 static int set_gd_board_type(void)
 {
 	struct fs_header_v1_0 *cfg_fsh;
@@ -176,140 +181,70 @@ static void fs_setup_cfg_info(void)
 	info->flags = flags;
 
 	features = 0;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
-		features |= FEAT_EEPROM;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
+		features |= FEAT_EMMC;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
 		features |= FEAT_EXT_RTC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-usb-hub", NULL))
-		features |= FEAT_USB_HUB;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
+		features |= FEAT_EEPROM;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
+		features |= FEAT_ETH_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
+		features |= FEAT_ETH_B;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
 		features |= FEAT_ETH_PHY_A;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
 		features |= FEAT_ETH_PHY_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
+		features |= FEAT_AUDIO;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
+		features |= FEAT_WLAN;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-bt", NULL))
+		features |= FEAT_BT;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
+		features |= FEAT_SDIO_A;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
+		features |= FEAT_SDIO_B;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-sdio-c", NULL))
+		features |= FEAT_SDIO_C;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
+		features |= FEAT_MIPI_DSI;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
+		features |= FEAT_MIPI_CSI;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
+		features |= FEAT_LVDS;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-usb-hub", NULL))
+		features |= FEAT_USB_HUB;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL))
 		features |= FEAT_TEMP;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-sec", NULL))
 		features |= FEAT_SEC;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-gpio-exp", NULL))
 		features |= FEAT_GPIO_EXP;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
-		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-uart-c", NULL))
-		features |= FEAT_UART_C;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-edp", NULL))
 		features |= FEAT_EDP;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
-		features |= FEAT_AUDIO;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-adc-0", NULL))
-		features |= FEAT_ADC_0;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-adc-1", NULL))
-		features |= FEAT_ADC_1;
 
 	info->features = features;
 }
-#endif
 
-#if CONFIG_IS_ENABLED(EFI_HAVE_CAPSULE_SUPPORT)
-#define IMX_BOOT_IMAGE_GUID \
-	EFI_GUID(0x2c4db6b3, 0x0b15, 0x4a36, 0xbe, 0xae, \
-		 0x1e, 0xa1, 0x35, 0x46, 0x4f, 0x5b)
-
-struct efi_fw_image fw_images[] = {
-	{
-		.image_type_id = IMX_BOOT_IMAGE_GUID,
-		.fw_name = u"IMX95-EVK-RAW",
-		.image_index = 1,
-	},
-};
-
-struct efi_capsule_update_info update_info = {
-	.dfu_string = "mmc 0=flash-bin raw 0 0x2000 mmcpart 1",
-	.num_images = ARRAY_SIZE(fw_images),
-	.images = fw_images,
-};
-#endif /* EFI_HAVE_CAPSULE_SUPPORT */
-
-#ifndef CONFIG_SPL_BUILD
 int board_early_init_f(void)
 {
 	fs_setup_cfg_info();
 
-	/* UART1: A55, UART2: M33, UART3: M7 */
-	init_uart_clk(0);
+	switch(gd->board_type) {
+		case BT_FSSM95S:
+			init_uart_clk(0);
+			break;
+		case BT_PICOCOREMX95:
+			init_uart_clk(0);
+			break;
+		default:
+			return -EINVAL;
+			break;
+	}
 
 	return 0;
 }
-#endif
-
-#ifdef CONFIG_USB_TCPC
-struct tcpc_port port;
-#ifdef CONFIG_TARGET_IMX95_15X15_EVK
-struct tcpc_port portpd;
-struct tcpc_port_config port_config = {
-	.i2c_bus = 2, /* i2c3 */
-	.addr = 0x50,
-	.port_type = TYPEC_PORT_DRP,
-	.disable_pd = true,
-};
-
-struct tcpc_port_config portpd_config = {
-	.i2c_bus = 2, /*i2c3*/
-	.addr = 0x52,
-	.port_type = TYPEC_PORT_UFP,
-	.max_snk_mv = 20000,
-	.max_snk_ma = 3000,
-	.max_snk_mw = 15000,
-	.op_snk_mv = 9000,
-};
-#else
-struct tcpc_port_config port_config = {
-	.i2c_bus = 6, /* i2c7 */
-	.addr = 0x50,
-	.port_type = TYPEC_PORT_DRP,
-	.disable_pd = true,
-};
-#endif
-
-ulong tca_base;
-
-void tca_mux_select(enum typec_cc_polarity pol)
-{
-	u32 val;
-
-	if (!tca_base)
-		return;
-
-	/* Set OP mode to System configure Mode */
-	clrbits_le32(tca_base + 0x10, 0x3);
-
-	val = readl(tca_base + 0x30);
-
-	setbits_le32(tca_base + 0x18, BIT(3));
-	udelay(1);
-
-	if (pol == TYPEC_POLARITY_CC1)
-		clrbits_le32(tca_base + 0x18, BIT(2));
-	else
-		setbits_le32(tca_base + 0x18, BIT(2));
-
-	udelay(1);
-
-	clrbits_le32(tca_base + 0x18, BIT(3));
-}
-
-static void setup_typec(void)
-{
-	tca_base = USB1_BASE_ADDR + 0xfc000;
-
-	switch (gd->board_type)
-	{
-	case BT_FSSM95S:
-		break;
-	default:
-		break;
-	}
-}
-#endif
 
 static int imx9_scmi_power_domain_enable(u32 domain, bool enable)
 {
@@ -323,39 +258,7 @@ static int imx9_scmi_power_domain_enable(u32 domain, bool enable)
 	return scmi_pwd_state_set(dev, 0, domain, enable ? 0 : BIT(30));
 }
 
-int board_usb_init(int index, enum usb_init_type init)
-{
-	int ret = 0;
-
-	if (index == 0 && init == USB_INIT_DEVICE) {
-#ifdef CONFIG_USB_TCPC
-		ret = tcpc_setup_ufp_mode(&port);
-		if (ret)
-			return ret;
-#endif
-	} else if (index == 0 && init == USB_INIT_HOST) {
-#ifdef CONFIG_USB_TCPC
-		ret = tcpc_setup_dfp_mode(&port);
-#endif
-		return ret;
-	}
-
-	return 0;
-}
-
-int board_usb_cleanup(int index, enum usb_init_type init)
-{
-	int ret = 0;
-	if (index == 0 && init == USB_INIT_HOST) {
-#ifdef CONFIG_USB_TCPC
-		ret = tcpc_disable_src_vbus(&port);
-#endif
-	}
-
-	return ret;
-}
-
-static void netc_phy_rst(const char *gpio_name, const char *label)
+static void netc_phy_rst_io(const char *gpio_name, const char *label)
 {
 	int ret;
 	struct gpio_desc desc;
@@ -386,6 +289,58 @@ static void netc_phy_rst(const char *gpio_name, const char *label)
 	udelay(100000);
 }
 
+static int scmi_brd_ctrlset(uint32_t ctrlId, uint32_t numval, uint32_t *val)
+{
+	struct udevice *dev;
+	struct scmi_imx_misc_control_set_in msg_in = { 0 };
+	s32 status = 0;
+	struct scmi_msg msg = SCMI_MSG_IN(SCMI_PROTOCOL_ID_IMX_MISC, \
+										SCMI_IMX_MISC_CONTROL_SET, \
+										msg_in, status);
+	int i, ret;
+
+	ret = uclass_get_device_by_name(UCLASS_CLK, "protocol@14", &dev);
+	if (ret) {
+		printf("%s: Failed to get udev\n", __func__);
+		return ret;
+	}
+
+	if (numval >= MISC_MAX_VAL_T)
+		return -EINVAL;
+
+	msg_in.ctrlid = SCMI_BRD_FLAG | ctrlId;
+	msg_in.numval = numval;
+	for (i = 0; i < numval; i++)
+		msg_in.val[i] = val[i];
+
+	ret = devm_scmi_process_msg(dev, &msg);
+	if (ret != 0 || status != 0) {
+		printf("ERROR: Failed to set SCMI Control %d\n", ctrlId);
+		printf("ret = %d, status=%d\n", ret, status);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void netc_phy_rst_scmi(void) {
+	uint32_t value;
+
+	/* Perform Phy Reset */
+	value = 0;
+	scmi_brd_ctrlset(SCMI_FUS_MISC_IO_ETH_A_PHY_RST, 1, &value);
+	scmi_brd_ctrlset(SCMI_FUS_MISC_IO_ETH_B_PHY_RST, 1, &value);
+
+	udelay(10000);
+
+	value = 1;
+	scmi_brd_ctrlset(SCMI_FUS_MISC_IO_ETH_A_PHY_RST, 1, &value);
+	scmi_brd_ctrlset(SCMI_FUS_MISC_IO_ETH_B_PHY_RST, 1, &value);
+
+	/* Wait 100ms before accessing MDIO registers */
+	udelay(100000);
+}
+
 void netc_init(void)
 {
 	int ret;
@@ -404,82 +359,32 @@ void netc_init(void)
 	switch (gd->board_type)
 	{
 	case BT_FSSM95S:
-		netc_phy_rst("gpio@21_5", "eth_a_phy_rst");
-		netc_phy_rst("gpio@21_6", "eth_b_phy_rst");
+		netc_phy_rst_io("gpio@21_5", "eth_a_phy_rst");
+		netc_phy_rst_io("gpio@21_6", "eth_b_phy_rst");
+		break;
+	case BT_PICOCOREMX95:
+		netc_phy_rst_scmi();
 		break;
 	default:
 		break;
 	}
 }
 
-static void flexspi_nor_steup(void)
+void fs_ethaddr_init(void)
 {
-	struct gpio_desc desc;
-	int ret;
+	int eth_id = 0;
 
-	if (!IS_ENABLED(CONFIG_TARGET_IMX95_15X15_EVK))
-		return;
-
-	/* Power cycle the M2 3V3 */
-	ret = dm_gpio_lookup_name("gpio@22_10", &desc);
-	if (ret)
-		return;
-
-	ret = dm_gpio_request(&desc, "M2_PWREN");
-	if (ret)
-		return;
-
-	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT);
-	dm_gpio_set_value(&desc, 0);
-	udelay(100000);
-	dm_gpio_set_value(&desc, 1);
-
-	/* Enable 1.8V LDO */
-	ret = dm_gpio_lookup_name("gpio@22_11", &desc);
-	if (ret)
-		return;
-
-	ret = dm_gpio_request(&desc, "M2_DIS1");
-	if (ret)
-		return;
-
-	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT);
-	dm_gpio_set_value(&desc, 1);
-
-	/* Deassert M2_SD3_nRST */
-	ret = dm_gpio_lookup_name("GPIO5_9", &desc);
-	if (ret)
-		return;
-
-	ret = dm_gpio_request(&desc, "M2_SD3_nRST");
-	if (ret)
-		return;
-
-	dm_gpio_set_dir_flags(&desc, GPIOD_IS_OUT);
-	dm_gpio_set_value(&desc, 1);
-}
-
-void lvds_backlight_on(void)
-{
-	struct udevice *dev;
-	int ret;
-	u8 reg;
-
-	if (!IS_ENABLED(CONFIG_TARGET_IMX95_15X15_EVK))
-		return;
-
-	ret = i2c_get_chip_for_busnum(2, 0x62, 1, &dev);
-	if (ret) {
-		printf("%s: Cannot find pca9632 led dev\n",
-		       __func__);
-		return;
+	/* Set MAC addresses as environment variables */
+	switch (gd->board_type)
+	{
+	case BT_FSSM95S:
+	case BT_PICOCOREMX95:
+		fs_eth_set_ethaddr(eth_id++);
+		fs_eth_set_ethaddr(eth_id++);
+		break;
+	default:
+		break;
 	}
-
-	reg = 1;
-	dm_i2c_write(dev, 0x1, &reg, 1);
-
-	reg = 5;
-	dm_i2c_write(dev, 0x8, &reg, 1);
 }
 
 int board_init(void)
@@ -494,17 +399,9 @@ int board_init(void)
 	imx9_scmi_power_domain_enable(IMX95_PD_DISPLAY, false);
 	imx9_scmi_power_domain_enable(IMX95_PD_CAMERA, false);
 
-#if defined(CONFIG_USB_TCPC)
-	setup_typec();
-#endif
-
 	netc_init();
 
-	flexspi_nor_steup();
-
 	//power_on_m7("mx95evkrpmsg");
-
-	lvds_backlight_on();
 
 	/* Copy NBoot args to variables and prepare command prompt string */
 	fs_board_init_common(&board_info[gd->board_type]);
@@ -548,22 +445,6 @@ void board_late_mmc_env_init(void)
 	run_command(cmd, 0);
 }
 
-void fs_ethaddr_init(void)
-{
-	int eth_id = 0;
-
-	/* Set MAC addresses as environment variables */
-	switch (gd->board_type)
-	{
-	case BT_FSSM95S:
-		fs_eth_set_ethaddr(eth_id++);
-		fs_eth_set_ethaddr(eth_id++);
-		break;
-	default:
-		break;
-	}
-}
-
 int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
@@ -578,12 +459,8 @@ int board_late_init(void)
 
 	fs_image_set_board_id_from_cfg();
 
-	if (IS_ENABLED(CONFIG_ENV_IS_IN_MMC))
-		board_late_mmc_env_init();
-
-	env_set("sec_boot", "no");
-#ifdef CONFIG_AHAB_BOOT
-	env_set("sec_boot", "yes");
+#if CONFIG_IS_ENABLED(ENV_IS_IN_MMC)
+	board_late_mmc_env_init();
 #endif
 
 	if(board_fdt)
@@ -598,6 +475,20 @@ int board_late_init(void)
 	/* Skip autoboot during USB-Boot*/
 	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
 		env_set_ulong("bootdelay", 0);
+
+#if !CONFIG_IS_ENABLED(FUS_FORCE_DEFAULT_BOOTDELAY)
+	/* Disable Shell access, if board is closed*/
+	if(fs_board_is_closed()){
+
+		env_set_ulong("bootdelay", -2);
+		/* TODO: Maybe check images within all boot commands? */
+		if (boot_dev == USB_BOOT || boot_dev == USB2_BOOT){
+			printf("WARNING: USB Boot detected on closed board!\n");
+			printf("\tEnable FASTBOOT access with CONFIG_FUS_FORCE_DEFAULT_BOOTDELAY\n");
+			hang();
+		}
+	}
+#endif
 
 #ifdef CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG
 	char brev[MAX_DESCR_LEN] = {0};
@@ -655,7 +546,6 @@ int ft_board_setup(void *blob, struct bd_info *bd)
 void board_quiesce_devices(void)
 {
 	int ret;
-	struct uclass *uc_dev;
 
 	ret = imx9_scmi_power_domain_enable(IMX95_PD_HSIO_TOP, false);
 	if (ret) {
@@ -668,12 +558,6 @@ void board_quiesce_devices(void)
 		printf("%s: Failed for NETC MIX: %d\n", __func__, ret);
 		return;
 	}
-
-	ret = uclass_get(UCLASS_SPI_FLASH, &uc_dev);
-	if (uc_dev)
-		ret = uclass_destroy(uc_dev);
-	if (ret)
-		printf("couldn't remove SPI FLASH devices\n");
 }
 
 #if IS_ENABLED(CONFIG_OF_BOARD_FIXUP)

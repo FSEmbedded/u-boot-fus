@@ -38,7 +38,6 @@
 #include "fsimx95.h"
 
 DECLARE_GLOBAL_DATA_PTR;
-#define BRD_SM_CTRL_DDR_INIT	17U
 
 __maybe_unused static struct udevice *scmi_dev;
 
@@ -117,7 +116,7 @@ static int scmi_ddr_init(void)
 
 	numVal = sizeof(struct ddr_init_params) / sizeof(uint32_t);
 
-	msg_in.ctrlId = 0x8000 + BRD_SM_CTRL_DDR_INIT;
+	msg_in.ctrlId = SCMI_BRD_FLAG | SCMI_FUS_MISC_DDR_INIT;
 	msg_in.addr = 0x0;
 	msg_in.len = numVal;
 	msg_in.numVal = numVal;
