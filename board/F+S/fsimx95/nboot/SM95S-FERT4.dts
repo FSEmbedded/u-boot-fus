@@ -31,16 +31,24 @@
 		fuse-value =    <0x2000000a>;
 
 		/* Common board features */
-		have-eeprom;
+		have-emmc;
 		have-ext-rtc;
-		have-usb-hub;
+		have-eeprom;
+		have-eth-a;
+		have-eth-b;
 		have-eth-phy-a;
 		have-eth-phy-b;
+		have-wlan;
+		//have-bt;
+		// have-sdio-a;
+		have-sdio-b;
+		have-mipi-dsi;
+		have-mipi-csi;
+		have-lvds;
+		have-usb-hub;
 		have-temp;
 		have-sec;
 		have-gpio-exp;
-		have-wlan;
-		have-uart-c;
 		have-edp;
 	};
 };

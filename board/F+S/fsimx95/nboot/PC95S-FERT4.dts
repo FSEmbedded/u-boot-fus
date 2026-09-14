@@ -18,7 +18,7 @@
 
 		/* DRAM: B.ICDRAM.60 */
 		dram-type = "lpddr4x";
-		dram-timing = "lpddr4x_pc_4g4266m2ch1cs";
+		dram-timing = "lpddr4x_pc_4g4000m2ch2cs";
 		dram-size = <0x1000>;		/* In MiB */
 		dram-chips = <1>;
 
@@ -31,12 +31,18 @@
 		fuse-value =    <0x2000000a>;
 
 		/* Common board features */
+		have-emmc;
 		have-ext-rtc;
+		have-eeprom;
+		have-eth-a;
+		have-eth-b;
 		have-eth-phy-a;
 		have-eth-phy-b;
-		have-eeprom;
 		have-audio;
-		have-adc-0;
-		have-adc-1;
+		have-sdio-a;
+		have-sdio-b;
+		have-mipi-dsi;
+		have-mipi-csi;
+		have-lvds;
 	};
 };
