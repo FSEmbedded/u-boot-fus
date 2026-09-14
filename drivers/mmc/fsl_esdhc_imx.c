@@ -792,7 +792,8 @@ static int esdhc_set_voltage(struct mmc *mmc)
 		if (priv->vs18_enable)
 			return -ENOTSUPP;
 		if (CONFIG_IS_ENABLED(DM_REGULATOR) &&
-		    !IS_ERR_OR_NULL(priv->vqmmc_dev)) {
+		    !IS_ERR_OR_NULL(priv->vqmmc_dev) &&
+			regulator_get_value(priv->vqmmc_dev) != 3300000) {
 			ret = regulator_set_value(priv->vqmmc_dev,
 						  3300000);
 			if (ret) {
@@ -810,7 +811,8 @@ static int esdhc_set_voltage(struct mmc *mmc)
 		return -EAGAIN;
 	case MMC_SIGNAL_VOLTAGE_180:
 		if (CONFIG_IS_ENABLED(DM_REGULATOR) &&
-		    !IS_ERR_OR_NULL(priv->vqmmc_dev)) {
+		    !IS_ERR_OR_NULL(priv->vqmmc_dev) &&
+			regulator_get_value(priv->vqmmc_dev) != 1800000) {
 			ret = regulator_set_value(priv->vqmmc_dev,
 						  1800000);
 			if (ret) {
