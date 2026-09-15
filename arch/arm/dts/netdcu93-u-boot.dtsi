@@ -121,6 +121,10 @@
 	/delete-property/ gpio-line-names;
 };
 
+&fsbus {
+	status = "disabled";
+};
+
 &ndcu_uart_c {
 	bootph-pre-ram;
 	bootph-some-ram;
