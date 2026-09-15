@@ -1,6 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2026 F+S
+ * Copyright (C) 2026 F&S Elektronik Systeme GmbH
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include "imx95-u-boot.dtsi"
@@ -9,53 +13,19 @@
 	/* F&S specific layout, so delete NXP binman node */
 	/delete-node/ binman;
 
-	binman {
-		multiple-images;
-
-		imx-boot {
-			filename = "flash.bin";
-			pad-byte = <0x00>;
-
-			spl {
-				type = "nxp-imx9image";
-				cfg-path = "spl/u-boot-spl.cfgout";
-				args;
-
-#ifndef CONFIG_IMX95_A0
-				cntr-version = <2>;
-#endif
-				boot-from = "sd";
-				soc-type = "IMX9";
-#ifdef CONFIG_IMX95_A0
-				append = "board/F+S/NXP-Firmware/fsimx95/mx95a0-ahab-container.img";
-#else
-				append = "board/F+S/NXP-Firmware/fsimx95/mx95b0-ahab-container.img";
-#endif
-				container;
-#ifndef CONFIG_IMX95_A0
-				dummy-ddr;
-#endif
-
-				image0 = "m33", "board/F+S/NXP-Firmware/fsimx95/m33_image.bin", "0x1ffc0000";
-				image1 = "a55", "spl/u-boot-spl.bin", "0x20480000";
-				dummy-v2x = <0x4aa00000>;
-			};
-		};
-	};
-
 	aliases {
 		pci0 = &netc_bus0;
 		pci1 = &netc_bus1;
 		usb0 = &usb3_dwc3;
 		usb1 = &usb2;
 		usb_gadget0 = &usb3_dwc3;
-		usb_gadget1 = &usbg2;
+		usb_gadget1 = &usbg_otg;
 	};
 
-	usbg2: usbg2 {
+	usbg_otg: usbg2 {
 		compatible = "fsl,imx27-usb-gadget";
 		dr_mode = "peripheral";
-		chipidea,usb = <&usb2>;
+		chipidea,usb = <&fs_usb_otg>;
 		bootph-pre-ram;
 		status = "okay";
 	};
