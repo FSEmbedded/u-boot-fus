@@ -178,7 +178,7 @@ int board_early_init_f(void)
 			init_uart_clk(0);
 			break;
 		case BT_PICOCOREMX95:
-			init_uart_clk(0);
+			init_uart_clk(6);
 			break;
 		default:
 			return -EINVAL;
