@@ -18,7 +18,7 @@
 
 		/* DRAM: B.ICDRAM.60 */
 		dram-type = "lpddr4x";
-		dram-timing = "lpddr4x_pc_4g4000m2ch2cs";
+		dram-timing = "lpddr4x_pc_4g2400m2ch2cs";
 		dram-size = <0x1000>;		/* In MiB */
 		dram-chips = <1>;
 
