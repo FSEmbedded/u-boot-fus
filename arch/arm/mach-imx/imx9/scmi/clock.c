@@ -33,6 +33,20 @@ void init_uart_clk(u32 index)
 {
 	u32 clock_id;
 
+	/*
+	 * NOTE:
+	 * Disable all UART-CLKs.
+	 * The ATF will select its UART with activ clock.
+	 */
+	imx_clk_scmi_enable(SCMI_CLK(LPUART1), false);
+	// imx_clk_scmi_enable(SCMI_CLK(LPUART2), false); //SM
+	imx_clk_scmi_enable(SCMI_CLK(LPUART3), false);
+	imx_clk_scmi_enable(SCMI_CLK(LPUART4), false);
+	imx_clk_scmi_enable(SCMI_CLK(LPUART5), false);
+	imx_clk_scmi_enable(SCMI_CLK(LPUART6), false);
+	imx_clk_scmi_enable(SCMI_CLK(LPUART7), false);
+	imx_clk_scmi_enable(SCMI_CLK(LPUART8), false);
+
 	switch (index) {
 	case 0:
 		clock_id = SCMI_CLK(LPUART1);
@@ -43,12 +57,26 @@ void init_uart_clk(u32 index)
 	case 2:
 		clock_id = SCMI_CLK(LPUART3);
 		break;
+	case 3:
+		clock_id = SCMI_CLK(LPUART4);
+		break;
+	case 4:
+		clock_id = SCMI_CLK(LPUART5);
+		break;
+	case 5:
+		clock_id = SCMI_CLK(LPUART6);
+		break;
+	case 6:
+		clock_id = SCMI_CLK(LPUART7);
+		break;
+	case 7:
+		clock_id = SCMI_CLK(LPUART8);
+		break;
 	default:
 		return;
 	}
 
 	/* 24MHz */
-	imx_clk_scmi_enable(clock_id, false);
 	imx_clk_scmi_set_parent(clock_id, SCMI_CLK(24M));
 	imx_clk_scmi_set_rate(clock_id, 24000000);
 	imx_clk_scmi_enable(clock_id, true);
