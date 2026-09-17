@@ -9,29 +9,16 @@ include spl/include/autoconf.mk
 # NBoot version with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_VERSION = 2024.06.6-Selftest
+NBOOT_VERSION = 2024.06.7-Selftest
 
 # List of files to add to BOARD-CONFIGS image. The file name depends on the
-# names given in the Selectsoft WaWi for the board and the PCB revision. The
-# format is:
+# names given in the Selectsoft WaWi for the board, without the PCB revision.
+# The format is:
 #
-#   <board>-FERT<n>.<rev>.fs
+#   <board>-FERT<n>.fs
 #
 # <board>: Name of the board
 # <n>:     Subtype of board (i.e. mounting variant)
-# <rev>:   Revision number, typically the PCB revision 100, 110, 120, etc.
-#
-# Group by <board> and <n>, then within each group sort by *descending* <rev>
-# number, i.e. add new revisions in front of the list. The first configuration
-# where <board> and <n> match and where <rev> is less than or equal to the
-# <rev> of the BOARD-ID is selected. This is because not every new board
-# revision needs a new software configuration. And a board with a new board
-# revision that does not have a its own configuration yet can at least be
-# started with an older configuration.
-#
-# For example assume for a certain board type, there are BOARD-CFGs with
-# revisions .130, .120 and .100. Boards with revision .121 or .120 in their
-# BOARD-ID would both select .120, a board with .110 would select .100.
 BOARD_CONFIGS = \
 	PCoreMX8MP-FERT1.fs \
 	PCoreMX8MP-FERT2.fs \
@@ -60,6 +47,10 @@ BOARD_CONFIGS = \
 	PCoreMX8MPr2-FERT18.fs \
 	PCoreMX8MPr2-FERT20.fs \
 	PCoreMX8MPr2-FERT21.fs \
+	PCoreMX8MPr2-FERT22.fs \
+	PCoreMX8MPr2-FERT23.fs \
+	PCoreMX8MPr2-FERT24.fs \
+	PCoreMX8MPr2-FERT25.fs \
 	armStoneMX8MP-FERT0.fs \
 	armStoneMX8MP-FERT2.fs \
 	armStoneMX8MP-FERT4.fs \
@@ -73,6 +64,7 @@ BOARD_CONFIGS = \
 	armStoneMX8MP-FERT24.fs \
 	armStoneMX8MP-FERT26.fs \
 	armStoneMX8MP-FERT27.fs \
+	armStoneMX8MP-FERT28.fs \
 	armStoneMX8MPr2-FERT4.fs \
 	efusMX8MP-FERT3.fs \
 	efusMX8MP-FERT4.fs \
@@ -89,6 +81,7 @@ BOARD_CONFIGS = \
 RT_DDR3L :=
 RT_LPDDR4 := \
 	lpddr4_as_4g1500m2ch2cs_timing.fs \
+	lpddr4_as_4g1600m2ch2cs_nanya_timing.fs \
 	lpddr4_as_2g1600m2ch1cs_timing.fs \
 	lpddr4_as_1g2000m2ch1cs_timing.fs \
 	lpddr4_as_1g1800m2ch1cs_timing.fs \

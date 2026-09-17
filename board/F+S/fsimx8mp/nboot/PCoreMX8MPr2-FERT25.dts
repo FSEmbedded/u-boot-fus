@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 F&S Elektronik Systeme GmbH
+ * Copyright (C) 2026 F&S Elektronik Systeme GmbH
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -8,15 +8,13 @@
 
 /dts-v1/;
 
-#include ".nboot-info-mmc.dtsi.tmp"
+#include "nboot-info.dtsi"
 
 / {
 	board-cfg {
-		board-cfg-version = <1>;	/* Increment on changes */
 		board-name = "PicoCoreMX8MPr2";
-		board-rev = <110>;		/* Rev 1.10 */
 
-		/* DRAM: 2GB Nanja B.ICDRAM.39 */
+		/* DRAM: 2GB Nanya B.ICDRAM.39 */
 		dram-type = "lpddr4";
 		dram-timing = "lpddr4_pc_2g1300m2ch1cs";
 		dram-size = <0x800>;		/* In MiB */
@@ -30,16 +28,17 @@
 		fuse-mask =     <0x1000fe00 0xfffdffff 0x0000003f>;
 		fuse-value =    <0x10002000 0x00000000 0x00000000>;
 
-		/* Board Features */
+		/* Common board features */
+		board-rev = <110>;
 		//have-nand;
 		have-emmc;
 		have-audio;
 		have-eth-phy;
-		have-wlan;
-		have-mipi-dsi;
-		//have-hdmi;
+		//have-wlan;
+		//have-mipi-dsi;
+		have-hdmi;
 		have-ext-rtc;
-		//have-security;
+		have-security;
 		have-eeprom;
 	};
 };
