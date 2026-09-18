@@ -27,7 +27,7 @@ include board/$(VENDOR)/common/fus-common.mk
 # NBoot suffix with year and month. Please update for every release. If there
 # needs to be more than one release within a month, add .1, .2, .3, ..., e.g.
 # 2021.03.2 for the third release in March 2021.
-NBOOT_SUFFIX = 2025.09
+NBOOT_SUFFIX = 2026.09.1
 
 # Image type for mkimage
 MKIMAGE_TYPE = imx8image
@@ -43,7 +43,7 @@ MKIMAGE_TYPE = imx8image
 # 1. u-boot-spl.bin -> (cp) -> fsimx95_SPL.fsi
 # 1. fsimx95_SPL.fsi -> (fsc) -> boot_info.fs
 
-$(obj)/%_SM.fsi: $(NXP_PATH)/m33_image.bin
+$(obj)/%_SM.fsi: $(srctree)/board/$(BOARDDIR)/m33_image.bin
 	$(call cmd,copy)
 
 $(obj)/%_SPL.fsi: spl/u-boot-spl.bin
