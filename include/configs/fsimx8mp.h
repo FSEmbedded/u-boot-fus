@@ -218,6 +218,7 @@
  */
 #define BOOT_SYSTEM							\
 	".init_fs_updater=setenv init init=/sbin/preinit.sh\0"		\
+	"use_ab=1\0"							\
 	"BOOT_ORDER=A B\0"						\
 	"BOOT_ORDER_OLD=A B\0"						\
 	"BOOT_A_LEFT=3\0"						\
