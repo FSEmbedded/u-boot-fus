@@ -258,7 +258,7 @@
  */
 #define BOOT_MODE_DISPATCH						\
 	"select_boot_mode="                         \
-		"if test -n \"${use_ab}\"; then "           \
+		"if test \"x${use_ab}\" = x1; then "        \
 			"run .init_fs_updater selector; "   \
 			"if test -z \"${boot_failed}\"; then "\
 				"run set_bootargs kernel fdt; "	\
