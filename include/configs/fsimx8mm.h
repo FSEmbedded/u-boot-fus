@@ -193,7 +193,7 @@
 #define BOOT_FROM_NAND							\
 	".mtdparts_std_ab=setenv mtdparts " MTDPARTS_DEFAULT_AB "\0"	\
 	".mtdparts_std_noab=setenv mtdparts " MTDPARTS_DEFAULT "\0"	\
-	".mtdparts_std=if test -n ${use_ab}; then "			\
+	".mtdparts_std=if test x${use_ab} = x1; then "			\
 		"run .mtdparts_std_ab; "				\
 	"else "								\
 		"run .mtdparts_std_noab; "				\
@@ -211,7 +211,7 @@
 	  MTDPARTS_1 MTDPARTS_2_U MTDPARTS_4 "\0"                       \
 	".mtdparts_ubionly_noab=setenv mtdparts mtdparts="              \
 	  MTDPARTS_1 MTDPARTS_2 MTDPARTS_4 "\0"                         \
-	".mtdparts_ubionly=if test -n ${use_ab}; then "			\
+	".mtdparts_ubionly=if test x${use_ab} = x1; then "			\
 		"run .mtdparts_ubionly_ab; "                            \
 	"else "                                                         \
 		"run .mtdparts_ubionly_noab; "                          \
@@ -258,7 +258,7 @@
 	" ubifsmount ubi0:rootfs\\\\${slot_}\\\\;"			\
 	" ubifsload \\\\${fdtaddr} /boot/\\\\${bootfdt}" BOOT_WITH_FDT	\
 	".rootfs_ubifs=setenv set_rootfs"				\
-	" if test -n \\\\${use_ab}\\\\; then"				\
+	" if test x\\\\${use_ab} = x1\\\\; then"				\
 		" n=.ubiblock\\\\${slot_}\\\\;"				\
 		" setenv rootfs rootfstype=squashfs"			\
 		" ubi.block=0,rootfs\\\\${slot_} ubi.mtd=TargetFS,2048"	\
@@ -363,7 +363,7 @@
  */
 #define BOOT_MODE_DISPATCH						\
 	"select_boot_mode="                         \
-		"if test -n \"${use_ab}\"; then "           \
+		"if test \"x${use_ab}\" = x1; then "        \
 			"run .init_fs_updater selector; "   \
 			"if test -z \"${boot_failed}\"; then "\
 				"run set_bootargs kernel fdt; "	\
