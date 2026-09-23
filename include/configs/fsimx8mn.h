@@ -447,7 +447,7 @@
 	"updatecheck=undef\0"                                               \
 	"recovercheck=undef\0"                                              \
 	"platform=undef\0"                                                  \
-	"arch=fsimx8mm\0"                                                   \
+	"arch=fsimx8mn\0"                                                   \
 	"bootfdt=undef\0"                                                   \
 	"m4_uart4=disable\0"                                                \
 	"fdt_high=0xffffffffffffffff\0"                                     \
