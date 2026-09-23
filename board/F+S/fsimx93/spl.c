@@ -121,8 +121,10 @@ static int set_gd_board_type(void)
 	SET_BOARD_TYPE("ND93", BT_NDCU93, board_id, len);
 	SET_BOARD_TYPE("PCOM93", BT_PICOCOM93, board_id, len);
 #elif defined(CONFIG_TARGET_FSIMX91)
+	SET_BOARD_TYPE("PCore91", BT_PICOCOREMX91, board_id, len)
 	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
 	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
+	SET_BOARD_TYPE("PCOM91", BT_PICOCOM91, board_id, len);
 #endif
 
 	return -EINVAL;
@@ -136,16 +138,19 @@ int board_early_init_f(void)
 
 	switch(gd->board_type) {
 		case BT_PICOCOREMX93:
+		case BT_PICOCOREMX91:
 			imx_iomux_v3_setup_multiple_pads(lpuart7_pads, ARRAY_SIZE(lpuart7_pads));
 			init_uart_clk(LPUART7_CLK_ROOT);
 			break;
 		case BT_NDCU93:
 		case BT_EFUSMX93:
 		case BT_OSMSFMX93:
+		case BT_OSMSFMX91:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
 		case BT_PICOCOM93:
+		case BT_PICOCOM91:
 			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
 			init_uart_clk(LPUART5_CLK_ROOT);
 			break;
@@ -174,6 +179,7 @@ int board_fit_config_name_match(const char *name)
 	CHECK_BOARD_TYPE_AND_NAME("netdcu93", BT_NDCU93, name);
 	CHECK_BOARD_TYPE_AND_NAME("picocom93", BT_PICOCOM93, name);
 #elif defined(CONFIG_TARGET_FSIMX91)
+	CHECK_BOARD_TYPE_AND_NAME("picocoremx91", BT_PICOCOREMX91, name);
 	CHECK_BOARD_TYPE_AND_NAME("fs-osm-sf-mx91-adp-osm-bb", BT_OSMSFMX91, name);
 	CHECK_BOARD_TYPE_AND_NAME("efusmx91", BT_EFUSMX91, name);
 #endif
@@ -276,7 +282,7 @@ void board_init_f(ulong dummy)
 	board_early_init_f();
 
 	regulators_enable_boot_on(false);
-	
+
 	preloader_console_init();
 
 	print_bootstage();
@@ -300,13 +306,13 @@ void board_init_f(ulong dummy)
 
 	/* Init power of mix */
 	soc_power_init();
-	
+
 	/*load F&S NBOOT-Images*/
 	fs_cntr_init(true);
 
 	/* Setup TRDC for DDR access */
 	trdc_init();
-	
+
 	/* DDR initialization */
 	spl_dram_init();
 
