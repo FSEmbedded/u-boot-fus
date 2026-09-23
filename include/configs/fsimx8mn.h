@@ -294,7 +294,8 @@
 	".fdt_mmc=setenv fdt n=.boot_part\\\\${slot_}\\\\; mmc rescan\\\\; " \
 	" load mmc ${mmcdev}:\\\\${!n} ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT \
 	".rootfs_mmc=setenv set_rootfs n=.rootfs_part\\\\${slot_}\\\\;" \
-	" setenv rootfs root=/dev/mmcblk${mmcdev}p\\\\${!n} ${rootfstype} rootwait\0"
+	" part uuid mmc ${mmcdev}:\\\\${!n} rootfsuuid\\\\;" \
+	" setenv rootfs root=PARTUUID=\\\\${rootfsuuid} ${rootfstype} rootwait\0"
 #else
 #define BOOT_FROM_MMC
 #endif
