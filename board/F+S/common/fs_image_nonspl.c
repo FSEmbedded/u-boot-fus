@@ -163,14 +163,14 @@
 #endif
 
 #define FIT_IMAGES_PATH	"/images"
-#define MAX_BOARD_CFG_SIZE 0x2000
 
 /* Enable this if index images may have sub-images in the future */
 //#define INDEX_WITH_SUB
 
 /* Argument of option -e in fsimage save */
 static uint early_support_index;
-u8 board_cfg[MAX_BOARD_CFG_SIZE];
+static u8 stored_board_cfg[MAX_BOARD_CFG_SIZE];
+static struct nboot_info stored_nboot_info;
 
 #ifdef __UBOOT__
 #define IMAGE_SPEC "<addr>  [<size> | <file>]"
@@ -254,7 +254,6 @@ const char fsimage_usage[] =
 /* Forward declarations */
 
 static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh);
-static int fs_image_read_board_cfg(void);
 
 #if 0 //###
 static const struct fs_header_v1_0 *fs_image_find(
@@ -389,7 +388,12 @@ int fs_image_get_fdt_val(const void *fdt, int offs, const char *name, uint align
 
 struct fs_header_v1_0 *fs_image_get_cfg_addr(void)
 {
-	return (void *)board_cfg;
+	return (void *)stored_board_cfg;
+}
+
+struct nboot_info *fs_image_get_stored_nboot_info(void)
+{
+	return &stored_nboot_info;
 }
 
 /* Return the fdt part of the board configuration in OCRAM */
@@ -463,8 +467,8 @@ int fs_image_get_si(const void *fdt, int offs, uint align, const char *type,
 	return fs_image_get_fdt_val(fdt, offs, name, align, 1, &si->size);
 }
 
-static int fs_image_get_nboot_info(struct flash_info *fi, const void *fdt,
-				   struct nboot_info *ni, int hwpart, bool show)
+int fs_image_get_nboot_info(struct flash_info *fi, const void *fdt,
+			    struct nboot_info *ni, int hwpart, bool show)
 {
 	int offs = fs_image_get_nboot_info_offs(fdt);
 
@@ -933,6 +937,18 @@ void fs_image_region_create(struct region_info *ri, struct storage_info *si,
 	ri->count = 0;
 }
 
+#if 0 // Not used yet
+/* Add SUB_SYNC flag to the latest entry */
+static void fs_image_region_add_sync(struct region_info *ri)
+{
+	struct sub_info *sub;
+
+	if (ri->count > 0) {
+		sub = &ri->sub[ri->count - 1];
+		sub->flags |= SUB_SYNC;
+	}
+}
+#endif
 
 /*
  * Add a subimage with any format to the region. Return offset for next
@@ -1621,19 +1637,6 @@ err:
 	printf("FAILED\n");
 	return false;
 }
-
-/* In U-Boot, the current BOARD-CFG is already in board_cfg[] */
-static int fs_image_read_board_cfg(void)
-{
-#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	/* ### TODO: If SPL/U-Boot was loaded via USB SDP, the nboot-info
-	   values passed from SPL are not fully complete. Do a simplified
-	   reading from flash here that only updates the nboot_info_fixup
-	   values (if a copy is available there after all). */
-#endif
-
-	return 0;
-}
 #endif /* __UBOOT__ */
 
 static int fs_image_locate(int argc, char *const argv[], ulong *paddr)
@@ -1714,6 +1717,7 @@ void fs_image_drop_temp(struct flash_info *fi)
 	fi->write_pos = 0;
 	fi->bb_extra_offs = 0;
 	memset(fi->temp, fi->temp_fill, fi->temp_size);
+	debug("  - Drop and clear temp\n");
 }
 
 static int fs_image_fill_temp(struct flash_info *fi, uint base_offs, uint lim,
@@ -1734,7 +1738,7 @@ static int fs_image_fill_temp(struct flash_info *fi, uint base_offs, uint lim,
 }
 
 int fs_image_load_sub(struct flash_info *fi, uint offs, uint size, uint lim,
-		      uint flags, u8 *buf)
+		      uint flags, void *buf)
 {
 	int err;
 	uint read_pos;
@@ -1951,6 +1955,14 @@ static int fs_image_flush_temp(struct flash_info *fi, uint lim, uint flags)
 	return err;
 }
 
+static inline int fs_image_invalidate(struct flash_info *fi, int copy,
+				      const struct storage_info *si)
+{
+	fs_image_drop_temp(fi);
+
+	return fi->ops->invalidate(fi, copy, si);
+}
+
 /* Write one sub-image to flash */
 static int fs_image_save_sub(struct flash_info *fi, uint offs, uint size,
 			     uint lim, uint flags, u8 *buf)
@@ -2084,10 +2096,8 @@ int fs_image_save_region(struct flash_info *fi, int copy,
 		return err;
 
 repeat:
-	/* Clear the temp buffer (write cache) */
-	fs_image_drop_temp(fi);
-
-	err = fi->ops->invalidate(fi, copy, si);
+	/* Clear temp buffer, invalidate region by clearing first block/page */
+	err = fs_image_invalidate(fi, copy, si);
 	if (err)
 		return err;
 
@@ -2233,6 +2243,32 @@ static void fs_image_put_flash_info(struct flash_info *fi)
 {
 	fi->ops->put_flash(fi);
 	free(fi->temp);
+}
+
+/* Read the BOARD-CFG from flash */
+static int fs_image_read_board_cfg(void)
+{
+	struct flash_info fi;
+	int err;
+
+	err = fs_image_get_flash_info(&fi, NULL, true);
+	if (err)
+		return err;
+
+	/* Try to find a valid BOARD-CFG copy */
+	printf("Reading stored BOARD-CFG from %s\n", fi.devname);
+
+	err = fi.ops->read_board_cfg(&fi, fs_image_get_stored_nboot_info(),
+    				     fs_image_get_cfg_addr());
+	fs_image_put_flash_info(&fi);
+	if (err) {
+		printf("Reading BOARD-CFG failed (%d)\n", err);
+		return -ENOENT;
+	}
+
+	puts("\n");
+
+	return 0;
 }
 
 /* ------------- IVT Image Format (i.MX8M) --------------------------------- */
@@ -2430,7 +2466,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 	struct fs_header_v1_0 *nboot_fsh, *board_info_fsh, *board_cfg_fsh;
 	struct fs_header_v1_0 *dram_info_fsh;
 	struct flash_info fi;
-	struct nboot_info ni;
+	struct nboot_info *ni;
 	const void *fdt;
 	const char *arch;
 	const char *target = load_uboot ? "U-Boot" : "NBoot";
@@ -2441,18 +2477,17 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 	if (fs_image_get_flash_info(&fi, fdt, true))
 		return CMD_RET_FAILURE;
 
-	if (fs_image_get_nboot_info(&fi, fdt, &ni, -1, false))
-		goto fail;
+	ni = fs_image_get_stored_nboot_info();
 
 	if (load_uboot) {
-		if (fs_image_load_uboot(&fi, &ni, (void *)addr, 0, im_size))
+		if (fs_image_load_uboot(&fi, ni, (void *)addr, 0, im_size))
 			goto fail;
 
 		goto success;
 	}
 
 	/* Load flash specific stuff (NAND: BCB, MMC: Secondary Image Table) */
-	if (fi.ops->load_extra(&fi, &ni.spl, nboot_fsh + 1))
+	if (fi.ops->load_extra(&fi, &ni->spl, nboot_fsh + 1))
 		goto fail;
 
 	arch = fs_image_get_arch();
@@ -2463,7 +2498,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 	sub.img = nboot_fsh + 1;
 	sub.offset = 0;
 	sub.flags = SUB_IS_SPL;
-	if (fs_image_load_image(&fi, &ni.spl, &sub))
+	if (fs_image_load_image(&fi, &ni->spl, &sub))
 		goto fail;
 
 	/* Load BOARD_CFG */
@@ -2473,7 +2508,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 	board_cfg_fsh = board_info_fsh + 1;
 	sub.img = board_cfg_fsh;
 	sub.flags = SUB_HAS_FS_HEADER;
-	if (fs_image_load_image(&fi, &ni.nboot, &sub))
+	if (fs_image_load_image(&fi, &ni->nboot, &sub))
 		goto fail;
 
 	/* If set, remove BOARD-ID rev (in file_size_high) and update CRC32 */
@@ -2487,13 +2522,13 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 
 	/* Create BOARD-INFO header */
 	sub.descr = arch;
-	if (ni.flags & NI_SUPPORT_CRC32)
+	if (ni->flags & NI_SUPPORT_CRC32)
 		sub.type = "BOARD-INFO";
 	else
 		sub.type = "BOARD-CONFIGS";
 	fs_image_set_header(board_info_fsh, sub.type, sub.descr, sub.size, 0);
 
-	if (ni.flags & NI_SUPPORT_U_ATF) {
+	if (ni->flags & NI_SUPPORT_U_ATF) {
 		/* Load DRAM-FW behind DRAM-INFO/DRAM-TYPE (filled in later) */
 		dram_info_fsh = sub.img;
 		sub.type = "DRAM-FW";
@@ -2501,7 +2536,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 		sub.img = dram_info_fsh + 2;
 		sub.flags = SUB_HAS_FS_HEADER;
 		sub.offset += sub.size;
-		if (fs_image_load_image(&fi, &ni.nboot, &sub))
+		if (fs_image_load_image(&fi, &ni->nboot, &sub))
 			goto fail;
 
 		/* Load DRAM-TIMING */
@@ -2509,7 +2544,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 		sub.descr = NULL;
 		sub.flags = SUB_HAS_FS_HEADER;
 		sub.offset += sub.size;
-		if (fs_image_load_image(&fi, &ni.nboot, &sub))
+		if (fs_image_load_image(&fi, &ni->nboot, &sub))
 			goto fail;
 
 		/* Create DRAM-TYPE header, use descr from DRAM-FW */
@@ -2524,28 +2559,28 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 		fs_image_set_header(dram_info_fsh, sub.type, sub.descr,
 				    sub.img - (void *)(dram_info_fsh + 1), 0);
 
-		if (fs_image_is_u_atf(&fi, &ni.atf)) {
+		if (fs_image_is_u_atf(&fi, &ni->atf)) {
 			puts("Skipping U-ATF/U-TEE\n");
 		} else {
 			/* Load ATF */
 			sub.type = "ATF";
 			sub.offset = 0;
-			if (fs_image_load_image(&fi, &ni.atf, &sub))
+			if (fs_image_load_image(&fi, &ni->atf, &sub))
 				goto fail;
 
 #ifdef CONFIG_OPTEE
 			/* Load TEE */
 			sub.type = "TEE";
 			sub.offset += sub.size;
-			if (fs_image_load_image(&fi, &ni.atf, &sub))
+			if (fs_image_load_image(&fi, &ni->atf, &sub))
 				goto fail;
 #endif
 		}
 	} else {
 		/* Simply load the whole FIRMWARE sub-image */
 		sub.type = "FIRMWARE";
-		sub.offset = ni.board_cfg_size ? ni.board_cfg_size : sub.size;
-		if (fs_image_load_image(&fi, &ni.nboot, &sub))
+		sub.offset = ni->board_cfg_size ? ni->board_cfg_size : sub.size;
+		if (fs_image_load_image(&fi, &ni->nboot, &sub))
 			goto fail;
 	}
 
@@ -2601,14 +2636,13 @@ static int fs_image_save_uboot(struct flash_info *fi,
 }
 
 /* Handle fsimage save if loaded image is a U-Boot image */
-static int fs_image_save_imx8m_uboot(ulong addr, bool force,
-				     bool system_atf, bool have_atf)
+static int fs_image_save_imx8m_uboot(ulong addr, struct nboot_info *ni,
+				     bool force, bool system_atf, bool have_atf)
 {
 	const void *fdt;
 	struct sub_info uboot_sub, atf_sub[2];
 	struct region_info uboot_ri, atf_ri, *patf_ri = NULL;
 	struct flash_info fi;
-	struct nboot_info ni;
 	int failed;
 	uint flags;
 	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)addr;
@@ -2620,12 +2654,9 @@ static int fs_image_save_imx8m_uboot(ulong addr, bool force,
 	if (fs_image_get_flash_info(&fi, fdt, false))
 		return CMD_RET_FAILURE;
 
-	if (fs_image_get_nboot_info(&fi, fdt, &ni, -1, false))
-		goto fail;
-
 	arch = fs_image_get_arch();
 	if (have_atf) {
-		if (!(ni.flags & NI_SUPPORT_U_ATF)) {
+		if (!(ni->flags & NI_SUPPORT_U_ATF)) {
 			puts("U-Boot with ATF/TEE not supported."
 			     " Maybe you need to update NBoot first.\n");
 			goto fail;
@@ -2635,7 +2666,7 @@ static int fs_image_save_imx8m_uboot(ulong addr, bool force,
 		} else {
 			/* Create ATF region */
 			patf_ri = &atf_ri;
-			fs_image_region_create(patf_ri, &ni.atf, atf_sub);
+			fs_image_region_create(patf_ri, &ni->atf, atf_sub);
 
 			/* Add ATF image */
 			type = "U-ATF";
@@ -2658,16 +2689,16 @@ static int fs_image_save_imx8m_uboot(ulong addr, bool force,
 		}
 	}
 
-	fs_image_region_create(&uboot_ri, &ni.uboot, &uboot_sub);
+	fs_image_region_create(&uboot_ri, &ni->uboot, &uboot_sub);
 	type = "U-BOOT";
 	flags = SUB_SYNC;
-	if (ni.flags & NI_UBOOT_WITH_FSH)
+	if (ni->flags & NI_UBOOT_WITH_FSH)
 		flags |= SUB_HAS_FS_HEADER; /* Save with F&S header */
 	if (!fs_image_region_find_add(&uboot_ri, fsh, type, arch, 0, flags))
 		goto fail;
 
 	/* Check if all prerequisites for U-Boot are valid */
-	if (fi.ops->check_for_uboot(&ni.uboot, force))
+	if (fi.ops->check_for_uboot(&ni->uboot, force))
 		goto fail;
 
 	/* ### TODO: set copy depending on Set A or B (or redundant copy) */
@@ -2683,8 +2714,8 @@ fail:
 	return CMD_RET_FAILURE;
 }
 
-static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
-			       bool system_atf)
+static int fs_image_imx8m_save(ulong addr, struct nboot_info *ni_stored,
+			       int boot_hwpart, bool force, bool system_atf)
 {
 	struct index_info cfg_info = {0};
 	struct fs_header_v1_0 *cfg_fsh;
@@ -2711,7 +2742,6 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 	struct nboot_info ni;
 	struct flash_info fi;
 	bool need_uboot = false, need_env = false;
-	bool ignore_old;
 	struct nboot_info ni_old;
 	uint woffset;
 	int ret = 0;
@@ -2719,22 +2749,25 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 
 	/* If this is an U-Boot image, handle separately */
 	if (fs_image_match((void *)addr, "U-BOOT", NULL))
-		return fs_image_save_imx8m_uboot(addr, force, system_atf, false);
+		return fs_image_save_imx8m_uboot(addr, ni_stored, force,
+						 system_atf, false);
 	if (fs_image_match((void *)addr, "U-BOOT-ATF", NULL))
-		return fs_image_save_imx8m_uboot(addr, force, system_atf, true);
+		return fs_image_save_imx8m_uboot(addr, ni_stored, force,
+						 system_atf, true);
 
 	/* Handle NBoot image */
 	ret = fs_image_find_board_cfg((void *)addr, force, "save", &cfg_info,
 				      &nboot_fsh);
 	if (ret <= 0)
 		return CMD_RET_FAILURE;
+	if (ret == 2)
+		ni_stored = NULL;
 
 	/*
 	 * TODO: For non-Container Images,
 	 * it is not expected to handle index structures.
 	 */
 	cfg_fsh = (struct fs_header_v1_0 *)cfg_info.fsh;
-	ignore_old = (ret == 2);	/* Ignore old BOARD-CFG if ID changed */
 
 	fdt = fs_image_find_cfg_fdt(cfg_fsh);
 	board_cfg_offs = fs_image_get_board_cfg_offs(fdt);
@@ -2763,16 +2796,10 @@ static int fs_image_imx8m_save(ulong addr, int boot_hwpart, bool force,
 		       " them for %s\n", fi.boot_dev_name);
 	}
 
-	if (!ignore_old) {
-		const void *fdt_old = fs_image_get_cfg_fdt();
-
-		/* Check if U-Boot and/or environment need to be relocated */
-		if (fs_image_get_nboot_info(&fi, fdt_old, &ni_old, -1, false))
-			ignore_old = true;
-
-		/* Check if there are changes */
-		need_uboot = fi.ops->si_differs(&ni.uboot, &ni_old.uboot);
-		need_env = fi.ops->si_differs(&ni.env, &ni_old.env);
+	/* Check if U-Boot and/or environment need to be relocated */
+	if (ni_stored) {
+		need_uboot = fi.ops->si_differs(&ni.uboot, &ni_stored->uboot);
+		need_env = fi.ops->si_differs(&ni.env, &ni_stored->env);
 	}
 
 	/* Load U-Boot behind NBoot, if necessary */
@@ -3208,7 +3235,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
 {
 	struct fs_header_v1_0 *fsh = (void *)addr;
 	struct flash_info fi;
-	struct nboot_info ni;
+	struct nboot_info *ni = fs_image_get_stored_nboot_info();
 	const void *fdt = fs_image_get_cfg_fdt();
 	const char *target = "NBoot";
 	const char *message = "failed to load";
@@ -3217,12 +3244,9 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
 	if (fs_image_get_flash_info(&fi, fdt, true))
 		return ret;
 
-	if (fs_image_get_nboot_info(&fi, fdt, &ni, -1, false))
-		goto fail;
-
 	/* Load NBoot if requested */
 	if (!load_uboot) {
-		fsh = fs_image_cntr_load_nboot(&fi, &ni, fsh);
+		fsh = fs_image_cntr_load_nboot(&fi, ni, fsh);
 		if (!fsh)
 			goto fail;
 	}
@@ -3230,7 +3254,7 @@ static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
 	/* Load U-Boot if requested */
 	if (load_uboot) {
 		target = "U-Boot";
-		fsh = fs_image_cntr_load_uboot(&fi, &ni, fsh);
+		fsh = fs_image_cntr_load_uboot(&fi, ni, fsh);
 		if (!fsh)
 			goto fail;
 	}
@@ -3251,17 +3275,18 @@ fail:
 	return ret;
 }
 
-static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
+static int fsimage_cntr_save(ulong addr, struct nboot_info *ni_stored,
+			     int boot_hwpart, bool force)
 {
 	const char *arch = fs_image_get_arch();
 	struct index_info cfg_info = {0};
 	struct flash_info fi;
+	struct storage_info si;
 	struct nboot_info ni;
 	struct region_info nboot_ri, uboot_ri, env_ri;
 	struct sub_info nboot_sub[MAX_SUB_IMGS];
 	struct sub_info uboot_sub, env_sub;
-	struct storage_info si;
-	const void *fdt;
+	const void *fdt = NULL;
 	const char *type;
 	int failed = 0;
 	uint woffset;
@@ -3270,8 +3295,6 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 	const struct fs_header_v1_0 *fsh;
 	struct fs_header_v1_0 board_id_fsh;
 	int ret = CMD_RET_SUCCESS;
-	struct nboot_info ni_old;
-	bool ignore_old = false;
 	struct fs_header_v1_0 *tmp;
 	const char *target;
 
@@ -3347,42 +3370,15 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 	 *   +---+------------------------+
 	 *
 	 * Remarks:
-	 * - The BOARD-ID at the start is only required when installing the
-	 *   software for the first in production or if the BOARD-ID is lost.
+	 * - The BOARD-ID at the start is only required when installing NBoot
+	 *   for the first time in production or if the BOARD-ID is lost.
 	 *   Typically, the file starts with the BOOT-INFO.
 	 * - An NBoot image is an imge without the U-BOOT-INFO.
 	 * - A U-Boot image is an image with just the U-BOOT-INFO.
 	 */
 
-	/* Get either stored BOARD-CFG or the one from new NBoot */
-	if (fs_image_match(start, "BOOT-INFO", arch)
-	    || fs_image_match(start, "BOARD-ID", NULL)) {
-		ret = fs_image_find_board_cfg(start, force, "save", &cfg_info,
-					      &start);
-		if (ret <= 0)
-			return CMD_RET_FAILURE;
-		ignore_old = (ret == 2); /* Ignore old BOARD-CFG if ID changed */
-
-		fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
-		if (!fdt)
-			return CMD_RET_FAILURE;
-	} else {
-		fdt = fs_image_get_cfg_fdt();
-		if (!fdt)
-			return CMD_RET_FAILURE;
-	}
-
-	if (fs_image_get_flash_info(&fi, fdt, false))
-		return CMD_RET_FAILURE;
-
-	if (fs_image_get_nboot_info(&fi, fdt, &ni, boot_hwpart, false))
-		goto fail;
-
-	/* The generic storage info describes the whole available flash */
-	fs_image_get_generic_si_mmc(&fi, &si);
-
-	/* Handle NBoot part of image, begin with whole flash as free space */
-	fs_image_region_create(&nboot_ri, &si, nboot_sub);
+	/* Handle NBoot part of image */
+	nboot_ri.count = 0;
 	type = "BOOT-INFO";
 	fsh = (void *)fs_image_find_top_sub(start, type, arch, NULL, NULL);
 	if (fsh) {
@@ -3391,6 +3387,24 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		int board_cfg_offs;
 		int rev_offs;
 
+		ret = fs_image_find_board_cfg(start, force, "save", &cfg_info,
+					      &start);
+		if (ret <= 0)
+			return CMD_RET_FAILURE;
+		/* Ignore old BOARD-CFG if ID changed */
+		if (ret == 2)
+			ni_stored = NULL;
+
+		fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
+		if (!fdt)
+			return CMD_RET_FAILURE;
+
+		if (fs_image_get_flash_info(&fi, fdt, false))
+			return CMD_RET_FAILURE;
+
+		if (fs_image_get_nboot_info(&fi, fdt, &ni, boot_hwpart, false))
+			goto fail;
+
 		ret = fs_image_check_boot_dev_fuses(fi.boot_dev, "save");
 		if (ret < 0)
 			goto fail;
@@ -3398,6 +3412,10 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 			printf("Warning! Boot fuses not yet set, remember to"
 			       " burn them for %s\n", fi.boot_dev_name);
 		}
+
+		/* The generic storage info describes the whole flash */
+		fs_image_get_generic_si_mmc(&fi, &si);
+		fs_image_region_create(&nboot_ri, &si, nboot_sub);
 
 		/* Add BOOT-INFO image */
 		woffset = fs_image_region_add(&nboot_ri, fsh, type, arch,
@@ -3455,22 +3473,33 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 		ni.uboot.start[0] = si.start[0] + woffset;
 		ni.uboot.start[1] = si.start[1] + woffset;
 		ni.uboot.size = si.size - woffset;
-	}
 
-	if (!ignore_old) {
-		const void *fdt_old = fs_image_get_cfg_fdt();
+		/* Check if any images need relocation */
+		if (ni_stored) {
+			struct storage_info uboot_old = ni_stored->uboot;
 
-		/* Check if U-Boot and/or environment need to be relocated */
-		if (fs_image_get_nboot_info(&fi, fdt_old, &ni_old, -1, false))
-			ignore_old = true;
+			/* Update U-Boot size part for remaining space */
+			uboot_old.size = si.size -
+				(uboot_old.start[0] - si.start[0]);
 
-		/* Update U-Boot size part for remaining space */
-		ni_old.uboot.size = si.size;
-		ni_old.uboot.size -= ni_old.uboot.start[0] - si.start[0];
+			/* Check if there are changes */
+			need_uboot = fi.ops->si_differs(&ni.uboot, &uboot_old);
+			need_env = fi.ops->si_differs(&ni.env, &ni_stored->env);
+		}
+	} else {
+		/* No NBoot included in image, use stored BOARD-CFG */
+		fdt = fs_image_get_cfg_fdt();
+		if (!fdt)
+			return CMD_RET_FAILURE;
 
-		/* Check if there are changes */
-		need_uboot = fi.ops->si_differs(&ni.uboot, &ni_old.uboot);
-		need_env = fi.ops->si_differs(&ni.env, &ni_old.env);
+		if (fs_image_get_flash_info(&fi, fdt, false))
+			return CMD_RET_FAILURE;
+
+		ni = *ni_stored;
+
+		/* Set remaining space as possible size for U-Boot image */
+		fs_image_get_generic_si_mmc(&fi, &si);
+		ni.uboot.size = si.size - (ni.uboot.start[0] - si.start[0]);
 	}
 
 	tmp = fs_image_find_eof(start) + 0x10;
@@ -3479,11 +3508,11 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 	fs_image_region_create(&uboot_ri, &ni.uboot, &uboot_sub);
 	type = "U-BOOT-INFO";
 	fsh = fs_image_find_top_sub(start, type, arch, NULL, NULL);
-	if (!fsh && need_uboot) {
+	if (!fsh && need_uboot && ni_stored && ni_stored->uboot.size) {
 		/* Load old U-Boot if U-Boot is not already part of new image */
 		puts("Need to move U-Boot\n");
 		fsh = tmp;
-		tmp = fs_image_cntr_load_uboot(&fi, &ni, tmp);
+		tmp = fs_image_cntr_load_uboot(&fi, ni_stored, tmp);
 		if (!tmp)
 			goto fail;
 	}
@@ -3586,10 +3615,17 @@ static int fsimage_cntr_save(ulong addr, int boot_hwpart, bool force)
 #ifdef __UBOOT__
 	/* Success: if a new NBoot was installed, activate new BOARD-CFG now */
 	if (nboot_ri.count) {
-		memcpy(fs_image_get_cfg_addr(), cfg_info.fsh, FSH_SIZE);
-		memcpy(fs_image_get_cfg_addr() + FSH_SIZE, cfg_info.fsi,
+		void *dram_board_cfg = fs_board_get_dram_cfg_addr();
+
+		memcpy(dram_board_cfg, cfg_info.fsh, FSH_SIZE);
+		memcpy(dram_board_cfg + FSH_SIZE, cfg_info.fsi,
 		       fs_image_get_size(cfg_info.fsh, false));
-		puts("New BOARD-CFG is now active\n");
+
+		/* The new board ID is still in compare-id, set it active */
+		fs_image_set_board_id();
+
+		printf("BOARD-ID: %s, new BOARD-CFG is now active\n",
+		       fs_image_get_board_id());
 	}
 #endif
 
@@ -3858,6 +3894,7 @@ int fs_image_do_save(int argc, char * const argv[])
 {
 	int boot_hwpart = -1;
 	ulong addr;
+	struct nboot_info *ni_stored;
 	bool force = false;
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	bool system_atf = false;	/* If set, prefer ATF/TEE from NBoot */
@@ -3913,13 +3950,36 @@ int fs_image_do_save(int argc, char * const argv[])
 	if (fs_image_validate_full(addr) < 0)
 		return CMD_RET_FAILURE;
 
-	if (fs_image_read_board_cfg())
+	/*
+	 * Load the stored BOARD-CFG; it is needed in any case:
+	 *
+	 * - If just U-Boot is to be saved, the old nboot-info is needed to
+	 *   get the location of U-Boot in flash.
+	 * - If just NBoot is to be saved, the nboot-info of the new BOARD-CFG
+	 *   is used. However the stored version is still needed to decide if
+	 *   U-Boot or Environment need to be relocated.
+	 * - If NBoot and U-Boot are saved in one go, the nboot-info of the
+	 *   new BOARD-CFG is used. Then the stored version is only required to
+	 *   determine if the Environment needs to be relocated.
+	 *
+	 * Reading the stored BOARD-CFG may fail, for example if saving to an
+	 * empty flash for the first time. In this case, ni_stored is NULL.
+	 * This is ok, then we simply skip the check for relocation of U-Boot
+	 * and ENV later. In this case, U-Boot cannot be saved alone, NBoot
+	 * needs to be saved first.
+	 */
+	ni_stored = fs_image_get_stored_nboot_info();
+	ret = fs_image_read_board_cfg();
+	if (ret == -ENOENT)
+		ni_stored = NULL;
+	else if (ret)
 		return CMD_RET_FAILURE;
 
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	ret = fsimage_cntr_save(addr, boot_hwpart, force);
+	ret = fsimage_cntr_save(addr, ni_stored, boot_hwpart, force);
 #else
-	ret = fs_image_imx8m_save(addr, boot_hwpart, force, system_atf);
+	ret = fs_image_imx8m_save(addr, ni_stored, boot_hwpart, force,
+				  system_atf);
 #endif
 
 	return ret;

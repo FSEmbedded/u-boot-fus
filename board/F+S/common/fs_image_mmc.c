@@ -16,6 +16,9 @@
 #endif
 
 #include "fs_image_common.h"		/* fs_image_*() */
+#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+#include "imx_container.h"		/* struct container_hdr, ... */
+#endif
 
 
 /* ------------- MMC handling ---------------------------------------------- */
@@ -126,24 +129,6 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, const void *fdt,
 		ni->uboot.hwpart[0] = 0;
 		ni->uboot.hwpart[1] = 0;
 	}
-
-#ifndef __UBOOT__
-#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	/* Fill in values found when loading the BOARD-CFG from flash */
-	if (!ni->nboot.start[0]) {
-		ni->nboot.start[0] = nboot_info_fixup.nboot_start;
-		ni->nboot.start[1] = nboot_info_fixup.nboot_start;
-	}
-	if (!ni->nboot.size)
-		ni->nboot.size = nboot_info_fixup.nboot_size;
-	if (!ni->uboot.start[0]) {
-		ni->uboot.start[0] = nboot_info_fixup.uboot_start;
-		ni->uboot.start[1] = nboot_info_fixup.uboot_start;
-	}
-	if (!ni->uboot.size)
-		ni->uboot.size = nboot_info_fixup.uboot_size;
-#endif
-#endif
 
 #ifndef CONFIG_IMX8MM
 	/*
@@ -278,6 +263,10 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 		 * one (e.g. U-BOOT). Check the CRC32, but then remove the
 		 * header, because the caller has already inserted an empty
 		 * header before sub->img and will fill it after we return.
+		 * Please note that this does not pass the padsize value to
+		 * the new header, which effectively converts the padding bytes
+		 * to regular bytes of the image. However, this should not be
+		 * a real problem.
 		 */
 		err = fs_image_check_all_crc32(sub->img);
 		size -= FSH_SIZE;
@@ -374,9 +363,8 @@ static int fs_image_invalidate_mmc(struct flash_info *fi, int copy,
 	       si->type, offs, size);
 	debug("\n");
 
-	fs_image_drop_temp(fi);
+	/* Write zeroes from (cleared) temp buffer to first block */
 	err = fi->ops->write(fi, offs, fi->temp_size, lim, 0, fi->temp);
-
 	if (!err)
 		err = fi->ops->sync(fi);
 
@@ -560,6 +548,461 @@ static int fs_image_save_nboot_mmc(struct flash_info *fi,
 	return failed;
 }
 
+void fs_image_get_generic_si_mmc(struct flash_info *fi, struct storage_info *si)
+{
+	si->type = "NBOOT";
+	if (fi->boot_hwpart) {
+		si->start[0] = 0x00000000;
+		si->start[1] = 0x00000000;
+		si->size = 0x003f8000;	/* Leave room for env at end */
+		si->hwpart[0] = fi->boot_hwpart;
+		si->hwpart[1] = 3 - fi->boot_hwpart;
+	} else {
+		si->start[0] = 0x00008000; /* skip GPT in first 32KiB */
+		si->start[1] = 0x00400000;
+		si->size = 0x003f8000;	/* env is at end of 2nd copy */
+		si->hwpart[0] = 0;
+		si->hwpart[1] = 0;
+	}
+}
+
+/* ------------- IVT Image Format (i.MX8M) --------------------------------- */
+
+#if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+
+/* Known eMMC offsets for the BOARD-CFG of previous versions, new to old */
+static const uint known_boardcfg_offs_mmc[][2] = {
+#ifdef CONFIG_IMX8MM
+	{ 0x00088000, 0x00448000 },
+	{ 0x00040000, 0x00140000 },
+#elif defined CONFIG_IMX8MN
+	{ 0x00048000, 0x00448000 },
+	{ 0x00048000, 0x00740000 },
+	{ 0x00040000, 0x00740000 },
+	{ 0x00048000, 0x00140000 },
+#elif defined CONFIG_IMX8MP
+	{ 0x00048000, 0x00448000 },
+	{ 0x00048000, 0x00740000 },
+	{ 0x00040000, 0x00740000 },
+#elif defined CONFIG_IMX8X
+	{ 0x00080000, 0x00740000 },
+	{ 0x00040000, 0x00740000 },
+#endif
+};
+
+static int fs_image_try_board_cfg(struct flash_info *fi, uint offs, uint lim,
+				   void *board_cfg)
+{
+	int err;
+	uint size;
+
+	/* Read F&S header */
+	err = fs_image_load_sub(fi, offs, FSH_SIZE, lim, 0, board_cfg);
+	if (err)
+		return err;
+
+	/* Is there a matching BOARD-CFG? */
+	if (!fs_image_match_board_id(board_cfg))
+		return 1;
+
+	/* Load full BOARD-CFG */
+	size = fs_image_get_size(board_cfg, true);
+	err = fs_image_load_sub(fi, offs, size, lim, 0, board_cfg);
+	if (err)
+		return err;
+
+	debug("  - BOARD-CFG found at offset 0x%x\n", offs);
+	puts("OK\n");
+
+	return 0;
+}
+
+static int fs_image_try_known_offsets_mmc(struct flash_info *fi, int copy,
+					  const struct storage_info *si,
+					  void *board_cfg)
+{
+	uint offs;
+	uint lim = si->start[copy] + si->size;
+	int slot = si->hwpart[copy] ? 0 : copy;
+	int err;
+	int i;
+
+	printf("  Trying known offsets for copy %d (hwpart %d)... ",
+	       copy, si->hwpart[copy]);
+	debug("\n");
+
+	err = fi->ops->set_hwpart(fi, copy, si);
+	if (err)
+		return err;
+
+	for (i = 0; i < ARRAY_SIZE(known_boardcfg_offs_mmc); i++) {
+		offs = known_boardcfg_offs_mmc[i][slot];
+		err = fs_image_try_board_cfg(fi, offs, lim, board_cfg);
+		if (err <= 0)
+			return err;	/* Error or found */
+	}
+
+	return -ENOENT;
+}
+
+static int fs_image_search_board_cfg_mmc(struct flash_info *fi, int copy,
+					 const struct storage_info *si,
+					 void *board_cfg)
+{
+	uint offs = si->start[copy];
+	uint lim = offs + si->size;
+	int err;
+
+	printf("  Searching BOARD_CFG in copy %d (hwpart %d)\n", copy,
+	       si->hwpart[copy]);
+
+	err = fi->ops->set_hwpart(fi, copy, si);
+	if (err)
+		return err;
+
+	do {
+		err = fs_image_try_board_cfg(fi, offs, lim, board_cfg);
+		if (err <= 0)
+			return err;	/* Error or found */
+		offs += FSH_SIZE;
+	} while (offs < lim);
+
+	return -ENOENT;
+}
+
+static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
+				       struct nboot_info *ni,
+				       void *board_cfg)
+{
+	int err;
+	int copy, start_copy;
+	struct storage_info si;
+	const void *fdt;
+
+	fs_image_get_generic_si_mmc(fi, &si);
+
+	/* First look for BOARD-CFG at known offsets */
+	start_copy = fs_image_get_start_copy(false, false);
+	copy = start_copy;
+	do {
+		err = fs_image_try_known_offsets_mmc(fi, copy, &si, board_cfg);
+		if (err < 0)
+			printf("Failed (%d)\n", err);
+		copy = 1 - copy;
+	} while (err & (copy != start_copy));
+
+	if (err) {
+		/* No BOARD-CFG found at known offsets, search for it */
+		printf("  Warning, no BOARD-CFG found at known offsets,\n");
+		do {
+			err = fs_image_search_board_cfg_mmc(fi, copy, &si,
+							    board_cfg);
+			if (err < 0)
+				printf("Failed (%d)\n", err);
+			copy = 1 - copy;
+		} while (err & (copy != start_copy));
+
+		if (err)
+			return err;
+	}
+
+	fdt = fs_image_find_cfg_fdt(board_cfg);
+	err = fs_image_get_nboot_info(fi, fdt, ni, -1, false);
+	if (err < 0)
+		printf("Cannot read nboot-info (%d)\n", err);
+
+	return err;
+}
+
+#endif /* !CONFIG_IS_ENABLED(FS_CNTR_COMMON) */
+
+/* ------------- Container Image Format (i.MX8ULP/i.MX9) ------------------- */
+
+#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
+
+/* Read boot container from flash and return size of original BOOT-INFO image */
+static int fs_image_get_boot_info_size_mmc(struct flash_info *fi, uint start,
+					   uint lim)
+{
+	uint offs = start;
+	uint size;
+	uint img_entry_offs;
+	struct container_hdr hdr;
+	struct boot_img_t img_entry;
+	int err;
+
+	/* Read ELE boot container header */
+	err = fs_image_load_sub(fi, offs, sizeof(hdr), lim, 0, &hdr);
+	if (err)
+		return err;
+	if (!valid_container_hdr(&hdr))
+		return -ENOENT;
+
+	size = (hdr.length_msb << 8) + hdr.length_lsb;
+	debug("  - ELE boot container: offs=0x%x size=0x%x (%d images)\n",
+	       offs, size, hdr.num_images);
+	offs += ALIGN(size, CONTAINER_HDR_ALIGNMENT);
+
+	/* Read OEM boot container header */
+	err = fs_image_load_sub(fi, offs, sizeof(hdr), lim, 0, &hdr);
+	if (err)
+		return err;
+	if (!valid_container_hdr(&hdr))
+		return -ENOENT;
+
+	size = (hdr.length_msb << 8) + hdr.length_lsb;
+	debug("  - OEM boot container: offs=0x%x size=0x%x (%d images)\n",
+	       offs, size, hdr.num_images);
+	if (!hdr.num_images)
+		return -EINVAL;
+
+	/*
+	 * Theoretically, the images of a container could be in random order,
+	 * then we would need to check all image entries of the image array.
+	 * Also the signature block could be behind the images, then we would
+	 * need to check for the end of the signature block, too (see
+	 * get_container_size() in image-container.c). But both is not the
+	 * case in F&S images, here the signature block is in front of the
+	 * image array and the last image in the image array has the highest
+	 * offset. Therefore it is sufficient to simply look for the end of
+	 * this last entry.
+	 */
+	img_entry_offs = offs + sizeof(hdr);
+	size = sizeof(img_entry);
+	img_entry_offs += size * (hdr.num_images - 1);
+	debug("  - image entry #%d: offs=0x%x size=0x%x\n",
+	       (hdr.num_images - 1), img_entry_offs, size);
+	err = fs_image_load_sub(fi, img_entry_offs, size, lim, 0, &img_entry);
+	if (err)
+		return err;
+	debug("  - image: offset=0x%x size=0x%x\n", img_entry.offset, img_entry.size);
+	offs += img_entry.offset + img_entry.size;
+	offs = ALIGN(offs, CONTAINER_HDR_ALIGNMENT);
+	offs += CONTAINER_HDR_ALIGNMENT - 2 * FSH_SIZE;
+
+	return offs - start;
+}
+
+/*
+ * Find toplevel image of given type in flash, starting at offs; return
+ * F&S header in fsh and offset as return value
+ */
+static int fs_image_find_toplevel_offset_mmc(struct flash_info *fi, uint offs,
+					     uint lim, const char *type,
+					     struct fs_header_v1_0 *fsh)
+{
+	int err;
+
+	while (offs < lim) {
+		err = fs_image_load_sub(fi, offs, FSH_SIZE, lim, 0, fsh);
+		if (err)
+			return err;
+
+		if (!fs_image_is_fs_image(fsh))
+			break;
+
+		debug("  - %s (%s): offs=0x%x\n", fsh->type, fsh->param.descr, offs);
+
+		if (fs_image_match(fsh, type, NULL))
+			return (int)offs;
+
+		offs += fs_image_get_size(fsh, true);
+	}
+
+	return -ENOENT;
+}
+
+/* Search and load BOARD-CFG, get nboot-info and patch nboot-size */
+static int fs_image_try_board_cfg_mmc(struct flash_info *fi, int copy,
+				      const struct storage_info *si,
+				      struct nboot_info *ni,
+				      void *board_cfg)
+{
+	uint offs;
+	uint size;
+	uint num_images;
+	uint start = si->start[copy];
+	uint lim = start + si->size;
+       	struct fs_header_v1_0 one_fsh;
+       	const struct fs_header_v1_0 *fsh;
+	int err;
+	uint nboot_start, nboot_size;
+	const void *fdt;
+
+	printf("  Trying copy %d on hwpart %d... ", copy, si->hwpart[copy]);
+	debug("\n");
+
+	err = fi->ops->set_hwpart(fi, copy, si);
+	if (err)
+		return err;
+
+	/* Skip the BOOT-INFO part of NBoot in flash */
+	err = fs_image_get_boot_info_size_mmc(fi, start, lim);
+	if (err < 0)
+		return err;
+	offs = start + err; 		/* points to BOARD-ID */
+	err = fs_image_load_sub(fi, offs, FSH_SIZE, lim, 0, &one_fsh);
+	if (err)
+		return err;
+	if (!fs_image_match(&one_fsh, "BOARD-ID", fs_image_get_board_id())) {
+		printf("BOARD-ID mismatch: found %s, should be %s\n",
+		       one_fsh.param.descr, fs_image_get_board_id());
+		return -EINVAL;
+	}
+	debug("  - BOARD-ID (%s): offs=0x%x\n", one_fsh.param.descr, offs);
+
+	offs += FSH_SIZE;		/* points behind BOARD-ID */
+
+	/* Find offset to BOARD-INFO, this is nboot_info.start */
+	err = fs_image_find_toplevel_offset_mmc(fi, offs, lim,
+						"BOARD-INFO", &one_fsh);
+	if (err < 0)
+		return err;
+	nboot_start = (uint)err;
+
+	/* Keep offset to BOARD-INFO's INDEX in offs for later */
+	offs = (uint)err + FSH_SIZE + fs_image_get_extra_size(&one_fsh);
+
+	/* Find nboot_info.size */
+	err += fs_image_get_size(&one_fsh, true); /* points behind BOARD-INFO */
+	err = fs_image_find_toplevel_offset_mmc(fi, err, lim,
+						"DRAM-INFO", &one_fsh);
+	if (err < 0)
+		return err;
+	err += fs_image_get_size(&one_fsh, true); /* points behind DRAM-INFO */
+	nboot_size = (uint)err - nboot_start;
+
+	/* Load F&S header of INDEX to determine size */
+	err = fs_image_load_sub(fi, offs, FSH_SIZE, lim, 0, &one_fsh);
+	if (err)
+		return err;
+	if (!fs_image_match(&one_fsh, "INDEX", NULL))
+		return -ENOENT;
+
+	/* Load INDEX itself into board_cfg[] */
+	size = fs_image_get_size(&one_fsh, false);
+	debug("  - INDEX of BOARD_INFO: offs=0x%x, size=0x%x\n", offs, size);
+	offs += FSH_SIZE;
+	err = fs_image_load_sub(fi, offs, size, lim, 0, board_cfg);
+	if (err)
+		return err;
+
+	/* Find the correct BOARD-CFG */
+	num_images = fs_image_index_get_n(&one_fsh);
+	fsh = board_cfg;
+	offs += size;
+	while (1) {
+		if (!num_images || !fs_image_is_fs_image(fsh))
+			return -ENOENT;
+		if (fs_image_match_board_id(fsh))
+			break;
+		offs += fs_image_get_size(fsh++, false);
+		num_images--;
+	}
+	debug("  - BOARD-CFG found at offset 0x%x\n", offs);
+
+	/* Load BOARD-CFG (incl. header) to board_cfg[] */
+	memmove(board_cfg, fsh, FSH_SIZE);
+	err = fs_image_load_sub(fi, offs, fs_image_get_size(fsh, false), lim, 0,
+				board_cfg + FSH_SIZE);
+	if (err)
+		return err;
+
+	/* Load nboot-info and patch nboot-size */
+	fdt = fs_image_find_cfg_fdt(board_cfg);
+	err = fs_image_get_nboot_info(fi, fdt, ni, -1, false);
+	if (err)
+		return err;
+	if (!ni->nboot.size) {
+		ni->nboot.size = nboot_size;
+		debug("  - nboot_size set to 0x%x\n", nboot_size);
+	}
+
+	puts("OK\n");
+
+	return 0;
+}
+
+/* Search for U-Boot and patch uboot-start and uboot-size if found */
+static bool fs_image_try_uboot_mmc(struct flash_info *fi, int copy,
+				   const struct storage_info *si,
+				   struct nboot_info *ni)
+{
+	uint offs = ni->nboot.start[copy] + ni->nboot.size;
+	uint lim = si->start[copy] + si->size;
+       	struct fs_header_v1_0 one_fsh;
+	int err;
+	uint uboot_start, uboot_size;
+
+	printf("  Trying copy %d on hwpart %d... ", copy, si->hwpart[copy]);
+	debug("\n");
+	err = fi->ops->set_hwpart(fi, copy, si);
+	if (err)
+		return err;
+	err = fs_image_find_toplevel_offset_mmc(fi, offs, lim,
+						"U-BOOT-INFO", &one_fsh);
+	if (err < 0)
+		return err;
+	debug("  - U-Boot found at offset 0x%x\n", err);
+
+	/* Patch uboot-start and uboot-size in nboot-info */
+	uboot_start = (uint)err - si->start[copy];
+	uboot_size = fs_image_get_size(&one_fsh, true);
+	if (!ni->uboot.start[0]) {
+		ni->uboot.start[0] = uboot_start - si->start[0];
+		debug("  - uboot_start[0] set to 0x%x\n", ni->uboot.start[0]);
+	}
+	if (!ni->uboot.start[1]) {
+		ni->uboot.start[1] = uboot_start - si->start[1];
+		debug("  - uboot_start[1] set to 0x%x\n", ni->uboot.start[1]);
+	}
+	if (!ni->uboot.size) {
+		ni->uboot.size = uboot_size;
+		debug("  - uboot_size set to 0x%x\n", uboot_size);
+	}
+	puts("OK\n");
+
+	return 0;
+}
+
+static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
+				       struct nboot_info *ni,
+				       void *board_cfg)
+{
+	int err;
+	int copy, start_copy;
+	struct storage_info si;
+
+	fs_image_get_generic_si_mmc(fi, &si);
+
+	/* Find BOARD_CFG and get nboot start and size information */
+	start_copy = fs_image_get_start_copy(false, false);
+	copy = start_copy;
+	do {
+		err = fs_image_try_board_cfg_mmc(fi, copy, &si, ni, board_cfg);
+		if (err)
+			printf("FAILED (%d)\n", err);
+		copy = 1 - copy;
+	} while (err && (copy != start_copy));
+
+	if (err)
+		return err;
+
+	/* Get uboot start and size information */
+	printf("Reading U-Boot parameters from %s\n", fi->devname);
+	start_copy = fs_image_get_start_copy(true, false);
+	copy = start_copy;
+	do {
+		err = fs_image_try_uboot_mmc(fi, copy, &si, ni);
+		if (err)
+			printf("Failed (%d)\n", err);
+		copy = 1 - copy;
+	} while (err && (copy != start_copy));
+
+	return 0;			/* Missing U-Boot is acceptable */
+}
+
+#endif /* CONFIG_IS_ENABLED(FS_CNTR_COMMON) */
 
 /* ------------- MMC low-level access in U-Boot backend --------------------- */
 
@@ -576,6 +1019,7 @@ static int fs_image_set_hwpart_mmc(struct flash_info *fi, int copy,
 	int err;
 	uint hwpart = si->hwpart[copy];
 
+	fs_image_drop_temp(fi);
 	err = blk_select_hwpart(bdev, hwpart);
 	if (err)
 		printf("  Cannot switch to hwpart %d on %s for %s (%d)\n",
@@ -656,13 +1100,6 @@ static int fs_image_write_mmc(struct flash_info *fi, uint offs, uint size,
 		return (int)count;
 
 	return 0;
-}
-
-static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
-				       const struct storage_info *si,
-				       void *board_cfg)
-{
-	return -EINVAL;
 }
 
 static void fs_image_put_flash_mmc(struct flash_info *fi)
@@ -802,22 +1239,4 @@ int fs_image_get_known_env_mmc(uint index, uint start[2], uint *size)
 		*size = env_info->size;
 
 	return 0;
-}
-
-void fs_image_get_generic_si_mmc(struct flash_info *fi, struct storage_info *si)
-{
-	si->type = "NBOOT";
-	if (fi->boot_hwpart) {
-		si->start[0] = 0x00000000;
-		si->start[1] = 0x00000000;
-		si->size = 0x003f8000;	/* Leave room for env at end */
-		si->hwpart[0] = fi->boot_hwpart;
-		si->hwpart[1] = 3 - fi->boot_hwpart;
-	} else {
-		si->start[0] = 0x00008000; /* skip GPT in first 32KiB */
-		si->start[1] = 0x00400000;
-		si->size = 0x003f8000;	/* env is at end of 2nd copy */
-		si->hwpart[0] = 0;
-		si->hwpart[1] = 0;
-	}
 }

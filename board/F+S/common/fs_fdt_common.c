@@ -21,7 +21,7 @@
 #include <asm/arch/sys_proto.h>		/* get_reset_cause() */
 #include "fs_fdt_common.h"		/* Own interface */
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
-#include "fs_image_common.h"	/* fs_image_*() */
+#include "fs_image_common.h"		/* fs_image_*() */
 #ifdef CONFIG_FS_SELFTEST
 #include "fs_processor_info.h"	/* fs_get_processorInfo() */
 #endif
@@ -197,12 +197,12 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 
 	/* Add board-config to bdinfo node */
 #ifdef CONFIG_FUS_BOARDCFG_ADDR
-	void *fdt_cfg = (void *)fs_image_get_ocram_cfg_fdt();
+	const void *cfg = fs_board_get_dram_cfg_addr();
+	void *fdt_cfg = (void *)fs_image_find_cfg_fdt(cfg);
 	int offs_cfg = fs_image_get_board_cfg_offs(fdt_cfg);
 	int offs_bdinfo_cfg = fdt_add_subnode(fdt, offs, "board-cfg");
 	fdt_overlay_apply_node(fdt, offs_bdinfo_cfg, fdt_cfg, offs_cfg);
 
-	fs_image_set_board_id_from_cfg();
 	fs_fdt_set_string(fdt, offs, "board-id", fs_image_get_board_id(), 1);
 	fs_fdt_set_u32str(fdt, offs, "boot_copy", fs_board_get_boot_copy(), 1);
 #endif

@@ -16,6 +16,7 @@
 
 #define MAX_TYPE_LEN 16
 #define MAX_DESCR_LEN 32
+#define MAX_BOARD_CFG_SIZE 0x2000
 
 /* Bit values for boot_copy */
 #define BOOT_COPY_SECONDARY_NBOOT BIT(0) /* Running from secondary NBoot */
@@ -316,8 +317,8 @@ struct flash_ops {
 	int (*set_hwpart)(struct flash_info *fi, int copy,
 			  const struct storage_info *si);
 	int (*set_boot_hwpart)(struct flash_info *fi, int boot_hwpart);
-	int (*read_board_cfg)(struct flash_info *fi,
-			      const struct storage_info *si, void *board_cfg);
+	int (*read_board_cfg)(struct flash_info *fi, struct nboot_info *ni,
+			      void *board_cfg);
 	void (*put_flash)(struct flash_info *fi);
 };
 
@@ -360,8 +361,8 @@ extern const char fsimage_usage[];
 int fs_image_get_si(const void *fdt, int offs, uint align, const char *type,
 		    struct storage_info *si);
 
-//###int fs_image_get_nboot_info(struct flash_info *fi, void *fdt,
-//###			    struct nboot_info *ni, int hwpart, bool show);
+int fs_image_get_nboot_info(struct flash_info *fi, const void *fdt,
+			    struct nboot_info *ni, int hwpart, bool show);
 
 //###void fs_image_parse_image(enum parse_type ptype, ulong addr, uint offs,
 //###			  int level);
@@ -440,7 +441,7 @@ int fs_image_get_size_from_header(struct flash_info *fi, uint offs, uint lim,
 void fs_image_drop_temp(struct flash_info *fi);
 
 int fs_image_load_sub(struct flash_info *fi, uint offs, uint size, uint lim,
-		      uint flags, u8 *buf);
+		      uint flags, void *buf);
 
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 void fs_image_set_spl_secondary_bit(void *img, int copy);

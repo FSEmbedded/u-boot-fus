@@ -129,6 +129,9 @@ void fs_board_init_common(const struct fs_board_info *board_info);
 /* Set up all board specific variables */
 void fs_board_late_init_common(const char *serial_name);
 
+/* Get pointer to DRAM based BOARD-CFG */
+char *fs_board_get_dram_cfg_addr(void);
+
 #ifdef CONFIG_FS_SELFTEST
 /* Get dram_result for bdinfo */
 char * get_dram_result(void);

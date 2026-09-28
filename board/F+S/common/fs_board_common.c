@@ -167,6 +167,9 @@ void board_nand_state(struct mtd_info *mtd, unsigned int state)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
+/* Currently active BOARD-CFG, copied from OCRAM to DRAM below */
+static u8 dram_board_cfg[MAX_BOARD_CFG_SIZE];
+
 /* Get Pointer to struct cfg_info */
 struct cfg_info *fs_board_get_cfg_info(void)
 {
@@ -204,10 +207,15 @@ unsigned int fs_board_get_features(void)
 	return fs_board_get_cfg_info()->features;
 }
 
+char *fs_board_get_dram_cfg_addr(void)
+{
+	return dram_board_cfg;
+}
+
 /* Get the NBoot version */
 const char *fs_board_get_nboot_version(void)
 {
-	const void *cfg = fs_image_get_cfg_addr();
+	const void *cfg = fs_board_get_dram_cfg_addr();
 	const void *fdt = fs_image_find_cfg_fdt(cfg);
 
 	return fs_image_get_nboot_version(fdt);
@@ -413,7 +421,7 @@ void fs_board_late_init_common(const char *serial_name)
 #ifdef CONFIG_FS_BOARD_CFG
 	void *found_cfg = fs_image_get_ocram_cfg_addr();
 	void *expected_cfg = fs_image_get_regular_cfg_addr();
-	void *target_cfg = fs_image_get_cfg_addr();
+	void *target_cfg = fs_board_get_dram_cfg_addr();
 
 	printf("CFG:   Found at 0x%lx", (ulong)found_cfg);
 	if (found_cfg != expected_cfg) {
@@ -425,7 +433,7 @@ void fs_board_late_init_common(const char *serial_name)
 	/* Set the current board_id */
 	fs_image_set_board_id_from_cfg();
 
-	/* To get OCRAM free, copy BOARD-CFG to DRAM (see fs_image_nonspl.c) */
+	/* To get OCRAM free, copy BOARD-CFG to DRAM */
 	memcpy(target_cfg, found_cfg, fs_image_get_size(found_cfg, true));
 #endif
 

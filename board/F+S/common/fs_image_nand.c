@@ -818,7 +818,7 @@ static int fs_image_set_boot_hwpart_nand(struct flash_info *fi, int boot_hwpart)
 
 
 static int fs_image_read_board_cfg_nand(struct flash_info *fi,
-					const struct storage_info *si,
+					struct nboot_info *ni,
 					void *board_cfg)
 {
 	return -EINVAL;
