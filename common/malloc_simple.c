@@ -95,6 +95,7 @@ void free_simple(void *ptr)
 		log_debug("free 0x%lx\n, size = 0x%x", addr, gd->malloc_last_size);
 		unmap_sysmem(ptr);
 		gd->malloc_ptr -= gd->malloc_last_size;
+		gd->malloc_last_size = 0;
 	}
 }
 #endif
