@@ -38,6 +38,6 @@ int fs_cntr_load_board_id(void);
 bool cntr_image_check_sha(struct boot_img_t *img, void *blob);
 bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr);
 bool fs_cntr_is_signed(struct container_hdr *cntr);
-
+bool fs_cntr_is_image_data(struct boot_img_t *img);
 
 #endif /* !__FS_CNTR_COMMON_H__ */
