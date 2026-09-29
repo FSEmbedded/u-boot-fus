@@ -14,9 +14,9 @@
 	board-cfg {
 		board-name = "PicoCoreMX8MPr2";
 
-		/* DRAM: 4GB Samsung B.ICDRAM.45 */
+		/* DRAM: 4GB Nanya B.ICDRAM.62 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_4g1500m2ch2cs";
+		dram-timing = "lpddr4_pc_4g1500m2ch2cs_nanya";
 		dram-size = <0x1000>;		/* In MiB */
 		dram-chips = <1>;
 

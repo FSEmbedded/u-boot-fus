@@ -12,45 +12,33 @@
 
 / {
 	board-cfg {
-		board-name = "NetDCUMX93";
-		board-fdt = "netdcumx93";
+		board-name = "PicoCoreMX8MPr2";
 
-		/* DRAM: B.ICDRAM.52 */
+		/* DRAM: 2GB Nanya B.ICDRAM.39 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_2g3200m1ch1cs";
+		dram-timing = "lpddr4_pc_2g1300m2ch1cs";
 		dram-size = <0x800>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
-		boot-dev = "MMC1";
+		boot-dev = "MMC3";
 
 		/* Fuse settings, fuse-bankword: MSW: Bank, LSW: Fuse-Word */
-		fuse-bankword = <0x00030000>;
-		fuse-mask =     <0x20000002>;
-		fuse-value =    <0x20000002>;
+		fuse-bankword = <0x00010003 0x00020001 0x00020002>;
+		fuse-mask =     <0x1000fe00 0xfffdffff 0x0000003f>;
+		fuse-value =    <0x10002000 0x00000000 0x00000000>;
 
 		/* Common board features */
+		board-rev = <110>;
+		//have-nand;
 		have-emmc;
+		have-audio;
+		have-eth-phy;
+		//have-wlan;
+		//have-mipi-dsi;
+		have-hdmi;
 		have-ext-rtc;
+		have-security;
 		have-eeprom;
-		have-eth-a;
-		have-eth-b;
-		have-eth-phy-a;
-		have-eth-phy-b;
-		// have-audio;
-		// have-wlan;
-		have-sd-a;
-		have-sd-b;
-		have-mipi-dsi;
-		have-mipi-csi;
-		have-lvds;
-
-		NDCU93-FERT6.110 {
-			board-rev = <110>;
-		};
-
-		NDCU93-FERT6.120 {
-			board-rev = <120>;
-		};
 	};
 };

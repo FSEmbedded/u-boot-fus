@@ -1,0 +1,40 @@
+/*
+ * Copyright (C) 2026 F&S Elektronik Systeme GmbH
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+/dts-v1/;
+
+#include "PCore93-FERT10.dts"
+/delete-node/ &{/board-cfg/PCore93-FERT10.110};
+
+/ {
+	board-cfg {
+		board-name = "NetDCU93";
+		board-fdt = "netdcu93";
+
+		/* Common board features */
+		// have-ndcu-fpga-fsbus;
+		have-ndcu-ioexp-fsbus;
+		// have-ndcu-tpm;
+		have-ndcu-audio;
+		// have-ndcu-i2c-c-as-col8-9;
+		// have-ndcu-i2c-c-as-col6-7;
+		have-ndcu-i2c-c-as-row6-7;
+		// have-ndcu-spi-a-as-col6-7;
+		have-ndcu-spi-a-as-col8-9;
+		// have-ndcu-row6-7-as-row-6-7;
+		have-ndcu-row6-7-as-col-6-7;
+
+		ND93-FERT6.110 {
+			board-rev = <110>;
+		};
+
+		ND93-FERT6.120 {
+			board-rev = <120>;
+		};
+	};
+};

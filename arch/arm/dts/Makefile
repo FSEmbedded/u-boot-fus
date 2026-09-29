@@ -1240,6 +1240,7 @@ dtb-$(CONFIG_ARCH_IMX8M) += \
 	picocoremx8mm-lpddr4.dtb \
 	picocoremx8mmr2-lpddr4.dtb \
 	picocoremx8mm-ddr3l.dtb \
+	picocoremx8mmr4-lpddr4.dtb \
 	osm8mm.dtb \
 	armstonemx8m.dtb \
 	picocoremx8mn-lpddr4.dtb \
@@ -1272,7 +1273,8 @@ dtb-$(CONFIG_ARCH_IMX9) += \
 	fs-osm-sf-mx93-adp-osm-bb.dtb \
 	fs-osm-sf-mx91-adp-osm-bb.dtb \
 	efusmx91.dtb \
-	picocom93.dtb
+	picocom93.dtb \
+	netdcu93.dts
 
 dtb-$(CONFIG_ARCH_IMXRT) += imxrt1050-evk.dtb \
 	imxrt1020-evk.dtb \

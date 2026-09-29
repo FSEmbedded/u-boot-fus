@@ -45,6 +45,9 @@
 		have-mipi-csi;
 		have-lvds;
 
+		/* NOTE:
+		 * Check NETDCU93-CFG in case of new revision
+		 */
 		PCore93-FERT10.110 {
 			board-rev = <110>;
 		};

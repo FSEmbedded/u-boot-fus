@@ -15,8 +15,8 @@ SECTIONS
 	. = 0x00000000;
 	.data : {
 		_start = .;
-		*(.data.dram_timing)	/* Have dram_timing right at beginning */
-		*(.data*)		/* DDR RAM timing data */
+		*(.data.dram_timing)			/* Have dram_timing right at beginning */
+		*(SORT_BY_NAME(.data.ddr_*))	/* Sort by name to have fix order */
 		. = ALIGN(8);
 		_end = .;
 	} >.ocram
