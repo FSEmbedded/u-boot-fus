@@ -327,6 +327,8 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_EXT_RTC;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-se050", NULL))
+		features |= FEAT_SE050;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
 		features |= FEAT_ETH_A;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
