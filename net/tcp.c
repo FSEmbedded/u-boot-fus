@@ -671,6 +671,9 @@ void rxhand_tcp_f(union tcp_build_pkt *b, unsigned int pkt_len)
 	}
 
 	tcp_hdr_len = GET_TCP_HDR_LEN_IN_BYTES(b->ip.hdr.tcp_hlen);
+	if (tcp_hdr_len > tcp_len)
+		return;
+
 	payload_len = tcp_len - tcp_hdr_len;
 
 	if (tcp_hdr_len > TCP_HDR_SIZE)
