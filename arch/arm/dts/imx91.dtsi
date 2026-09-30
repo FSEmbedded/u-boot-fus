@@ -377,8 +377,8 @@
 				compatible = "fsl,imx93-lpuart", "fsl,imx8ulp-lpuart", "fsl,imx7ulp-lpuart";
 				reg = <0x44390000 0x1000>;
 				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX91_CLK_LPUART2_GATE>;
-				clock-names = "ipg";
+				clocks = <&clk IMX91_CLK_LPUART2_GATE>, <&clk IMX91_CLK_LPUART2_GATE>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 
@@ -806,8 +806,8 @@
 				compatible = "fsl,imx93-lpuart", "fsl,imx8ulp-lpuart", "fsl,imx7ulp-lpuart";
 				reg = <0x42570000 0x1000>;
 				interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX91_CLK_LPUART3_GATE>;
-				clock-names = "ipg";
+				clocks = <&clk IMX91_CLK_LPUART3_GATE>, <&clk IMX91_CLK_LPUART3_GATE>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 
@@ -815,8 +815,8 @@
 				compatible = "fsl,imx93-lpuart", "fsl,imx8ulp-lpuart", "fsl,imx7ulp-lpuart";
 				reg = <0x42580000 0x1000>;
 				interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX91_CLK_LPUART4_GATE>;
-				clock-names = "ipg";
+				clocks = <&clk IMX91_CLK_LPUART4_GATE>, <&clk IMX91_CLK_LPUART4_GATE>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 
@@ -824,8 +824,8 @@
 				compatible = "fsl,imx93-lpuart", "fsl,imx8ulp-lpuart", "fsl,imx7ulp-lpuart";
 				reg = <0x42590000 0x1000>;
 				interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX91_CLK_LPUART5_GATE>;
-				clock-names = "ipg";
+				clocks = <&clk IMX91_CLK_LPUART5_GATE>, <&clk IMX91_CLK_LPUART5_GATE>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 
@@ -833,8 +833,8 @@
 				compatible = "fsl,imx93-lpuart", "fsl,imx8ulp-lpuart", "fsl,imx7ulp-lpuart";
 				reg = <0x425a0000 0x1000>;
 				interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX91_CLK_LPUART6_GATE>;
-				clock-names = "ipg";
+				clocks = <&clk IMX91_CLK_LPUART6_GATE>, <&clk IMX91_CLK_LPUART6_GATE>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 
@@ -926,8 +926,8 @@
 				compatible = "fsl,imx93-lpuart", "fsl,imx8ulp-lpuart", "fsl,imx7ulp-lpuart";
 				reg = <0x42690000 0x1000>;
 				interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX91_CLK_LPUART7_GATE>;
-				clock-names = "ipg";
+				clocks = <&clk IMX91_CLK_LPUART7_GATE>, <&clk IMX91_CLK_LPUART7_GATE>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 
@@ -935,8 +935,8 @@
 				compatible = "fsl,imx93-lpuart", "fsl,imx8ulp-lpuart", "fsl,imx7ulp-lpuart";
 				reg = <0x426a0000 0x1000>;
 				interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX91_CLK_LPUART8_GATE>;
-				clock-names = "ipg";
+				clocks = <&clk IMX91_CLK_LPUART8_GATE>, <&clk IMX91_CLK_LPUART8_GATE>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 

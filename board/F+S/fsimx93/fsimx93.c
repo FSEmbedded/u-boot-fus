@@ -97,46 +97,7 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 1 (BT_OSMSFMX93) */
-		.name = "FS-OSM-SF-MX93",
-		.bootdelay = __stringify(CONFIG_BOOTDELAY),
-		.updatecheck = UPDATE_DEF,
-		.installcheck = INSTALL_DEF,
-		.recovercheck = UPDATE_DEF,
-		.console = ".console_serial",
-		.login = ".login_serial",
-		.mtdparts = ".mtdparts_std",
-		.network = ".network_off",
-		.init = INIT_DEF,
-		.flags = 0,
-	},
-	{	/* 2 (BT_EFUSMX93) */
-		.name = "efusMX93",
-		.bootdelay = __stringify(CONFIG_BOOTDELAY),
-		.updatecheck = UPDATE_DEF,
-		.installcheck = INSTALL_DEF,
-		.recovercheck = UPDATE_DEF,
-		.console = ".console_serial",
-		.login = ".login_serial",
-		.mtdparts = ".mtdparts_std",
-		.network = ".network_off",
-		.init = INIT_DEF,
-		.flags = 0,
-	},
-	{	/* 3 (BT_NDCU93) */
-		.name = "netDCU93",
-		.bootdelay = __stringify(CONFIG_BOOTDELAY),
-		.updatecheck = UPDATE_DEF,
-		.installcheck = INSTALL_DEF,
-		.recovercheck = UPDATE_DEF,
-		.console = ".console_serial",
-		.login = ".login_serial",
-		.mtdparts = ".mtdparts_std",
-		.network = ".network_off",
-		.init = INIT_DEF,
-		.flags = 0,
-	},
-	{	/* 4 (BT_PICOCOREMX91) */
+	{	/* 1 (BT_PICOCOREMX91) */
 		.name = "PicoCoreMX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -149,7 +110,20 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 5 (BT_OSMSFMX91) */
+	{	/* 2 (BT_OSMSFMX93) */
+		.name = "FS-OSM-SF-MX93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 3 (BT_OSMSFMX91) */
 		.name = "FS-OSM-SF-MX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -162,7 +136,20 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
-	{	/* 6 (BT_EFUSMX91) */
+	{	/* 4 (BT_EFUSMX93) */
+		.name = "efusMX93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 5 (BT_EFUSMX91) */
 		.name = "efusMX91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
@@ -177,6 +164,45 @@ const struct fs_board_info board_info[] = {
 	},
 	{	/* 6 (BT_PICOCOM93) */
 		.name = "PicoCOM93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 7 (BT_PICOCOM91) */
+		.name = "PicoCOM91",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 8 (BT_NDCU93) */
+		.name = "netDCU93",
+		.bootdelay = __stringify(CONFIG_BOOTDELAY),
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
+	{	/* 9 (BT_NDCU91) */
+		.name = "netDCU91",
 		.bootdelay = __stringify(CONFIG_BOOTDELAY),
 		.updatecheck = UPDATE_DEF,
 		.installcheck = INSTALL_DEF,
@@ -205,12 +231,14 @@ static int set_gd_board_type(void)
 	len = (int)(ptr - board_id);
 
 	SET_BOARD_TYPE("PCoreMX93", BT_PICOCOREMX93, board_id, len);
+	SET_BOARD_TYPE("PCore91", BT_PICOCOREMX91, board_id, len);
 	SET_BOARD_TYPE("OSM93", BT_OSMSFMX93, board_id, len);
-	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
-	SET_BOARD_TYPE("ND93", BT_NDCU93, board_id, len);
 	SET_BOARD_TYPE("OSM91", BT_OSMSFMX91, board_id, len);
+	SET_BOARD_TYPE("ND93", BT_NDCU93, board_id, len);
+	SET_BOARD_TYPE("efusMX93", BT_EFUSMX93, board_id, len);
 	SET_BOARD_TYPE("efusMX91", BT_EFUSMX91, board_id, len);
 	SET_BOARD_TYPE("PCOM93", BT_PICOCOM93, board_id, len);
+	SET_BOARD_TYPE("PCOM91", BT_PICOCOM91, board_id, len);
 
 	/**
 	 * NOTE:
@@ -304,6 +332,8 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_EXT_RTC;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
+	if(fs_image_getprop(fdt, offs, rev_offs, "have-se050", NULL))
+		features |= FEAT_SE050;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
 		features |= FEAT_ETH_A;
 	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
@@ -351,6 +381,7 @@ int board_early_init_f(void)
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
 		case BT_PICOCOM93:
+		case BT_PICOCOM91:
 			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
 			init_uart_clk(LPUART5_CLK_ROOT);
 			break;
@@ -366,8 +397,8 @@ static void fdt_fsboard_fixup(void *fdt)
 	uint features = fs_board_get_features();
 
 	switch(gd->board_type){
-		case BT_PICOCOREMX91:
 		case BT_PICOCOREMX93:
+		case BT_PICOCOREMX91:
 		case BT_NDCU93:
 		case BT_PICOCOM93:
 			if(!(features & FEAT_ETH_PHY_A)){

@@ -193,7 +193,7 @@
 #define BOOT_FROM_NAND							\
 	".mtdparts_std_ab=setenv mtdparts " MTDPARTS_DEFAULT_AB "\0"	\
 	".mtdparts_std_noab=setenv mtdparts " MTDPARTS_DEFAULT "\0"	\
-	".mtdparts_std=if test -n ${use_ab}; then "			\
+	".mtdparts_std=if test x${use_ab} = x1; then "			\
 		"run .mtdparts_std_ab; "				\
 	"else "								\
 		"run .mtdparts_std_noab; "				\
@@ -211,7 +211,7 @@
 	  MTDPARTS_1 MTDPARTS_2_U MTDPARTS_4 "\0"                       \
 	".mtdparts_ubionly_noab=setenv mtdparts mtdparts="              \
 	  MTDPARTS_1 MTDPARTS_2 MTDPARTS_4 "\0"                         \
-	".mtdparts_ubionly=if test -n ${use_ab}; then "			\
+	".mtdparts_ubionly=if test x${use_ab} = x1; then "			\
 		"run .mtdparts_ubionly_ab; "                            \
 	"else "                                                         \
 		"run .mtdparts_ubionly_noab; "                          \
@@ -258,7 +258,7 @@
 	" ubifsmount ubi0:rootfs\\\\${slot_}\\\\;"			\
 	" ubifsload \\\\${fdtaddr} /boot/\\\\${bootfdt}" BOOT_WITH_FDT	\
 	".rootfs_ubifs=setenv set_rootfs"				\
-	" if test -n \\\\${use_ab}\\\\; then"				\
+	" if test x\\\\${use_ab} = x1\\\\; then"				\
 		" n=.ubiblock\\\\${slot_}\\\\;"				\
 		" setenv rootfs rootfstype=squashfs"			\
 		" ubi.block=0,rootfs\\\\${slot_} ubi.mtd=TargetFS,2048"	\
@@ -272,24 +272,32 @@
 #endif
 
 /*
- * In case of (e)MMC, the rootfs is loaded from a separate partition. Kernel
- * and device tree are loaded as files from a different partition that is
- * typically formated with FAT.
+ * Default is the rootfs boot mode: kernel and device tree are read from
+ * ${bootdir} inside the read-only squashfs rootfs slot (needs
+ * CONFIG_FS_SQUASHFS, CONFIG_ZSTD), so boot and rootfs partitions are the
+ * same slot.
+ *
+ * For the slot layout (kernel/dtb on FAT partitions 1/2, rootfs on 5/6),
+ * unset bootdir and set .rootfs_part_A=5, .rootfs_part_B=6, .rootfs_part=2.
+ * ${bootdir} is bound late, so it can still be changed before the kernel
+ * is loaded.
  */
 #ifdef CONFIG_CMD_MMC
 #define BOOT_FROM_MMC							\
+	"bootdir=/boot/\0"						\
 	".boot_part_A=1\0"						\
 	".boot_part_B=2\0"						\
 	".boot_part=1\0"						\
-	".rootfs_part_A=5\0"						\
-	".rootfs_part_B=6\0"						\
-	".rootfs_part=2\0"						\
+	".rootfs_part_A=1\0"						\
+	".rootfs_part_B=2\0"						\
+	".rootfs_part=1\0"						\
 	".kernel_mmc=setenv kernel n=.boot_part\\\\${slot_}\\\\;"	\
-	" mmc rescan\\\\; load mmc ${mmcdev}:\\\\${!n} . ${bootfile}\0"	\
+	" mmc rescan\\\\; load mmc ${mmcdev}:\\\\${!n} . \\\\${bootdir}${bootfile}\0" \
 	".fdt_mmc=setenv fdt n=.boot_part\\\\${slot_}\\\\; mmc rescan\\\\; " \
-	" load mmc ${mmcdev}:\\\\${!n} ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT \
+	" load mmc ${mmcdev}:\\\\${!n} ${fdtaddr} \\\\${bootdir}\\\\${bootfdt}" BOOT_WITH_FDT \
 	".rootfs_mmc=setenv set_rootfs n=.rootfs_part\\\\${slot_}\\\\;" \
-	" setenv rootfs root=/dev/mmcblk${mmcdev}p\\\\${!n} ${rootfstype} rootwait\0"
+	" part uuid mmc ${mmcdev}:\\\\${!n} rootfsuuid\\\\;" \
+	" setenv rootfs root=PARTUUID=\\\\${rootfsuuid} ${rootfstype} rootwait\0"
 #else
 #define BOOT_FROM_MMC
 #endif
@@ -321,6 +329,7 @@
  */
 #define BOOT_SYSTEM							\
 	".init_fs_updater=setenv init init=/sbin/preinit.sh\0"		\
+	"use_ab=1\0"						\
 	"BOOT_ORDER=A B\0"						\
 	"BOOT_ORDER_OLD=A B\0"						\
 	"BOOT_A_LEFT=3\0"						\
@@ -362,7 +371,7 @@
  */
 #define BOOT_MODE_DISPATCH						\
 	"select_boot_mode="                         \
-		"if test -n \"${use_ab}\"; then "           \
+		"if test \"x${use_ab}\" = x1; then "        \
 			"run .init_fs_updater selector; "   \
 			"if test -z \"${boot_failed}\"; then "\
 				"run set_bootargs kernel fdt; "	\

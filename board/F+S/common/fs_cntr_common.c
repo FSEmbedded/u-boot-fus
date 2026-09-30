@@ -230,6 +230,12 @@ bool fs_cntr_is_signed(struct container_hdr *cntr)
 	return !!(cntr->flags & GENMASK(1,0) );
 }
 
+bool fs_cntr_is_image_data(struct boot_img_t *img)
+{
+	/* CHECK IMAGE FLAG "Type of Image" equals data */
+	return !!(img->hab_flags & 0x4);
+}
+
 #ifdef __UBOOT__
 bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 {
@@ -552,11 +558,20 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 /* NOTE:
  * On i.MX8ULP, the ELE configures tRDC (RWX flags) when using SSRAM, preventing
  * overwriting of already validated images and causing resets. To avoid this,
- * only CNTR-HDR signatures are validated via AHAB; image hashes are checked in software.
+ * only CNTR-HDR signatures, and executable Images are validated via AHAB.
+ * Images with Type "Data" are checked with software.
  */
 
 #if defined(CONFIG_TARGET_FSIMX8ULP)
-	if (!cntr_image_check_sha(&images[image_index], (void *)images[image_index].dst)) {
+	if (!fs_cntr_is_image_data(&images[image_index]) &&
+			ahab_verify_cntr_image(&images[image_index],
+						image_index)) {
+		return NULL;
+	}
+
+	if (fs_cntr_is_image_data(&images[image_index]) &&
+			!cntr_image_check_sha(&images[image_index],
+					(void *)images[image_index].dst)) {
 		printf("ERROR: image %d failed SHA check\n", image_index);
 		hang();
 		return NULL;

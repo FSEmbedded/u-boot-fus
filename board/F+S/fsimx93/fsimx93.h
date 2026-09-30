@@ -33,19 +33,20 @@
 #define FEAT_EMMC 	BIT(0)
 #define FEAT_EXT_RTC 	BIT(1)
 #define FEAT_EEPROM	BIT(2)
-#define FEAT_ETH_A	BIT(3)
-#define FEAT_ETH_B	BIT(4)
-#define FEAT_ETH_PHY_A	BIT(5)
-#define FEAT_ETH_PHY_B	BIT(6)
-#define FEAT_AUDIO	BIT(7)
-#define FEAT_WLAN	BIT(8)
-#define FEAT_SDIO_A	BIT(9)
-#define FEAT_SDIO_B	BIT(10)
-#define FEAT_SDIO_C	BIT(11)
-#define FEAT_MIPI_DSI	BIT(12)
-#define FEAT_MIPI_CSI	BIT(13)
-#define FEAT_LVDS	BIT(14)
-#define FEAT_RGB	BIT(15)
+#define FEAT_SE050	BIT(3)
+#define FEAT_ETH_A	BIT(4)
+#define FEAT_ETH_B	BIT(5)
+#define FEAT_ETH_PHY_A	BIT(6)
+#define FEAT_ETH_PHY_B	BIT(7)
+#define FEAT_AUDIO	BIT(8)
+#define FEAT_WLAN	BIT(9)
+#define FEAT_SDIO_A	BIT(10)
+#define FEAT_SDIO_B	BIT(11)
+#define FEAT_SDIO_C	BIT(12)
+#define FEAT_MIPI_DSI	BIT(13)
+#define FEAT_MIPI_CSI	BIT(14)
+#define FEAT_LVDS	BIT(15)
+#define FEAT_RGB	BIT(16)
 
 
 #define UART_PAD_CTRL (PAD_CTL_DSE(6) | PAD_CTL_FSEL2)
@@ -79,23 +80,28 @@ static __maybe_unused iomux_v3_cfg_t const lpuart7_pads[] = {
  *  TODO: WDOG PAD
  */
 #elif defined(CONFIG_TARGET_FSIMX91)
-/* PCoreMX91 rev100 */
+/* PCoreMX93 rev100 */
 static __maybe_unused iomux_v3_cfg_t const lpuart2_pads[] = {
-	MX91_PAD_UART2_RXD__LPUART2_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	MX91_PAD_UART2_TXD__LPUART2_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-    };
+    MX91_PAD_UART2_RXD__LPUART2_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
+    MX91_PAD_UART2_TXD__LPUART2_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
+};
 
-    /* OSMSFMX91 rev100 */
-    /* EFUSMX91 rev100 */
-    static __maybe_unused iomux_v3_cfg_t const lpuart1_pads[] = {
-	MX91_PAD_UART1_RXD__LPUART1_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	MX91_PAD_UART1_TXD__LPUART1_TX | MUX_PAD_CTRL(UART_PAD_CTRL)};
+/* OSMSFMX93 rev100 */
+/* EFUSMX93 rev100 */
+/* NETDCU93 rev110 */
+static __maybe_unused iomux_v3_cfg_t const lpuart1_pads[] = {
+    MX91_PAD_UART1_RXD__LPUART1_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
+    MX91_PAD_UART1_TXD__LPUART1_TX | MUX_PAD_CTRL(UART_PAD_CTRL)};
 
-    /* PCoreMX91 rev110 */
-    static __maybe_unused iomux_v3_cfg_t const lpuart7_pads[] = {
-	MX91_PAD_GPIO_IO09__LPUART7_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
-	MX91_PAD_GPIO_IO08__LPUART7_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
-    };
+static __maybe_unused iomux_v3_cfg_t const lpuart5_pads[] = {
+	MX91_PAD_DAP_TDO_TRACESWO__LPUART5_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
+	MX91_PAD_DAP_TDI__LPUART5_RX          | MUX_PAD_CTRL(UART_PAD_CTRL)};
+
+/* PCoreMX93 rev110 */
+static __maybe_unused iomux_v3_cfg_t const lpuart7_pads[] = {
+    MX91_PAD_GPIO_IO09__LPUART7_RX | MUX_PAD_CTRL(UART_PAD_CTRL),
+    MX91_PAD_GPIO_IO08__LPUART7_TX | MUX_PAD_CTRL(UART_PAD_CTRL),
+};
 
     /**
      *  TODO: WDOG PAD
@@ -104,13 +110,15 @@ static __maybe_unused iomux_v3_cfg_t const lpuart2_pads[] = {
 
 enum fsimx93_board_types {
 	BT_PICOCOREMX93,
-	BT_OSMSFMX93,
-	BT_EFUSMX93,
-	BT_NDCU93,
 	BT_PICOCOREMX91,
+	BT_OSMSFMX93,
 	BT_OSMSFMX91,
+	BT_EFUSMX93,
 	BT_EFUSMX91,
-	BT_PICOCOM93
+	BT_PICOCOM93,
+	BT_PICOCOM91,
+	BT_NDCU93,
+	BT_NDCU91,
 };
 
 #endif /* __BOARD_FSIMX93_H */

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
-* Copyright 2026 F&S Elektronik Systeme GmbH
+* Copyright 2024 F&S Elektronik Systeme GmbH
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 as
@@ -47,22 +47,18 @@
 	};
 };
 
+&A55_0 {
+	clocks = <&clk IMX91_CLK_A55_SEL>;
+};
+
 &{/soc@0} {
 	bootph-all;
 	bootph-pre-ram;
 };
 
-&A55_0 {
-	clocks = <&clk IMX93_CLK_A55_SEL>;
-};
-
-&A55_1 {
-	clocks = <&clk IMX93_CLK_A55_SEL>;
-};
-
 &aips1 {
-	bootph-all;
 	bootph-pre-ram;
+	bootph-all;
 };
 
 &aips2 {
@@ -80,7 +76,7 @@
 	bootph-some-ram;
 };
 
-&pinctrl_uart1 {
+&pinctrl_uart7 {
 	bootph-pre-ram;
 	bootph-some-ram;
 };
@@ -121,11 +117,7 @@
 	/delete-property/ gpio-line-names;
 };
 
-&fsbus {
-	status = "disabled";
-};
-
-&ndcu_uart_c {
+&lpuart7 {
 	bootph-pre-ram;
 	bootph-some-ram;
 };
@@ -150,19 +142,12 @@
 	bootph-pre-ram;
 };
 
-&{/leds/LED_STAT1} {
-	default-state = "off";
-};
-
-&{/leds/LED_STAT2} {
-	default-state = "off";
-};
-
 &pinctrl_lpi2c2 {
 	bootph-pre-ram;
 };
 
 &fec {
+	compatible = "fsl,imx91-fec", "fsl,imx93-fec", "fsl,imx8mq-fec";
 	phy-reset-duration = <15>;
 	phy-reset-post-delay = <100>;
 };
@@ -208,4 +193,14 @@
 &clk_ext1 {
 	bootph-all;
 	bootph-pre-ram;
+};
+
+&lcdif {
+	assigned-clocks = <&clk IMX91_CLK_MEDIA_AXI>, <&clk IMX91_CLK_MEDIA_APB>;
+	assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>, <&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>;
+	assigned-clock-rates = <400000000>, <133333334>;
+};
+
+&parallel_disp_fmt {
+	/delete-property/ power-domains;
 };

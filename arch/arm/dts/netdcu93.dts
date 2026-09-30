@@ -238,9 +238,9 @@ ndcu_sai: &pc_sai {};
 		gpio-controller;
 		#gpio-cells = <2>;
 		gpio-line-names = 
-		  /* 0 - 3*/	"PIF_D0", "PIF_D1", "PIF_D2", "PIF_D3", 
-		  /* 4 - 7 */	"PIF_D4", "PIF_D5", "PIF_D6", "PIF_D7", 
-		  /* 8 - 11 */	"PIF_IRQ", "PIF_CS", "PIF_RW", "PIF_ADE", 
+		  /* 0 - 3*/	"PIF_D0", "PIF_D1", "PIF_D2", "PIF_D3",
+		  /* 4 - 7 */	"PIF_D4", "PIF_D5", "PIF_D6", "PIF_D7",
+		  /* 8 - 11 */	"PIF_IRQ", "PIF_CS", "PIF_RW", "PIF_ADE",
 		  /* 12 -15 */	"", "", "", "";
 		status = "okay";
 	};
