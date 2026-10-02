@@ -677,7 +677,7 @@ void fs_image_board_cfg_set_board_rev(struct fs_header_v1_0 *cfg_fsh)
 	cfg_fsh->info.file_size_high = compare_bnr.rev;
 
 	cfg_fsh->info.flags |= FSH_FLAGS_SECURE | FSH_FLAGS_CRC32;
-	
+
 	/* calc new crc32 */
 	fs_image_update_header(cfg_fsh, size, cfg_fsh->info.flags);
 }

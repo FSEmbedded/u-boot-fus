@@ -2259,7 +2259,7 @@ static int fs_image_read_board_cfg(void)
 	printf("Reading stored BOARD-CFG from %s\n", fi.devname);
 
 	err = fi.ops->read_board_cfg(&fi, fs_image_get_stored_nboot_info(),
-    				     fs_image_get_cfg_addr());
+				     fs_image_get_cfg_addr());
 	fs_image_put_flash_info(&fi);
 	if (err) {
 		printf("Reading BOARD-CFG failed (%d)\n", err);

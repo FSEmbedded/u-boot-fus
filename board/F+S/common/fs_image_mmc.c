@@ -823,8 +823,8 @@ static int fs_image_try_board_cfg_mmc(struct flash_info *fi, int copy,
 	uint num_images;
 	uint start = si->start[copy];
 	uint lim = start + si->size;
-       	struct fs_header_v1_0 one_fsh;
-       	const struct fs_header_v1_0 *fsh;
+	struct fs_header_v1_0 one_fsh;
+	const struct fs_header_v1_0 *fsh;
 	int err;
 	uint nboot_start, nboot_size;
 	const void *fdt;
@@ -840,7 +840,7 @@ static int fs_image_try_board_cfg_mmc(struct flash_info *fi, int copy,
 	err = fs_image_get_boot_info_size_mmc(fi, start, lim);
 	if (err < 0)
 		return err;
-	offs = start + err; 		/* points to BOARD-ID */
+	offs = start + err;		/* POINTS to BOARD-ID */
 	err = fs_image_load_sub(fi, offs, FSH_SIZE, lim, 0, &one_fsh);
 	if (err)
 		return err;
@@ -930,7 +930,7 @@ static bool fs_image_try_uboot_mmc(struct flash_info *fi, int copy,
 {
 	uint offs = ni->nboot.start[copy] + ni->nboot.size;
 	uint lim = si->start[copy] + si->size;
-       	struct fs_header_v1_0 one_fsh;
+	struct fs_header_v1_0 one_fsh;
 	int err;
 	uint uboot_start, uboot_size;
 
@@ -1045,7 +1045,7 @@ static int fs_image_set_boot_hwpart_mmc(struct flash_info *fi, int boot_hwpart)
 
 	ack = EXT_CSD_EXTRACT_BOOT_ACK(mmc->part_config);
 	access = EXT_CSD_EXTRACT_PARTITION_ACCESS(mmc->part_config);
- 	err = mmc_set_part_conf(mmc, ack, boot_hwpart, access);
+	err = mmc_set_part_conf(mmc, ack, boot_hwpart, access);
 
 	if (!err)
 		fi->boot_hwpart = boot_hwpart;

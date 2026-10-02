@@ -58,7 +58,7 @@ struct fs_header_v1_0 {			/* Size: 64 bytes */
 #define FSH_FLAGS_CRC32		0x4000	/* CRC32 of image in type[12..15] */
 #define FSH_FLAGS_SECURE	0x2000	/* CRC32 of header in type[12..15] */
 #define FSH_FLAGS_INDEX		0x1000	/* Image contains an index */
-#define FSH_FLAGS_EXTRA 	0x0800	/* Extra offset sub-header in p32[7] */
+#define FSH_FLAGS_EXTRA		0x0800	/* Extra offset sub-header in p32[7] */
 #define FSH_SIZE sizeof(struct fs_header_v1_0)
 
 /* Get the boot device number from the string */
@@ -249,7 +249,7 @@ struct storage_info {
 #define NI_SUPPORT_U_ATF       BIT(5)	/* Support for user defined U_ATF/U_TEE
 					   in addition to system ATF/TEE */
 
-#define MAX_SUB_IMGS	8 		/* Max Array-Size for Sub-Images */
+#define MAX_SUB_IMGS	8		/* Max Array-Size for Sub-Images */
 
 struct nboot_info {
 	uint flags;			/* See NI_* above */

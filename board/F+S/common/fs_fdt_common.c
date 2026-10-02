@@ -23,7 +23,7 @@
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
 #include "fs_image_common.h"		/* fs_image_*() */
 #ifdef CONFIG_FS_SELFTEST
-#include "fs_processor_info.h"	/* fs_get_processorInfo() */
+#include "fs_processor_info.h"		/* fs_get_processorInfo() */
 #endif
 
 /* Set a generic value, if it was not already set in the device tree */
@@ -72,7 +72,8 @@ void fs_fdt_set_u32str(void *fdt, int offs, const char *name, u32 val,
 }
 
 /* Set a u32 value */
-void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force, bool verbose)
+void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force,
+		    bool verbose)
 {
 	fdt32_t tmp = cpu_to_fdt32(val);
 

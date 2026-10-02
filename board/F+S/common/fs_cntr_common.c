@@ -220,9 +220,9 @@ static int slow_equals(u8 *a, u8 *b, int len)
 static void __maybe_unused print_hash(u8 *hash, int hash_size)
 {
 	int i;
-	for (i = 0; i < hash_size; i++) {
+
+	for (i = 0; i < hash_size; i++)
 		printf("%02x", hash[i]);
-	}
 	puts("\n");
 }
 
@@ -255,7 +255,7 @@ bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 
 	debug("%s: validate %ssum\n", __func__ , algo_name);
 	ret = calculate_hash(blob, img->size, algo_name, sha, &sha_size);
-	if(ret){
+	if (ret) {
 		printf("failed to calc hash: %d\n", ret);
 		return false;
 	}
@@ -279,22 +279,22 @@ bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
 	struct boot_img_t *img_idx;
 
 
-	if(!valid_container_hdr(cntr_hdr)){
+	if (!valid_container_hdr(cntr_hdr))
 		return false;
-	}
 
 	cntr_length = cntr_hdr->length_lsb + (cntr_hdr->length_msb << 8);;
 
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 	authhdr = ahab_auth_cntr_hdr(cntr_hdr, cntr_length);
-	if(!authhdr)
+	if (!authhdr)
 		goto ahab_release;
 #endif
 
-	if(!cntr_hdr->num_images)
+	if (!cntr_hdr->num_images)
 		goto ahab_release;
 
-	img_idx = (struct boot_img_t *)((u8 *)cntr_hdr + sizeof(struct container_hdr));
+	img_idx = (struct boot_img_t *)
+		((u8 *)cntr_hdr + sizeof(struct container_hdr));
 
 	for (i = 0; i < cntr_hdr->num_images; i++) {
 		void *img_ptr;
@@ -302,7 +302,7 @@ bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
 		img_ptr = (void *)cntr_hdr + img_idx[i].offset;
 
 		ret = cntr_image_check_sha(&img_idx[i], img_ptr);
-		if(!ret)
+		if (!ret)
 			goto ahab_release;
 	}
 
@@ -350,12 +350,12 @@ static void free_container(struct spl_image_info *cntr_info)
  * this function will initialize ahab.
  * After successful run, 'free_container()' must be called.
  * In case of an unsuccessful run, no need to call 'free_container()'
- * 
+ *
  * @param spl_image: struct containes image infos like loadaddr, size, ...
  * @param spl_load_info: struct contains infos about device, like blocksize, read(), ...
  * @param sector: start reading at sector.
  * @returns -ERRNO
- * 
+ *
  */
 static int read_container_hdr(struct spl_image_info *spl_image,
 			       struct spl_load_info *info, ulong sector)
@@ -449,7 +449,7 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 
 	spl_image->load_addr = (uintptr_t)authhdr;
 
-	/**
+	/*
 	 * in case of streaming,
 	 * padding between hdr and Image needs to be considered
 	 */
@@ -489,7 +489,8 @@ static int read_container_hdr(struct spl_image_info *spl_image,
 	return ret;
 }
 
-int fs_cntr_load_imx_container_header(struct spl_image_info *image_info, struct spl_load_info *info, ulong sector)
+int fs_cntr_load_imx_container_header(struct spl_image_info *image_info,
+				      struct spl_load_info *info, ulong sector)
 {
 	return read_container_hdr(image_info, info, sector);
 }
@@ -497,7 +498,7 @@ int fs_cntr_load_imx_container_header(struct spl_image_info *image_info, struct 
 /**
  * read_auth_image()
  * based on arch/arm/mach-imx/parse-container.c
- * 
+ *
  * @spl_image: returns image_info for image[image_index]
  * @container: ptr to container header
  * @image_index: idx for image in image array.
@@ -575,22 +576,23 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 
 /**
  * fs_cntr_load_single_image()
- * 
+ *
  * @image_info: returns image_info for image[image_num]
  * @cntr_info: ptr to spl_image_info for container hdr
  * @load: ptr to load_info
  * @image_num: idx for image in image array.
  * @returns: 0 if success; else -ERRNO;
  */
-static int __maybe_unused fs_cntr_load_single_image(struct spl_image_info *image_info,
+static int __maybe_unused fs_cntr_load_single_image(
+				struct spl_image_info *image_info,
 				struct spl_image_info *cntr_info,
-				struct spl_load_info *load,
-				int image_num)
+				struct spl_load_info *load, int image_num)
 {
 	struct boot_img_t *image;
 
-	image = read_auth_image(image_info, load, (struct container_hdr *)cntr_info->load_addr,
-					image_num, cntr_info->offset);
+	image = read_auth_image(image_info, load,
+				(struct container_hdr *)cntr_info->load_addr,
+				image_num, cntr_info->offset);
 
 	if (!image)
 		return -EINVAL;
@@ -603,7 +605,7 @@ static int __maybe_unused fs_cntr_load_single_image(struct spl_image_info *image
 
 /**
  * fs_cntr_skip_streamed_images()
- * 
+ *
  * @image_info: returns image_info form last image
  * @cntr_info: ptr to spl_image_info for container hdr
  * @load: ptr to load_info
@@ -611,19 +613,21 @@ static int __maybe_unused fs_cntr_load_single_image(struct spl_image_info *image
  * @stop_at_idx: idx for the last image to be load
  * @returns: 0 if success; else -ERRNO;
  */
-static int __maybe_unused fs_cntr_skip_streamed_images(struct spl_image_info *image_info,
+static int __maybe_unused fs_cntr_skip_streamed_images(
+				struct spl_image_info *image_info,
 				struct spl_image_info *cntr_info,
 				struct spl_load_info *load,
-				int start_from_idx,
-				int stop_at_idx)
+				int start_from_idx, int stop_at_idx)
 {
 	struct container_hdr *cntr = (struct container_hdr *)cntr_info->load_addr;
-	int idx;
+	int i;
 	int ret;
 
-	for(idx=start_from_idx; idx <= stop_at_idx && idx < cntr->num_images; idx++){
-		ret = fs_cntr_load_single_image(image_info, cntr_info, load, idx);
-		if(ret)
+	if (stop_at_idx >= cntr->num_images)
+		stop_at_idx = cntr->num_images - 1;
+	for (i = start_from_idx; i <= stop_at_idx; i++) {
+		ret = fs_cntr_load_single_image(image_info, cntr_info, load, i);
+		if (ret)
 			return ret;
 	}
 
@@ -632,17 +636,17 @@ static int __maybe_unused fs_cntr_skip_streamed_images(struct spl_image_info *im
 
 /**
  * fs_cntr_load_all_images()
- * 
+ *
  * @image_info: returns image_info for image[image_num]
  * @cntr_info: ptr to spl_image_info for container hdr
  * @load: ptr to load_info
  * @fst_idx: image info for image[idx].
  * @returns: 0 if success; else -ERRNO;
  */
-static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_info,
+static int __maybe_unused fs_cntr_load_all_images(
+				struct spl_image_info *image_info,
 				struct spl_image_info *cntr_info,
-				struct spl_load_info *load,
-				int fst_idx)
+				struct spl_load_info *load, int fst_idx)
 {
 	struct container_hdr *cntr;
 	struct spl_image_info info;
@@ -655,12 +659,13 @@ static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_i
 
 	for (idx = 0; idx < num_images; idx++) {
 		ret = fs_cntr_load_single_image(&info, cntr_info, load, idx);
-		if(idx == fst_idx)
+		if (idx == fst_idx)
 			memcpy(image_info, &info, sizeof(struct spl_image_info));
 	}
 
 	debug("image[%d]: load_addr=0x%lx, entry_point=0x%lx, image_size=0x%x\n",
-			fst_idx, image_info->load_addr, image_info->entry_point, image_info->size);
+	      fst_idx, image_info->load_addr, image_info->entry_point,
+	      image_info->size);
 
 	return ret;
 }
@@ -668,7 +673,7 @@ static int __maybe_unused fs_cntr_load_all_images(struct spl_image_info *image_i
 
 
 /* ------------- Functions only in SPL, not U-Boot ------------------------- */
-/**
+/*
  * The following Code is supposed to load images
  * (BOARD-ID/BOARD-INFO/DRAM-INFO) via BOOTROM.
  */
@@ -725,11 +730,14 @@ static int init_ram_info(struct ram_info_t *ram_info)
 
 	memset(ram_info, 0, sizeof(struct ram_info_t));
 
-	ram_info->type = fs_image_getprop(fdt, offs, rev_offs, "dram-type", NULL);
-	ram_info->timing = fs_image_getprop(fdt, offs, rev_offs, "dram-timing", NULL);
+	ram_info->type = fs_image_getprop(fdt, offs, rev_offs, "dram-type",
+					  NULL);
+	ram_info->timing = fs_image_getprop(fdt, offs, rev_offs, "dram-timing",
+					    NULL);
 
-	debug("%s: type at 0x%p; timing at 0x%p\n", __func__, ram_info->type, ram_info->timing);
-	if(!ram_info->type || !ram_info->timing)
+	debug("%s: type at 0x%p; timing at 0x%p\n", __func__, ram_info->type,
+	      ram_info->timing);
+	if (!ram_info->type || !ram_info->timing)
 		return -1;
 
 	return 0;
@@ -738,17 +746,19 @@ static int init_ram_info(struct ram_info_t *ram_info)
 #if defined(CFG_ELE_WORKAROUND)
 /*
  * NOTE: This workaround is required for the i.MX ELE firmware.
- * 	 The ELE API does not allow to validate cntr-hdr or images of
- * 	 IMX-Container, where the number of images is >= 32.
- * 
- * 	 We place every board-cfg in groups of 4. One Group is one IMX-CNTR-Image.
- * 	 This will allow to save up to 120 Board-CFGs in one container,
- * 	 which should be sufficient for the next years.
- * 
+ *	 The ELE API does not allow to validate cntr-hdr or images of
+ *	 IMX-Container, where the number of images is >= 32.
+ *
+ *	 We place every board-cfg in groups of 4. One Group is one IMX-CNTR-Image.
+ *	 This will allow to save up to 120 Board-CFGs in one container,
+ *	 which should be sufficient for the next years.
+ *
  * TODO: This is a workaround and not a final solution within NBOOT.
- * 	 New Specification for BOARD-INFO / DRAM-INFO is required!
+ *	 New Specification for BOARD-INFO / DRAM-INFO is required!
  */
-static int board_cfg_ele_workaround(struct fsh_load_info *fsh_info, struct spl_image_info *cntr_info, struct fs_header_v1_0 *cfg_index)
+static int board_cfg_ele_workaround(struct fsh_load_info *fsh_info,
+				    struct spl_image_info *cntr_info,
+				    struct fs_header_v1_0 *cfg_index)
 {
 	struct spl_image_info cfg_info;
 	struct spl_load_info *load_info;
@@ -766,26 +776,29 @@ static int board_cfg_ele_workaround(struct fsh_load_info *fsh_info, struct spl_i
 	num_imgs = cntr->num_images;
 
 	/* search board-cfg fsh within index */
-	for(fsh_idx = 1; (fsh_idx < (num_imgs * 4)) && fs_image_is_fs_image(&cfg_index[fsh_idx]); fsh_idx++){
-		if(fs_image_match_board_id(&cfg_index[fsh_idx]))
+	for (fsh_idx = 1; (fsh_idx < (num_imgs * 4))
+		     && fs_image_is_fs_image(&cfg_index[fsh_idx]); fsh_idx++) {
+		if (fs_image_match_board_id(&cfg_index[fsh_idx]))
 			break;
 	}
 
-	if(fsh_idx >= (num_imgs * 4) || !fs_image_is_fs_image(&cfg_index[fsh_idx])){
+	if (fsh_idx >= (num_imgs * 4)
+	    || !fs_image_is_fs_image(&cfg_index[fsh_idx])) {
 		free_container(cntr_info);
 		return -EINVAL;
 	}
 
-	debug("FSCNTR: FOUND %s (%s)\n", cfg_index[fsh_idx].type, cfg_index[fsh_idx].param.descr);
+	debug("FSCNTR: FOUND %s (%s)\n", cfg_index[fsh_idx].type,
+	      cfg_index[fsh_idx].param.descr);
 	debug("Found at FSH Index %d\n", fsh_idx);
 
 	/* We need to skip images in stream */
 	cntr_idx = 1 + ((fsh_idx - 1) / 4);
-	if(is_boot_from_stream_device()){
+	if (is_boot_from_stream_device()) {
 		ret = fs_cntr_skip_streamed_images(&cfg_info,
 				cntr_info,
 				load_info,1,cntr_idx-1);
-		if(ret){
+		if (ret) {
 			free_container(cntr_info);
 			return ret;
 		}
@@ -797,44 +810,43 @@ static int board_cfg_ele_workaround(struct fsh_load_info *fsh_info, struct spl_i
 				load_info,
 				cntr_idx);
 
-	if(ret){
+	if (ret) {
 		free_container(cntr_info);
 		return ret;
 	}
 
 	/* catch correct config in group and place it */
 	fsh_cfg_addr = CONFIG_FUS_BOARDCFG_ADDR;
-	fsi_cfg_addr = CONFIG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0);
-	for(i=0, fsi_cfg_offset=0; i < ((fsh_idx - 1) % 4); i++) {
+	fsi_cfg_addr = CONFIG_FUS_BOARDCFG_ADDR + FSH_SIZE;
+	for (i=0, fsi_cfg_offset = 0; i < ((fsh_idx - 1) % 4); i++) {
 		int idx = fsh_idx - ((fsh_idx - 1) % 4) + i;
 		fsi_cfg_offset += fs_image_get_size(&cfg_index[idx], false);
 	}
 
-	if(cfg_info.load_addr != CONFIG_FUS_BOARDCFG_ADDR || \
-			(fsh_idx - 1) % 4 != 0)
-	{
-		memcpy((void *)fsh_cfg_addr, &cfg_index[fsh_idx],
-			sizeof(struct fs_header_v1_0));
+	if (cfg_info.load_addr != CONFIG_FUS_BOARDCFG_ADDR
+	    || (fsh_idx - 1) % 4 != 0) {
+		memcpy((void *)fsh_cfg_addr, &cfg_index[fsh_idx], FSH_SIZE);
 
 		memcpy((void *)fsi_cfg_addr,
 				(void *)(cfg_info.load_addr + fsi_cfg_offset),
 				fs_image_get_size(&cfg_index[fsh_idx], false));
 	} else {
 		/*
-		 * NOTE: board-cfg needs to be placed 0x40 behind CONFIG_FUS_BOARDCFG_ADDR
-		 * Two memcpy operations are required.
+		 * NOTE: board-cfg needs to be placed 0x40 behind
+		 * CONFIG_FUS_BOARDCFG_ADDR Two memcpy operations are
+		 * required.
 		 */
 		long tmp_addr = cfg_info.load_addr;
 		tmp_addr += fs_image_get_size(&cfg_index[fsh_idx], false);
 		memcpy((void *)tmp_addr, (void *)cfg_info.load_addr,
 				fs_image_get_size(&cfg_index[fsh_idx], false));
-		memcpy((void *)fsh_cfg_addr, &cfg_index[fsh_idx],
-				sizeof(struct fs_header_v1_0));
+		memcpy((void *)fsh_cfg_addr, &cfg_index[fsh_idx], FSH_SIZE);
 		memcpy((void *)fsi_cfg_addr, (void *)tmp_addr,
 				fs_image_get_size(&cfg_index[fsh_idx], false));
 	}
 
 	free_container(cntr_info);
+
 	return ret;
 }
 #endif
@@ -861,7 +873,7 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	sector = offset / load_info->bl_len;
 
 	ret = fs_cntr_load_imx_container_header(&cntr_info, load_info, sector);
-	if(ret)
+	if (ret)
 		return ret;
 
 	debug("FSCNTR: Found IMX-CONTAINER FOR BOARD-INFO\n");
@@ -873,14 +885,14 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 				&cntr_info,
 				load_info,
 				0);
-	if(ret){
+	if (ret) {
 		free_container(&cntr_info);
 		return ret;
 	}
 
 	cfg_fsh = (struct fs_header_v1_0 *)cfg_info.load_addr;
 
-	if(!fs_image_match(cfg_fsh, "INDEX", NULL)){
+	if (!fs_image_match(cfg_fsh, "INDEX", NULL)) {
 		free_container(&cntr_info);
 		return -EINVAL;
 	}
@@ -890,28 +902,28 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 #endif
 
 	/* search board-cfg fsh within index */
-	for(idx = 1; idx < num_imgs; idx++){
-		if(fs_image_match_board_id(&cfg_fsh[idx]))
+	for (idx = 1; idx < num_imgs; idx++) {
+		if (fs_image_match_board_id(&cfg_fsh[idx]))
 			break;
 	}
 
-	if(idx >= num_imgs){
+	if (idx >= num_imgs) {
 		free_container(&cntr_info);
 		return -EINVAL;
 	}
 
-	debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh[idx].type, cfg_fsh[idx].param.descr);
+	debug("FSCNTR: FOUND %s (%s)\n", cfg_fsh[idx].type,
+	      cfg_fsh[idx].param.descr);
 
 	/* place fsh in OCRAM */
-	memcpy((void *)CONFIG_FUS_BOARDCFG_ADDR, &cfg_fsh[idx],
-			sizeof(struct fs_header_v1_0));
+	memcpy((void *)CONFIG_FUS_BOARDCFG_ADDR, &cfg_fsh[idx], FSH_SIZE);
 
 	/* We need to skip images in stream */
-	if(is_boot_from_stream_device()){
+	if (is_boot_from_stream_device()) {
 		ret = fs_cntr_skip_streamed_images(&cfg_info,
 				&cntr_info,
 				load_info,1,idx-1);
-		if(ret){
+		if (ret) {
 			free_container(&cntr_info);
 			return ret;
 		}
@@ -923,21 +935,23 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 				load_info,
 				idx);
 
-	if(ret){
+	if (ret) {
 		free_container(&cntr_info);
 		return ret;
 	}
 
 	{
-		/**
-		 * TODO: A simple workaround to load data in other sram areas using Cortex-A.
-		 * Check between Loadaddr and CONFIG_FUS_BOARDCFG_ADDR and copy the binary.
+		/*
+		 * TODO: A simple workaround to load data in other sram areas
+		 * using Cortex-A. Check between Loadaddr and
+		 * CONFIG_FUS_BOARDCFG_ADDR and copy the binary.
 		 */
-		ulong load_addr = (CONFIG_FUS_BOARDCFG_ADDR + sizeof(struct fs_header_v1_0));
+		ulong load_addr = (CONFIG_FUS_BOARDCFG_ADDR + FSH_SIZE);
 
 		if ((ulong)cfg_info.load_addr != load_addr){
 			debug("FSCNTR: move board-cfg to another location!\n");
-			memcpy((void *)load_addr, (void *)cfg_info.load_addr, cfg_info.size);
+			memcpy((void *)load_addr, (void *)cfg_info.load_addr,
+			       cfg_info.size);
 		}
 	}
 
@@ -945,7 +959,8 @@ static int fs_load_cntr_board_cfg(struct fsh_load_info *fsh_info)
 	return ret;
 }
 
-static int fs_handle_board_cfg(struct fsh_load_info *fsh_info, struct ram_info_t *ram_info)
+static int fs_handle_board_cfg(struct fsh_load_info *fsh_info,
+			       struct ram_info_t *ram_info)
 {
 	struct fs_header_v1_0 *fsh;
 	int ret;
@@ -959,13 +974,13 @@ static int fs_handle_board_cfg(struct fsh_load_info *fsh_info, struct ram_info_t
 	}
 
 	ret = fs_load_cntr_board_cfg(fsh_info);
-	if(ret) {
+	if (ret) {
 		debug("FSCNTR: board_cfg not found!: %d\n", ret);
 		return -EINVAL;
 	}
 
 	ret = init_ram_info(ram_info);
-	if(ret) {
+	if (ret) {
 		debug("FSCNTR: dram definition not in board_cfg\n");
 		return -EINVAL;
 	}
@@ -978,7 +993,8 @@ static int fs_handle_board_cfg(struct fsh_load_info *fsh_info, struct ram_info_t
 	return 0;
 }
 
-static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_info_t *ram_info)
+static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info,
+				  struct ram_info_t *ram_info)
 {
 	struct fs_header_v1_0 *fsh;
 	struct spl_load_info *load_info;
@@ -1002,7 +1018,7 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	sector = offset / load_info->bl_len;
 
 	ret = fs_cntr_load_imx_container_header(&cntr_info, load_info, sector);
-	if(ret)
+	if (ret)
 		return ret;
 
 	debug("FSCNTR: Found IMX-CONTAINER FOR DRAM-INFO\n");
@@ -1014,44 +1030,45 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 				&cntr_info,
 				load_info,
 				0);
-	if(ret){
+	if (ret) {
 		free_container(&cntr_info);
 		return ret;
 	}
 
 	dram_fsh = (struct fs_header_v1_0 *)dram_info.load_addr;
 
-	if(!fs_image_match(dram_fsh, "INDEX", NULL)){
+	if (!fs_image_match(dram_fsh, "INDEX", NULL)) {
 		free_container(&cntr_info);
 		return -EINVAL;
 	}
 
 	/* search dram-fw within index */
-	for(idx = 1; idx < num_imgs; idx++){
-		if(fs_image_match(&dram_fsh[idx], "DRAM-FW", ram_info->type))
+	for (idx = 1; idx < num_imgs; idx++) {
+		if (fs_image_match(&dram_fsh[idx], "DRAM-FW", ram_info->type))
 			break;
 	}
 
 	/* load dram fw*/
-	if(idx < num_imgs){
+	if (idx < num_imgs) {
 		fw_idx = idx;
 		/* We need to skip images in stream */
-		if(is_boot_from_stream_device()){
+		if (is_boot_from_stream_device()) {
 			ret = fs_cntr_skip_streamed_images(&dram_info,
 					&cntr_info,
 					load_info,1,fw_idx-1);
-			if(ret){
+			if (ret) {
 				free_container(&cntr_info);
 				return ret;
 			}
 		}
 
-		debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type, dram_fsh[idx].param.descr);
-		ret = fs_cntr_load_single_image(&dram_info, 
+		debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type,
+		      dram_fsh[idx].param.descr);
+		ret = fs_cntr_load_single_image(&dram_info,
 					&cntr_info,
 					load_info,
 					fw_idx);
-		if(ret){
+		if (ret) {
 			free_container(&cntr_info);
 			return ret;
 		}
@@ -1060,37 +1077,39 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	}
 
 	/* search dram-timing */
-	for(idx = 1; idx < num_imgs; idx++){
-		if(fs_image_match(&dram_fsh[idx], "DRAM-TIMING", ram_info->timing))
+	for (idx = 1; idx < num_imgs; idx++) {
+		if (fs_image_match(&dram_fsh[idx], "DRAM-TIMING",
+				   ram_info->timing))
 			break;
 	}
 
-	if(idx >= num_imgs){
+	if (idx >= num_imgs) {
 		free_container(&cntr_info);
 		return -EINVAL;
 	}
 
 	/* We need to skip images in stream */
-	if(is_boot_from_stream_device()){
-		if(fw_idx >= idx)
+	if (is_boot_from_stream_device()) {
+		if (fw_idx >= idx)
 			return -EINVAL;
 
 		ret = fs_cntr_skip_streamed_images(&dram_info,
 				&cntr_info,
 				load_info,fw_idx+1,idx-1);
-		if(ret){
+		if (ret) {
 			free_container(&cntr_info);
 			return ret;
 		}
 	}
 
 	/* load dram-timing */
-	debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type, dram_fsh[idx].param.descr);
+	debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type,
+	      dram_fsh[idx].param.descr);
 	ret = fs_cntr_load_single_image(&dram_info,
 					&cntr_info,
 					load_info,
 					idx);
-	if(ret){
+	if (ret) {
 		free_container(&cntr_info);
 		return ret;
 	}
@@ -1107,11 +1126,12 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 
 /**
  *  fs_handle_dram()
- * 
+ *
  * @fsh: fsh, which should announce a dram-info
  * return: 0 if type matches; -ERRNO if type does not match
  */
-static int fs_handle_dram(struct fsh_load_info *fsh_info, struct ram_info_t *ram_info)
+static int fs_handle_dram(struct fsh_load_info *fsh_info,
+			  struct ram_info_t *ram_info)
 {
 	struct fs_header_v1_0 *fsh;
 	int ret = 0;
@@ -1125,7 +1145,7 @@ static int fs_handle_dram(struct fsh_load_info *fsh_info, struct ram_info_t *ram
 	}
 
 	ret = fs_load_cntr_dram_info(fsh_info, ram_info);
-	if(ret) {
+	if (ret) {
 		debug("%s: data not found!: %d", __func__, ret);
 		return ret;
 	}
@@ -1138,15 +1158,15 @@ static int set_uboot_info(struct fsh_load_info *fsh_info)
 	struct fs_header_v1_0 *fsh;
 	struct spl_load_info *load_info;
 
-	fsh = malloc(sizeof(struct fs_header_v1_0));
-	if(!fsh)
+	fsh = malloc(FSH_SIZE);
+	if (!fsh)
 		return -ENOMEM;
 
 	load_info = malloc(sizeof(struct spl_load_info));
-	if(!load_info)
+	if (!load_info)
 		return -ENOMEM;
 
-	memcpy(fsh, fsh_info->fsh, sizeof(struct fs_header_v1_0));
+	memcpy(fsh, fsh_info->fsh, FSH_SIZE);
 	memcpy(load_info, fsh_info->load_info, sizeof(struct spl_load_info));
 
 	uboot_info.fsh = fsh;
@@ -1162,7 +1182,7 @@ static struct fsh_load_info *get_uboot_info(void)
 
 /**
  * fs_handle_uboot()
- * 
+ *
  * @fsh: fsh, which should announce a U-BOOT-INFO
  * return: 0 if type matches; -ERRNO if not
 */
@@ -1184,17 +1204,18 @@ static int fs_handle_uboot(struct fsh_load_info *fsh_info)
 	}
 
 	ret = set_uboot_info(fsh_info);
-	if(ret){
+	if (ret) {
 		printf("ERROR: %d\n", ret);
 		hang();
 	}
 
 	/* Update BOARD-CFG */
-	if(!is_boot_from_stream_device()){
+	if (!is_boot_from_stream_device()) {
 		uboot_size = fs_image_get_size(fsh, true);
 		uboot_offset = fsh_info->offset;
 		nboot_start = fdt_getprop_u32_default(fdt,
-						"/nboot-info/emmc-boot", "nboot-start", 0);
+						      "/nboot-info/emmc-boot",
+						      "nboot-start", 0);
 		nboot_size = uboot_offset - nboot_start;
 
 		uboot_size = cpu_to_fdt32(uboot_size);
@@ -1208,7 +1229,8 @@ static int fs_handle_uboot(struct fsh_load_info *fsh_info)
 		fdt_find_and_setprop(fdt, "/nboot-info/emmc-boot",
 				"uboot-size", &uboot_size, sizeof(uint), 0);
 
-		fs_image_update_header(cfg_fsh, fdt_totalsize(fdt), cfg_fsh->info.flags);
+		fs_image_update_header(cfg_fsh, fdt_totalsize(fdt),
+				       cfg_fsh->info.flags);
 	}
 
 	return ret;
@@ -1235,7 +1257,7 @@ static void fs_cntr_handle(struct fsh_load_info *fsh_info)
 		next = FSIMG_STATE_BOARD_CFG;
 		break;
 	case FSIMG_STATE_BOARD_CFG:
-		if(fs_handle_board_cfg(fsh_info, &ram_info)){
+		if (fs_handle_board_cfg(fsh_info, &ram_info)) {
 			next = FSIMG_STATE_DONE;
 			break;
 		}
@@ -1243,21 +1265,22 @@ static void fs_cntr_handle(struct fsh_load_info *fsh_info)
 		next = FSIMG_STATE_DRAM;
 		break;
 	case FSIMG_STATE_DRAM:
-		if(fs_handle_dram(fsh_info, &ram_info))
+		if (fs_handle_dram(fsh_info, &ram_info))
 			break;
 		jobs &= ~FSIMG_JOB_DRAM;
 		next = FSIMG_STATE_UBOOT;
 		break;
 	case FSIMG_STATE_UBOOT:
-		if(fs_handle_uboot(fsh_info))
+		if (fs_handle_uboot(fsh_info))
 			break;
 		jobs &= ~FSIMG_JOB_UBOOT;
 		next = FSIMG_STATE_DONE;
 		break;
 	default:
-		debug("%s: Current State %d is not considered\n", __func__, state);
+		debug("%s: Current State %d is not considered\n", __func__,
+		      state);
 		printf("FSCNTR: FSM violation\n");
- 		hang();
+		hang();
 		break;
 	}
 	state = next;
@@ -1271,7 +1294,7 @@ static void fs_cntr_new_header(void *dnl_address, uint size)
 {
 	struct fsh_load_info *fsh_info;
 
-	if(size != FSH_SIZE)
+	if (size != FSH_SIZE)
 		return;
 
 	fsh_info = (struct fsh_load_info *)dnl_address;
@@ -1323,7 +1346,7 @@ int fs_cntr_init(bool need_cfg)
 {
 	int ret = 0;
 
-	if(is_boot_from_stream_device()){
+	if (is_boot_from_stream_device()) {
 		debug("FSCNTR: BOOT FROM STREAMDEV\n");
 		fs_cntr_nboot_stream(need_cfg);
 		return ret;
@@ -1364,7 +1387,7 @@ int fs_cntr_load_board_id()
 {
 	int ret = 0;
 
-	if(is_boot_from_stream_device()){
+	if (is_boot_from_stream_device()) {
 		debug("FSCNTR: GET BOARD-ID FROM STREAMDEV\n");
 		fs_cntr_board_id_stream();
 		return ret;
@@ -1375,7 +1398,7 @@ int fs_cntr_load_board_id()
 	return ret;
 }
 
-/**
+/*
  *  The following Code is supposed to load U-BOOT-INFO as SPL Load Method
  */
 static int load_uboot(struct spl_image_info *spl_image)
@@ -1396,7 +1419,7 @@ static int load_uboot(struct spl_image_info *spl_image)
 	sector = offset / load_info->bl_len;
 
 	ret = fs_cntr_load_imx_container_header(&cntr_info, load_info, sector);
-	if(ret)
+	if (ret)
 		return ret;
 
 	ret = fs_cntr_load_all_images(spl_image, &cntr_info, load_info, 1);

@@ -958,9 +958,9 @@ u32 fs_board_get_secondary_offset(void)
 /* Definitions in boot_cfg (fuse bank 4, word 1) */
 #define BOOT_CFG_BOOT_TYPE_SHIFT	29
 #define BOOT_CFG_BOOT_TYPE_MASK		GENMASK(30, 29)
-#define BOOT_CFG_BOOT_IFACE_SHIFT 	26
+#define BOOT_CFG_BOOT_IFACE_SHIFT	26
 #define BOOT_CFG_BOOT_IFACE_MASK	GENMASK(28, 26)
-#define BOOT_CFG_BOOT_DEV_SHIFT 	25
+#define BOOT_CFG_BOOT_DEV_SHIFT		25
 #define BOOT_CFG_BOOT_DEV_MASK		GENMASK(25, 25)
 
 /*
@@ -980,7 +980,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 
 	if (fuse_read(4, 1, &val)) {
 		puts("Error reading boot_cfg\n");
-	 	return boot_dev;
+		return boot_dev;
 	}
 
 	boot_type = val & BOOT_CFG_BOOT_TYPE_MASK;
@@ -1006,11 +1006,11 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	non_usdhc:
 	switch (boot_type) {
 	case 0x1: // NAND(FLEXSPI)
-	 	boot_dev = FLEXSPI_NAND_BOOT;
-	 	break;
+		boot_dev = FLEXSPI_NAND_BOOT;
+		break;
 	case 0x2: // NOR(FLEXSPI)
-	 	boot_dev = FLEXSPI_BOOT;
-	 	break;
+		boot_dev = FLEXSPI_BOOT;
+		break;
 	default:
 		break;
 	}
@@ -1101,7 +1101,7 @@ __weak int fs_board_cma_fdt_fixup(void * fdt)
 
 	offs = fs_fdt_path_offset(fdt, "/reserved-memory/linux,cma");
 	if (offs < 0) {
-		printf("Failed to find /reserved-memory/linux,cma in device tree\n");
+		puts("Cannot find /reserved-memory/linux,cma in device tree\n");
 		return offs;
 	}
 
