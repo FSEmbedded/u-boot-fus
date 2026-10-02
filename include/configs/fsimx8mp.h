@@ -169,8 +169,7 @@
 
 
 #define CONFIG_BOOTFILE		"Image"
-#define CONFIG_PREBOOT
-	#define CONFIG_BOOTCOMMAND	"run set_bootargs; run kernel; run fdt"
+#define CONFIG_BOOTCOMMAND	"run select_boot_mode"
 
 #define MTDIDS_DEFAULT		""
 #define MTDPART_DEFAULT		""
@@ -199,97 +198,104 @@
    as each backslash must also be escaped with a backslash in C. */
 #define BOOT_WITH_FDT "\\\\; booti ${loadaddr} - ${fdtaddr}\0"
 
-
 /*
- * In a regular environment, all storage regions for U-Boot, kernel, device
- * tree and rootfs are only available once, no A and B. This provides more
- * free space.
+ * Unified boot configuration: A/B update and legacy boot are both available
+ * at runtime, controlled by the "use_ab" environment variable. No separate
+ * build configurations needed.
+ *
  */
 
-/* In case of NAND, load kernel and device tree from MTD partitions. */
-#ifdef CONFIG_CMD_NAND
-#define MTDPARTS_DEFAULT						\
-	"mtdparts=" MTDPARTS_1 MTDPARTS_2 MTDPARTS_3 MTDPARTS_4
-#define BOOT_FROM_NAND							\
-	".mtdparts_std=setenv mtdparts " MTDPARTS_DEFAULT "\0"		\
-	".kernel_nand=setenv kernel nand read ${loadaddr} Kernel\0"	\
- 	".fdt_nand=setenv fdt nand read ${fdtaddr} FDT" BOOT_WITH_FDT
-#else
 #define BOOT_FROM_NAND
-#endif
-
-/* In case of UBI, load kernel and FDT directly from UBI volumes */
-#ifdef CONFIG_CMD_UBI
-#define BOOT_FROM_UBI							\
-	".mtdparts_ubionly=setenv mtdparts mtdparts="			\
-	  MTDPARTS_1 MTDPARTS_2 MTDPARTS_4 "\0"				\
-	".ubivol_std=ubi part TargetFS; ubi create rootfs\0"		\
-	".ubivol_ubi=ubi part TargetFS; ubi create kernel ${kernel_size} s;" \
-	" ubi create fdt ${fdt_size} s; ubi create rootfs\0"		\
-	".kernel_ubi=setenv kernel ubi part TargetFS\\\\;"		\
-	" ubi read . kernel\0"						\
-	".fdt_ubi=setenv fdt ubi part TargetFS\\\\;"			\
-	" ubi read ${fdtaddr} fdt" BOOT_WITH_FDT
-#else
 #define BOOT_FROM_UBI
-#endif
-
-#ifdef CONFIG_CMD_UBIFS
-#define BOOT_FROM_UBIFS							\
-	".kernel_ubifs=setenv kernel ubi part TargetFS\\\\;"		\
-	" ubifsmount ubi0:rootfs\\\\; ubifsload . /boot/${bootfile}\0"	\
-	".fdt_ubifs=setenv fdt ubi part TargetFS\\\\;"			\
-	" ubifsmount ubi0:rootfs\\\\;"					\
-	" ubifsload ${fdtaddr} /boot/${bootfdt}" BOOT_WITH_FDT		\
-	".rootfs_ubifs=setenv rootfs rootfstype=ubifs ubi.mtd=TargetFS" \
-	" root=ubi0:rootfs\0"
-#else
 #define BOOT_FROM_UBIFS
-#endif
 
 /*
- * In case of (e)MMC, the rootfs is loaded from a separate partition. Kernel
- * and device tree are loaded as files from a different partition that is
- * typically formated with FAT.
+ * Default is the rootfs boot mode: kernel and device tree are read from
+ * ${bootdir} inside the read-only squashfs rootfs slot (needs
+ * CONFIG_FS_SQUASHFS, CONFIG_ZSTD), so boot and rootfs partitions are the
+ * same slot.
+ *
+ * For the slot layout (kernel/dtb on FAT partitions 1/2, rootfs on 3/4),
+ * unset bootdir and set .rootfs_part_A=3, .rootfs_part_B=4, .rootfs_part=2.
+ * ${bootdir} is bound late, so it can still be changed before the kernel
+ * is loaded.
  */
 #ifdef CONFIG_CMD_MMC
 #define BOOT_FROM_MMC							\
-	".kernel_mmc=setenv kernel mmc rescan\\\\;"			\
-	" load mmc ${mmcdev} . ${bootfile}\0"				\
-	".fdt_mmc=setenv fdt mmc rescan\\\\;"				\
-	" load mmc ${mmcdev} ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT	\
-	".rootfs_mmc=setenv rootfs root=/dev/mmcblk${mmcdev}p2 rootwait\0"
+	"bootdir=/boot/\0"						\
+	".boot_part_A=1\0"						\
+	".boot_part_B=2\0"						\
+	".boot_part=1\0"						\
+	".rootfs_part_A=1\0"						\
+	".rootfs_part_B=2\0"						\
+	".rootfs_part=1\0"						\
+	".kernel_mmc=setenv kernel n=.boot_part\\\\${slot_}\\\\;"	\
+	" mmc rescan\\\\; load mmc ${mmcdev}:\\\\${!n} . \\\\${bootdir}${bootfile}\0" \
+	".fdt_mmc=setenv fdt n=.boot_part\\\\${slot_}\\\\; mmc rescan\\\\; " \
+	" load mmc ${mmcdev}:\\\\${!n} ${fdtaddr} \\\\${bootdir}\\\\${bootfdt}" BOOT_WITH_FDT \
+	".rootfs_mmc=setenv set_rootfs n=.rootfs_part\\\\${slot_}\\\\;" \
+	" part uuid mmc ${mmcdev}:\\\\${!n} rootfsuuid\\\\;" \
+	" setenv rootfs root=PARTUUID=\\\\${rootfsuuid} ${rootfstype} rootwait\0"
 #else
 #define BOOT_FROM_MMC
 #endif
 
-/* In case of USB, the layout is the same as on MMC. */
+/* In case of USB, the layout is the same as on MMC (no A/B support). */
 #define BOOT_FROM_USB							\
-	".kernel_usb=setenv kernel usb start\\\\;"			\
-	" load usb 0 . ${bootfile}\0"					\
-	".fdt_usb=setenv fdt usb start\\\\;"				\
-	" load usb 0 ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT		\
+	".kernel_usb=setenv kernel usb start\\\\;"                      \
+	" load usb 0 . ${bootfile}\0"                                   \
+	".fdt_usb=setenv fdt usb start\\\\;"                            \
+	" load usb 0 ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT               \
 	".rootfs_usb=setenv rootfs root=/dev/sda1 rootwait\0"
 
 /* In case of TFTP, kernel and device tree are loaded from TFTP server */
 #define BOOT_FROM_TFTP							\
-	".kernel_tftp=setenv kernel tftpboot . ${bootfile}\0"		\
+	".kernel_tftp=setenv kernel tftpboot . ${bootfile}\0"           \
 	".fdt_tftp=setenv fdt tftpboot ${fdtaddr} ${bootfdt}" BOOT_WITH_FDT
 
 /* In case of NFS, kernel, device tree and rootfs are loaded from NFS server */
 #define BOOT_FROM_NFS							\
-	".kernel_nfs=setenv kernel nfs ."				\
-	" ${serverip}:${rootpath}/${bootfile}\0"			\
-	".fdt_nfs=setenv fdt nfs ${fdtaddr}"				\
-	" ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT		\
-	".rootfs_nfs=setenv rootfs root=/dev/nfs"			\
-	" nfsroot=${serverip}:${rootpath}\0"
+	".kernel_nfs=setenv kernel nfs ."                               \
+	" ${serverip}:${rootpath}/${bootfile}\0"                        \
+	".fdt_nfs=setenv fdt nfs ${fdtaddr}"                            \
+	" ${serverip}:${rootpath}/${bootfdt}" BOOT_WITH_FDT             \
+	".rootfs_nfs=setenv rootfs root=/dev/nfs"                       \
+	" nfsroot=${serverip}:${rootpath},tcp,v3\0"
 
-#define BOOTARGS "set_bootargs=setenv bootargs ${console} ${login} ${mtdparts} ${network} ${rootfs} ${mode} ${init} ${extra}\0"
-/* Generic settings when not booting with updates A/B */
-#define BOOT_SYSTEM
-#define FAILED_UPDATE_RESET
+/*
+ * Generic settings for booting with updates on A/B.
+ * RAUC-aligned: iterates BOOT_ORDER, decrements counter, single saveenv.
+ */
+#define BOOT_SYSTEM							\
+	".init_fs_updater=setenv init init=/sbin/preinit.sh\0"		\
+	"use_ab=1\0"							\
+	"BOOT_ORDER=A B\0"						\
+	"BOOT_ORDER_OLD=A B\0"						\
+	"BOOT_A_LEFT=3\0"						\
+	"BOOT_B_LEFT=3\0"						\
+	"update_reboot_state=0\0"					\
+	"update=0000\0"							\
+	"application=A\0"						\
+	"rauc_cmd=rauc.slot=A\0"					\
+	"selector="                                                     \
+		"rootfstype=rootfstype=squashfs; " \
+		"for slot in ${BOOT_ORDER}; do "                        \
+			"n=BOOT_${slot}_LEFT;"				\
+			"slot_cnt=${!n}; "                              \
+			"if test ${slot_cnt} -gt 0; then "              \
+				"slot_=_${slot}; "			\
+				"setexpr BOOT_${slot}_LEFT ${slot_cnt} - 1; " \
+				"setenv rauc_cmd rauc.slot=${slot}; "   \
+				"saveenv; "                             \
+				"echo \"Booting slot ${slot} (${slot_cnt} left)\"; " \
+				"exit; "                                \
+			"fi; "                                          \
+		"done; "                                                \
+		"echo \"Boot failed, system corrupted\"; "   \
+		"setenv boot_failed 1;\0"                    \
 
+
+/* Generic variables */
 
 #ifdef CONFIG_BOOTDELAY
 #define FSBOOTDELAY
@@ -297,8 +303,26 @@
 #define FSBOOTDELAY "bootdelay=undef\0"
 #endif
 
+/*
+ * Boot mode dispatch: runtime selection between A/B update and legacy boot.
+ * select_boot_mode is the single entry point called by CONFIG_BOOTCOMMAND.
+ */
+#define BOOT_MODE_DISPATCH						\
+	"select_boot_mode="                         \
+		"if test \"x${use_ab}\" = x1; then "        \
+			"run .init_fs_updater selector; "   \
+			"if test -z \"${boot_failed}\"; then "\
+				"run set_bootargs kernel fdt; "	\
+				"run failed_update_reset; "     \
+			"fi; "                              \
+		"else "                                 \
+			"setenv rauc_cmd; "                 \
+			"run .init_init; "                  \
+			"run set_bootargs kernel fdt; "     \
+		"fi\0"
+
 #if defined(CONFIG_ENV_IS_IN_MMC)
-	#define FILSEIZE2BLOCKCOUNT "block_size=200\0" 	\
+	#define FILESIZE2BLOCKCOUNT "block_size=200\0" 	\
 		"filesize2blockcount=" \
 			"setexpr test_rest \\${filesize} % \\${block_size}; " \
 			"if test \\${test_rest} = 0; then " \
@@ -308,61 +332,71 @@
 				"setexpr blocckount \\${blockcount} + 1; " \
 			"fi;\0"
 #else
-	#define FILSEIZE2BLOCKCOUNT
+	#define FILESIZE2BLOCKCOUNT
 #endif
 
+/* Reset update process if uncaught error drops to u-boot shell */
+#define FAILED_UPDATE_RESET                                             \
+	"failed_update_reset="                                          \
+		"if test \"x${BOOT_ORDER_OLD}\" != \"x${BOOT_ORDER}\"; then " \
+			"reset; "                                       \
+		"fi;\0"
+
 /* Initial environment variables */
-#define CONFIG_EXTRA_ENV_SETTINGS					\
-	"bd_kernel=undef\0"						\
-	"bd_fdt=undef\0"							\
-	"bd_rootfs=undef\0"						\
-	"initrd_addr=0x43800000\0"					\
-	"initrd_high=0xffffffffffffffff\0"				\
-	"console=undef\0"						\
-	".console_none=setenv console\0"				\
+#define CONFIG_EXTRA_ENV_SETTINGS                                          \
+	"bd_kernel=undef\0"                                             \
+	"bd_fdt=undef\0"                                                \
+	"bd_rootfs=undef\0"                                             \
+	"initrd_addr=0x43800000\0"                                      \
+	"initrd_high=0xffffffffffffffff\0"                              \
+	"console=undef\0"                                               \
+	".console_none=setenv console\0"                                \
 	".console_serial=setenv console console=${sercon},${baudrate}\0" \
-	".console_display=setenv console console=tty1\0"		\
-	"login=undef\0"							\
-	".login_none=setenv login login_tty=null\0"			\
-	".login_serial=setenv login login_tty=${sercon},${baudrate}\0"	\
-	".login_display=setenv login login_tty=tty1\0"			\
-	"mtdids=undef\0"						\
-	"mtdparts=undef\0"						\
-	"mmcdev=undef\0"						\
-	".network_off=setenv network\0"					\
-	".network_on=setenv network ip=${ipaddr}:${serverip}:${gatewayip}:${netmask}:${hostname}:${netdev}\0" \
-	".network_dhcp=setenv network ip=dhcp\0"			\
-	"rootfs=undef\0"						\
-	"kernel=undef\0"						\
-	"fdt=undef\0"							\
-	"fdtaddr=0x43100000\0"						\
-	".fdt_none=setenv fdt booti\0"					\
-	BOOT_FROM_MMC						\
-	BOOT_FROM_USB						\
-	BOOT_FROM_TFTP						\
-	BOOT_FROM_NFS						\
-	BOOT_SYSTEM							\
-	FILSEIZE2BLOCKCOUNT					\
-	FAILED_UPDATE_RESET					\
-	"mode=undef\0"							\
-	".mode_rw=setenv mode rw\0"					\
-	".mode_ro=setenv mode ro\0"					\
-	"netdev=eth0\0"							\
-	"init=undef\0"							\
-	".init_init=setenv init\0"					\
-	".init_linuxrc=setenv init init=linuxrc\0"			\
-	"sercon=undef\0"						\
-	"installcheck=undef\0"						\
-	"updatecheck=undef\0"						\
-	"recovercheck=undef\0"						\
-	"platform=undef\0"						\
-	"arch=fsimx8mp\0"						\
-	"bootfdt=undef\0"						\
-	"m4_uart4=disable\0"						\
-	FSBOOTDELAY							\
-	"fdt_high=0xffffffffffffffff\0"					\
-	"set_bootfdt=setenv bootfdt ${platform}.dtb\0"			\
-	BOOTARGS
+	".console_display=setenv console console=tty1\0"                \
+	"login=undef\0"                                                 \
+	".login_none=setenv login login_tty=null\0"                     \
+	".login_serial=setenv login login_tty=${sercon},${baudrate}\0"  \
+	".login_display=setenv login login_tty=tty1\0"                  \
+	"mode=undef\0"                                                  \
+	".mode_rw=setenv mode rw\0"                                     \
+	".mode_ro=setenv mode ro\0"                                     \
+	"init=undef\0"                                                  \
+	".init_init=setenv init\0"                                      \
+	".init_linuxrc=setenv init init=linuxrc\0"                      \
+	"mtdids=undef\0"                                                \
+	"mtdparts=undef\0"                                              \
+	"netdev=eth0\0"                                                 \
+	"mmcdev=undef\0"                                                \
+	".network_off=setenv network\0"                                 \
+	".network_on=setenv network ip=${ipaddr}:${serverip}:"          \
+	"${gatewayip}:${netmask}:${hostname}:${netdev}\0"               \
+	".network_dhcp=setenv network ip=dhcp\0"                        \
+	"rootfs=undef\0"                                                \
+	"kernel=undef\0"                                                \
+	"fdt=undef\0"                                                   \
+	"fdtaddr=0x43100000\0"                                          \
+	".fdt_none=setenv fdt booti\0"                                  \
+	BOOT_FROM_MMC                                                \
+	BOOT_FROM_USB                                                \
+	BOOT_FROM_TFTP                                               \
+	BOOT_FROM_NFS                                                \
+	BOOT_SYSTEM                                                  \
+	BOOT_MODE_DISPATCH                                           \
+	FILESIZE2BLOCKCOUNT                                             \
+	FSBOOTDELAY                                                     \
+	FAILED_UPDATE_RESET                                             \
+	"sercon=undef\0"                                                \
+	"installcheck=undef\0"                                          \
+	"updatecheck=undef\0"                                           \
+	"recovercheck=undef\0"                                          \
+	"platform=undef\0"                                              \
+	"arch=fsimx8mp\0"                                               \
+	"bootfdt=undef\0"                                               \
+	"m4_uart4=disable\0"                                            \
+	"fdt_high=0xffffffffffffffff\0"                                 \
+	"set_bootfdt=setenv bootfdt ${platform}.dtb\0"                  \
+	"set_bootargs=run set_rootfs\\; setenv bootargs ${console} ${login} ${mtdparts}"  \
+	" ${network} ${rootfs} ${mode} ${init} ${extra} ${rauc_cmd}\0"
 
 /* Link Definitions */
 #define CONFIG_SYS_LOAD_ADDR		0x40480000
