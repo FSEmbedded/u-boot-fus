@@ -243,13 +243,8 @@
 
 #define CONFIG_BOOTFILE		"Image"
 #define CONFIG_PREBOOT
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-#define CONFIG_BOOTCOMMAND \
-	"run selector; run set_bootargs; run kernel; run fdt; run failed_update_reset"
-#else
 #define CONFIG_BOOTCOMMAND \
 	"run set_bootargs; run kernel; run fdt"
-#endif
 
 #define SECURE_PARTITIONS	"UBoot", "Kernel", "FDT", "Images"
 
@@ -289,164 +284,6 @@
    as each backslash must also be escaped with a backslash in C. */
 #define BOOT_WITH_FDT "\\\\; booti ${loadaddr} - ${fdtaddr}\0"
 
-#ifdef CONFIG_FS_UPDATE_SUPPORT
-/*
- * F&S updates are based on an A/B mechanism. All storage regions for U-Boot,
- * kernel, device tree and rootfs are doubled, there is a slot A and a slot B.
- * One slot is always active and holds the current software. The other slot is
- * passive and can be used to install new software versions. When all new
- * versions are installed, the roles of the slots are swapped. This means the
- * previously passive slot with the new software gets active and the
- * previously active slot with the old software gets passive. This
- * configuration is then started. If it proves to work, then the new roles get
- * permanent and the now passive slot is available for future versions. If the
- * system will not start successfully, the roles will be switched back and the
- * system will be working with the old software again.
- */
-
-/* In case of NAND, load kernel and device tree from MTD partitions. */
-#ifdef CONFIG_CMD_NAND
-#define MTDPARTS_DEFAULT						\
-	"mtdparts=" MTDPARTS_1 MTDPARTS_2_U MTDPARTS_3_A MTDPARTS_3_B MTDPARTS_4
-#define FS_BOOT_FROM_NAND						\
-	".mtdparts_std=setenv mtdparts " MTDPARTS_DEFAULT "\0"		\
-	".kernel_nand_A=setenv kernel nand read ${loadaddr} Kernel_A\0" \
-	".kernel_nand_B=setenv kernel nand read ${loadaddr} Kernel_B\0" \
-	".fdt_nand_A=setenv fdt nand read ${fdtaddr} FDT_A" BOOT_WITH_FDT \
-	".fdt_nand_B=setenv fdt nand read ${fdtaddr} FDT_B" BOOT_WITH_FDT
-#else
-#define FS_BOOT_FROM_NAND
-#endif
-
-/* In case of UBI, load kernel and FDT directly from UBI volumes */
-#ifdef CONFIG_CMD_UBI
-#define FS_BOOT_FROM_UBI						\
-	".mtdparts_ubionly=setenv mtdparts mtdparts="			\
-	  MTDPARTS_1 MTDPARTS_2_U MTDPARTS_4 "\0"			\
-	".ubivol_std=ubi part TargetFS;"				\
-	" ubi create rootfs_A ${rootfs_size};"				\
-	" ubi create rootfs_B ${rootfs_size};"				\
-	" ubi create data\0"						\
-	".ubivol_ubi=ubi part TargetFS;"				\
-	" ubi create kernel_A ${kernel_size} s;"			\
-	" ubi create kernel_B ${kernel_size} s;"			\
-	" ubi create fdt_A ${fdt_size} s;"				\
-	" ubi create fdt_B ${fdt_size} s;"				\
-	" ubi create rootfs_A ${rootfs_size};"				\
-	" ubi create rootfs_B ${rootfs_size};"				\
-	" ubi create data\0"						\
-	".kernel_ubi_A=setenv kernel ubi part TargetFS\\\\;"		\
-	" ubi read . kernel_A\0"					\
-	".kernel_ubi_B=setenv kernel ubi part TargetFS\\\\;"		\
-	" ubi read . kernel_B\0"					\
-	".fdt_ubi_A=setenv fdt ubi part TargetFS\\\\;"			\
-	" ubi read ${fdtaddr} fdt_A" BOOT_WITH_FDT			\
-	".fdt_ubi_B=setenv fdt ubi part TargetFS\\\\;"			\
-	" ubi read ${fdtaddr} fdt_B" BOOT_WITH_FDT
-#else
-#define FS_BOOT_FROM_UBI
-#endif
-
-/*
- * In case of UBIFS, the rootfs is loaded from a UBI volume. If Kernel and/or
- * device tree are loaded from UBIFS, they are supposed to be part of the
- * rootfs in directory /boot.
- */
-#ifdef CONFIG_CMD_UBIFS
-#define FS_BOOT_FROM_UBIFS						\
-	".kernel_ubifs_A=setenv kernel ubi part TargetFS\\\\;"		\
-	" ubifsmount ubi0:rootfs_A\\\\; ubifsload . /boot/${bootfile}\0"\
-	".kernel_ubifs_B=setenv kernel ubi part TargetFS\\\\;"		\
-	" ubifsmount ubi0:rootfs_B\\\\; ubifsload . /boot/${bootfile}\0"\
-	".fdt_ubifs_A=setenv fdt ubi part TargetFS\\\\;"		\
-	" ubifsmount ubi0:rootfs_A\\\\;"				\
-	" ubifsload ${fdtaddr} /boot/${bootfdt}" BOOT_WITH_FDT		\
-	".fdt_ubifs_B=setenv fdt ubi part TargetFS\\\\;"		\
-	" ubifsmount ubi0:rootfs_B\\\\;"				\
-	" ubifsload ${fdtaddr} /boot/${bootfdt}" BOOT_WITH_FDT		\
-	".rootfs_ubifs_A=setenv rootfs 'rootfstype=squashfs"		\
-	" ubi.block=0,rootfs_A ubi.mtd=TargetFS,2048"			\
-	" root=/dev/ubiblock0_0 rootwait ro'\0"				\
-	".rootfs_ubifs_B=setenv rootfs 'rootfstype=squashfs"		\
-	" ubi.block=0,rootfs_B ubi.mtd=TargetFS,2048"			\
-	" root=/dev/ubiblock0_1 rootwait ro'\0"
-#else
-#define FS_BOOT_FROM_UBIFS
-#endif
-
-/*
- * In case of (e)MMC, the rootfs is loaded from a separate partition. Kernel
- * and device tree are loaded as files from a different partition that is
- * typically formated with FAT.
- */
-#ifdef CONFIG_CMD_MMC
-#define FS_BOOT_FROM_MMC						\
-	".kernel_mmc_A=setenv kernel mmc rescan\\\\;"			\
-	" load mmc ${mmcdev}:5\0"					\
-	".kernel_mmc_B=setenv kernel mmc rescan\\\\;"			\
-	" load mmc ${mmcdev}:6\0"					\
-	".fdt_mmc_A=setenv fdt mmc rescan\\\\;"				\
-	" load mmc ${mmcdev}:5 ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT	\
-	".fdt_mmc_B=setenv fdt mmc rescan\\\\;"				\
-	" load mmc ${mmcdev}:6 ${fdtaddr} \\\\${bootfdt}" BOOT_WITH_FDT	\
-	".rootfs_mmc_A=setenv rootfs root=/dev/mmcblk${mmcdev}p7"	\
-	" rootfstype=squashfs rootwait\0"				\
-	".rootfs_mmc_B=setenv rootfs root=/dev/mmcblk${mmcdev}p8"	\
-	" rootfstype=squashfs rootwait\0"
-#else
-#define FS_BOOT_FROM_MMC
-#endif
-
-/* Loading from USB is not supported for updates yet */
-#define FS_BOOT_FROM_USB
-
-/* Loading from TFTP is not supported for updates yet */
-#define FS_BOOT_FROM_TFTP
-
-/* Loading from NFS is not supported for updates yet */
-#define FS_BOOT_FROM_NFS
-
-/* Generic settings for booting with updates on A/B */
-#define FS_BOOT_SYSTEM							\
-	".init_fs_updater=setenv init init=/sbin/preinit.sh\0"		\
-	"BOOT_ORDER=A B\0"						\
-	"BOOT_ORDER_OLD=A B\0"						\
-	"BOOT_A_LEFT=3\0"						\
-	"BOOT_B_LEFT=3\0"						\
-	"update_reboot_state=0\0"					\
-	"update=0000\0"							\
-	"application=A\0"						\
-	"rauc_cmd=rauc.slot=A\0"					\
-	"selector="							\
-	"if test \"x${BOOT_ORDER_OLD}\" != \"x${BOOT_ORDER}\"; then "			\
-		"setenv rauc_cmd undef; "						\
-		"for slot in \"${BOOT_ORDER}\"; do "					\
-			"setenv sname \"BOOT_\"\"$slot\"\"_LEFT\"; "			\
-			"if test \"${!sname}\" -gt 0; then "				\
-				"echo \"Current rootfs boot_partition is $slot\"; "	\
-				"setexpr $sname ${!sname} - 1; "			\
-				"run .kernel_${bd_kernel}_${slot}; "			\
-				"run .fdt_${bd_fdt}_${slot}; "				\
-				"run .rootfs_${bd_rootfs}_${slot}; "			\
-				"setenv rauc_cmd rauc.slot=${slot}; "			\
-				"setenv sname ; "					\
-				"saveenv;"						\
-				"exit;"							\
-			"else "								\
-				"for slot_a in \"${BOOT_ORDER_OLD}\"; do "		\
-					"run .kernel_${bd_kernel}_${slot_a}; "		\
-					"run .fdt_${bd_fdt}_${slot_a}; "		\
-					"run .rootfs_${bd_rootfs}_${slot_a}; "		\
-					"setenv rauc_cmd rauc.slot=${slot_a}; "		\
-					"setenv sname ;"				\
-					"saveenv;"					\
-					"exit;"						\
-				"done;"							\
-			"fi;"								\
-		"done;"									\
-	"fi;\0"
-
-#else /* CONFIG_FS_UPDATE_SUPPORT */
 
 /*
  * In a regular environment, all storage regions for U-Boot, kernel, device
@@ -536,7 +373,6 @@
 /* Generic settings when not booting with updates A/B */
 #define FS_BOOT_SYSTEM
 
-#endif /* CONFIG_FS_UPDATE_SUPPORT */
 
 /* Generic variables */
 
