@@ -37,7 +37,7 @@
 		have-eth-b;
 		have-eth-phy-a;
 		have-eth-phy-b;
-		have-audio;
+		// have-audio;
 		// have-wlan;
 		have-sd-a;
 		have-sd-b;
