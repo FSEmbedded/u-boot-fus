@@ -15,6 +15,9 @@
 /dts-v1/;
 
 #include <dt-bindings/pwm/pwm.h>
+// #include <dt-bindings/usb/pd.h>
+#include <dt-bindings/rtc/pcf85363.h>
+// #include <fsversion.h>
 #include "imx91.dtsi"
 
 #define OSM_GPIO_A_0_PIN 30
@@ -47,12 +50,9 @@ osm_i2s_a: &sai3 {};
 osm_can_a: &flexcan1 {};
 osm_can_b: &flexcan2 {};
 
-cpu_alert: &cpu_alert0 {};
-cpu_crit: &cpu_crit0 {};
-
 / {
 	model = "F+S OSM-SF-MX91";
-	compatible = "fus,fs-osm-sf-mx93", "fsl,imx93";
+	compatible = "fus,fs-osm-sf-mx91", "fsl,imx91";
 
 	chosen {
 		bootargs = "console=ttyLP0,115200";
@@ -92,6 +92,12 @@ cpu_crit: &cpu_crit0 {};
 		pwm2 = &osm_pwm_2;
 	};
 
+	/* -------------------- BOARD INFO -------------------- */
+	bdinfo: bdinfo {
+		compatible = "bdinfo";
+		// dts_version = FS_LINUX_VERSION;
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -111,68 +117,7 @@ cpu_crit: &cpu_crit0 {};
 			reg = <0 0x87de0000 0 0x100000>;
 			no-map;
 		};
-
-#ifdef SUPPORT_RPMSG
-		ethosu_mem: ethosu_region@88000000 {
-			compatible = "shared-dma-pool";
-			reusable;
-			reg = <0x0 0x88000000 0x0 0x8000000>;
-		};
-
-		vdev0vring0: vdev0vring0@87ee0000 {
-			reg = <0 0x87ee0000 0 0x8000>;
-			no-map;
-		};
-
-		vdev0vring1: vdev0vring1@87ee8000 {
-			reg = <0 0x87ee8000 0 0x8000>;
-			no-map;
-		};
-
-		vdev1vring0: vdev1vring0@87ef0000 {
-			reg = <0 0x87ef0000 0 0x8000>;
-			no-map;
-		};
-
-		vdev1vring1: vdev1vring1@87ef8000 {
-			reg = <0 0x87ef8000 0 0x8000>;
-			no-map;
-		};
-
-		rsc_table: rsc-table@2021e000 {
-			reg = <0 0x2021e000 0 0x1000>;
-			no-map;
-		};
-
-		vdevbuffer: vdevbuffer@87f00000 {
-			compatible = "shared-dma-pool";
-			reg = <0 0x87f00000 0 0x100000>;
-			no-map;
-		};
-#endif /* SUPPORT_RPMSG */
 	};
-
-#ifdef SUPPORT_M33
-	cm33: imx93-cm33 {
-		compatible = "fsl,imx93-cm33";
-#ifdef SUPPORT_RPMSG
-		mbox-names = "tx", "rx", "rxdb";
-		mboxes = <&mu1 0 1
-			  &mu1 1 1
-			  &mu1 3 1>;
-		memory-region = <&vdevbuffer>, <&vdev0vring0>, <&vdev0vring1>,
-				<&vdev1vring0>, <&vdev1vring1>, <&rsc_table>;
-#endif /* SUPPORT_RPMSG */
-		fsl,startup-delay-ms = <500>;
-	};
-
-	ethosu {
-		compatible = "arm,ethosu";
-		fsl,cm33-proc = <&cm33>;
-		memory-region = <&ethosu_mem>;
-		power-domains = <&mlmix>;
-	};
-#endif /* SUPPORT_M33 */
 
 	regulators {
 		compatible = "simple-bus";
@@ -282,14 +227,16 @@ cpu_crit: &cpu_crit0 {};
 		};
 	};
 
-	// backlight_display: backlight_ldb {
-	// 	compatible = "pwm-backlight";
-	// 	pwms = <&osm_dsi_pwm 0 5263157 PWM_POLARITY_INVERTED>;
-	// 	power-supply = <&reg_disp_bl>;
-	// 	brightness-levels = <0 1 5 10 18 28 41 56
-	// 						 73 92 113 137 163 192 222 255>;
-	// 	default-brightness-level = <14>;
-	// };
+	backlight_ldb: backlight_ldb {
+		compatible = "pwm-backlight";
+		/* example configuration. adaptation may needed */
+		pwms = <&osm_dsi_pwm 0 100000 PWM_POLARITY_INVERTED>;
+		power-supply = <&reg_disp_bl>;
+		brightness-levels = <0 1 5 10 18 28 41 56
+							 73 92 113 137 163 192 222 255>;
+		default-brightness-level = <14>;
+		status = "disabled";
+	};
 };
 
 /* UART declerations */
@@ -306,7 +253,7 @@ cpu_crit: &cpu_crit0 {};
 };
 
 &osm_uart_c {
-#if defined(CONFIG_OSMSFMX93_UARTC)
+#if defined(CONFIG_OSMSFMX91_UARTC)
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart3>;
 #endif
@@ -320,7 +267,7 @@ osm_uart_b: &lpuart5 {
 };
 
 &osm_uart_d {
-#if defined(CONFIG_OSMSFMX93_UARTD)
+#if defined(CONFIG_OSMSFMX91_UARTD)
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart8>;
 #endif
@@ -353,31 +300,18 @@ osm_uart_b: &lpuart5 {
 
 /* GPIO declerations */
 &gpio1 {
-	gpio-line-names = \
-		"","","","","",
-		"","","","","",
-		"",
-		"OSM_CARRIER_PWR_EN",
-		"","",
-		"PMIC_IRQ",
-		"","","","","",
-		"","","","","",
-		"","","","","",
-		"","";
-};
-
-&gpio1 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_gpio1>;
 	pinctrl-1 = <&pinctrl_gpio1>;
-	gpio-line-names = \
-		"","","","","",
-		"","","","","",
-		"USB_A_OC","","","","",
-		"","","","","",
-		"","","","","",
-		"","","","","",
-		"","";
+	gpio-line-names =
+	/* 0 */   "I2C_SCL", "I2C_SDA", "I2C_INT_SCL", "I2C_INT_SDA",
+	/* 4 */   "UART_CON_RX", "UART_CON_TX", "UART_A_RX", "UART_A_TX",
+	/* 8 */   "CAN_A_TX", "CAN_A_RX", "USB_A_OC", "CARRIER_PWR_EN",
+	/* 12 */  "UART_A_CTS", "UART_A_RTS", "PMIC_IRQ", "MX91_WDOG",
+	/* 16 */  "", "", "", "",
+	/* 20 */  "", "", "", "",
+	/* 24 */  "", "", "", "",
+	/* 28 */  "", "", "", "";
 	status = "okay";
 };
 
@@ -385,49 +319,45 @@ osm_uart_b: &lpuart5 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_gpio2>;
 	pinctrl-1 = <&pinctrl_gpio2>;
+	gpio-line-names =
+	/* 0 */   "UART_B_TX", "UART_B_RX", "UART_B_CTS", "UART_B_RTS",
+	/* 4 */   "PWM_1", "PWM_2", "DISP_BL_PWM", "DISP_BL_EN",
+	/* 8 */   "SPI_B_CS0", "SPI_B_SDI", "SPI_B_SDO", "SPI_B_SCK",
+	/* 12 */  "UART_D_TX", "UART_D_RX", "UART_C_TX", "UART_C_RX",
+	/* 16 */  "I2S_A_BITCLK", "I2S_MCLK", "USB_B_EN", "USB_A_EN",
+	/* 20 */  "I2S_A_DATA_IN", "I2S_A_DATA_OUT", "I2C_CAM_SDA", "I2C_CAM_SCL",
+	/* 24 */  "SPI_B_CS1", "SDIO_A_WP", "I2S_A_LRCLK", "USB_B_OC",
+	/* 28 */  "I2C_B_SDA", "I2C_B_SCL", "", "";
 	status = "okay";
-	gpio-line-names = \
-		"","","","","",
-		"","","OSM_DISP_EN","","",
-		"","","OSM_GPIO_A_5","OSM_GPIO_A_4","OSM_GPIO_A_3",
-		"OSM_GPIO_A_2","","","OSM_USB_B_EN","OSM_USB_A_EN",
-		"","","","","OSM_SPI_CS1",
-		"OSM_SDIO_A_WP","","USB_B_OC","","",
-		"","";
 };
 
 &gpio3 {
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_gpio3>;
 	pinctrl-1 = <&pinctrl_gpio3>;
-	gpio-line-names = \
-		"","","","","",
-		"","",
-		"SDIO_A_PWR_EN",
-		"","","","","",
-		"","","","","",
-		"","","","","",
-		"","","","","",
-		"",
-		"OSM_GPIO_A_1",
-		"OSM_GPIO_A_0",
-		"";
+	gpio-line-names =
+	/* 0 */   "SDIO_A_CD", "SDIO_A_CLK", "SDIO_A_CMD", "SDIO_A_D0",
+	/* 4 */   "SDIO_A_D1", "SDIO_A_D2", "SDIO_A_D3", "SDIO_A_PWR_EN",
+	/* 8 */   "SD_eMMC_CLK", "SD_eMMC_CMD", "SD_eMMC_D0", "SD_eMMC_D1",
+	/* 12 */  "SD_eMMC_D2", "SD_eMMC_D3", "SD_eMMC_D4", "SD_eMMC_D5",
+	/* 16 */  "SD_eMMC_D6", "SD_eMMC_D7", "SD_eMMC_DS", "SD2_VSEL",
+	/* 20 */  "SPI_A_SCK", "SPI_A_CS0", "SPI_A_IO0", "SPI_A_IO1",
+	/* 24 */  "SPI_A_IO2", "SPI_A_IO3", "CAM_MCK", "CAM_EN",
+	/* 28 */  "CAN_B_TX", "GPIO_A_1", "GPIO_A_0", "CAN_B_RX";
 	status = "okay";
 };
 
 &gpio4 {
-	gpio-line-names = \
-		"",
-		"OSM_DISP_VDD_EN",
-		"","","","","",
-		"","","","","",
-		"","",
-		"OSM_SPI_A_CS1",
-		"","","","","",
-		"","","","","",
-		"","","","",
-		"OSM_DSI_TE",
-		"","";
+	gpio-line-names =
+	/* 0 */   "ETH_MDC", "ETH_MDIO", "ETH_A_(S)(R)(G)MII_TXD3", "ETH_A_(S)(R)(G)MII_TXD2",
+	/* 4 */   "ETH_A_(S)(R)(G)MII_TXD1", "ETH_A_(S)(R)(G)MII_TXD0", "ETH_A_(R)(G)MII_TX_EN(_ER)", "ETH_A_(R)(G)MII_TX_CLK",
+	/* 8 */   "ETH_A_(R)(G)MII_RX_DV(_ER)", "ETH_A_(R)(G)MII_RX_CLK", "ETH_A_(R)(S)(G)MII_RXD0", "ETH_A_(S)(R)(G)MII_RXD1",
+	/* 12 */  "ETH_A_(R)(G)MII_RXD2", "ETH_A_(R)(G)MII_RXD3", "SPI_A_CS1", "DISP_VDD_EN",
+	/* 16 */  "ETH_B_(S)(R)(G)MII_TXD3", "ETH_B_(S)(R)(G)MII_TXD2", "ETH_B_(S)(R)(G)MII_TXD1", "ETH_B_(S)(R)(G)MII_TXD0",
+	/* 20 */  "ETH_B_(R)(G)MII_TX_EN(_ER)", "ETH_B_(R)(G)MII_TX_CLK", "ETH_B_(R)(G)MII_RX_DV(_ER)", "ETH_B_(R)(G)MII_RX_CLK",
+	/* 24 */  "ETH_B_(R)(S)(G)MII_RXD0", "ETH_B_(S)(R)(G)MII_RXD1", "ETH_B_(R)(G)MII_RXD2", "ETH_B_(R)(G)MII_RXD3",
+	/* 28 */  "CAM_RST", "DSI_TE", "", "";
+	status = "okay";
 };
 
 /* I2C declerations */
@@ -460,7 +390,7 @@ osm_uart_b: &lpuart5 {
 				regulator-name = "BUCK2";
 				regulator-min-microvolt = <600000>;
 				regulator-max-microvolt = <2187500>;
-				/* set properties in BL when needed */
+				/* set properties in U-Boot when needed */
 				// regulator-boot-on;
 				// regulator-always-on;
 				regulator-ramp-delay = <3125>;
@@ -527,9 +457,9 @@ osm_uart_b: &lpuart5 {
 	rtc85263: rtc85263@51 {
 		compatible = "nxp,pcf85263";
 		reg = <0x51>;
-		// clock-out = <PCF85363_COF_32768Hz>;
-		// quartz-load-femtofarads = <PCF85363_CAP_12p5pF>;
-		// quartz-drive-strength = <PCF85363_OSC_DRIVE_LOW>;
+		clock-out = <PCF85363_COF_32768Hz>;
+		quartz-load-femtofarads = <PCF85363_CAP_12p5pF>;
+		quartz-drive-strength = <PCF85363_OSC_DRIVE_LOW>;
 	};
 };
 
@@ -574,6 +504,8 @@ osm_uart_b: &lpuart5 {
 &osm_spi_b{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpspi3>;
+	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>, <&gpio2 24 GPIO_ACTIVE_LOW>;
+	num-cs = <2>;
 	status = "disabled";
 };
 
@@ -625,8 +557,8 @@ osm_uart_b: &lpuart5 {
 	non-removable;
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
-	// vmmc-supply = <&reg_3v3>;
-	// vqmmc-supply = <&reg_1v8>;
+	vmmc-supply = <&reg_3v3>;
+	vqmmc-supply = <&reg_1v8>;
 	status = "okay";
 };
 
@@ -643,7 +575,6 @@ osm_uart_b: &lpuart5 {
 
 
 /* MISC */
-
 &osm_dsi_pwm {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_tpm5>;
@@ -670,8 +601,18 @@ osm_uart_b: &lpuart5 {
 	status = "okay";
 };
 
+&tempsense0 {
+	status = "okay";
+};
+
 &lcdif {
-	status = "disabled";	
+	status = "disabled";
+};
+
+&lpm {
+	soc-supply = <&buck1>;
+	ld-mode-enabled;
+	status = "okay";
 };
 
 &iomuxc {
@@ -722,11 +663,11 @@ osm_uart_b: &lpuart5 {
 
 	pinctrl_gpio2: gpio2grp {
 		fsl,pins = <
-#if !defined(CONFIG_OSMSFMX93_UARTD)
+#if !defined(CONFIG_OSMSFMX91_UARTD)
 			MX91_PAD_GPIO_IO12__GPIO2_IO12			0x31e
 			MX91_PAD_GPIO_IO13__GPIO2_IO13			0x31e
 #endif
-#if !defined(CONFIG_OSMSFMX93_UARTC)
+#if !defined(CONFIG_OSMSFMX91_UARTC)
 			MX91_PAD_GPIO_IO14__GPIO2_IO14			0x31e
 			MX91_PAD_GPIO_IO15__GPIO2_IO15			0x31e
 #endif
@@ -789,7 +730,7 @@ osm_uart_b: &lpuart5 {
 
 	pinctrl_lpspi3: lpspi3grp {
 		fsl,pins = <
-			MX91_PAD_GPIO_IO08__LPSPI3_PCS0		0x3fe
+			MX91_PAD_GPIO_IO08__GPIO2_IO8		0x3fe	// OSM_SPI_B_CS0
 			MX91_PAD_GPIO_IO09__LPSPI3_SIN		0x3fe
 			MX91_PAD_GPIO_IO10__LPSPI3_SOUT		0x3fe
 			MX91_PAD_GPIO_IO11__LPSPI3_SCK		0x3fe
@@ -936,7 +877,7 @@ osm_uart_b: &lpuart5 {
 
 	pinctrl_eqos: eqosgrp {
 		fsl,pins = <
-			MX91_PAD_ENET1_MDC__ENET1_MDC					0x57e
+			MX91_PAD_ENET1_MDC__ENET1_MDC				0x57e
 			MX91_PAD_ENET1_MDIO__ENET_QOS_MDIO				0x57e
 			MX91_PAD_ENET1_TD3__ENET_QOS_RGMII_TD3				0x57e
 			MX91_PAD_ENET1_TD2__ENET_QOS_RGMII_TD2				0x57e
@@ -945,7 +886,7 @@ osm_uart_b: &lpuart5 {
 			MX91_PAD_ENET1_TX_CTL__ENET_QOS_RGMII_TX_CTL			0x57e
 			MX91_PAD_ENET1_TXC__CCM_ENET_QOS_CLOCK_GENERATE_TX_CLK		0x57e
 			MX91_PAD_ENET1_RX_CTL__ENET_QOS_RGMII_RX_CTL			0x57e
-			MX91_PAD_ENET1_RXC__ENET_QOS_RGMII_RXC				0x57e
+			MX91_PAD_ENET1_RXC__ENET_QOS_RGMII_RXC		0x57e
 			MX91_PAD_ENET1_RD0__ENET_QOS_RGMII_RD0				0x57e
 			MX91_PAD_ENET1_RD1__ENET_QOS_RGMII_RD1				0x57e
 			MX91_PAD_ENET1_RD2__ENET_QOS_RGMII_RD2				0x57e
