@@ -371,28 +371,27 @@ int board_early_init_f(void)
 	fs_setup_cfg_info();
 
 	switch (gd->board_type) {
-		case BT_PICOCOREMX93:
 		case BT_PICOCOREMX91:
+		case BT_PICOCOREMX93:
 			imx_iomux_v3_setup_multiple_pads(lpuart2_pads,
 						     ARRAY_SIZE(lpuart2_pads));
 			init_uart_clk(LPUART2_CLK_ROOT);
 			break;
-		case BT_OSMSFMX93:
-		case BT_NDCU93:
-		case BT_EFUSMX93:
 		case BT_OSMSFMX91:
+		case BT_OSMSFMX93:
 		case BT_EFUSMX91:
+		case BT_EFUSMX93:
+		case BT_NDCU91:
+		case BT_NDCU93:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads,
 						     ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
-#if CONFIG_IS_ENABLED(IMX93)
-		case BT_PICOCOM93:
 		case BT_PICOCOM91:
+		case BT_PICOCOM93:
 			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
 			init_uart_clk(LPUART5_CLK_ROOT);
 			break;
-#endif
 		default:
 			return -EINVAL;
 			break;
@@ -407,8 +406,8 @@ static void fdt_fsboard_fixup(void *fdt)
 	switch (gd->board_type) {
 	case BT_PICOCOREMX91:
 	case BT_PICOCOREMX93:
+	case BT_NDCU91:
 	case BT_NDCU93:
-	case BT_PICOCOM93:
 		if (!(features & FEAT_ETH_PHY_A))
 			fs_fdt_enable(fdt, "ethphy0", 0);
 		if (!(features & FEAT_ETH_PHY_B))
@@ -426,7 +425,6 @@ static void fdt_fsboard_fixup(void *fdt)
 		if (!(features & (FEAT_SDIO_B | FEAT_WLAN)))
 			fs_fdt_enable(fdt, "pc_sdio_b", 0);
 		break;
-
 	case BT_EFUSMX91:
 	case BT_EFUSMX93:
 		if (!(features & FEAT_WLAN)) {
@@ -442,7 +440,18 @@ static void fdt_fsboard_fixup(void *fdt)
 		if (!(features & (FEAT_SDIO_B | FEAT_WLAN)))
 			fs_fdt_enable(fdt, "fs_sdio_b", 0);
 		break;
-
+	case BT_PICOCOM91:
+	case BT_PICOCOM93:
+		if (!(features & FEAT_WLAN))
+			fs_fdt_enable(fdt, "wlan_wake", 0);
+		if (!(features & FEAT_ETH_PHY_A))
+			fs_fdt_enable(fdt, "ethphy0", 0);
+		if (!(features & FEAT_ETH_PHY_B))
+			fs_fdt_enable(fdt, "ethphy1", 0);
+		if (!(features & FEAT_SDIO_A))
+			fs_fdt_enable(fdt, "pcom_sdio", 0);
+		if (!(features & (FEAT_SDIO_B | FEAT_WLAN)))
+			fs_fdt_enable(fdt, "pcom_wlan", 0);
 	default:
 		break;
 	}
@@ -527,7 +536,9 @@ static void fdt_common_fixup(void *fdt)
 	case BT_PICOCOREMX93:
 	case BT_EFUSMX91:
 	case BT_EFUSMX93:
+	case BT_NDCU91:
 	case BT_NDCU93:
+	case BT_PICOCOM91:
 	case BT_PICOCOM93:
 		fdt_fsboard_fixup(fdt);
 		break;
@@ -618,13 +629,14 @@ void fs_ethaddr_init(void)
 
 	/* Set MAC addresses as environment variables */
 	switch (gd->board_type)	{
+	case BT_PICOCOREMX91:
 	case BT_PICOCOREMX93:
-	case BT_EFUSMX93:
+	case BT_OSMSFMX91:
 	case BT_OSMSFMX93:
 	case BT_NDCU93:
-	case BT_PICOCOREMX91:
 	case BT_EFUSMX91:
-	case BT_OSMSFMX91:
+	case BT_EFUSMX93:
+	case BT_PICOCOM91:
 	case BT_PICOCOM93:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
