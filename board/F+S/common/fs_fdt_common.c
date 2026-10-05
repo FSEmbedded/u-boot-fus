@@ -202,7 +202,6 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	void *fdt_cfg = (void *)fs_image_find_cfg_fdt(cfg);
 	int offs_cfg = fs_image_get_board_cfg_offs(fdt_cfg);
 	int offs_bdinfo_cfg = fdt_add_subnode(fdt, offs, "board-cfg");
-	const char *id = fs_image_get_board_id();
 
 	fdt_overlay_apply_node(fdt, offs_bdinfo_cfg, fdt_cfg, offs_cfg);
 
