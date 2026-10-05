@@ -3609,7 +3609,7 @@ static int fsimage_cntr_save(ulong addr, struct nboot_info *ni_stored,
 	else if (!uboot_ri.count)
 		target = "NBoot";	/* No U-Boot, just NBoot */
 
-	if (!fs_image_show_save_status(failed, target))
+	if (fs_image_show_save_status(failed, target))
 		return CMD_RET_FAILURE;
 
 #ifdef __UBOOT__
