@@ -44,6 +44,7 @@
 #include "../common/fs_image_common.h"
 #include "../common/fs_cntr_common.h"
 #include "../common/fs_fdt_common.h"
+#include "../common/fs_bootrom.h"
 
 #include <syscon.h>
 #include <regmap.h>
@@ -253,11 +254,11 @@ static int set_gd_board_type(void)
 /* definition for U-BOOT */
 int board_fit_config_name_match(const char *name)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
 
@@ -266,7 +267,7 @@ int board_fit_config_name_match(const char *name)
 	CHECK_BOARD_TYPE_AND_NAME("osm-selftest", BT_OSMSFMX93, name);
 #endif
 
-	if(board_fdt && !strncmp(name, board_fdt, 64))
+	if (board_fdt && !strncmp(name, board_fdt, 64))
 		return 0;
 
 
@@ -283,30 +284,37 @@ int board_fit_config_name_match(const char *name)
 
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	unsigned int features;
 	struct cfg_info *info;
 	const char *string;
-	u32 flags = 0;
+	u8 boot_copy = 0;
 
-	/**
+	/*
 	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
 	 * is fatal. However no output is possible this early, so simply stop.
 	 * If the BOARD-CFG is not at the expected location in OCRAM but is
 	 * found somewhere else, output a warning later in board_late_init().
 	 */
-	if(!fs_image_find_cfg_in_ocram())
+	if (!fs_image_find_cfg_in_ocram())
 		hang();
 
 	if (!fs_image_is_ocram_cfg_valid())
 		hang();
 
+	/*
+	 * The flag if running from Primary or Secondary SPL and U-Boot is
+	 * misusing a byte in the BOARD-CFG in OCRAM, so we have to remove this
+	 * before validating the BOARD-CFG.
+	 */
+	boot_copy = fs_image_get_boot_copy_from_ocram();
+
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
@@ -315,7 +323,8 @@ static void fs_setup_cfg_info(void)
 	info->board_type = gd->board_type;
 
 	string = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
-	info->boot_dev = fs_board_get_boot_dev_from_name(string);
+	info->boot_dev = fs_image_get_boot_dev_from_name(string);
+	info->boot_copy = boot_copy;
 
 	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 						"dram-chips", 1);
@@ -323,40 +332,40 @@ static void fs_setup_cfg_info(void)
 	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 					       "dram-size", 0x400);
 
-	info->flags = flags;
+	info->flags = 0;
 
 	features = 0;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
 		features |= FEAT_EMMC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
 		features |= FEAT_EXT_RTC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-se050", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-se050", NULL))
 		features |= FEAT_SE050;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
 		features |= FEAT_ETH_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
 		features |= FEAT_ETH_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
 		features |= FEAT_ETH_PHY_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
 		features |= FEAT_ETH_PHY_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
 		features |= FEAT_AUDIO;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
 		features |= FEAT_SDIO_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
 		features |= FEAT_SDIO_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
 		features |= FEAT_MIPI_DSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
 		features |= FEAT_MIPI_CSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
 		features |= FEAT_LVDS;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-rgb", NULL))
 		features |= FEAT_RGB;
 
 	info->features = features;
@@ -366,22 +375,25 @@ int board_early_init_f(void)
 {
 	fs_setup_cfg_info();
 
-	switch(gd->board_type) {
-		case BT_PICOCOREMX93:
+	switch (gd->board_type) {
 		case BT_PICOCOREMX91:
-			imx_iomux_v3_setup_multiple_pads(lpuart2_pads, ARRAY_SIZE(lpuart2_pads));
+		case BT_PICOCOREMX93:
+			imx_iomux_v3_setup_multiple_pads(lpuart2_pads,
+						     ARRAY_SIZE(lpuart2_pads));
 			init_uart_clk(LPUART2_CLK_ROOT);
 			break;
-		case BT_OSMSFMX93:
-		case BT_NDCU93:
-		case BT_EFUSMX93:
 		case BT_OSMSFMX91:
+		case BT_OSMSFMX93:
 		case BT_EFUSMX91:
-			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
+		case BT_EFUSMX93:
+		case BT_NDCU91:
+		case BT_NDCU93:
+			imx_iomux_v3_setup_multiple_pads(lpuart1_pads,
+						     ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
-		case BT_PICOCOM93:
 		case BT_PICOCOM91:
+		case BT_PICOCOM93:
 			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
 			init_uart_clk(LPUART5_CLK_ROOT);
 			break;
@@ -396,56 +408,57 @@ static void fdt_fsboard_fixup(void *fdt)
 {
 	uint features = fs_board_get_features();
 
-	switch(gd->board_type){
-		case BT_PICOCOREMX93:
-		case BT_PICOCOREMX91:
-		case BT_NDCU93:
-		case BT_PICOCOM93:
-			if(!(features & FEAT_ETH_PHY_A)){
-				fs_fdt_enable(fdt, "ethphy0", 0);
-			}
-
-			if(!(features & FEAT_ETH_PHY_B)){
-				fs_fdt_enable(fdt, "ethphy1", 0);
-			}
-
-			if(!(features & FEAT_AUDIO)){
-				fs_fdt_enable(fdt, "sound_sgtl5000", 0);
-				fs_fdt_enable(fdt, "sgtl5000", 0);
-			}
-
-			if(!(features & FEAT_WLAN)){
-				fs_fdt_enable(fdt, "wlan_wake", 0);
-				fs_fdt_enable(fdt, "bluetooth", 0);
-			}
-
-			if(!(features & FEAT_SDIO_A))
-				fs_fdt_enable(fdt, "pc_sdio_a", 0);
-
-			if(!(features & (FEAT_SDIO_B | FEAT_WLAN)))
-				fs_fdt_enable(fdt, "pc_sdio_b", 0);
-			break;
-		case BT_EFUSMX91:
-		case BT_EFUSMX93:
-			if(!(features & FEAT_WLAN)) {
-				fs_fdt_enable(fdt, "mwifiex", 0);
-				fs_fdt_enable(fdt, "wlan_wake", 0);
-			}
-
-			if(!(features & FEAT_ETH_PHY_A))
-				fs_fdt_enable(fdt, "ethphy1", 0);
-
-			if(!(features & FEAT_ETH_PHY_B))
-				fs_fdt_enable(fdt, "ethphy2", 0);
-
-			if(!(features & FEAT_SDIO_A))
-				fs_fdt_enable(fdt, "fs_sdio_a", 0);
-
-			if(!(features & (FEAT_SDIO_B | FEAT_WLAN)))
-				fs_fdt_enable(fdt, "fs_sdio_b", 0);
-			break;
-		default:
-			break;
+	switch (gd->board_type) {
+	case BT_PICOCOREMX91:
+	case BT_PICOCOREMX93:
+	case BT_NDCU91:
+	case BT_NDCU93:
+		if (!(features & FEAT_ETH_PHY_A))
+			fs_fdt_enable(fdt, "ethphy0", 0);
+		if (!(features & FEAT_ETH_PHY_B))
+			fs_fdt_enable(fdt, "ethphy1", 0);
+		if (!(features & FEAT_AUDIO)) {
+			fs_fdt_enable(fdt, "sound_sgtl5000", 0);
+			fs_fdt_enable(fdt, "sgtl5000", 0);
+		}
+		if (!(features & FEAT_WLAN)) {
+			fs_fdt_enable(fdt, "wlan_wake", 0);
+			fs_fdt_enable(fdt, "bluetooth", 0);
+		}
+		if (!(features & FEAT_SDIO_A))
+			fs_fdt_enable(fdt, "pc_sdio_a", 0);
+		if (!(features & (FEAT_SDIO_B | FEAT_WLAN)))
+			fs_fdt_enable(fdt, "pc_sdio_b", 0);
+		break;
+	case BT_EFUSMX91:
+	case BT_EFUSMX93:
+		if (!(features & FEAT_WLAN)) {
+			fs_fdt_enable(fdt, "mwifiex", 0);
+			fs_fdt_enable(fdt, "wlan_wake", 0);
+		}
+		if (!(features & FEAT_ETH_PHY_A))
+			fs_fdt_enable(fdt, "ethphy1", 0);
+		if (!(features & FEAT_ETH_PHY_B))
+			fs_fdt_enable(fdt, "ethphy2", 0);
+		if (!(features & FEAT_SDIO_A))
+			fs_fdt_enable(fdt, "fs_sdio_a", 0);
+		if (!(features & (FEAT_SDIO_B | FEAT_WLAN)))
+			fs_fdt_enable(fdt, "fs_sdio_b", 0);
+		break;
+	case BT_PICOCOM91:
+	case BT_PICOCOM93:
+		if (!(features & FEAT_WLAN))
+			fs_fdt_enable(fdt, "wlan_wake", 0);
+		if (!(features & FEAT_ETH_PHY_A))
+			fs_fdt_enable(fdt, "ethphy0", 0);
+		if (!(features & FEAT_ETH_PHY_B))
+			fs_fdt_enable(fdt, "ethphy1", 0);
+		if (!(features & FEAT_SDIO_A))
+			fs_fdt_enable(fdt, "pcom_sdio", 0);
+		if (!(features & (FEAT_SDIO_B | FEAT_WLAN)))
+			fs_fdt_enable(fdt, "pcom_wlan", 0);
+	default:
+		break;
 	}
 }
 
@@ -472,7 +485,8 @@ static void fdt_thermal_fixup(void *fdt, bool verbose)
 		offs = fs_fdt_path_offset(fdt, LABEL_CPU_CRIT);
 		fs_fdt_set_u32(fdt, offs, "temperature", tmp_val, 1, verbose);
 	} else {
-		printf("## Wrong cpu temp grade values read! Keeping defaults from device tree\n");
+		puts("## Wrong cpu temp grade values read!"
+		     " Keeping defaults from device tree\n");
 	}
 }
 
@@ -481,63 +495,64 @@ static void fdt_common_fixup(void *fdt)
 	uint features = fs_board_get_features();
 	int ret;
 
-	/* Realloc FDT-Blob to next full page-size.
-	 * If NOSPACE Error appiers, increase extrasize.
+	/*
+	 * Realloc FDT-Blob to next full page-size. Increase extrasize in case
+	 * of NOSPACE error.
 	 */
 	ret = fdt_shrink_to_minimum(fdt, 0x800);
-	if(ret < 0){
+	if (ret < 0)
 		printf("failed to shrink FDT-Blob: %s\n", fdt_strerror(ret));
-	}
 
-	if(!(features & FEAT_EMMC))
+	if (!(features & FEAT_EMMC))
 		fs_fdt_enable(fdt, "emmc", 0);
 
-	if(!(features & FEAT_EXT_RTC))
+	if (!(features & FEAT_EXT_RTC))
 		fs_fdt_enable(fdt, "rtc0", 0);
 
-	if(!(features & FEAT_EEPROM))
+	if (!(features & FEAT_EEPROM))
 		fs_fdt_enable(fdt, "eeprom", 0);
 
-	if(!(features & FEAT_ETH_A))
+	if (!(features & FEAT_ETH_A))
 		fs_fdt_enable(fdt, "ethernet0", 0);
 
-	if(!(features & FEAT_ETH_B))
+	if (!(features & FEAT_ETH_B))
 		fs_fdt_enable(fdt, "ethernet1", 0);
 
 #if CONFIG_IS_ENABLED(IMX93)
-	if(!(features & FEAT_MIPI_DSI)){
+	if (!(features & FEAT_MIPI_DSI)) {
 		fs_fdt_enable(fdt, "dsi", 0);
 		fs_fdt_enable(fdt, "dphy", 0);
 	}
 
-	if(!(features & FEAT_LVDS)){
+	if (!(features & FEAT_LVDS)) {
 		fs_fdt_enable(fdt, "ldb", 0);
 		fs_fdt_enable(fdt, "ldb_phy", 0);
 	}
 #endif
 
-	if(!(features & FEAT_RGB)){
+	if (!(features & FEAT_RGB))
 		fs_fdt_enable(fdt, "parallel_disp_fmt", 0);
-	}
 
-	if(!(features & (FEAT_LVDS | FEAT_MIPI_DSI | FEAT_RGB)))
+	if (!(features & (FEAT_LVDS | FEAT_MIPI_DSI | FEAT_RGB)))
 		fs_fdt_enable(fdt, "lcdif", 0);
 
-	switch(gd->board_type){
-		case BT_PICOCOREMX91:
-		case BT_PICOCOREMX93:
-		case BT_EFUSMX91:
-		case BT_EFUSMX93:
-		case BT_NDCU93:
-		case BT_PICOCOM93:
-			fdt_fsboard_fixup(fdt);
-			break;
-		case BT_OSMSFMX91:
-		case BT_OSMSFMX93:
-			fdt_osm_fixup(fdt);
-			break;
-		default:
-			break;
+	switch (gd->board_type) {
+	case BT_PICOCOREMX91:
+	case BT_PICOCOREMX93:
+	case BT_EFUSMX91:
+	case BT_EFUSMX93:
+	case BT_NDCU91:
+	case BT_NDCU93:
+	case BT_PICOCOM91:
+	case BT_PICOCOM93:
+		fdt_fsboard_fixup(fdt);
+		break;
+	case BT_OSMSFMX91:
+	case BT_OSMSFMX93:
+		fdt_osm_fixup(fdt);
+		break;
+	default:
+		break;
 	}
 }
 
@@ -562,14 +577,15 @@ int ft_board_setup(void *fdt_blob, struct bd_info *bd)
 	u64 dram_size[CONFIG_NR_DRAM_BANKS];
 	int i, ret, offs;
 
-	for(i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
+	for (i = 0; i < CONFIG_NR_DRAM_BANKS; i++) {
 		dram_base[i] = gd->bd->bi_dram[i].start;
 		dram_size[i] = gd->bd->bi_dram[i].size;
 	}
 
 	fdt_common_fixup(fdt_blob);
-	ret = fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size, CONFIG_NR_DRAM_BANKS);
-	if(ret)
+	ret = fdt_fixup_memory_banks(fdt_blob, dram_base, dram_size,
+				     CONFIG_NR_DRAM_BANKS);
+	if (ret)
 		return ret;
 
 	/* fixup bdinfo */
@@ -617,15 +633,15 @@ void fs_ethaddr_init(void)
 	int eth_id = 0;
 
 	/* Set MAC addresses as environment variables */
-	switch (gd->board_type)
-	{
+	switch (gd->board_type)	{
+	case BT_PICOCOREMX91:
 	case BT_PICOCOREMX93:
-	case BT_EFUSMX93:
+	case BT_OSMSFMX91:
 	case BT_OSMSFMX93:
 	case BT_NDCU93:
-	case BT_PICOCOREMX91:
 	case BT_EFUSMX91:
-	case BT_OSMSFMX91:
+	case BT_EFUSMX93:
+	case BT_PICOCOM91:
 	case BT_PICOCOM93:
 		fs_eth_set_ethaddr(eth_id++);
 		fs_eth_set_ethaddr(eth_id++);
@@ -638,7 +654,7 @@ void fs_ethaddr_init(void)
 int board_init(void)
 {
 	if (gd->board_type == BT_PICOCOM93) {
-		//Set eqos clk direction to input
+		/* Set eqos clk direction to input */
 		ofnode node = ofnode_by_compatible(ofnode_null(), \
 			                           "fsl,imx93-wakeupmix-syscfg");
 		struct regmap *map = syscon_node_to_regmap(node);
@@ -682,11 +698,12 @@ void board_late_mmc_env_init(void)
 
 	env_set_ulong("mmcdev", dev_no);
 
-	/**
+	/*
 	 * TODO: consider F&S U-BOOT-ENV $rootfs_partition_mmc
 	 * This section will be replaced
-	*/
-	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw", mmc_map_to_kernel_blk(dev_no));
+	 */
+	sprintf(mmcblk, "/dev/mmcblk%dp2 rootwait rw",
+		mmc_map_to_kernel_blk(dev_no));
 	env_set("mmcroot", mmcblk);
 
 	sprintf(cmd, "mmc dev %d", dev_no);
@@ -697,42 +714,42 @@ int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
 	struct cfg_info *info = fs_board_get_cfg_info();
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
-
-	fs_image_set_board_id_from_cfg();
 
 #if CONFIG_IS_ENABLED(ENV_IS_IN_MMC)
 	board_late_mmc_env_init();
 #endif
 
-	if(board_fdt)
+	if (board_fdt)
 		env_set("platform", board_fdt);
 
 	/* Set up all board specific variables */
-	fs_board_late_init_common("ttyLP");	/* Set up all board specific variables */
+	fs_board_late_init_common("ttyLP");	/* Set up all board specific
+						   variables */
 
 	/* Set mac addresses for corresponding boards */
 	fs_ethaddr_init();
 
 	/* Skip autoboot during USB-Boot*/
-	if(boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
+	if (boot_dev == USB_BOOT || boot_dev == USB2_BOOT)
 		env_set_ulong("bootdelay", 0);
 
 #if !CONFIG_IS_ENABLED(FUS_FORCE_DEFAULT_BOOTDELAY)
 	/* Disable Shell access, if board is closed*/
-	if(fs_board_is_closed()){
+	if (fs_board_is_closed()) {
 
 		env_set_ulong("bootdelay", -2);
 		/* TODO: Maybe check images within all boot commands? */
-		if (boot_dev == USB_BOOT || boot_dev == USB2_BOOT){
-			printf("WARNING: USB Boot detected on closed board!\n");
-			printf("\tEnable FASTBOOT access with CONFIG_FUS_FORCE_DEFAULT_BOOTDELAY\n");
+		if (boot_dev == USB_BOOT || boot_dev == USB2_BOOT) {
+			puts("WARNING: USB Boot detected on closed board!\n"
+			     "\tEnable FASTBOOT access with"
+			     " CONFIG_FUS_FORCE_DEFAULT_BOOTDELAY\n");
 			hang();
 		}
 	}
@@ -747,6 +764,7 @@ int board_late_init(void)
 #endif
 
 	debug("FEATURES=0x%x\n", info->features);
+
 	return 0;
 }
 

@@ -539,8 +539,8 @@ void memtester(size_t dramStartAddress, size_t memsize)
         }
     }
 	if (exit_code)
-   		printf("\nDram Test FAILED.\n\n");
-	else 
+		printf("\nDram Test FAILED.\n\n");
+	else
 		printf("\nDram Test OK.\n\n");
 }
 

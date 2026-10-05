@@ -21,10 +21,9 @@
 #include <asm/arch/sys_proto.h>		/* get_reset_cause() */
 #include "fs_fdt_common.h"		/* Own interface */
 #include "fs_board_common.h"		/* fs_board_get_nboot_args() */
-#include <version_string.h>
-#include "fs_image_common.h"	/* fs_image_*() */
+#include "fs_image_common.h"		/* fs_image_*() */
 // #ifdef CONFIG_CMD_SELFTEST
-// #include "fs_processor_info.h"	/* fs_get_processorInfo() */
+// #include "fs_processor_info.h"		/* fs_get_processorInfo() */
 // #endif
 
 /* Set a generic value, if it was not already set in the device tree */
@@ -73,7 +72,8 @@ void fs_fdt_set_u32str(void *fdt, int offs, const char *name, u32 val,
 }
 
 /* Set a u32 value */
-void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force, bool verbose)
+void fs_fdt_set_u32(void *fdt, int offs, const char *name, u32 val, int force,
+		    bool verbose)
 {
 	fdt32_t tmp = cpu_to_fdt32(val);
 
@@ -198,13 +198,16 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 
 	/* Add board-config to bdinfo node */
 #ifdef CONFIG_FUS_BOARDCFG_ADDR
-	void *fdt_cfg = fs_image_get_cfg_fdt();
+	const void *cfg = fs_board_get_dram_cfg_addr();
+	void *fdt_cfg = (void *)fs_image_find_cfg_fdt(cfg);
 	int offs_cfg = fs_image_get_board_cfg_offs(fdt_cfg);
 	int offs_bdinfo_cfg = fdt_add_subnode(fdt, offs, "board-cfg");
 	const char *id = fs_image_get_board_id();
 
 	fdt_overlay_apply_node(fdt, offs_bdinfo_cfg, fdt_cfg, offs_cfg);
-	fs_fdt_set_string(fdt, offs, "board-id", id, 1);
+
+	fs_fdt_set_string(fdt, offs, "board-id", fs_image_get_board_id(), 1);
+	fs_fdt_set_u32str(fdt, offs, "boot_copy", fs_board_get_boot_copy(), 1);
 #endif
 
 #ifdef CONFIG_CMD_SELFTEST
@@ -238,7 +241,7 @@ void fs_fdt_set_bdinfo(void *fdt, int offs)
 	fs_fdt_set_u32str(fdt, offs, "nand_state", pargs->chECCstate, 1);
 #endif /* !CONFIG_FS_BOARD_CFG */
 	fs_fdt_set_string(fdt, offs, "boot_dev",
-		fs_board_get_name_from_boot_dev(fs_board_get_boot_dev()), 1);
+		fs_image_get_name_from_boot_dev(fs_board_get_boot_dev()), 1);
 	fs_fdt_set_string(fdt, offs, "board_name", get_board_name(), 0);
 	sprintf(rev, "%d.%02d", board_rev / 100, board_rev % 100);
 	fs_fdt_set_string(fdt, offs, "board_revision", rev, 1);

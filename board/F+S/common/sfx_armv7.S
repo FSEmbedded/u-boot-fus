@@ -46,7 +46,7 @@
 #define SFX_USE_CACHE
 //#define SFX_DCACHE_WRITETHROUGH
 
- 	.arch	armv7-a
+	.arch	armv7-a
 
 	.section ".start", "ax"
 
@@ -178,7 +178,7 @@ UBOOT_INFO:
 	bne	.L_\@
 	orr	\reg, \reg, #(1 << 5)	@ CP15 barrier instructions
 	mcr	p15, 0, \reg, c1, c0, 0	@ write SCTLR
- 	isb
+	isb
  .L_\@:
 	.endm
 

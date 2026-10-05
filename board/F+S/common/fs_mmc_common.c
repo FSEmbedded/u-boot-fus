@@ -182,7 +182,7 @@ int board_mmc_get_env_dev(int devno)
 
 static void fs_mmc_get_env_info(struct mmc *mmc, struct cfg_info *cfg)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int layout;
 	const char *layout_name;
@@ -226,7 +226,7 @@ static void fs_mmc_get_env_info(struct mmc *mmc, struct cfg_info *cfg)
 	 * correct environment and after a restart the old environment is
 	 * available again.
 	 */
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_nboot_info_offs(fdt);
 	align = mmc_get_blk_desc(mmc)->blksz;
 	boot_hwpart = (mmc->part_config >>3) & PART_ACCESS_MASK;

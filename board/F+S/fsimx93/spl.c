@@ -137,20 +137,22 @@ int board_early_init_f(void)
 	set_gd_board_type();
 
 	switch(gd->board_type) {
-		case BT_PICOCOREMX93:
 		case BT_PICOCOREMX91:
+		case BT_PICOCOREMX93:
 			imx_iomux_v3_setup_multiple_pads(lpuart7_pads, ARRAY_SIZE(lpuart7_pads));
 			init_uart_clk(LPUART7_CLK_ROOT);
 			break;
-		case BT_NDCU93:
+		case BT_EFUSMX91:
 		case BT_EFUSMX93:
-		case BT_OSMSFMX93:
 		case BT_OSMSFMX91:
+		case BT_OSMSFMX93:
+		case BT_NDCU91:
+		case BT_NDCU93:
 			imx_iomux_v3_setup_multiple_pads(lpuart1_pads, ARRAY_SIZE(lpuart1_pads));
 			init_uart_clk(LPUART1_CLK_ROOT);
 			break;
-		case BT_PICOCOM93:
 		case BT_PICOCOM91:
+		case BT_PICOCOM93:
 			imx_iomux_v3_setup_multiple_pads(lpuart5_pads, ARRAY_SIZE(lpuart5_pads));
 			init_uart_clk(LPUART5_CLK_ROOT);
 			break;

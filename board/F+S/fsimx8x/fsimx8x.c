@@ -115,14 +115,14 @@ const struct fs_board_info board_info[] = {
 /* Parse the FDT of the BOARD-CFG in OCRAM and create binary info in OCRAM */
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	int i;
 	struct cfg_info *info;
 	const char *tmp;
 	unsigned int features;
-	u32 flags = 0;
+	u8 boot_copy;
 
 	/*
 	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
@@ -138,8 +138,7 @@ static void fs_setup_cfg_info(void)
 	 * byte in the BOARD-CFG in OCRAM, so we have to remove this before
 	 * validating the BOARD-CFG.
 	 */
-	if (fs_image_is_secondary())
-		flags |= CI_FLAGS_SECONDARY;
+	boot_copy = fs_image_get_boot_copy_from_ocram();
 
 	/* Make sure that the BOARD-CFG in OCRAM is still valid */
 	if (!fs_image_is_ocram_cfg_valid())
@@ -148,7 +147,7 @@ static void fs_setup_cfg_info(void)
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
@@ -162,13 +161,14 @@ static void fs_setup_cfg_info(void)
 	info->board_type = i;
 
 	tmp = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
-	info->boot_dev = fs_board_get_boot_dev_from_name(tmp);
+	info->boot_dev = fs_image_get_boot_dev_from_name(tmp);
+	info->boot_copy = boot_copy;
 
 	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 						"dram-chips", 1);
 	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 					       "dram-size", 0x400);
-	info->flags = flags;
+	info->flags = 0;
 
 	features = 0;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-nand", NULL))

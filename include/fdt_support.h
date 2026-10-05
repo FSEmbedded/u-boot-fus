@@ -463,6 +463,8 @@ void fdt_fixup_pstore(void *blob);
 #endif
 
 #ifdef CONFIG_CMD_FDT
-int fdt_print(struct fdt_header *fdt_blob, const char *pathp, char *prop, int depth);
+int is_printable_string(const void *data, int len);
+int fdt_print(struct fdt_header *fdt_blob, const char *pathp, char *prop,
+	      int depth, unsigned long max_dump);
 #endif
 #endif /* ifndef __FDT_SUPPORT_H */

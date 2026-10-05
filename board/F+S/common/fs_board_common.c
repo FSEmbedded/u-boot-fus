@@ -8,7 +8,6 @@
  *
  * SPDX-License-Identifier:	GPL-2.0+
  */
-#ifdef __UBOOT__
 #include <config.h>
 #include <env.h>			/* env_get() */
 #include <command.h>			/* run_command() */
@@ -30,16 +29,6 @@
 #include <update.h>			/* enum update_action */
 #include "fs_fdt_common.h"
 
-#else
-
-#include <linux/kconfig.h>		/* Get kconfig macros only */
-#include <linux/bitops.h>		/* BITS_PER_LONG */
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>			/* strcmp() */
-
-#endif /* __UBOOT__ */
-
 #include "fs_board_common.h"		/* Own interface */
 #ifdef CONFIG_FS_BOARD_CFG
 #include "fs_image_common.h"		/* fs_image_*() */
@@ -52,12 +41,6 @@
 /* ============= Functions not available in SPL ============================ */
 
 #ifndef CONFIG_SPL_BUILD
-
-/* String used for system prompt */
-static char fs_sys_prompt[32];
-
-/* Store a pointer to the current board info */
-static const struct fs_board_info *current_bi;
 
 #ifdef CONFIG_FS_SELFTEST
 /* Store DRAM test result for bdinfo */
@@ -184,7 +167,9 @@ void board_nand_state(struct mtd_info *mtd, unsigned int state)
 
 #ifdef CONFIG_FS_BOARD_CFG
 
-#ifdef __UBOOT__ /* unused outside of u-boot and spl */
+/* Currently active BOARD-CFG, copied from OCRAM to DRAM below */
+static u8 dram_board_cfg[MAX_BOARD_CFG_SIZE];
+
 /* Get Pointer to struct cfg_info */
 struct cfg_info *fs_board_get_cfg_info(void)
 {
@@ -197,6 +182,11 @@ struct cfg_info *fs_board_get_cfg_info(void)
 enum boot_device fs_board_get_boot_dev(void)
 {
 	return fs_board_get_cfg_info()->boot_dev;
+}
+
+unsigned int fs_board_get_boot_copy(void)
+{
+	return fs_board_get_cfg_info()->boot_copy;
 }
 
 /* Get board type (zero-based) */
@@ -217,10 +207,18 @@ unsigned int fs_board_get_features(void)
 	return fs_board_get_cfg_info()->features;
 }
 
+char *fs_board_get_dram_cfg_addr(void)
+{
+	return dram_board_cfg;
+}
+
 /* Get the NBoot version */
 const char *fs_board_get_nboot_version(void)
 {
-	return fs_image_get_nboot_version(NULL);
+	const void *cfg = fs_board_get_dram_cfg_addr();
+	const void *fdt = fs_image_find_cfg_fdt(cfg);
+
+	return fs_image_get_nboot_version(fdt);
 }
 
 /* Set RAM size; optee will be subtracted in dram_init() */
@@ -230,13 +228,17 @@ int board_phys_sdram_size(phys_size_t *size)
 
 	return 0;
 }
-#endif /* __UBOOT__ */
 
 #endif /* CONFIG_FS_BOARD_CFG */
 
 /* ------------- Generic functions ----------------------------------------- */
 
-#ifdef __UBOOT__ /* unused outside of u-boot and spl */
+/* String used for system prompt */
+static char fs_sys_prompt[32];
+
+/* Store a pointer to the current board info */
+static const struct fs_board_info *current_bi;
+
 /* Issue reset signal on up to three gpios (~0: gpio unused) */
 void fs_board_issue_reset(uint active_us, uint delay_us,
 			  uint gpio0, uint gpio1, uint gpio2)
@@ -417,15 +419,22 @@ void fs_board_late_init_common(const char *serial_name)
 	bool conflict = false;
 
 #ifdef CONFIG_FS_BOARD_CFG
-	ulong found_cfg = (ulong)fs_image_get_cfg_addr();
-	ulong expected_cfg = (ulong)fs_image_get_regular_cfg_addr();
+	void *found_cfg = fs_image_get_ocram_cfg_addr();
+	void *expected_cfg = fs_image_get_regular_cfg_addr();
+	void *target_cfg = fs_board_get_dram_cfg_addr();
 
-	printf("CFG:   Found at 0x%lx", found_cfg);
+	printf("CFG:   Found at 0x%lx", (ulong)found_cfg);
 	if (found_cfg != expected_cfg) {
-		printf(" *** Warning - expected at 0x%lx", expected_cfg);
+		printf(" *** Warning - expected at 0x%lx", (ulong)expected_cfg);
 		conflict = true;
 	}
 	putc('\n');
+
+	/* Set the current board_id */
+	fs_image_set_board_id_from_cfg();
+
+	/* To get OCRAM free, copy BOARD-CFG to DRAM */
+	memcpy(target_cfg, found_cfg, fs_image_get_size(found_cfg, true));
 #endif
 
 	printf("NBoot: %s", fs_board_get_nboot_version());
@@ -647,59 +656,12 @@ char *get_dram_result(void)
 	return dram_result;
 }
 #endif
-#endif /* __UBOOT__ */
 
 #endif /* ! CONFIG_SPL_BUILD */
 
 /* ============= Functions also available in SPL =========================== */
 
-struct boot_dev_name {
-	enum boot_device boot_dev;
-	const char *name;
-};
-
-const struct boot_dev_name boot_dev_names[] = {
-	{USB_BOOT,  "USB"},
-	{USB2_BOOT, "USB2"},
-	{NAND_BOOT, "NAND"},
-	{MMC1_BOOT, "MMC1"},
-	{MMC2_BOOT, "MMC2"},
-	{MMC3_BOOT, "MMC3"},
-	{SD1_BOOT,  "SD1"},
-	{SD2_BOOT,  "SD2"},
-	{SD3_BOOT,  "SD3"},
-};
-
-/* Get the boot device number from the string */
-enum boot_device fs_board_get_boot_dev_from_name(const char *name)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(boot_dev_names); i++) {
-		if (!strcmp(boot_dev_names[i].name, name))
-			return boot_dev_names[i].boot_dev;
-	}
-	return UNKNOWN_BOOT;
-}
-
-/* Get the string from the boot device number */
-const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(boot_dev_names); i++) {
-		if (boot_dev_names[i].boot_dev == boot_dev)
-			return boot_dev_names[i].name;
-	}
-
-	return "(unknown)";
-}
-
 #ifdef CONFIG_FS_BOARD_CFG
-
-#ifdef __UBOOT__
-#include <fdtdec.h>
-#endif
 
 #ifdef CONFIG_IMX8
 /* Definitions in boot_cfg (fuse bank 0, word 18) */
@@ -945,7 +907,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	switch (boot_mode) {
 	case 0x2: // eMMC(USDHC1)
 		boot_dev = MMC1_BOOT;
-		break;	
+		break;
 	case 0x3: // SD(USDHC2)
 		boot_dev = SD2_BOOT;
 		break;
@@ -962,7 +924,6 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	return boot_dev;
 }
 
-#ifdef __UBOOT__ /* unused outside of u-boot and spl */
 #define IMG_CNTN_SET1_OFFSET_SHIFT 8
 #define IMG_CNTN_SET1_OFFSET_MASK GENMASK(15, IMG_CNTN_SET1_OFFSET_SHIFT)
 u32 fs_board_get_secondary_offset(void)
@@ -993,14 +954,13 @@ u32 fs_board_get_secondary_offset(void)
 
 	return offset;
 }
-#endif /* __UBOOT__ */
 #elif defined(CONFIG_IMX8ULP)
 /* Definitions in boot_cfg (fuse bank 4, word 1) */
 #define BOOT_CFG_BOOT_TYPE_SHIFT	29
 #define BOOT_CFG_BOOT_TYPE_MASK		GENMASK(30, 29)
-#define BOOT_CFG_BOOT_IFACE_SHIFT 	26
+#define BOOT_CFG_BOOT_IFACE_SHIFT	26
 #define BOOT_CFG_BOOT_IFACE_MASK	GENMASK(28, 26)
-#define BOOT_CFG_BOOT_DEV_SHIFT 	25
+#define BOOT_CFG_BOOT_DEV_SHIFT		25
 #define BOOT_CFG_BOOT_DEV_MASK		GENMASK(25, 25)
 
 /*
@@ -1020,7 +980,7 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 
 	if (fuse_read(4, 1, &val)) {
 		puts("Error reading boot_cfg\n");
-	 	return boot_dev;
+		return boot_dev;
 	}
 
 	boot_type = val & BOOT_CFG_BOOT_TYPE_MASK;
@@ -1046,11 +1006,11 @@ enum boot_device fs_board_get_boot_dev_from_fuses(void)
 	non_usdhc:
 	switch (boot_type) {
 	case 0x1: // NAND(FLEXSPI)
-	 	boot_dev = FLEXSPI_NAND_BOOT;
-	 	break;
+		boot_dev = FLEXSPI_NAND_BOOT;
+		break;
 	case 0x2: // NOR(FLEXSPI)
-	 	boot_dev = FLEXSPI_BOOT;
-	 	break;
+		boot_dev = FLEXSPI_BOOT;
+		break;
 	default:
 		break;
 	}
@@ -1072,7 +1032,6 @@ u32 fs_board_get_secondary_offset(void)
 
 //TODO: not used in linux because of missing functionality. Will  be activated
 //      when possible.
-#ifdef __UBOOT__
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 static bool imx_ele_ahab_is_enabled(void)
 {
@@ -1080,18 +1039,16 @@ static bool imx_ele_ahab_is_enabled(void)
 
 	lc = readl(FSB_BASE_ADDR + 0x41c);
 	lc &= 0x3ff;
-	
-	// if lc != 0x8 then lifecycle is not OEM open
+
+	/* if lc != 0x8 then lifecycle is not OEM open */
 	return !!(lc != 0x8);
 }
 #endif
-#endif /* __UBOOT__ */
 
 //TODO: not used in linux because of missing functionality. Will  be activated
 //      when possible.
 bool fs_board_is_closed(void)
 {
-#ifdef __UBOOT__
 #if CONFIG_IS_ENABLED(AHAB_BOOT)
 	return imx_ele_ahab_is_enabled();
 #elif CONFIG_IS_ENABLED(IMX_HAB)
@@ -1099,12 +1056,8 @@ bool fs_board_is_closed(void)
 #else
 	return false;
 #endif
-#else
-	return false;
-#endif /* __UBOOT__ */
 }
 
-#ifdef __UBOOT__
 __weak int fs_board_cma_fdt_fixup(void * fdt)
 {
 	const char *cma_env;
@@ -1131,7 +1084,7 @@ __weak int fs_board_cma_fdt_fixup(void * fdt)
 	env_len = strlen(cma_env);
 
 	/*convert cma_env to int value, first get identifier M/G and make str to ul*/
-	if(cma_env[env_len - 1] == 'M' || cma_env[env_len - 1] == 'm') {
+	if (cma_env[env_len - 1] == 'M' || cma_env[env_len - 1] == 'm') {
 		size_shift = 20; /* M */
 	} else if (cma_env[env_len - 1] == 'G' || cma_env[env_len - 1] == 'g') {
 		size_shift = 30; /* G */
@@ -1148,11 +1101,10 @@ __weak int fs_board_cma_fdt_fixup(void * fdt)
 
 	offs = fs_fdt_path_offset(fdt, "/reserved-memory/linux,cma");
 	if (offs < 0) {
-		printf("Failed to find /reserved-memory/linux,cma in device tree\n");
+		puts("Cannot find /reserved-memory/linux,cma in device tree\n");
 		return offs;
 	}
 
 	fs_fdt_set_val(fdt, offs, "size", tmp, sizeof(tmp), 1, true);
 	return 0;
 }
-#endif /* __UBOOT__ */

@@ -40,6 +40,7 @@
 #include "../common/fs_image_common.h"
 #include "../common/fs_cntr_common.h"
 #include "../common/fs_fdt_common.h"
+#include "../common/fs_bootrom.h"
 #include <power/regulator.h>
 
 
@@ -150,11 +151,11 @@ static int set_gd_board_type(void)
 /* definition for U-BOOT */
 int board_fit_config_name_match(const char *name)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
 
@@ -172,15 +173,15 @@ int board_fit_config_name_match(const char *name)
 
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	unsigned int features;
 	struct cfg_info *info;
 	const char *string;
-	u32 flags = 0;
+	u8 boot_copy;
 
-	/**
+	/*
 	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
 	 * is fatal. However no output is possible this early, so simply stop.
 	 * If the BOARD-CFG is not at the expected location in OCRAM but is
@@ -192,10 +193,17 @@ static void fs_setup_cfg_info(void)
 	if (!fs_image_is_ocram_cfg_valid())
 		hang();
 
+	/*
+	 * The flag if running from Primary or Secondary SPL and U-Boot is
+	 * misusing a byte in the BOARD-CFG in OCRAM, so we have to remove this
+	 * before validating the BOARD-CFG.
+	 */
+	boot_copy = fs_image_get_boot_copy_from_ocram();
+
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
@@ -204,7 +212,8 @@ static void fs_setup_cfg_info(void)
 	info->board_type = gd->board_type;
 
 	string = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
-	info->boot_dev = fs_board_get_boot_dev_from_name(string);
+	info->boot_dev = fs_image_get_boot_dev_from_name(string);
+	info->boot_copy = boot_copy;
 
 	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 						"dram-chips", 1);
@@ -212,7 +221,7 @@ static void fs_setup_cfg_info(void)
 	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 					       "dram-size", 0x400);
 
-	info->flags = flags;
+	info->flags = 0;
 
 	features = 0;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-i2c-int-rtd", NULL))
@@ -499,15 +508,13 @@ int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
 	struct cfg_info *info = fs_board_get_cfg_info();
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
-
-	fs_image_set_board_id_from_cfg();
 
 #if CONFIG_IS_ENABLED(ENV_IS_IN_MMC)
 	board_late_mmc_env_init();
