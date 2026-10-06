@@ -79,7 +79,7 @@ BOARD_CONFIGS = \
 # List of DRAM Timings for each DRAM-TYPE
 RT_LPDDR4 := \
 	lpddr4_as_4g1500m2ch2cs_timing.fs \
-	lpddr4_as_4g1600m2ch2cs_nanya_timing.fs \
+	lpddr4_as_4g1600m2ch2cs_na_timing.fs \
 	lpddr4_as_2g1600m2ch1cs_timing.fs \
 	lpddr4_as_1g2000m2ch1cs_timing.fs \
 	lpddr4_as_1g1800m2ch1cs_timing.fs \
@@ -89,7 +89,7 @@ RT_LPDDR4 := \
 	lpddr4_os_2g2000m2ch1cs_timing.fs \
 	lpddr4_os_1g2000m2ch1cs_timing.fs \
 	lpddr4_pc_4g1500m2ch2cs_timing.fs \
-	lpddr4_pc_4g1500m2ch2cs_nanya_timing.fs \
+	lpddr4_pc_4g1500m2ch2cs_na_timing.fs \
 	lpddr4_pc_2g1500m2ch1cs_timing.fs \
 	lpddr4_pc_2g1300m2ch1cs_timing.fs \
 	lpddr4_pc_1g1800m2ch1cs_timing.fs \
