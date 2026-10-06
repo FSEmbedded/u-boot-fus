@@ -2328,16 +2328,18 @@ static int fs_image_validate_signed(const struct fs_header_v1_0 *fsh)
 }
 
 /* Load the F&S header of ATF in the ATF region, return 0 if ATF, 1 if U-ATF */
-static bool fs_image_is_u_atf(struct flash_info *fi,
-			      const struct storage_info *atf_si)
+static bool fs_image_is_u_atf(struct flash_info *fi, const struct nboot_info *ni)
 {
 	struct fs_header_v1_0 fsh;
 	const char *arch = fs_image_get_arch();
 	int start_copy = 0;
 	int copy;
-	uint size = atf_si->size;
+	uint size = ni->atf.size;
 	uint start;
 	uint lim;
+
+	if (!(ni->flags & NI_SUPPORT_U_ATF))
+		return false;
 
 	/* Clear the temp buffer (read cache) */
 	fs_image_drop_temp(fi);
@@ -2345,8 +2347,8 @@ static bool fs_image_is_u_atf(struct flash_info *fi,
 	/* Find a valid copy of the ATF header */
 	copy = start_copy;
 	do {
-		fi->ops->set_hwpart(fi, copy, atf_si);
-		start = atf_si->start[copy];
+		fi->ops->set_hwpart(fi, copy, &ni->atf);
+		start = ni->atf.start[copy];
 		lim = start + size;
 		if (!fs_image_load_sub(fi, start, FSH_SIZE, lim, 0, (u8 *)&fsh))
 		{
@@ -2379,116 +2381,74 @@ static uint fs_image_region_find_add(struct region_info *ri,
 	return fs_image_region_add(ri, fsh, type, descr, woffset, flags);
 }
 
-/*
- * Load U-Boot to given address. If SUB_HAS_FS_HEADER is not set as sub_flags,
- * then fs_image_load_image() will create a new one. If the image actually has
- * a header in this case (new U-BOOT versions are stored with header), it is
- * used for CRC32 checking, then removed, and the own new header is used
- * instead.
- */
-static int fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
-			       void *addr, uint sub_flags, ulong *size)
+/* Load U-Boot to given address. (i.MX8M version) */
+static void *fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
+				 struct fs_header_v1_0 *fsh)
 {
 	struct sub_info sub;
-	struct fs_header_v1_0 *uboot_fsh = addr;
-	struct fs_header_v1_0 *uboot_atf_fsh = addr;
-	uint fsh_flags = 0;
-	int err;
-	bool have_atf = false;
+	struct fs_header_v1_0 *uboot_fsh = fsh;
+	struct fs_header_v1_0 *uboot_atf_fsh = fsh;
+	bool have_u_atf;
 	const char *arch = fs_image_get_arch();
 
-	if (ni->flags & NI_SUPPORT_U_ATF)
-		have_atf = fs_image_is_u_atf(fi, &ni->atf);
-
-	if (have_atf) {
+	have_u_atf = fs_image_is_u_atf(fi, ni);
+	if (have_u_atf) {
 		/* Load U-ATF behind U-BOOT-ATF header that is filled in later */
 		sub.type = "U-ATF";
 		sub.descr = arch;
 		sub.img = uboot_atf_fsh + 1;
 		sub.offset = 0;
 		sub.flags = SUB_HAS_FS_HEADER;
-		err = fs_image_load_image(fi, &ni->atf, &sub);
-		if (err)
-			return err;
+		if (fs_image_load_image(fi, &ni->atf, &sub))
+			return NULL;
 
 #ifdef CONFIG_OPTEE
 		/* Load U-TEE */
 		sub.type = "U-TEE";
 		sub.offset += sub.size;
-		err = fs_image_load_image(fi, &ni->atf, &sub);
-		if (err)
-			return err;
+		if (fs_image_load_image(fi, &ni->atf, &sub))
+			return NULL;
 #endif
 		uboot_fsh = sub.img;
 	}
 
-#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	sub.type = "U-BOOT-INFO";
-	fsh_flags |= (FSH_FLAGS_INDEX | FSH_FLAGS_EXTRA);
-#else
 	sub.type = "U-BOOT";
-#endif
 	sub.descr = arch;
 	sub.img = uboot_fsh;
 	sub.offset = 0;
-	sub.flags = sub_flags;
-	err = fs_image_load_image(fi, &ni->uboot, &sub);
-	if (err)
-		return err;
+	sub.flags = 0;
+	if (fs_image_load_image(fi, &ni->uboot, &sub))
+		return NULL;
 
 	/* Compute CRC32 if it is missing */
 	if (!(uboot_fsh->info.flags & (FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE)))
 		fs_image_update_header((void *)uboot_fsh, sub.size,
-			       FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE | fsh_flags);
+				       FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE);
 
-	if (have_atf) {
+	if (have_u_atf) {
 		/* Fill in U-BOOT-ATF header */
 		fs_image_set_header(uboot_atf_fsh, "U-BOOT-ATF", arch,
 				    sub.img - (void *)(uboot_atf_fsh + 1),
 				    FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE);
 	}
 
-	/*
-	 * Clear a word to invalidate any subsequent F&S images that we may
-	 * have loaded there before, e.g. a second copy of an image.
-	 */
-	*(u32 *)sub.img = 0;
-
-	if (size)
-		*size = (ulong)(sub.img - addr);
-
-	return 0;
+	return sub.img;
 }
 
-static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
+/* Load NBoot to given address fsh (i.MX8M version) */
+static void *fs_image_load_nboot(struct flash_info *fi, struct nboot_info *ni,
+				 struct fs_header_v1_0 *fsh)
 {
 	struct sub_info sub;
 	struct fs_header_v1_0 *nboot_fsh, *board_info_fsh, *board_cfg_fsh;
 	struct fs_header_v1_0 *dram_info_fsh;
-	struct flash_info fi;
-	struct nboot_info *ni;
-	const void *fdt;
 	const char *arch;
-	const char *target = load_uboot ? "U-Boot" : "NBoot";
 
-	nboot_fsh = (void *)addr;
-
-	fdt = fs_image_get_cfg_fdt();
-	if (fs_image_get_flash_info(&fi, fdt, true))
-		return CMD_RET_FAILURE;
-
-	ni = fs_image_get_stored_nboot_info();
-
-	if (load_uboot) {
-		if (fs_image_load_uboot(&fi, ni, (void *)addr, 0, im_size))
-			goto fail;
-
-		goto success;
-	}
+	nboot_fsh = fsh;
 
 	/* Load flash specific stuff (NAND: BCB, MMC: Secondary Image Table) */
-	if (fi.ops->load_extra(&fi, &ni->spl, nboot_fsh + 1))
-		goto fail;
+	if (fi->ops->load_extra(fi, &ni->spl, nboot_fsh + 1))
+		return NULL;
 
 	arch = fs_image_get_arch();
 
@@ -2498,8 +2458,8 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 	sub.img = nboot_fsh + 1;
 	sub.offset = 0;
 	sub.flags = SUB_IS_SPL;
-	if (fs_image_load_image(&fi, &ni->spl, &sub))
-		goto fail;
+	if (fs_image_load_image(fi, &ni->spl, &sub))
+		return NULL;
 
 	/* Load BOARD_CFG */
 	board_info_fsh = sub.img;
@@ -2508,8 +2468,8 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 	board_cfg_fsh = board_info_fsh + 1;
 	sub.img = board_cfg_fsh;
 	sub.flags = SUB_HAS_FS_HEADER;
-	if (fs_image_load_image(&fi, &ni->nboot, &sub))
-		goto fail;
+	if (fs_image_load_image(fi, &ni->nboot, &sub))
+		return NULL;
 
 	/* If set, remove BOARD-ID rev (in file_size_high) and update CRC32 */
 	if (board_cfg_fsh->info.file_size_high) {
@@ -2536,16 +2496,16 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 		sub.img = dram_info_fsh + 2;
 		sub.flags = SUB_HAS_FS_HEADER;
 		sub.offset += sub.size;
-		if (fs_image_load_image(&fi, &ni->nboot, &sub))
-			goto fail;
+		if (fs_image_load_image(fi, &ni->nboot, &sub))
+			return NULL;
 
 		/* Load DRAM-TIMING */
 		sub.type = "DRAM-TIMING";
 		sub.descr = NULL;
 		sub.flags = SUB_HAS_FS_HEADER;
 		sub.offset += sub.size;
-		if (fs_image_load_image(&fi, &ni->nboot, &sub))
-			goto fail;
+		if (fs_image_load_image(fi, &ni->nboot, &sub))
+			return NULL;;
 
 		/* Create DRAM-TYPE header, use descr from DRAM-FW */
 		sub.type = "DRAM-TYPE";
@@ -2559,29 +2519,29 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 		fs_image_set_header(dram_info_fsh, sub.type, sub.descr,
 				    sub.img - (void *)(dram_info_fsh + 1), 0);
 
-		if (fs_image_is_u_atf(&fi, &ni->atf)) {
+		if (fs_image_is_u_atf(fi, ni)) {
 			puts("Skipping U-ATF/U-TEE\n");
 		} else {
 			/* Load ATF */
 			sub.type = "ATF";
 			sub.offset = 0;
-			if (fs_image_load_image(&fi, &ni->atf, &sub))
-				goto fail;
+			if (fs_image_load_image(fi, &ni->atf, &sub))
+				return NULL;
 
 #ifdef CONFIG_OPTEE
 			/* Load TEE */
 			sub.type = "TEE";
 			sub.offset += sub.size;
-			if (fs_image_load_image(&fi, &ni->atf, &sub))
-				goto fail;
+			if (fs_image_load_image(fi, &ni->atf, &sub))
+				return NULL;
 #endif
 		}
 	} else {
 		/* Simply load the whole FIRMWARE sub-image */
 		sub.type = "FIRMWARE";
 		sub.offset = ni->board_cfg_size ? ni->board_cfg_size : sub.size;
-		if (fs_image_load_image(&fi, &ni->nboot, &sub))
-			goto fail;
+		if (fs_image_load_image(fi, &ni->nboot, &sub))
+			return NULL;
 	}
 
 	/* Fill overall NBOOT header */
@@ -2590,27 +2550,7 @@ static int fs_image_imx8m_load(ulong addr, bool load_uboot, ulong *im_size)
 			    sub.img - (void *)(nboot_fsh + 1),
 			    FSH_FLAGS_CRC32 | FSH_FLAGS_SECURE);
 
-	/*
-	 * Clear a word to invalidate any subsequent F&S images that we may
-	 * have loaded there before, e.g. a second copy of an image.
-	 */
-	*(u32 *)sub.img = 0;
-
-	if (im_size)
-		*im_size = (ulong)sub.img - addr;
-
-success:
-	fs_image_put_flash_info(&fi);
-	printf("%s successfully loaded to RAM\n", target);
-
-	return CMD_RET_SUCCESS;
-
-fail:
-	fs_image_put_flash_info(&fi);
-	printf("Failed to load %s\n", target);
-
-	return CMD_RET_FAILURE;
-
+	return sub.img;
 }
 
 static int fs_image_save_uboot(struct flash_info *fi,
@@ -2808,7 +2748,7 @@ static int fs_image_imx8m_save(ulong addr, struct nboot_info *ni_stored,
 
 		uboot_addr = (void *)nboot_fsh;
 		uboot_addr += fs_image_get_size(uboot_addr, true);
-		if (fs_image_load_uboot(&fi, &ni_old, uboot_addr, 0, NULL))
+		if (fs_image_load_uboot(&fi, &ni_old, uboot_addr))
 			goto fail;
 
 		/* Create ATF region for U-ATF/U-TEE if present */
@@ -2970,7 +2910,7 @@ static int fs_image_imx8m_save(ulong addr, struct nboot_info *ni_stored,
 		goto fail;
 
 	if (ni.flags & NI_SUPPORT_U_ATF) {
-		if (!system_atf && fs_image_is_u_atf(&fi, &ni.atf)) {
+		if (!system_atf && fs_image_is_u_atf(&fi, &ni)) {
 			printf("Skipping ATF/TEE because U-ATF is present\n");
 		} else {
 			system_atf = true;
@@ -3143,9 +3083,9 @@ static void *fs_image_find_eof(const struct fs_header_v1_0 *fsh)
 	return (void *)fsh;
 }
 
-static void *fs_image_cntr_load_uboot(struct flash_info *fi,
-				      struct nboot_info *ni,
-				      struct fs_header_v1_0 *fsh)
+/* Load U-Boot to given address fsh (Container version) */
+static void *fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
+				 struct fs_header_v1_0 *fsh)
 {
 	const char *arch = fs_image_get_arch();
 	struct sub_info sub;
@@ -3168,9 +3108,9 @@ static void *fs_image_cntr_load_uboot(struct flash_info *fi,
 	return fsh;
 }
 
-static void *fs_image_cntr_load_nboot(struct flash_info *fi,
-				      struct nboot_info *ni,
-				      struct fs_header_v1_0 *fsh)
+/* Load NBoot to given address fsh (Container version) */
+static void *fs_image_load_nboot(struct flash_info *fi, struct nboot_info *ni,
+				 struct fs_header_v1_0 *fsh)
 {
 	const char *arch = fs_image_get_arch();
 	struct sub_info sub;
@@ -3219,60 +3159,6 @@ static void *fs_image_cntr_load_nboot(struct flash_info *fi,
 	fsh = sub.img;
 
 	return fsh;
-}
-
-/**
- * Unlike the loading method for imx8, the cntr method does not use nboot-infos
- * to load the complete boot firmware. This is because nboot-infos are not
- * fully available when booting with fastboot. Properties such as <>-start and
- * <>-size are determined dynamically during the boot process via mmc/nand.
- * To load images during fastboot or after an update, the 1KiB padding is used
- * to find images. All images including U-BOOT-INFO within 3MiB are searched
- * for.
- */
-static int fsimage_cntr_load(ulong addr, bool load_uboot, int boot_hwpart,
-			     ulong *im_size)
-{
-	struct fs_header_v1_0 *fsh = (void *)addr;
-	struct flash_info fi;
-	struct nboot_info *ni = fs_image_get_stored_nboot_info();
-	const void *fdt = fs_image_get_cfg_fdt();
-	const char *target = "NBoot";
-	const char *message = "failed to load";
-	int ret = CMD_RET_FAILURE;
-
-	if (fs_image_get_flash_info(&fi, fdt, true))
-		return ret;
-
-	/* Load NBoot if requested */
-	if (!load_uboot) {
-		fsh = fs_image_cntr_load_nboot(&fi, ni, fsh);
-		if (!fsh)
-			goto fail;
-	}
-
-	/* Load U-Boot if requested */
-	if (load_uboot) {
-		target = "U-Boot";
-		fsh = fs_image_cntr_load_uboot(&fi, ni, fsh);
-		if (!fsh)
-			goto fail;
-	}
-
-	message = "loaded successfully to RAM";
-	ret = CMD_RET_SUCCESS;
-
-fail:
-	fs_image_put_flash_info(&fi);
-
-	/* Mark end of file */
-	memset(fsh->info.magic, 0, 4);
-	if (im_size)
-		*im_size = (ulong)fsh - addr;
-
-	printf("%s %s\n", target, message);
-
-	return ret;
 }
 
 static int fsimage_cntr_save(ulong addr, struct nboot_info *ni_stored,
@@ -3512,7 +3398,7 @@ static int fsimage_cntr_save(ulong addr, struct nboot_info *ni_stored,
 		/* Load old U-Boot if U-Boot is not already part of new image */
 		puts("Need to move U-Boot\n");
 		fsh = tmp;
-		tmp = fs_image_cntr_load_uboot(&fi, ni_stored, tmp);
+		tmp = fs_image_load_uboot(&fi, ni_stored, tmp);
 		if (!tmp)
 			goto fail;
 	}
@@ -3638,6 +3524,73 @@ fail:
 	return CMD_RET_FAILURE;
 }
 #endif /* CONFIG_IS_ENABLED(FS_CNTR_COMMON) */
+
+/* ------------- Generic API Implementation -------------------------------- */
+
+/* Load list of images given in load_info to addr, return size in im_size */
+int fs_image_load(ulong addr, uint load_info, ulong *im_size)
+{
+	struct fs_header_v1_0 *fsh = (void *)addr;
+	struct flash_info fi;
+	struct nboot_info *ni = fs_image_get_stored_nboot_info();
+	const void *fdt = fs_image_get_cfg_fdt();
+	const char *target = NULL;
+	int ret = CMD_RET_FAILURE;
+
+	/* Invalidate any old image */
+	memset(fsh->info.magic, 0, 4);
+	if (im_size)
+		*im_size = 0;
+
+	switch (load_info) {
+	case 0:
+		return CMD_RET_USAGE;
+	case FSIMAGE_LOAD_NBOOT:
+		target = "NBoot";
+		break;
+	case FSIMAGE_LOAD_UBOOT:
+		target = "U-Boot";
+		break;
+	default:
+		target = "Flash image";
+		break;
+	}
+
+	if (fs_image_get_flash_info(&fi, fdt, true))
+		return ret;
+
+	/* Load NBoot if requested */
+	if (load_info & FSIMAGE_LOAD_NBOOT) {
+		fsh = fs_image_load_nboot(&fi, ni, fsh);
+		if (!fsh)
+			goto fail;
+	}
+
+	/* Load U-Boot if requested */
+	if (load_info & FSIMAGE_LOAD_UBOOT) {
+		fsh = fs_image_load_uboot(&fi, ni, fsh);
+		if (!fsh)
+			goto fail;
+	}
+
+	fs_image_put_flash_info(&fi);
+
+	/* Mark end of F&S image list */
+	memset(fsh->info.magic, 0, 4);
+	if (im_size)
+		*im_size = (ulong)fsh - addr;
+
+	printf("%s loaded successfully to RAM\n", target);
+
+	return CMD_RET_SUCCESS;
+
+fail:
+	fs_image_put_flash_info(&fi);
+
+	printf("%s failed to load\n", target);
+
+	return ret;
+}
 
 /* ------------- Generic Command Implementation ---------------------------- */
 
@@ -3825,7 +3778,7 @@ int fs_image_do_load(int argc, char * const argv[])
 {
 	struct fs_header_v1_0 *fsh;
 	struct fs_image_params ip;
-	bool load_uboot = false;
+	uint load_info = FSIMAGE_LOAD_NBOOT;
 	const char *def_fname = "nboot.fs";
 	int ret;
 
@@ -3838,8 +3791,13 @@ int fs_image_do_load(int argc, char * const argv[])
 		size_t len = strlen(argv[0]);
 
 		if (!strncmp(argv[0], "uboot", len)) {
-			load_uboot = true;
+			load_info = FSIMAGE_LOAD_UBOOT;
 			def_fname = "uboot.fs";
+			argv++;
+			argc--;
+		} else if (!strncmp(argv[0], "flash", len)) {
+			load_info = FSIMAGE_LOAD_NBOOT | FSIMAGE_LOAD_UBOOT;
+			def_fname = "flash.fs";
 			argv++;
 			argc--;
 		} else if (!strncmp(argv[0], "nboot", len)) {
@@ -3859,13 +3817,7 @@ int fs_image_do_load(int argc, char * const argv[])
 	fsh = (struct fs_header_v1_0 *)ip.addr;
 	memset(fsh->info.magic, 0, 4);
 
-#if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
-	ret = fsimage_cntr_load(ip.addr, load_uboot, 1, &ip.size);
-	if (ret)
-		ret = fsimage_cntr_load(ip.addr, load_uboot, 2, &ip.size);
-#else
-	ret = fs_image_imx8m_load(ip.addr, load_uboot, &ip.size);
-#endif
+	ret = fs_image_load(ip.addr, load_info, &ip.size);
 	if (ret)
 		return ret;
 

@@ -287,6 +287,10 @@ struct region_info {
 	int count;			/* Number of subimages */
 };
 
+/* Image types to load */
+#define FSIMAGE_LOAD_NBOOT BIT(0)
+#define FSIMAGE_LOAD_UBOOT BIT(1)
+
 /* Access functions that differ between NAND and MMC */
 struct flash_info;
 struct flash_ops {
