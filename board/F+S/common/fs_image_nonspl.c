@@ -153,6 +153,7 @@
 #endif /* __UBOOT__ */
 
 #include <u-boot/crc.h>			/* crc32() */
+#include <version_string.h>		/* version_string[] */
 #include <asm/mach-imx/hab.h>		/* struct ivt, ... */
 #include "fs_image_common.h"		/* Own interface */
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
@@ -211,10 +212,12 @@ const char fsimage_usage[] =
 #endif
 	" [" IMAGE_SPEC "]\n"
 	"    - Save the F&S image at the right place (NBoot, U-Boot)\n"
+	"fsimage version\n"
+	"    - Show U-Boot version that fsimage was built with\n"
 #ifdef __UBOOT__
 	"fsimage fuse [-f] [stored | " IMAGE_SPEC "]\n"
-	"    - Program fuses according to the current BOARD-CFG.\n"
-	"      WARNING: This is a one time option and cannot be undone.\n"
+	"    - Program fuses according to the current BOARD-CFG\n"
+	"      WARNING: This is a one time option and cannot be undone!\n"
 #endif
 #ifdef __UBOOT__
 	"\n"
@@ -4075,3 +4078,11 @@ int fs_image_do_fuse(int argc, char * const argv[])
 	return CMD_RET_SUCCESS;
 }
 #endif /* __UBOOT__ */
+
+/* Show version of fsimage */
+int fs_image_do_version(int argc, char * const argv[])
+{
+	printf("%s\n", version_string);
+
+	return 0;
+}

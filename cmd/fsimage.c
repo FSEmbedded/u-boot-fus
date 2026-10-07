@@ -75,6 +75,13 @@ static int do_fsimage_fuse(struct cmd_tbl *cmdtp, int flag, int argc,
 	return fs_image_do_fuse(argc, argv);
 }
 
+/* Show version of fsimage (same as U-Boot version) */
+static int do_fsimage_version(struct cmd_tbl *cmdtp, int flag, int argc,
+			      char * const argv[])
+{
+	return fs_image_do_version(argc, argv);
+}
+
 /* Subcommands for "fsimage" */
 static struct cmd_tbl cmd_fsimage_sub[] = {
 	U_BOOT_CMD_MKENT(arch, 0, 1, do_fsimage_arch, "", ""),
@@ -87,6 +94,7 @@ static struct cmd_tbl cmd_fsimage_sub[] = {
 	U_BOOT_CMD_MKENT(load, 5, 1, do_fsimage_load, "", ""),
 	U_BOOT_CMD_MKENT(save, 8, 0, do_fsimage_save, "", ""),
 	U_BOOT_CMD_MKENT(fuse, 6, 0, do_fsimage_fuse, "", ""),
+	U_BOOT_CMD_MKENT(version, 0, 0, do_fsimage_version, "", ""),
 };
 
 static int do_fsimage(struct cmd_tbl *cmdtp, int flag, int argc,

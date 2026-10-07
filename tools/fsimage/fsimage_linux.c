@@ -310,6 +310,9 @@ int do_fsimage(int argc, char *argv[])
 	if (!strcmp(argv[0], "save"))
 		return fs_image_do_save(argc, argv);
 
+	if (!strcmp(argv[0], "version"))
+		return fs_image_do_version(argc, argv);
+
 	return CMD_RET_USAGE;
 }
 

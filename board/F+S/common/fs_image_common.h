@@ -516,6 +516,9 @@ int fs_image_do_save(int argc, char * const argv[]);
 /* Burn the fuses according to the NBoot in DRAM */
 int fs_image_do_fuse(int argc, char * const argv[]);
 
+/* Show version of fsimage */
+int fs_image_do_version(int argc, char * const argv[]);
+
 #endif /* !CONFIG_SPL_BUILD */
 
 /* ------------- Stuff only for SPL ---------------------------------------- */
