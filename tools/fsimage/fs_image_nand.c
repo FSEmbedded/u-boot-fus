@@ -19,18 +19,3 @@
 
 /* Include the original file */
 #include "../../board/F+S/common/fs_image_nand.c"
-
-
-#if 0
-/* Known offsets for the BOARD-CFG in NAND flash of previous versions */
-static const unsigned int fs_image_known_boardcfg_offs_nand[][2] = {
-#ifdef CONFIG_IMX8MM
-	{ 0x00180000, 0x002c0000 },
-	{ 0x00180000, 0x00300000 },
-#elif defined CONFIG_IMX8MN
-	{ 0x00180000, 0x002c0000 },
-	{ 0x000c0000, 0x00240000 },
-	{ 0x00180000, 0x00300000 },
-#endif
-};
-#endif

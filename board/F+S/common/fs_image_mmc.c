@@ -590,8 +590,8 @@ static const uint known_boardcfg_offs_mmc[][2] = {
 #endif
 };
 
-static int fs_image_try_board_cfg(struct flash_info *fi, uint offs, uint lim,
-				   void *board_cfg)
+static int fs_image_try_board_cfg_mmc(struct flash_info *fi, uint offs,
+				      uint lim, void *board_cfg)
 {
 	int err;
 	uint size;
@@ -612,7 +612,6 @@ static int fs_image_try_board_cfg(struct flash_info *fi, uint offs, uint lim,
 		return err;
 
 	debug("  - BOARD-CFG found at offset 0x%x\n", offs);
-	puts("OK\n");
 
 	return 0;
 }
@@ -627,17 +626,14 @@ static int fs_image_try_known_offsets_mmc(struct flash_info *fi, int copy,
 	int err;
 	int i;
 
-	printf("  Trying known offsets for copy %d (hwpart %d)... ",
-	       copy, si->hwpart[copy]);
-	debug("\n");
-
 	err = fi->ops->set_hwpart(fi, copy, si);
 	if (err)
 		return err;
 
 	for (i = 0; i < ARRAY_SIZE(known_boardcfg_offs_mmc); i++) {
 		offs = known_boardcfg_offs_mmc[i][slot];
-		err = fs_image_try_board_cfg(fi, offs, lim, board_cfg);
+		debug("  - Testing offset 0x%x\n", offs);
+		err = fs_image_try_board_cfg_mmc(fi, offs, lim, board_cfg);
 		if (err <= 0)
 			return err;	/* Error or found */
 	}
@@ -653,15 +649,13 @@ static int fs_image_search_board_cfg_mmc(struct flash_info *fi, int copy,
 	uint lim = offs + si->size;
 	int err;
 
-	printf("  Searching BOARD_CFG in copy %d (hwpart %d)\n", copy,
-	       si->hwpart[copy]);
-
 	err = fi->ops->set_hwpart(fi, copy, si);
 	if (err)
 		return err;
 
+	debug("  - Testing flash range 0x%x..0x%x\n", offs, lim);
 	do {
-		err = fs_image_try_board_cfg(fi, offs, lim, board_cfg);
+		err = fs_image_try_board_cfg_mmc(fi, offs, lim, board_cfg);
 		if (err <= 0)
 			return err;	/* Error or found */
 		offs += FSH_SIZE;
@@ -685,9 +679,13 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
 	start_copy = fs_image_get_start_copy(false, false);
 	copy = start_copy;
 	do {
+		printf("  Trying known offsets for copy %d (hwpart %d)...",
+		       copy, si.hwpart[copy]);
+		debug("\n");
+
 		err = fs_image_try_known_offsets_mmc(fi, copy, &si, board_cfg);
 		if (err < 0)
-			printf("Failed (%d)\n", err);
+			printf(" FAILED (%d)\n", err);
 		copy = 1 - copy;
 	} while (err & (copy != start_copy));
 
@@ -695,10 +693,14 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
 		/* No BOARD-CFG found at known offsets, search for it */
 		printf("  Warning, no BOARD-CFG found at known offsets,\n");
 		do {
+			printf("  Searching BOARD_CFG in copy %d (hwpart %d)...",
+			       copy, si.hwpart[copy]);
+			debug("\n");
+
 			err = fs_image_search_board_cfg_mmc(fi, copy, &si,
 							    board_cfg);
 			if (err < 0)
-				printf("Failed (%d)\n", err);
+				printf(" FAILED (%d)\n", err);
 			copy = 1 - copy;
 		} while (err & (copy != start_copy));
 
@@ -706,12 +708,11 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
 			return err;
 	}
 
-	fdt = fs_image_find_cfg_fdt(board_cfg);
-	err = fs_image_get_nboot_info(fi, fdt, ni, -1, false);
-	if (err < 0)
-		printf("Cannot read nboot-info (%d)\n", err);
+	puts(" OK\n");
 
-	return err;
+	fdt = fs_image_find_cfg_fdt(board_cfg);
+
+	return fs_image_get_nboot_info(fi, fdt, ni, -1, false);
 }
 
 #endif /* !CONFIG_IS_ENABLED(FS_CNTR_COMMON) */
@@ -829,9 +830,6 @@ static int fs_image_try_board_cfg_mmc(struct flash_info *fi, int copy,
 	uint nboot_start, nboot_size;
 	const void *fdt;
 
-	printf("  Trying copy %d on hwpart %d... ", copy, si->hwpart[copy]);
-	debug("\n");
-
 	err = fi->ops->set_hwpart(fi, copy, si);
 	if (err)
 		return err;
@@ -918,8 +916,6 @@ static int fs_image_try_board_cfg_mmc(struct flash_info *fi, int copy,
 		debug("  - nboot_size set to 0x%x\n", nboot_size);
 	}
 
-	puts("OK\n");
-
 	return 0;
 }
 
@@ -934,8 +930,6 @@ static bool fs_image_try_uboot_mmc(struct flash_info *fi, int copy,
 	int err;
 	uint uboot_start, uboot_size;
 
-	printf("  Trying copy %d on hwpart %d... ", copy, si->hwpart[copy]);
-	debug("\n");
 	err = fi->ops->set_hwpart(fi, copy, si);
 	if (err)
 		return err;
@@ -960,7 +954,6 @@ static bool fs_image_try_uboot_mmc(struct flash_info *fi, int copy,
 		ni->uboot.size = uboot_size;
 		debug("  - uboot_size set to 0x%x\n", uboot_size);
 	}
-	puts("OK\n");
 
 	return 0;
 }
@@ -979,25 +972,37 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
 	start_copy = fs_image_get_start_copy(false, false);
 	copy = start_copy;
 	do {
+		printf("  Trying copy %d on hwpart %d...",
+		       copy, si->hwpart[copy]);
+		debug("\n");
+
 		err = fs_image_try_board_cfg_mmc(fi, copy, &si, ni, board_cfg);
 		if (err)
-			printf("FAILED (%d)\n", err);
+			printf(" FAILED (%d)\n", err);
 		copy = 1 - copy;
 	} while (err && (copy != start_copy));
 
 	if (err)
 		return err;
 
+	puts(" OK\n");
+
 	/* Get uboot start and size information */
 	printf("Reading U-Boot parameters from %s\n", fi->devname);
 	start_copy = fs_image_get_start_copy(true, false);
 	copy = start_copy;
 	do {
+		printf("  Trying copy %d on hwpart %d...",
+		       copy, si->hwpart[copy]);
+		debug("\n");
 		err = fs_image_try_uboot_mmc(fi, copy, &si, ni);
 		if (err)
-			printf("Failed (%d)\n", err);
+			printf(" FAILED (%d)\n", err);
 		copy = 1 - copy;
 	} while (err && (copy != start_copy));
+
+	if (!err)
+		puts(" OK\n");
 
 	return 0;			/* Missing U-Boot is acceptable */
 }

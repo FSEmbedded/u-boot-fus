@@ -816,13 +816,152 @@ static int fs_image_set_boot_hwpart_nand(struct flash_info *fi, int boot_hwpart)
 	return 0;
 }
 
+void fs_image_get_generic_si_nand(struct flash_info *fi, struct storage_info *si)
+{
+	si->type = "NBOOT";
+	si->start[0] = 0x00180000;
+	si->start[1] = 0x002c0000;
+	si->size = 0x00140000;
+}
+
+/* Known NAND offsets for the BOARD-CFG of previous versions, new to old */
+static const uint known_boardcfg_offs_nand[][2] = {
+	/* NAND is only supported on fsimx8mm and fsim8mn */
+#ifdef CONFIG_IMX8MM
+	{ 0x00180000, 0x002c0000 },
+	{ 0x00180000, 0x00300000 },
+#elif defined CONFIG_IMX8MN
+	{ 0x00180000, 0x002c0000 },
+	{ 0x000c0000, 0x00240000 },
+	{ 0x00180000, 0x00300000 },
+#endif
+
+	/* ### ab 0x40_0000 Refresh generic si: 0x180000/2c0000 size 140000 */
+};
+
+static int fs_image_try_board_cfg_nand(struct flash_info *fi, uint offs,
+				       uint lim, void *board_cfg)
+{
+	int err;
+	uint size;
+
+	/* Read F&S header */
+	err = fs_image_load_sub(fi, offs, FSH_SIZE, lim, 0, board_cfg);
+	if (err)
+		return err;
+
+	/* Is there a matching BOARD-CFG? */
+	if (!fs_image_match_board_id(board_cfg))
+		return 1;
+
+	/* Load full BOARD-CFG */
+	size = fs_image_get_size(board_cfg, true);
+	err = fs_image_load_sub(fi, offs, size, lim, 0, board_cfg);
+	if (err)
+		return err;
+
+	debug("  - BOARD-CFG found at offset 0x%x\n", offs);
+
+	return 0;
+}
+
+static int fs_image_try_known_offsets_nand(struct flash_info *fi, int copy,
+					  const struct storage_info *si,
+					  void *board_cfg)
+{
+	uint offs;
+	uint lim = si->start[copy] + si->size;
+	int slot = si->hwpart[copy] ? 0 : copy;
+	int err;
+	int i;
+
+	err = fi->ops->set_hwpart(fi, copy, si);
+	if (err)
+		return err;
+
+	for (i = 0; i < ARRAY_SIZE(known_boardcfg_offs_nand); i++) {
+		offs = known_boardcfg_offs_nand[i][slot];
+		debug("  - Testing offset 0x%x\n", offs);
+		err = fs_image_try_board_cfg_nand(fi, offs, lim, board_cfg);
+		if (err <= 0)
+			return err;	/* Error or found */
+	}
+
+	return -ENOENT;
+}
+
+static int fs_image_search_board_cfg_nand(struct flash_info *fi, int copy,
+					  const struct storage_info *si,
+					  void *board_cfg)
+{
+	uint offs = si->start[copy];
+	uint lim = offs + si->size;
+	int err;
+
+	err = fi->ops->set_hwpart(fi, copy, si);
+	if (err)
+		return err;
+
+	debug("  - Testing flash range 0x%x..0x%x\n", offs, lim);
+	do {
+		err = fs_image_try_board_cfg_nand(fi, offs, lim, board_cfg);
+		if (err <= 0)
+			return err;	/* Error or found */
+		offs += FSH_SIZE;
+	} while (offs < lim);
+
+	return -ENOENT;
+}
 
 static int fs_image_read_board_cfg_nand(struct flash_info *fi,
 					struct nboot_info *ni,
 					void *board_cfg)
 {
-	return -EINVAL;
+	int err;
+	int copy, start_copy;
+	struct storage_info si;
+	const void *fdt;
+
+	fs_image_get_generic_si_nand(fi, &si);
+
+	/* First look for BOARD-CFG at known offsets */
+	start_copy = fs_image_get_start_copy(false, false);
+	copy = start_copy;
+	do {
+		printf("  Trying known offsets for copy %d...", copy);
+		debug("\n");
+
+		err = fs_image_try_known_offsets_nand(fi, copy, &si, board_cfg);
+		if (err < 0)
+			printf(" FAILED (%d)\n", err);
+		copy = 1 - copy;
+	} while (err & (copy != start_copy));
+
+	if (err) {
+		/* No BOARD-CFG found at known offsets, search for it */
+		printf("  Warning, no BOARD-CFG found at known offsets,\n");
+		do {
+			printf("  Searching BOARD_CFG in copy %d...", copy);
+			debug("\n");
+
+			err = fs_image_search_board_cfg_nand(fi, copy, &si,
+							     board_cfg);
+			if (err < 0)
+				printf(" FAILED (%d)\n", err);
+			copy = 1 - copy;
+		} while (err & (copy != start_copy));
+
+		if (err)
+			return err;
+	}
+
+	puts(" OK\n");
+
+	fdt = fs_image_find_cfg_fdt(board_cfg);
+
+	return fs_image_get_nboot_info(fi, fdt, ni, -1, false);
 }
+
 
 static void fs_image_put_flash_nand(struct flash_info *fi)
 {
