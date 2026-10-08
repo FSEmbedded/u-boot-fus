@@ -1159,7 +1159,7 @@ static int fs_image_check_index_crc32(struct fs_header_v1_0 *fsh_idx)
 
 		err = fs_image_check_crc32_split(fsh, fsi);
 		fs_image_print_crc32_status(fsh, err);
-		if (err)
+		if (err < 0)
 			return err;
 
 #ifdef INDEX_WITH_SUB
@@ -1185,10 +1185,10 @@ int fs_image_check_all_crc32(struct fs_header_v1_0 *fsh)
 	uint extra_size;
 	int err;
 
-	debug("  - %s", fsh->type);
+	debug("  - ");
 	err = fs_image_check_crc32(fsh);
 	fs_image_print_crc32_status(fsh, err);
-	if (err)
+	if (err < 0)
 		return err;
 
 	extra_size = fs_image_get_extra_size(fsh);
