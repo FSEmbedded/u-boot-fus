@@ -526,4 +526,6 @@
 #define CONFIG_IMX_VIDEO_SKIP
 #endif
 
+#define CFG_ENV_CALLBACK_LIST_STATIC	"use_ab:use_ab,"
+
 #endif

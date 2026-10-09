@@ -505,4 +505,6 @@
 #define CFG_SYS_NAND_BASE		0x40000000
 #endif
 
+#define CFG_ENV_CALLBACK_LIST_STATIC	"use_ab:use_ab,"
+
 #endif

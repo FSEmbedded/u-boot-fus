@@ -10,6 +10,7 @@
  */
 #include <config.h>
 #include <env.h>			/* env_get() */
+#include <search.h>			/* H_INTERACTIVE */
 #include <command.h>			/* run_command() */
 #include <common.h>			/* types, get_board_name(), ... */
 #include <serial.h>			/* get_serial_device() */
@@ -639,6 +640,28 @@ void fs_board_late_init_common(const char *serial_name)
 
 }
 #endif /* CONFIG_BOARD_LATE_INIT */
+
+/* Warn when use_ab is changed by a user command (setenv, env import) on NAND */
+static int on_use_ab(const char *name, const char *value, enum env_op op,
+		     int flags)
+{
+	/* Skip env load, default env and env_set() unless user-triggered */
+	if (!(flags & H_INTERACTIVE)
+	    && (flags & (H_EXTERNAL | H_DEFAULT | H_PROGRAMMATIC)))
+		return 0;
+
+	if (fs_board_get_boot_dev() != NAND_BOOT)
+		return 0;
+
+	/* On overwrite the env still holds the old value */
+	if (op == env_op_overwrite && !strcmp(env_get(name), value))
+		return 0;
+
+	puts("Warning! Do not forget to change the partition layout accordingly (run .mtdparts_default or similar)\n");
+
+	return 0;
+}
+U_BOOT_ENV_CALLBACK(use_ab, on_use_ab);
 
 /* Return the board name (board specific) */
 char *get_board_name(void)
