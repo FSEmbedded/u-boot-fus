@@ -570,6 +570,8 @@ void fs_board_late_init_common(const char *serial_name)
 #else
 	setup_var("mode", "rw", 0);
 #endif
+	/* Set use_ab from boot device; mtdparts below depends on it */
+	setup_var("use_ab", is_nand ? "0" : "1", 0);
 	/* Set boot devices for kernel, device tree and rootfs */
 	if (is_nand) {
 		bd_rootfs = "ubifs";
