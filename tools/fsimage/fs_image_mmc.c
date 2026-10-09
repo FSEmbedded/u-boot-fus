@@ -16,6 +16,9 @@
 #include "linux_helpers.h"		/* fit_get_size(), confirm_yesno() ... */
 #include "../../board/F+S/common/fs_image_common.h"
 
+/* Avoid extra newline of puts() in Linux libc */
+#define puts(args...) printf("%s", ##args)
+
 /* From kernel's linux/mmc/mmc.h */
 #define MMC_SWITCH                6   /* ac   [31:0] See below   R1b */
 #define MMC_SEND_EXT_CSD          8   /* adtc                    R1  */
@@ -245,7 +248,7 @@ static void fs_image_put_flash_mmc(struct flash_info *fi)
 
 		/* If force_ro file is still open here, set it back to 1 */
 		if (ll->force_ro_fd[hwpart] != -1) {
-			pwrite(ll->force_ro_fd[hwpart], "1\n", 3, 0);
+			(void)pwrite(ll->force_ro_fd[hwpart], "1\n", 3, 0);
 			close(ll->force_ro_fd[hwpart]);
 			ll->force_ro_fd[hwpart] = -1;
 		}

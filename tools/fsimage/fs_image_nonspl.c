@@ -15,6 +15,9 @@
 #include "linux_helpers.h"		/* fit_get_size(), confirm_yesno() ... */
 #include "../../board/F+S/common/fs_image_common.h"
 
+/* Avoid extra newline of puts() in Linux libc */
+#define puts(args...) printf("%s", ##args)
+
 #define MAX_IMAGE_SIZE (4 * 1024 * 1024)
 
 static u8 image_ram[2 * MAX_IMAGE_SIZE];

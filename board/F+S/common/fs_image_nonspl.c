@@ -177,7 +177,6 @@ static struct nboot_info stored_nboot_info;
 #define IMAGE_SPEC "<addr>  [<size> | <file>]"
 #else
 #define IMAGE_SPEC "<filename>"
-#define puts printf
 #endif
 
 enum parse_type {
