@@ -14,5 +14,8 @@
 #include "../../include/u-boot/sha512.h"
 #include "linux_helpers.h"
 
+/* Avoid extra newline of puts() in Linux libc */
+#define puts(arg) printf("%s", arg)
+
 /* Include the original file */
 #include "../../board/F+S/common/fs_cntr_common.c"

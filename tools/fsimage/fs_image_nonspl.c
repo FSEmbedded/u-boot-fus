@@ -16,7 +16,7 @@
 #include "../../board/F+S/common/fs_image_common.h"
 
 /* Avoid extra newline of puts() in Linux libc */
-#define puts(args...) printf("%s", ##args)
+#define puts(arg) printf("%s", arg)
 
 #define MAX_IMAGE_SIZE (4 * 1024 * 1024)
 

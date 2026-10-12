@@ -973,7 +973,7 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
 	copy = start_copy;
 	do {
 		printf("  Trying copy %d on hwpart %d...",
-		       copy, si->hwpart[copy]);
+		       copy, si.hwpart[copy]);
 		debug("\n");
 
 		err = fs_image_try_board_cfg_mmc(fi, copy, &si, ni, board_cfg);
@@ -993,7 +993,7 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
 	copy = start_copy;
 	do {
 		printf("  Trying copy %d on hwpart %d...",
-		       copy, si->hwpart[copy]);
+		       copy, si.hwpart[copy]);
 		debug("\n");
 		err = fs_image_try_uboot_mmc(fi, copy, &si, ni);
 		if (err)

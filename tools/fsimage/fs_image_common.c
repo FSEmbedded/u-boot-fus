@@ -13,7 +13,7 @@
 #include "crc32.h"
 
 /* Avoid extra newline of puts() in Linux libc */
-#define puts(args...) printf("%s", ##args)
+#define puts(arg) printf("%s", arg)
 
 /* Include the original file */
 #include "../../board/F+S/common/fs_image_common.c"

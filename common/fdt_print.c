@@ -18,10 +18,6 @@
  * Heuristic to guess if this is a string or concatenated strings.
  */
 
-#ifndef __UBOOT__
-#define puts printf
-#endif
-
 int is_printable_string(const void *data, int len)
 {
 	const char *s = data;
@@ -74,7 +70,7 @@ static void print_data(const void *data, int len, ulong max_dump)
 		while (j < len) {
 			if (j > 0)
 				puts("\", \"");
-			puts(data);
+			puts((char *)data);
 			j    += strlen(data) + 1;
 			data += strlen(data) + 1;
 		}

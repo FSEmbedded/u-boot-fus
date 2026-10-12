@@ -12,7 +12,7 @@
 #include "linux_helpers.h"		/* fit_get_size(), confirm_yesno() ... */
 
 /* Avoid extra newline of puts() in Linux libc */
-#define puts(args...) printf("%s", ##args)
+#define puts(arg) printf("%s", arg)
 
 /* ### the following signatures are most probably not required in linux */
 //###int mtdparts_init(void);

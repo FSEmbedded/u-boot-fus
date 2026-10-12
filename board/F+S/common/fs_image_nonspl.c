@@ -3644,6 +3644,7 @@ int fs_image_do_boardcfg(int argc, char * const argv[])
 					      &cfg_info, NULL);
 		if (ret <= 0)
 			return CMD_RET_FAILURE;
+		puts("\n");
 	}
 
 	fdt = fs_image_find_cfg_fdt_idx(&cfg_info);
