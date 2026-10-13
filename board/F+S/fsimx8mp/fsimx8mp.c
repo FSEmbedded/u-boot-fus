@@ -44,6 +44,7 @@
 #include "../common/fs_image_common.h"	/* fs_image_*() */
 #include "../common/fs_mmc_common.h"	/* fs_image_*() */
 #include <imx_thermal.h> /* for temp ranges */
+#include <lmb.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -1289,3 +1290,11 @@ int mmc_map_to_kernel_blk(int devno)
 	return devno + 1;
 }
 #endif /* CONFIG_FASTBOOT_STORAGE_MMC */
+
+void board_lmb_reserve(struct lmb *lmb){
+	phys_addr_t optee_start = (phys_addr_t)rom_pointer[0];
+	phys_size_t optee_size = (size_t)rom_pointer[1];
+
+	if (optee_size > 0)
+		lmb_reserve(lmb, optee_start, optee_size);
+};

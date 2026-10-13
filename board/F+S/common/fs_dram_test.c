@@ -6,6 +6,7 @@
  */
 #include <common.h>
 #include <command.h>
+#include <lmb.h>
 #include "fs_dram_test.h"
 #include "fs_board_common.h"/* fs_board_*() */
 #include <asm/global_data.h>
@@ -22,10 +23,10 @@
 /* Information for SDRAM size and test cycles */
 struct memtestinfo
 {
-    u64 dwRowOffset;                    /* Offset from row to row */
-    int nColRepeat;                       /* Number of column repeats */
-    int nRowBankRepeat;                   /* Number of row and bank repeats */
-    char *pchRamSize;                     /* RAM size in MB */
+	u64 dwRowOffset;                    /* Offset from row to row */
+	int nColRepeat;                       /* Number of column repeats */
+	int nRowBankRepeat;                   /* Number of row and bank repeats */
+	char *pchRamSize;                     /* RAM size in MB */
 };
 
 struct ramInfo
@@ -37,19 +38,22 @@ struct ramInfo
 
 };
 
+struct lmb lmb; /* Reserved ranges (OPTee) */
+
 static void getRamInfo(struct ramInfo *rI){
 
 	DECLARE_GLOBAL_DATA_PTR;
 
 #if defined(CONFIG_IMX8MM) || defined(CONFIG_IMX8MN) || defined (CONFIG_IMX8MP)
-	// HOTFIX: Assume rom_pointer[1] == 0x1
 	rI->ramSize = gd->ram_size;
-	// TODO: rom_pointer[1] changes to 0x0, so we would need to save the value from SPL and load it in UBoot
-	//if(rom_pointer[1])
-	//	rI->ramSize += rom_pointer[1];
+	/* rom_pointer[1] now gets correctly set with OPTee, so correct size */
+	if(rom_pointer[1])
+		rI->ramSize += rom_pointer[1];
 	rI->numChips = fs_board_get_cfg_info()->dram_chips;
 	rI->pRamBase = (u64*)CFG_SYS_SDRAM_BASE;
 	rI->pUbootBase = (u64*)gd->start_addr_sp;
+	lmb_init_and_reserve(&lmb, gd->bd, (void *)gd->fdt_blob);
+	// lmb_dump_all_force(&lmb);
 #endif
 
 }
@@ -74,32 +78,37 @@ static u64 TestRamCheck(volatile u8 *pchRam, u64 dwlInvert,
                           const struct memtestinfo *pMemInfo)
 {
 	u64 *pdwlRam;
-    u64 dwlValue;
-    int nRowsBanks;
-    int nColumns;
+	u64 dwlValue;
+	unsigned int nRowsBanks;
+	int nColumns;
 
-    pdwlRam = ((u64 *)&pchRam[pMemInfo->dwRowOffset]) - pMemInfo->nColRepeat;
+	pdwlRam = ((u64 *)&pchRam[pMemInfo->dwRowOffset]) - pMemInfo->nColRepeat;
 	dwlValue = 0x0003800200018000LU;
-    nRowsBanks = pMemInfo->nRowBankRepeat;
+	nRowsBanks = pMemInfo->nRowBankRepeat;
 
-    do
-    {
-    	u64 *pdwlTemp = pdwlRam;
+	do
+	{
+    		u64 *pdwlTemp = pdwlRam;
 
 		nColumns = pMemInfo->nColRepeat;
-        do
-        {
+		do
+		{
+			if (lmb_is_reserved(&lmb, (phys_addr_t) pdwlTemp)) {
+				pdwlTemp++;
+				dwlValue += 0x0001000100010001LU;
+				continue;
+			}
 			if ((dwlInvert ^ *pdwlTemp++) != dwlValue)
 			{
-                return (u64)pdwlTemp;
+				return (u64)pdwlTemp;
 			}
-            dwlValue += 0x0001000100010001LU;
+			dwlValue += 0x0001000100010001LU;
 		} while (--nColumns);
 
-        pdwlRam = (u64 *)((u8 *)pdwlRam + pMemInfo->dwRowOffset);
-    } while (--nRowsBanks);
+		pdwlRam = (u64 *)((u8 *)pdwlRam + pMemInfo->dwRowOffset);
+	} while (--nRowsBanks);
 
-    return 0;
+	return 0;
 }
 
 /******************************************************************************
@@ -232,12 +241,12 @@ static u64 TestRamCheck(volatile u8 *pchRam, u64 dwlInvert,
 
 int fs_test_ram(char * szStrBuffer)
 {
-    volatile u8 *pchRam;                /* Uncached RAM, BYTE access */
-    u64 *pdwlRam;                   /* Uncached RAM, 64bit access */
-    u64 dwlValue;                   /* Value to write/compare */
-     struct memtestinfo *pMemInfo;   /* Pointer to memtable entry above */
-    int nRowsBanks;
-    int nColumns;
+	volatile u8 *pchRam;                /* Uncached RAM, BYTE access */
+	u64 *pdwlRam;                   /* Uncached RAM, 64bit access */
+	u64 dwlValue;                   /* Value to write/compare */
+	struct memtestinfo *pMemInfo;   /* Pointer to memtable entry above */
+	int nRowsBanks;
+	int nColumns;
 	int index;
 	int err = 0;
 	struct ramInfo rI;
@@ -248,47 +257,47 @@ int fs_test_ram(char * szStrBuffer)
 	/* Clear reason-string */
 	szStrBuffer[0] = '\0';
 #if 0
-	 struct memtestinfo memtable_with_interleave[] =
+	struct memtestinfo memtable_with_interleave[] =
 	{
 		/* using 64 bit accesses in all cases */
 		/* With bank interleave */
-	    {0x01000000,  8*256,   8, "128MB."},     /*   128MB (1x  1Gb) */
-	    {0x01000000,  8*256,  16, "256MB."},     /*   256MB (1x  2Gb) */
+		{0x01000000,  8*256,   8, "128MB."},     /*   128MB (1x  1Gb) */
+		{0x01000000,  8*256,  16, "256MB."},     /*   256MB (1x  2Gb) */
 		{0x01000000,  8*256,  32, "512MB."},     /*   512MB (1x  4Gb) */
 		{0x01000000,  8*256,  64, "1024MB"},     /*  1024MB (1x  8Gb) */
 		{0x01000000,  8*256, 128, "2048MB"},     /*  2048MB (1x 16Gb) */
 		{0x01000000,  8*256, 256, "4096MB"},     /*  4096MB (1x 32Gb) */
-	    {0x01000000,  8*512,   8, "256MB."},     /*   256MB (2x  1Gb) */
-	    {0x01000000,  8*512,  16, "512MB."},     /*   512MB (2x  2Gb) */
+		{0x01000000,  8*512,   8, "256MB."},     /*   256MB (2x  1Gb) */
+		{0x01000000,  8*512,  16, "512MB."},     /*   512MB (2x  2Gb) */
 		{0x01000000,  8*512,  32, "1024MB"},     /*  1024MB (2x  4Gb) */
 		{0x01000000,  8*512,  64, "2048MB"},     /*  2048MB (2x  8Gb) */
 		{0x01000000,  8*512, 128, "4096MB"},     /*  4096MB (2x 16Gb) */
 		{0x01000000,  8*512, 256, "8192MB"},     /*  8192MB (2x 32Gb) */
-	    {0x01000000, 8*1024,   8, "512MB."},     /*   512MB (4x  1Gb) */
-	    {0x01000000, 8*1024,  16, "1024MB"},     /*  1024MB (4x  2Gb) */
+		{0x01000000, 8*1024,   8, "512MB."},     /*   512MB (4x  1Gb) */
+		{0x01000000, 8*1024,  16, "1024MB"},     /*  1024MB (4x  2Gb) */
 		{0x01000000, 8*1024,  32, "2048MB"},     /*  2048MB (4x  4Gb) */
 		{0x01000000, 8*1024,  64, "4096MB"},     /*  4096MB (4x  8Gb) */
 		{0x01000000, 8*1024, 128, "8192MB"},     /*  8192MB (4x 16Gb) */
 		{0x01000000, 8*1024, 256, "16384MB"},    /* 16384MB (4x 32Gb) */
 	};
 #endif
-	 struct memtestinfo memtable_no_interleave[] =
+	struct memtestinfo memtable_no_interleave[] =
 	{	/* using 64 bit accesses in all cases */
 		/* No bank interleave */
-	    {0x00200000,  256,   8*8, "128MB."},     /*   128MB (1x  1Gb) */
-	    {0x00200000,  256,  8*16, "256MB."},     /*   256MB (1x  2Gb) */
+		{0x00200000,  256,   8*8, "128MB."},     /*   128MB (1x  1Gb) */
+		{0x00200000,  256,  8*16, "256MB."},     /*   256MB (1x  2Gb) */
 		{0x00200000,  256,  8*32, "512MB."},     /*   512MB (1x  4Gb) */
 		{0x00200000,  256,  8*64, "1024MB"},     /*  1024MB (1x  8Gb) */
 		{0x00200000,  256, 8*128, "2048MB"},     /*  2048MB (1x 16Gb) */
 		{0x00200000,  256, 8*256, "4096MB"},     /*  4096MB (1x 32Gb) */
-	    {0x00200000,  512,   8*8, "256MB."},     /*   256MB (2x  1Gb) */
-	    {0x00200000,  512,  8*16, "512MB."},     /*   512MB (2x  2Gb) */
+		{0x00200000,  512,   8*8, "256MB."},     /*   256MB (2x  1Gb) */
+		{0x00200000,  512,  8*16, "512MB."},     /*   512MB (2x  2Gb) */
 		{0x00200000,  512,  8*32, "1024MB"},     /*  1024MB (2x  4Gb) */
 		{0x00200000,  512,  8*64, "2048MB"},     /*  2048MB (2x  8Gb) */
 		{0x00200000,  512, 8*128, "4096MB"},     /*  4096MB (2x 16Gb) */
 		{0x00200000,  512, 8*256, "8192MB"},     /*  8192MB (2x 32Gb) */
-	    {0x00200000, 1024,   8*8, "512MB."},     /*   512MB (4x  1Gb) */
-	    {0x00200000, 1024,  8*16, "1024MB"},     /*  1024MB (4x  2Gb) */
+		{0x00200000, 1024,   8*8, "512MB."},     /*   512MB (4x  1Gb) */
+		{0x00200000, 1024,  8*16, "1024MB"},     /*  1024MB (4x  2Gb) */
 		{0x00200000, 1024,  8*32, "2048MB"},     /*  2048MB (4x  4Gb) */
 		{0x00200000, 1024,  8*64, "4096MB"},     /*  4096MB (4x  8Gb) */
 		{0x00200000, 1024, 8*128, "8192MB"},     /*  8192MB (4x 16Gb) */
@@ -340,6 +349,11 @@ int fs_test_ram(char * szStrBuffer)
 		nColumns = pMemInfo->nColRepeat;
 		do
 		{
+			if (lmb_is_reserved(&lmb, (phys_addr_t) pdwlTemp)) {
+				pdwlTemp++;
+				dwlValue += 0x0001000100010001LU;
+				continue;
+			}
 			*pdwlTemp++ = dwlValue;
 			dwlValue += 0x0001000100010001LU;
 
@@ -353,17 +367,21 @@ int fs_test_ram(char * szStrBuffer)
 	if (!dwBadAddress)
 	{
 		/* Step 2c: Write inverted values to decreasing addresses */
-		pdwlRam = (u64 *)&pchRam[pMemInfo->dwRowOffset
-												  * pMemInfo->nRowBankRepeat];
-		dwlValue = 0x0003800200018000LU + 0x0001000100010001LU * pMemInfo->nColRepeat *
-													 pMemInfo->nRowBankRepeat;
+		pdwlRam = (u64 *)&pchRam[pMemInfo->dwRowOffset * pMemInfo->nRowBankRepeat];
+		dwlValue = 0x0003800200018000LU + 0x0001000100010001LU * pMemInfo->nColRepeat * (pMemInfo->nRowBankRepeat);
 		nRowsBanks = pMemInfo->nRowBankRepeat;
 		do
 		{
 			volatile u64 *pdwlTemp = pdwlRam;
 			nColumns = pMemInfo->nColRepeat;
+
 			do
 			{
+				if (lmb_is_reserved(&lmb, (phys_addr_t) (pdwlTemp - 1))) {
+					pdwlTemp--;
+					dwlValue -= 0x0001000100010001LU;
+					continue;
+				}
 				dwlValue -= 0x0001000100010001LU;
 				*(--pdwlTemp) = ~dwlValue;
 			} while (--nColumns);

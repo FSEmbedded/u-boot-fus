@@ -48,6 +48,7 @@
 #include <nand.h>
 #include "sec_mipi_dphy_ln14lpp.h"
 #include "sec_mipi_pll_1432x.h"
+#include <lmb.h>
 
 /* ------------------------------------------------------------------------- */
 
@@ -1552,3 +1553,11 @@ int mmc_map_to_kernel_blk(int devno)
 	return devno + 1;
 }
 #endif /* CONFIG_FASTBOOT_STORAGE_MMC */
+
+void board_lmb_reserve(struct lmb *lmb){
+	phys_addr_t optee_start = (phys_addr_t)rom_pointer[0];
+	phys_size_t optee_size = (size_t)rom_pointer[1];
+
+	if (optee_size > 0)
+		lmb_reserve(lmb, optee_start, optee_size);
+};
