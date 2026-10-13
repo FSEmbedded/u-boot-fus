@@ -1074,24 +1074,21 @@ int fs_image_confirm(void)
 int fs_image_get_start_copy(bool uboot, bool opposite)
 {
 	int start_copy;
-	const char *loader_name;
-	const char *copy_name;
 	unsigned int boot_copy = fs_image_get_boot_copy();
 
-	if (uboot) {
+	if (uboot)
 		start_copy = !!(boot_copy & BOOT_COPY_SECONDARY_UBOOT);
-		loader_name = "U-Boot";
-	} else {
+	else
 		start_copy = !!(boot_copy & BOOT_COPY_SECONDARY_NBOOT);
-		loader_name = "NBoot";
-	}
-	copy_name = start_copy ? "Secondary" : "Primary";
-	if (opposite)
-		start_copy = 1 - start_copy;
 
-	if (opposite)
+	if (opposite) {
+		const char *copy_name = start_copy ? "Secondary" : "Primary";
+		const char *loader_name = uboot ? "U-Boot" : "NBoot";
+
+		start_copy = 1 - start_copy;
 		printf("\nBooted from %s %s, so starting with copy %d\n",
 		       copy_name, loader_name, start_copy);
+	}
 
 	return start_copy;
 }
@@ -3779,7 +3776,6 @@ int fs_image_do_list(int argc, char * const argv[])
    create minimal NBoot image that could be saved again */
 int fs_image_do_load(int argc, char * const argv[])
 {
-	struct fs_header_v1_0 *fsh;
 	struct fs_image_params ip;
 	uint load_info = FSIMAGE_LOAD_NBOOT;
 	const char *def_fname = "nboot.fs";
@@ -3815,10 +3811,6 @@ int fs_image_do_load(int argc, char * const argv[])
 
 	if (fs_image_read_board_cfg())
 		return CMD_RET_FAILURE;
-
-	/* Invalidate any old image */
-	fsh = (struct fs_header_v1_0 *)ip.addr;
-	memset(fsh->info.magic, 0, 4);
 
 	ret = fs_image_load(ip.addr, load_info, &ip.size);
 	if (ret)
