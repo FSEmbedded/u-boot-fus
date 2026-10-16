@@ -987,6 +987,15 @@ static int fs_image_read_board_cfg_mmc(struct flash_info *fi,
 
 	puts(" OK\n");
 
+	/*
+	 * NOTE: Fallback for iMX9
+	 * Set the default U-Boot address behind NBoot
+	 */
+	if (!ni->uboot.start[0])
+		ni->uboot.start[0] = ni->nboot.start[0] + ni->nboot.size;
+	if (!ni->uboot.start[1])
+		ni->uboot.start[1] = ni->nboot.start[1] + ni->nboot.size;
+
 	/* Get uboot start and size information */
 	printf("Reading U-Boot parameters from %s\n", fi->devname);
 	start_copy = fs_image_get_start_copy(true, false);
