@@ -499,6 +499,8 @@ int fs_image_get_nboot_info(struct flash_info *fi, const void *fdt,
 		ni->flags |= NI_UBOOT_EMMC_BOOTPART;
 	if (fdt_getprop(fdt, offs, "support-u-atf", NULL))
 		ni->flags |= NI_SUPPORT_U_ATF;
+	if (fdt_getprop(fdt, offs, "need-tee", NULL))
+		ni->flags |= NI_NEED_TEE;
 #ifdef CONFIG_IMX8MM
 	/* Have a flag that not everything is in one boot partition */
 	if (fdt_getprop(fdt, offs, "emmc-both-bootparts", NULL))
@@ -1837,8 +1839,8 @@ int fs_image_load_image(struct flash_info *fi, const struct storage_info *si,
 	fs_image_show_sub_status(err);
 
 	if (err && (copy0 == copy1)) {
-		printf("  Error, cannot load %s\n", sub->type);
-		return -ENOENT;
+		printf("  Cannot load %s\n", sub->type);
+		return err;
 	} else if (err || (copy0 == copy1)) {
 		printf("  Warning! One copy corrupted! Saving %s again may"
 		       " fix this.\n",
@@ -2388,6 +2390,7 @@ static void *fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
 	struct fs_header_v1_0 *uboot_fsh = fsh;
 	struct fs_header_v1_0 *uboot_atf_fsh = fsh;
 	bool have_u_atf;
+	int err;
 	const char *arch = fs_image_get_arch();
 
 	have_u_atf = fs_image_is_u_atf(fi, ni);
@@ -2401,13 +2404,15 @@ static void *fs_image_load_uboot(struct flash_info *fi, struct nboot_info *ni,
 		if (fs_image_load_image(fi, &ni->atf, &sub))
 			return NULL;
 
-#ifdef CONFIG_OPTEE
 		/* Load U-TEE */
 		sub.type = "U-TEE";
 		sub.offset += sub.size;
-		if (fs_image_load_image(fi, &ni->atf, &sub))
-			return NULL;
-#endif
+		err = fs_image_load_image(fi, &ni->atf, &sub);
+		if (err) {
+			if ((err != -ENOENT) || (ni->flags & NI_NEED_TEE))
+				return NULL;
+			puts("  Optional TEE not found\n");
+		}
 		uboot_fsh = sub.img;
 	}
 
@@ -2442,6 +2447,7 @@ static void *fs_image_load_nboot(struct flash_info *fi, struct nboot_info *ni,
 	struct fs_header_v1_0 *nboot_fsh, *board_info_fsh, *board_cfg_fsh;
 	struct fs_header_v1_0 *dram_info_fsh;
 	const char *arch;
+	int err;
 
 	nboot_fsh = fsh;
 
@@ -2527,13 +2533,17 @@ static void *fs_image_load_nboot(struct flash_info *fi, struct nboot_info *ni,
 			if (fs_image_load_image(fi, &ni->atf, &sub))
 				return NULL;
 
-#ifdef CONFIG_OPTEE
 			/* Load TEE */
 			sub.type = "TEE";
 			sub.offset += sub.size;
-			if (fs_image_load_image(fi, &ni->atf, &sub))
-				return NULL;
-#endif
+			err = fs_image_load_image(fi, &ni->atf, &sub);
+			if (err) {
+				if (err != -ENOENT)
+					return NULL;
+				if (ni->flags & NI_NEED_TEE)
+					return NULL;
+				puts("  Optional TEE not found\n");
+			}
 		}
 	} else {
 		/* Simply load the whole FIRMWARE sub-image */
@@ -2585,6 +2595,7 @@ static int fs_image_save_imx8m_uboot(ulong addr, struct nboot_info *ni,
 	int failed;
 	uint flags;
 	struct fs_header_v1_0 *fsh = (struct fs_header_v1_0 *)addr;
+	u8 empty_tee[FSH_SIZE] = {0};
 	const char *arch;
 	const char *type;
 	uint woffset = 0;
@@ -2603,6 +2614,8 @@ static int fs_image_save_imx8m_uboot(ulong addr, struct nboot_info *ni,
 		if (system_atf) {
 			puts("Skipping U-ATF/U-TEE on user request\n");
 		} else {
+			uint temp;
+
 			/* Create ATF region */
 			patf_ri = &atf_ri;
 			fs_image_region_create(patf_ri, &ni->atf, atf_sub);
@@ -2610,21 +2623,30 @@ static int fs_image_save_imx8m_uboot(ulong addr, struct nboot_info *ni,
 			/* Add ATF image */
 			type = "U-ATF";
 			flags = SUB_HAS_FS_HEADER;
-#ifdef CONFIG_OPTEE
 			woffset = fs_image_region_find_add(patf_ri, fsh, type,
 							   arch, woffset, flags);
 			if (!woffset)
 				goto fail;
 
-			/* Add TEE image */
+			/* Add TEE image, this may be optional or mandatory */
+			temp = woffset;
 			type = "U-TEE";
-#endif
-			/* Last image, set SUB_SYNC */
 			flags |= SUB_SYNC;
 			woffset = fs_image_region_find_add(patf_ri, fsh, type,
 							   arch, woffset, flags);
-			if (!woffset)
-				goto fail;
+			if (!woffset) {
+				/* No TEE found, check if mandatory */
+				if (ni->flags & NI_NEED_TEE)
+					goto fail;
+
+				/* No, add an empty F&S header as last sub */
+				type = "empty U-TEE";
+				flags = SUB_SYNC;
+				woffset = temp;
+				fs_image_region_add_raw(patf_ri, empty_tee, type,
+							arch, woffset, flags,
+							FSH_SIZE);
+			}
 		}
 	}
 
@@ -2682,6 +2704,7 @@ static int fs_image_imx8m_save(ulong addr, struct nboot_info *ni_stored,
 	struct flash_info fi;
 	bool need_uboot = false, need_env = false;
 	struct nboot_info ni_old;
+	u8 empty_tee[FSH_SIZE] = {0};
 	uint woffset;
 	int ret = 0;
 	int failed;
@@ -2753,30 +2776,39 @@ static int fs_image_imx8m_save(ulong addr, struct nboot_info *ni_stored,
 		/* Create ATF region for U-ATF/U-TEE if present */
 		if ((ni.flags & NI_SUPPORT_U_ATF)
 		    && fs_image_match(uboot_addr, "U-BOOT-ATF", arch)) {
+			uint temp;
+
 			puatf_ri = &atf_ri;
 			fs_image_region_create(puatf_ri, &ni.atf, atf_sub);
 
 			/* Add ATF image */
 			type = "U-ATF";
 			flags = SUB_HAS_FS_HEADER;
-			woffset = 0;
-#ifdef CONFIG_OPTEE
 			woffset = fs_image_region_find_add(puatf_ri, uboot_addr,
-							   type, arch, woffset,
-							   flags);
+							   type, arch, 0, flags);
 			if (!woffset)
 				goto fail;
 
-			/* Add TEE image */
+			/* Add TEE image, this may be optional or mandatory */
+			temp = woffset;
 			type = "U-TEE";
-#endif
-			/* Last image, set SUB_SYNC */
 			flags |= SUB_SYNC;
 			woffset = fs_image_region_find_add(puatf_ri, uboot_addr,
 							   type, arch, woffset,
 							   flags);
-			if (!woffset)
-				goto fail;
+			if (!woffset) {
+				/* No TEE found, check if mandatory */
+				if (ni.flags & NI_NEED_TEE)
+					goto fail;
+
+				/* No, add an empty F&S header as last sub */
+				type = "empty U-TEE";
+				flags = SUB_SYNC;
+				woffset = temp;
+				fs_image_region_add_raw(patf_ri, empty_tee, type,
+							arch, woffset, flags,
+							FSH_SIZE);
+			}
 			uboot_addr += woffset;
 		}
 
@@ -2937,24 +2969,36 @@ static int fs_image_imx8m_save(ulong addr, struct nboot_info *ni_stored,
 	}
 
 	if (system_atf) {
+		uint temp;
+
 		/* Add ATF image */
 		type = "ATF";
 		flags = SUB_HAS_FS_HEADER;
-#ifdef CONFIG_OPTEE
 		woffset = fs_image_region_find_add(patf_ri, nboot_fsh, type,
 						   arch, woffset, flags);
 		if (!woffset)
 			goto fail;
 
-		/* Add TEE image */
+		/* Add TEE image, this may be optional or mandatory */
+		temp = woffset;
 		type = "TEE";
-#endif
 		/* Last image, set SUB_SYNC */
 		flags |= SUB_SYNC;
 		woffset = fs_image_region_find_add(patf_ri, nboot_fsh, type,
 						   arch, woffset, flags);
-		if (!woffset)
-			goto fail;
+		if (!woffset) {
+			/* No TEE found, check if mandatory */
+			if (ni.flags & NI_NEED_TEE)
+				goto fail;
+
+			/* No, add an empty F&S header as last sub */
+			type = "empty TEE";
+			flags = SUB_SYNC;
+			woffset = temp;
+			fs_image_region_add_raw(patf_ri, empty_tee, type,
+						arch, woffset, flags,
+						FSH_SIZE);
+		}
 	}
 
 	if (!(ni.flags & NI_SUPPORT_U_ATF)) {

@@ -1160,7 +1160,13 @@ int fs_image_load_system_copy(struct flash_info_spl *fi, basic_init_t basic_init
 	}
 
 #ifdef CONFIG_OPTEE
-	/* Load TEE to TEE address, validate in place */
+	/*
+	 * Load TEE to TEE address, validate in place. Checking for
+	 * CONFIG_OPTEE is sufficient here, a check for device tree property
+	 * need-tee in BOARD-CFG is not required, because in SPL, need-tee
+	 * must always be in sync with CONFIG_OPTEE. Otherwise the NBoot image
+	 * was wrongly packaged.
+	 */
 	start += size;
 	err = fs_image_load_system_sub(fi, start, "TEE", arch,
 				       (void *)CONFIG_SPL_TEE_ADDR, NULL, &size);

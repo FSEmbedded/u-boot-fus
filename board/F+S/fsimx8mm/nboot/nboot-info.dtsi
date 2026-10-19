@@ -47,6 +47,9 @@
 		uboot-emmc-bootpart;
 		emmc-both-bootparts;
 		support-u-atf;
+#ifdef CONFIG_OPTEE
+		need-tee;
+#endif
 
 		/*
 		 * Settings for NAND. All values must be aligned to NAND erase

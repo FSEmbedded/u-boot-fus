@@ -248,6 +248,7 @@ struct storage_info {
 					   each copy */
 #define NI_SUPPORT_U_ATF       BIT(5)	/* Support for user defined U_ATF/U_TEE
 					   in addition to system ATF/TEE */
+#define NI_NEED_TEE            BIT(6)	/* System expects opTEE to be present */
 
 #define MAX_SUB_IMGS	8		/* Max Array-Size for Sub-Images */
 
