@@ -140,14 +140,14 @@ static int fs_image_get_nboot_info_nand(struct flash_info *fi, const void *fdt,
 		/* The size only has to be aligned to pages */
 		align = fi->mtd->writesize;
 		err = fs_image_get_fdt_val(fdt, layout, "env-size", align,
-					   1, &fi->env_used);
+					   1, &ni->env_used);
 	} else if (err == -ENOENT) {
 		/*
 		 * No env data found in nboot-info, fall back to some known
 		 * values. Use option -e to select index.
 		 */
 		err = fs_image_get_known_env_nand(index,
-						  ni->env.start, &fi->env_used);
+						  ni->env.start, &ni->env_used);
 		ni->env.size = CONFIG_ENV_NAND_RANGE;;
 	}
 	if (err)
@@ -173,9 +173,47 @@ static int fs_image_get_nboot_info_nand(struct flash_info *fi, const void *fdt,
 	printf("  uboot: start=0x%08x/0x%08x size=0x%08x\n",
 	       ni->uboot.start[0], ni->uboot.start[1], ni->uboot.size);
 	printf("  env:   start=0x%08x/0x%08x size=0x%08x env_used=0x%08x\n",
-	       ni->env.start[0], ni->env.start[1], ni->env.size, fi->env_used);
+	       ni->env.start[0], ni->env.start[1], ni->env.size, ni->env_used);
 
 	return 0;
+}
+
+/* Get real mtdpart number and offset for given mtdpart name (U-Boot version) */
+static int fs_image_get_mtdpart_offs(const char *mtd_name, u8 *part_num,
+				     uint *offs)
+{
+	struct mtd_device *dev;
+	struct part_info *part;
+	int err;
+
+	mtdparts_init();
+	err = find_dev_and_part(mtd_name, &dev, part_num, &part);
+	if (err)
+		return err;
+
+	*offs = part->offset;
+
+	return 0;
+}
+
+static int fs_image_fw_env_nand(struct flash_info *fi, char *addr,
+				struct storage_info *si, uint env_used)
+{
+	const char *mtd_name = "UBootEnv";
+	u8 part_num;
+	uint offs;
+	int err;
+
+	err = fs_image_get_mtdpart_offs(mtd_name, &part_num, &offs);
+	if (err < 0)
+		return err;
+
+	return sprintf(addr,
+		       "# Device\tOffset\t\tSize\t\tFlash range\n"
+		       "/dev/mtd%d\t0x%08x\t0x%08x\t0x%08x\n"
+		       "/dev/mtd%d\t0x%08x\t0x%08x\t0x%08x\n",
+		       part_num, si->start[0] - offs, env_used, si->size,
+		       part_num, si->start[1] - offs, env_used, si->size);
 }
 
 /* Check if start address or size differs */
@@ -303,7 +341,7 @@ static int fs_image_load_image_nand(struct flash_info *fi, int copy,
 		   || (sub->flags & SUB_IS_DBBT_DATA)) {
 		size = fi->mtd->writesize;
 #ifdef CONFIG_NAND_MXS
-	} else if (sub-> flags & SUB_IS_ENV) {
+	} else if (sub->flags & SUB_IS_ENV) {
 		size = fi->env_used;
 #endif
 	} else {
@@ -972,6 +1010,7 @@ struct flash_ops flash_ops_nand = {
 	.check_for_uboot = fs_image_check_for_uboot_nand,
 	.check_for_nboot = fs_image_check_for_nboot_nand,
 	.get_nboot_info = fs_image_get_nboot_info_nand,
+	.fw_env = fs_image_fw_env_nand,
 	.si_differs = fs_image_si_differs_nand,
 	.read = fs_image_read_nand,
 	.load_image = fs_image_load_image_nand,

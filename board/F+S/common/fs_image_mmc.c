@@ -169,6 +169,7 @@ static int fs_image_get_nboot_info_mmc(struct flash_info *fi, const void *fdt,
 	ni->env.hwpart[1] = first;
 	if (first && (ni->env.start[0] == ni->env.start[1]))
 		ni->env.hwpart[1] = second;
+	ni->env_used = ni->env.size;
 
 #ifndef DEBUG
 	if (!show)
@@ -209,6 +210,21 @@ static bool fs_image_si_differs_mmc(const struct storage_info *si1,
 		|| (si1->start[0] != si2->start[0])
 		|| (si1->hwpart[1] != si2->hwpart[1])
 		|| (si1->start[1] != si2->start[1]));
+}
+
+static int fs_image_fw_env_mmc(struct flash_info *fi, char *addr,
+			       struct storage_info *si, uint env_used)
+{
+	const char *hwpart_name[3] = {"", "boot0", "boot1"};
+
+	return sprintf(addr,
+		       "# Device\t\tOffset\t\tSize\n"
+		       "/dev/%s%s\t0x%08x\t0x%08x\n"
+		       "/dev/%s%s\t0x%08x\t0x%08x\n",
+		       fi->linux_base, hwpart_name[si->hwpart[0]],
+		       si->start[0], si->size,
+		       fi->linux_base, hwpart_name[si->hwpart[1]],
+		       si->start[1], si->size);
 }
 
 /* Load the image of given type/descr from eMMC at given offset */
@@ -1128,6 +1144,7 @@ static struct flash_ops flash_ops_mmc = {
 	.check_for_uboot = fs_image_check_for_uboot_mmc,
 	.check_for_nboot = fs_image_check_for_nboot_mmc,
 	.get_nboot_info = fs_image_get_nboot_info_mmc,
+	.fw_env = fs_image_fw_env_mmc,
 	.si_differs = fs_image_si_differs_mmc,
 	.load_image = fs_image_load_image_mmc,
 	.load_extra = fs_image_load_extra_mmc,
@@ -1181,6 +1198,7 @@ int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool rw)
 
 	/* Set device name */
 	sprintf(fi->devname, "mmc%d", devnum);
+	sprintf(fi->linux_base, "mmcblk%d", devnum);
 
 	return 0;
 }

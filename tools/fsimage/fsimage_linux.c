@@ -301,6 +301,9 @@ int do_fsimage(int argc, char *argv[])
 	if (!strcmp(argv[0], "boot"))
 		return fs_image_do_boot(argc, argv);
 
+	if (!strcmp(argv[0], "fw_env"))
+		return fs_image_do_fw_env(argc, argv);
+
 	if (!strcmp(argv[0], "list"))
 		return fs_image_do_list(argc, argv);
 

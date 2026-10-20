@@ -46,6 +46,13 @@ static int do_fsimage_boot(struct cmd_tbl *cmdtp, int flag, int argc,
 	return fs_image_do_boot(argc, argv);
 }
 
+/* Show environment configuration in fw_env.config format */
+static int do_fsimage_fw_env(struct cmd_tbl *cmdtp, int flag, int argc,
+			  char * const argv[])
+{
+	return fs_image_do_fw_env(argc, argv);
+}
+
 /* List contents of an F&S image */
 static int do_fsimage_list(struct cmd_tbl *cmdtp, int flag, int argc,
 			   char * const argv[])
@@ -90,6 +97,7 @@ static struct cmd_tbl cmd_fsimage_sub[] = {
 	U_BOOT_CMD_MKENT(board-cfg, 4, 1, do_fsimage_boardcfg, "", ""),
 #endif
 	U_BOOT_CMD_MKENT(boot, 0, 1, do_fsimage_boot, "", ""),
+	U_BOOT_CMD_MKENT(fw_env, 0, 1, do_fsimage_fw_env, "", ""),
 	U_BOOT_CMD_MKENT(list, 9, 1, do_fsimage_list, "", ""),
 	U_BOOT_CMD_MKENT(load, 5, 1, do_fsimage_load, "", ""),
 	U_BOOT_CMD_MKENT(save, 8, 0, do_fsimage_save, "", ""),

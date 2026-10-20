@@ -282,6 +282,7 @@ int fs_image_get_flash_mmc(struct flash_info *fi, int devnum, bool ro)
 	ll->force_ro_fd[2] = -1;
 
 	snprintf(fi->devname, MAX_FI_DEVNAME, "mmcblk%d", devnum);
+	strncpy(fi->linux_base, fi->devname, MAX_FI_DEVNAME);
 
 	/* In write mode, clear the force_ro flags and save previous state */
 	for (hwpart = 0; hwpart < 3; hwpart++) {

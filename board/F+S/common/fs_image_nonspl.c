@@ -200,6 +200,8 @@ const char fsimage_usage[] =
 #endif
 	"fsimage boot\n"
 	"    - Show the current boot settings\n"
+	"fsimage fw_env [stored | [" IMAGE_SPEC "]]\n"
+	"    - List environment settings in fw_env.config format\n"
 	"fsimage list [-c] [-t <type> [-d <descr>]] [" IMAGE_SPEC "]\n"
 	"    - List all subimages of an F&S image, or of the one subimage\n"
         "      specified by <type>/<descr>; in case of -c, show checksums\n"
@@ -1522,10 +1524,10 @@ const char *fs_image_get_default_descr(struct fs_header_v1_0 *fsh,
  * file is loaded to <addr> first before processing starts. Otherwise it is
  * assumend that the image is already present in RAM at <addr>.
  *
- * If <file> is missing in the filename spec, @def_fname is used. In
- * case of fsimage load, the caller should set this according to the image type
- * to be loaded, e.g. uboot.fs in case of U-Boot. Otherwise it can be NULL,
- * which means "nboot.fs" is used.
+ * If <file> is missing in the filename spec, @def_fname is used. The caller,
+ * should set this according to the image type to be loaded, for example in
+ * case of fsimage load to uboot.fs if U-Boot should be loaded. If @def_fname
+ * is NULL, no file will be written.
  *
  * If <size> is given, it is used to limit the RAM region that is processed.
  * This makes sure that no other F&S image that happens to be present in RAM
@@ -1537,8 +1539,8 @@ const char *fs_image_get_default_descr(struct fs_header_v1_0 *fsh,
  * Examples (assuming that . can be used for $loadaddr):
  *   fsimage save                     - Save the image at $loadaddr
  *   fsimage save . $filesize         - Save the image at $loadaddr, limit size
- *   fsimage save . mmc 0:2           - Load file nboot.fs from mmc and save
- *   fsimage save . mmc 0:2 myfile.fs - Load file myfile.fs from mmc and save
+ *   fsimage save . mmc 0:2           - Read file nboot.fs from mmc and save
+ *   fsimage save . mmc 0:2 myfile.fs - Read file myfile.fs from mmc and save
  */
 static bool fs_image_get_image_params(int argc, char *const argv[],
 				      struct fs_image_params *ip,
@@ -1576,8 +1578,6 @@ static bool fs_image_get_image_params(int argc, char *const argv[],
 		ip->interface = argv[1];
 		ip->devpart = argv[2];
 
-		if (!def_fname)
-			def_fname = "nboot.fs";
 		ip->fname = (argc > 3) ? argv[3] : def_fname;
 	}
 
@@ -1644,7 +1644,7 @@ static int fs_image_locate(int argc, char *const argv[], ulong *paddr)
 {
 	struct fs_image_params ip;
 
-	if (!fs_image_get_image_params(argc, argv, &ip, NULL))
+	if (!fs_image_get_image_params(argc, argv, &ip, "nboot.fs"))
 		return CMD_RET_USAGE;
 
 	if (ip.fname) {
@@ -1925,6 +1925,8 @@ static void *fs_image_load_env(struct flash_info *fi, struct nboot_info *ni,
 	sub.offset = 0;
 	sub.flags = SUB_IS_ENV;
 
+	/* In case of NAND, pass one more value for loading the environment */
+	fi->env_used = ni->env_used;
 	if (fs_image_load_image(fi, &ni->env, &sub))
 		return NULL;
 
@@ -3570,6 +3572,46 @@ fail:
 
 /* ------------- Generic API Implementation -------------------------------- */
 
+/* Create config file for fw_env */
+int fs_image_get_fw_env_config(char *addr, ulong *im_size)
+{
+	struct flash_info fi;
+	struct nboot_info *ni = fs_image_get_stored_nboot_info();
+	const void *fdt = fs_image_get_cfg_fdt();
+	int len = 0;
+	int err;
+
+	/* Invalidate any old content */
+	*addr = 0;
+	if (im_size)
+		*im_size = 0;
+
+	if (fs_image_get_flash_info(&fi, fdt, true))
+		return CMD_RET_FAILURE;
+
+	len = sprintf(addr, "%s",
+		      "# Configuration file for fw_(printenv/setenv)\n"
+		      "# Created by fsimage\n"
+		      "\n");
+
+	err = fi.ops->fw_env(&fi, addr + len, &ni->env, ni->env_used);
+	if (err < 0) {
+		printf("ERROR: Cannot determine partition info (%d)\n", err);
+		*addr = 0;
+		fs_image_put_flash_info(&fi);
+
+		return CMD_RET_FAILURE;
+	}
+	len += err;
+
+	fs_image_put_flash_info(&fi);
+
+	if (im_size)
+		*im_size = (ulong)len;
+
+	return CMD_RET_SUCCESS;
+}
+
 /* Load list of images given in load_info to addr, return size in im_size */
 int fs_image_load(ulong addr, uint load_info, ulong *im_size)
 {
@@ -3723,6 +3765,63 @@ int fs_image_do_boot(int argc, char * const argv[])
 	fs_image_put_flash_info(&fi);
 
 	return ret ? CMD_RET_FAILURE : CMD_RET_SUCCESS;
+}
+
+/* Show environment configuration in fw_env.config format */
+int fs_image_do_fw_env(int argc, char * const argv[])
+{
+	struct fs_image_params ip;
+	int ret;
+
+	early_support_index = 0;
+
+	argv++;
+	argc--;
+
+	while ((argc > 0) && (argv[0][0] == '-')) {
+		if (!strcmp(argv[0], "-e")) {
+			if (argc < 2) {
+				puts("Missing argument for option -e\n");
+				return CMD_RET_USAGE;
+			}
+			early_support_index = simple_strtoul(argv[1], NULL, 0);
+			argv += 2;
+			argc -= 2;
+		} else
+			return CMD_RET_USAGE;
+	}
+
+	if (!fs_image_get_image_params(argc, argv, &ip, NULL))
+		return CMD_RET_USAGE;
+
+	if (fs_image_read_board_cfg())
+		return CMD_RET_FAILURE;
+
+	ret = fs_image_get_fw_env_config((char *)ip.addr, &ip.size);
+	if (ret)
+		return ret;
+
+#ifdef __UBOOT__
+	set_fileaddr(ip.addr);
+	env_set_fileinfo(ip.size);
+#endif
+
+	/* Print the result also to stdout */
+	puts((char *)ip.addr);
+
+	/* If a filename was given, write loaded image to the file */
+	if (ip.fname) {
+		printf("\nWriting final image to target file\n  ");
+		if (!ip.size) {
+			puts("Unknown image size; cannot write file\n");
+			return CMD_RET_FAILURE;
+		}
+
+		if (!fs_image_store_file(&ip))
+			return CMD_RET_FAILURE;
+	}
+
+	return CMD_RET_SUCCESS;
 }
 
 /* List contents of an F&S image */

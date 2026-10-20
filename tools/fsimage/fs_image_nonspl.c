@@ -34,12 +34,7 @@ static bool fs_image_get_image_params(int argc, char *const argv[],
 	if (argc > 1)
 		return false;
 
-	if (!def_fname)
-		def_fname = "nboot.fs";
-	if (argc > 0)
-		ip->fname = argv[0];
-	else
-		ip->fname = def_fname;
+	ip->fname = (argc > 0) ? argv[0] : def_fname;
 	ip->addr = (ulong)image_ram;
 
 	return true;

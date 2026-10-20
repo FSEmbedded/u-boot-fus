@@ -260,6 +260,8 @@ struct nboot_info {
 	struct storage_info atf;
 	struct storage_info uboot;
 	struct storage_info env;
+	uint env_used;			/* From env-size entry, region size
+					   is from env-range */
 };
 
 #define SUB_SYNC          BIT(0)	/* After writing image, flush temp */
@@ -301,6 +303,8 @@ struct flash_ops {
 	int (*get_nboot_info)(struct flash_info *fi, const void *fdt, int offs,
 			      struct nboot_info *ni, int hwpart, bool show,
 			      uint index);
+	int (*fw_env)(struct flash_info *fi, char *addr,
+		      struct storage_info *si, uint env_used);
 	bool (*si_differs)(const struct storage_info *si1,
 			   const struct storage_info *si2);
 	int (*read)(struct flash_info *fi, uint offs, uint size, uint lim,
@@ -331,11 +335,11 @@ struct flash_ops {
 struct flash_info {
 #ifdef CONFIG_NAND_MXS
 	struct mtd_info *mtd;		/* Handle to NAND */
-	uint env_used;			/* From env-size entry, region size
-					   is from env-range */
 #endif
+	uint env_used;			/* Needed in NAND case */
 #ifdef CONFIG_CMD_MMC
 	u8 boot_hwpart;			/* HW partition we boot from (0..2) */
+	char linux_base[MAX_FI_DEVNAME];/* Linux base name (mmcblk<n>) */
 	u32 boot_part_size;		/* Size of each boot partition */
 #endif
 	char devname[MAX_FI_DEVNAME];	/* Name of device (NAND, mmc<n>) */
@@ -503,6 +507,9 @@ int fs_image_do_boardcfg(int argc, char * const argv[]);
 
 /* Show current boot settings */
 int fs_image_do_boot(int argc, char * const argv[]);
+
+/* Show environment configuration in fw_env.config format */
+int fs_image_do_fw_env(int argc, char * const argv[]);
 
 /* List contents of an F&S image */
 int fs_image_do_list(int argc, char * const argv[]);
