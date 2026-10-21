@@ -6,22 +6,24 @@
 /*
  * OCRAM (352KB) layout SPL/ATF
  * --------------------
- * 0x2048_0000: SPL                  (~200KB)   CONFIG_SPL_TEXT_BASE
+ * 0x2048_0000: SPL			(224KB)	CONFIG_SPL_TEXT_BASE
+ * 0x204B_8000: DDR_QB			(64KB)	(used in SM)
+ * 0x204C_8000: DDR_RETENTIO		(64KB)	(used in SM)
  * 0x204D_8000: (end of OCRAM)
  *
  * NPU SRAM (1024KB) layout SPL/ATF
  * --------------------
- * 0x4AA0_0000: BOARD-CFG            (8KB)      CONFIG_FUS_BOARDCFG_ADDR
- * 0x4AA0_2000: INDEX                (8KB)      CFG_FUS_INDEX_ADDR (Potentiell per SW überprüfen, ELE macht Probleme bei ULP -> Senatore)
- * 0x4AA0_4000: ATF/EARLY_AHAB_BASE  (64KB)     CFG_SPL_ATF_ADDR
- * 0x4AA1_4000: FDT                  (32KB)	CONFIG_SPL_MULTI_DTB_FIT_USER_DEF_ADDR
- * 0x4AA1_C000: DRAM-TIMING          (128KB)    CONFIG_SAVED_DRAM_TIMING_BASE
- * 0x4AA3_C000: DRAM-FW              (320KB)    CFG_SPL_DRAM_FW_ADDR (max size from oei-ddr)
- * 0x4AA8_C000: Limit of Stack       (0KB)      End of DRAM-FW
- * 0x4AAE_6C00: Stack                (363KB)    CONFIG_SPL_STACK - MALLOC_F_LEN (descending)
- * 0x4AAE_6C00: MALLOC_F             (160KB)     CONFIG_SPL_STACK - MALLOC_F_LEN
- * 0x4AAF_EC00: BSS                  (4KB)      CONFIG_SPL_BSS_START_ADDR / CONFIG_SPL_STACK
- * 0x4AAF_FC00: SDP loadbuffer       (1KB)      CONFIG_SDP_LOADADDR
+ * 0x4AA0_0000: BOARD-CFG		(8KB)	CONFIG_FUS_BOARDCFG_ADDR
+ * 0x4AA0_2000: INDEX			(8KB)	CFG_FUS_INDEX_ADDR
+ * 0x4AA0_4000: ATF/EARLY_AHAB_BASE  	(64KB)	CFG_SPL_ATF_ADDR
+ * 0x4AA1_4000: FDT			(32KB)	CONFIG_SPL_MULTI_DTB_FIT_USER_DEF_ADDR
+ * 0x4AA1_C000: DRAM-TIMING	  	(128KB)	CONFIG_SAVED_DRAM_TIMING_BASE
+ * 0x4AA3_C000: DRAM-FW			(320KB) CFG_SPL_DRAM_FW_ADDR (max size from oei-ddr)
+ * 0x4AA8_C000: Limit of Stack		(0KB)   End of DRAM-FW
+ * 0x4AAE_6C00: Stack			(363KB)	CONFIG_SPL_STACK - MALLOC_F_LEN (descending)
+ * 0x4AAE_6C00: MALLOC_F	   	(160KB)	CONFIG_SPL_STACK - MALLOC_F_LEN
+ * 0x4AAF_EC00: BSS			(4KB)	CONFIG_SPL_BSS_START_ADDR / CONFIG_SPL_STACK
+ * 0x4AAF_FC00: SDP loadbuffer		(1KB)	CONFIG_SDP_LOADADDR
  * 0x4AB0_0000: (end of SRAM)
  *
  * The DRAM_FW is loaded to the above address, validated and then handed off
@@ -29,11 +31,11 @@
  *
  * DRAM Layout UBOOT/TEE
  * ---------------------
- * 0x8A20_0000: AHAB_BASE            (64KB)
- * 0x8C00_0000: TEE                  (32MB)
- * 0x9020_0000: UBOOT                (3MB)
- * 0x9050_0000: AHAB_BASE_NS         (64KB)
- * 0x9051_0000: TEE_NS               (32MB)
+ * 0x8A20_0000: AHAB_BASE	(64KB)
+ * 0x8C00_0000: TEE		(32MB)
+ * 0x9020_0000: UBOOT		(3MB)
+ * 0x9050_0000: AHAB_BASE_NS	(64KB)
+ * 0x9051_0000: TEE_NS		(32MB)
  */
 
 #ifndef __FSIMX95_H

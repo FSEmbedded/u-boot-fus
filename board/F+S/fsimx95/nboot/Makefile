@@ -163,20 +163,24 @@ cmd_ddrfw = \
 $(obj)/%_DRAM-FW.fsi:
 	$(call cmd,ddrfw)
 
-# 3. Compile DRAM timings
+# 3. Prepare DRAM-QB region
+$(obj)/%_DRAM-QB.fsi:
+	@dd if=/dev/zero of=$@ bs=1024 count=64
+
+# 4. Compile DRAM timings
 $(obj)/%_timing.o: TYPE = $(*F).x
 $(obj)/%_timing.o: $(SRC_PATH)/%_timing.c
 	$(call cmd,dram_cc)
 
-# 4. Link DRAM timings with our own linker skript
+# 5. Link DRAM timings with our own linker skript
 $(obj)/.%_timing.elf.tmp: $(obj)/%_timing.o $(DRAM_TIMINGS_LDS)
 	$(call cmd,dram_elf,$(DRAM_TIMINGS_LDS))
 
-# 5. Convert timings from ELF to binary format
+# 6. Convert timings from ELF to binary format
 $(obj)/%_DRAM-TIMING.fsi: $(obj)/.%_timing.elf.tmp
 	$(call cmd,dram_bin)
 
-# 6. Create lpddr5_info.fs/lpddr4x_info.fs
+# 7. Create lpddr5_info.fs/lpddr4x_info.fs
 ifneq ($(wildcard $(LPDDR5_CFG)),)
 $(eval $(call fsc,lpddr5_info,-a 0x400 -t DRAM-INFO -d lpddr5))
 endif
