@@ -1153,6 +1153,7 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	struct container_hdr *cntr;
 	struct fs_header_v1_0 *dram_fsh;
 	int fw_idx = 0;
+	int qb_idx = 0;
 	int idx;
 	int num_imgs;
 	uint sector;
@@ -1230,6 +1231,39 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 #endif
 	}
 
+	/* search dram-qb within index */
+	for(idx = 1; idx < num_imgs; idx++){
+		if(fs_image_match(&dram_fsh[idx], "DRAM-QB", ram_info->type))
+			break;
+	}
+
+	/* load dram qb*/
+	if(idx < num_imgs){
+		qb_idx = idx;
+		/* We need to skip images in stream */
+		if(is_boot_from_stream_device()){
+			ret = fs_cntr_skip_streamed_images(&dram_info,
+					&cntr_info,
+					load_info,fw_idx+1,qb_idx-1);
+			if(ret){
+				free_container(&cntr_info);
+				return ret;
+			}
+		}
+
+		debug("FSCNTR: FOUND %s(%s)\n", dram_fsh[idx].type, dram_fsh[idx].param.descr);
+		ret = fs_cntr_load_single_image(&dram_info,
+					&cntr_info,
+					load_info,
+					qb_idx);
+		if(ret){
+			free_container(&cntr_info);
+			return ret;
+		}
+	}else {
+		qb_idx = fw_idx;
+	}
+
 	/* search dram-timing */
 	for(idx = 1; idx < num_imgs; idx++){
 		if(fs_image_match(&dram_fsh[idx], "DRAM-TIMING", ram_info->timing))
@@ -1243,12 +1277,12 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 
 	/* We need to skip images in stream */
 	if(is_boot_from_stream_device()){
-		if(fw_idx >= idx)
+		if(qb_idx >= idx)
 			return -EINVAL;
 
 		ret = fs_cntr_skip_streamed_images(&dram_info,
 				&cntr_info,
-				load_info,fw_idx+1,idx-1);
+				load_info,qb_idx+1,idx-1);
 		if(ret){
 			free_container(&cntr_info);
 			return ret;
