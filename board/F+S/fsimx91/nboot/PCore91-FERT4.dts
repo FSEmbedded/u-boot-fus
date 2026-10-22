@@ -12,13 +12,13 @@
 
 / {
 	board-cfg {
-		board-name = "NetDCUMX93";
-		board-fdt = "netdcumx93";
+		board-name = "PicoCoreMX91";
+		board-fdt = "picocoremx91";
 
-		/* DRAM: B.ICDRAM.52 */
+		/* DRAM: B.ICDRAM.48 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_2g3200m1ch1cs";
-		dram-size = <0x800>;		/* In MiB */
+		dram-timing = "lpddr4_pc_1g2400m1ch1cs";
+		dram-size = <0x400>;		/* In MiB */
 		dram-chips = <1>;
 
 		/* Boot-Device: NAND | MMC1/2/3 | SD1/2/3 */
@@ -37,20 +37,13 @@
 		have-eth-b;
 		have-eth-phy-a;
 		have-eth-phy-b;
-		have-audio;
+		// have-audio;
 		// have-wlan;
 		have-sd-a;
 		have-sd-b;
-		have-mipi-dsi;
-		have-mipi-csi;
-		have-lvds;
 
-		NDCU93-FERT4.110 {
-			board-rev = <110>;
-		};
-
-		NDCU93-FERT4.120 {
-			board-rev = <120>;
-		};
+        PCore91-FERT4.110 {
+            board-rev = <110>;
+        };
 	};
 };

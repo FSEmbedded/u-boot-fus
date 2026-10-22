@@ -2601,7 +2601,7 @@ tools/version.h: include/version.h FORCE
 envtools: u-boot-initial-env scripts_basic $(version_h) $(timestamp_h) tools/version.h
 	$(Q)$(MAKE) $(build)=tools/env
 
-fsimage:
+fsimage: prepare
 	$(Q)$(MAKE) $(build)=tools/fsimage
 
 tools-only: export TOOLS_ONLY=y
@@ -2634,7 +2634,7 @@ CLEAN_FILES  += $(MODVERDIR) \
 			$(filter-out include, $(shell ls -1 $d 2>/dev/null))))
 
 CLEAN_FILES += include/autoconf.mk* include/bmp_logo.h include/bmp_logo_data.h \
-	       uboot.nb0 uboot.sfx uboot.fs			  \
+	       uboot.nb0 uboot.sfx uboot.fs tools/fsimage/fsimage \
 	       include/config.h include/generated/env.* drivers/video/u_boot_logo.S \
 	       tools/version.h u-boot* MLO* SPL System.map fit-dtb.blob* \
 	       u-boot-ivt.img.log u-boot-dtb.imx.log SPL.log u-boot.imx.log \

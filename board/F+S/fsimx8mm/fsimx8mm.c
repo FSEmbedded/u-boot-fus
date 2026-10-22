@@ -65,6 +65,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BT_PICOCOREMX8MMr2	2
 #define BT_TBS2 		3
 #define BT_OSM8MM 		4
+#define BT_PICOCOREMX8MMr4	5
 
 /* Board features; these values can be resorted and redefined at will */
 #define FEAT_ETH_A	(1<<0)
@@ -82,6 +83,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define FEAT_SEC_CHIP	(1<<12)
 #define FEAT_CAN	(1<<13)
 #define FEAT_EEPROM	(1<<14)
+#define FEAT_ETH_LED2	(1<<15)
 
 #define FEAT_ETH_MASK 	(FEAT_ETH_A | FEAT_ETH_B)
 
@@ -177,6 +179,20 @@ const struct fs_board_info board_info[] = {
 		.init = INIT_DEF,
 		.flags = 0,
 	},
+	{	/* 5 (BT_PICOCOREMX8MMr4) */
+		.name = "PicoCoreMX8MMr4-LPDDR4",
+		.alias = "PicoCoreMX8MMr4",
+		.bootdelay = "3",
+		.updatecheck = UPDATE_DEF,
+		.installcheck = INSTALL_DEF,
+		.recovercheck = UPDATE_DEF,
+		.console = ".console_serial",
+		.login = ".login_serial",
+		.mtdparts = ".mtdparts_std",
+		.network = ".network_off",
+		.init = INIT_DEF,
+		.flags = 0,
+	},
 	{	/* (last) (unknown board) */
 		.name = "unknown",
 		.bootdelay = "3",
@@ -205,14 +221,14 @@ static iomux_v3_cfg_t const wdog_pads[] = {
 /* Parse the FDT of the BOARD-CFG in OCRAM and create binary info in OCRAM */
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	int i;
 	struct cfg_info *info;
 	const char *tmp;
 	unsigned int features;
-	u32 flags = 0;
+	u8 boot_copy;
 
 	/*
 	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
@@ -224,12 +240,11 @@ static void fs_setup_cfg_info(void)
 		hang();
 
 	/*
-	 * The flag if running from Primary or Secondary SPL is misusing a
-	 * byte in the BOARD-CFG in OCRAM, so we have to remove this before
-	 * validating the BOARD-CFG.
+	 * The flag if running from Primary or Secondary SPL and U-Boot is
+	 * misusing a byte in the BOARD-CFG in OCRAM, so we have to remove this
+	 * before validating the BOARD-CFG.
 	 */
-	if (fs_image_is_secondary())
-		flags |= CI_FLAGS_SECONDARY;
+	boot_copy = fs_image_get_boot_copy_from_ocram();
 
 	/* Make sure that the BOARD-CFG in OCRAM is still valid */
 	if (!fs_image_is_ocram_cfg_valid())
@@ -238,7 +253,7 @@ static void fs_setup_cfg_info(void)
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
@@ -246,19 +261,21 @@ static void fs_setup_cfg_info(void)
 	/* Parse BOARD-CFG entries and set according entries and flags */
 	tmp = fs_image_getprop(fdt, offs, rev_offs, "board-name", NULL);
 	for (i = 0; i < ARRAY_SIZE(board_info) - 1; i++) {
-		if (!strcmp(tmp, board_info[i].name) || !strcmp(tmp, board_info[i].alias))
+		if (!strcmp(tmp, board_info[i].name)
+		    || !strcmp(tmp, board_info[i].alias))
 			break;
 	}
 	info->board_type = i;
 
 	tmp = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
-	info->boot_dev = fs_board_get_boot_dev_from_name(tmp);
+	info->boot_dev = fs_image_get_boot_dev_from_name(tmp);
+	info->boot_copy = boot_copy;
 
 	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 						"dram-chips", 1);
 	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 					       "dram-size", 0x400);
-	info->flags = flags;
+	info->flags = 0;
 
 	features = 0;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-nand", NULL))
@@ -288,6 +305,9 @@ static void fs_setup_cfg_info(void)
 		features |= FEAT_CAN;
 	if (fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-led2", NULL))
+		features |= FEAT_ETH_LED2;
+
 	info->features = features;
 }
 
@@ -330,7 +350,7 @@ enum env_location env_get_location(enum env_operation op, int prio)
 #ifdef CONFIG_NAND_MXS
 static void fs_nand_get_env_info(struct mtd_info *mtd, struct cfg_info *info)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int layout;
 	unsigned int align;
@@ -363,7 +383,7 @@ static void fs_nand_get_env_info(struct mtd_info *mtd, struct cfg_info *info)
 	 * should be OK.
 	 */
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_nboot_info_offs(fdt);
 	align = mtd->erasesize;
 
@@ -1146,7 +1166,8 @@ static int setup_typec(void)
 	switch (fs_board_get_type())
 	{
 	case BT_PICOCOREMX8MM:
-    case BT_PICOCOREMX8MMr2:
+	case BT_PICOCOREMX8MMr2:
+	case BT_PICOCOREMX8MMr4:
 		port_config.i2c_bus = 3;
 		break;
 	case BT_PICOCOREMX8MX:
@@ -1595,6 +1616,8 @@ void board_preboot_os(void)
 }
 
 #define MIIM_RTL8211F_PAGE_SELECT      0x1f
+#define LED1_MASK 0x8360
+#define LED2_MASK 0xEC00
 
 int board_phy_config(struct phy_device *phydev)
 {
@@ -1617,7 +1640,27 @@ int board_phy_config(struct phy_device *phydev)
 		/* Set LED1 for Link, LED1 for Activity */
 		phy_write(phydev, MDIO_DEVAD_NONE,
 			  MIIM_RTL8211F_PAGE_SELECT, 0xd04);
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, 0x8360);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, LED1_MASK);
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0x0);
+
+		/* Disable CLKOUT*/
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0xa43);
+		reg = phy_read(phydev, MDIO_DEVAD_NONE, 0x19);
+		reg &= ~(1 << 0);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x19, reg);
+		break;
+	case BT_PICOCOREMX8MMr4:
+		unsigned int features = fs_board_get_features();
+
+		phy_write(phydev, MDIO_DEVAD_NONE,
+			  MIIM_RTL8211F_PAGE_SELECT, 0xd04);
+		/* Set LED for Link and Activity */
+		if (features & FEAT_ETH_LED2)
+			phy_write(phydev, MDIO_DEVAD_NONE, 0x10, LED2_MASK);
+		else
+			phy_write(phydev, MDIO_DEVAD_NONE, 0x10, LED1_MASK);
 		phy_write(phydev, MDIO_DEVAD_NONE,
 			  MIIM_RTL8211F_PAGE_SELECT, 0x0);
 
@@ -1632,7 +1675,7 @@ int board_phy_config(struct phy_device *phydev)
 		/* Set LED2 for Link, LED2 for Activity */
 		phy_write(phydev, MDIO_DEVAD_NONE,
 			  MIIM_RTL8211F_PAGE_SELECT, 0xd04);
-		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, 0xEC00);
+		phy_write(phydev, MDIO_DEVAD_NONE, 0x10, LED2_MASK);
 		phy_write(phydev, MDIO_DEVAD_NONE,
 			  MIIM_RTL8211F_PAGE_SELECT, 0x0);
 
@@ -1661,6 +1704,7 @@ int board_phy_config(struct phy_device *phydev)
 #define FDT_CAN         "mcp2518fd"
 #define FDT_SGTL5000    "sgtl5000"
 #define FDT_I2C_SWITCH  "i2c4"
+#define FDT_ETH_PHY     "ethphy4"
 #define FDT_TEMP_ALERT   "/thermal-zones/cpu-thermal/trips/trip0"
 #define FDT_TEMP_CRIT    "/thermal-zones/cpu-thermal/trips/trip1"
 /* Do all fixups that are done on both, U-Boot and Linux device tree */
@@ -1723,6 +1767,16 @@ int ft_board_setup(void *fdt, struct bd_info *bd)
 	if (!(features & FEAT_ETH_A) && (board_type == BT_PICOCOREMX8MX))
 		fs_fdt_enable(fdt, FDT_I2C_SWITCH, 0);
 
+	/* Set led-link and led-act for LED2 */
+	if ((features & FEAT_ETH_LED2)) {
+		offs = fs_fdt_path_offset(fdt, FDT_ETH_PHY);
+		if (offs >= 0) {
+			fs_fdt_set_u32(fdt, offs, \
+				"rtl821x,led-link", 2, 1, true);
+			fs_fdt_set_u32(fdt, offs, \
+				"rtl821x,led-act", 2, 1, true);
+		}
+	}
 	/* Set bdinfo entries */
 	offs = fs_fdt_path_offset(fdt, "/bdinfo");
 	if (offs >= 0) {

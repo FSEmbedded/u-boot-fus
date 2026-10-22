@@ -130,7 +130,7 @@ static int fs_spl_init_boot_dev(enum boot_device boot_dev, const char *type)
 
 	default:
 		printf("Can not handle %s boot device %s\n", type,
-		       fs_board_get_name_from_boot_dev(boot_dev));
+		       fs_image_get_name_from_boot_dev(boot_dev));
 		return -ENODEV;
 	}
 
@@ -191,7 +191,7 @@ static void basic_init(const char *layout_name)
 		     " primary SPL is damaged.\n");
 
 	boot_dev_name = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
-	boot_dev = fs_board_get_boot_dev_from_name(boot_dev_name);
+	boot_dev = fs_image_get_boot_dev_from_name(boot_dev_name);
 
 	printf("BOARD-ID: %s\n", fs_image_get_board_id());
 

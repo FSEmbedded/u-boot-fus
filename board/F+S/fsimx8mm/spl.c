@@ -56,6 +56,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define BT_PICOCOREMX8MMr2 0x2
 #define BT_TBS2          0x3
 #define BT_OSM8MM        0x4
+#define BT_PICOCOREMX8MMr4 0x5
 
 static const char *board_names[] = {
 	"PicoCoreMX8MM-LPDDR4",
@@ -63,6 +64,7 @@ static const char *board_names[] = {
 	"PicoCoreMX8MMr2-LPDDR4",
 	"TBS2",
 	"OSM8MM",
+	"PicoCoreMX8MMr4-LPDDR4",
 	"(unknown)"
 };
 
@@ -117,6 +119,7 @@ int power_init_board(void)
 	default:
 	case BT_PICOCOREMX8MM:
 	case BT_PICOCOREMX8MMr2:
+	case BT_PICOCOREMX8MMr4:
 		setup_i2c(I2C_PMIC_8MM, CONFIG_SYS_I2C_SPEED, 0x7f,
 			  &i2c_pad_info_8mm);
 		ret = power_bd71837_init(I2C_PMIC_8MM);
@@ -151,6 +154,7 @@ int power_init_board(void)
 	{
 	case BT_PICOCOREMX8MM:
 	case BT_PICOCOREMX8MMr2:
+	case BT_PICOCOREMX8MMr4:
 	case BT_OSM8MM:
 		/* increase VDD_DRAM to 0.975v f-*or 3Ghz DDR */
 		pmic_reg_write(p, BD718XX_1ST_NODVS_BUCK_VOLT, 0x83);
@@ -224,6 +228,7 @@ static void config_uart(int board_type)
 
 	case BT_PICOCOREMX8MX:
 	case BT_TBS2:
+	case BT_PICOCOREMX8MMr4:
 		/* Setup UART1 on SAI2 pads */
 		imx_iomux_v3_setup_multiple_pads(uart_pads_mx,
 						 ARRAY_SIZE(uart_pads_mx));
@@ -364,7 +369,7 @@ static int fs_spl_init_boot_dev(enum boot_device boot_dev, const char *type)
 		return -ENODEV;
 	default:
 		printf("Can not handle %s boot device %s\n", type,
-		       fs_board_get_name_from_boot_dev(boot_dev));
+		       fs_image_get_name_from_boot_dev(boot_dev));
 		return -ENODEV;
 	}
 
@@ -383,6 +388,9 @@ static iomux_v3_cfg_t const lvds_rst_8mm_130_pads =
 static iomux_v3_cfg_t const lvds_rst_8mx_110_pads =
 	IMX8MM_PAD_GPIO1_IO08_GPIO1_IO8  | MUX_PAD_CTRL(OPEN_DRAIN_PAD_CTRL);
 
+static iomux_v3_cfg_t const lvds_rst_8mmr4_pads =
+	IMX8MM_PAD_SAI5_RXC_GPIO3_IO20  | MUX_PAD_CTRL(OPEN_DRAIN_PAD_CTRL);
+
 static void fs_board_early_init(void)
 {
 	switch (board_type)
@@ -399,13 +407,16 @@ static void fs_board_early_init(void)
 	case BT_PICOCOREMX8MMr2:
 			imx_iomux_v3_setup_pad(lvds_rst_8mm_130_pads);
 		break;
+	case BT_PICOCOREMX8MMr4:
+			imx_iomux_v3_setup_pad(lvds_rst_8mmr4_pads);
+		break;
 	}
 }
 
 /* Do the basic board setup when we have our final BOARD-CFG */
 static void basic_init(const char *layout_name)
 {
-	void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_ocram_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
 	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);
 	int i;
@@ -448,7 +459,7 @@ static void basic_init(const char *layout_name)
 		     " primary SPL is damaged.\n");
 
 	boot_dev_name = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
-	boot_dev = fs_board_get_boot_dev_from_name(boot_dev_name);
+	boot_dev = fs_image_get_boot_dev_from_name(boot_dev_name);
 
 	printf("BOARD-ID:   %s\n", fs_image_get_board_id());
 

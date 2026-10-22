@@ -1,1 +1,1 @@
-../../lib/crc32.c
+#include "../../lib/crc32.c"

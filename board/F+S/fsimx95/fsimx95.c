@@ -121,15 +121,15 @@ static int set_gd_board_type(void)
 /* definition for U-BOOT */
 int board_fit_config_name_match(const char *name)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
 
-	if(board_fdt && !strncmp(name, board_fdt, 64))
+	if (board_fdt && !strncmp(name, board_fdt, 64))
 		return 0;
 
 	return -EINVAL;
@@ -138,30 +138,37 @@ int board_fit_config_name_match(const char *name)
 
 static void fs_setup_cfg_info(void)
 {
-	void *fdt;
+	const void *fdt;
 	int offs;
 	int rev_offs;
 	unsigned int features;
 	struct cfg_info *info;
 	const char *string;
-	u32 flags = 0;
+	u8 boot_copy = 0;
 
-	/**
+	/*
 	 * If the BOARD-CFG cannot be found in OCRAM or it is corrupted, this
 	 * is fatal. However no output is possible this early, so simply stop.
 	 * If the BOARD-CFG is not at the expected location in OCRAM but is
 	 * found somewhere else, output a warning later in board_late_init().
 	 */
-	if(!fs_image_find_cfg_in_ocram())
+	if (!fs_image_find_cfg_in_ocram())
 		hang();
 
 	if (!fs_image_is_ocram_cfg_valid())
 		hang();
 
+	/*
+	 * The flag if running from Primary or Secondary SPL and U-Boot is
+	 * misusing a byte in the BOARD-CFG in OCRAM, so we have to remove this
+	 * before validating the BOARD-CFG.
+	 */
+	boot_copy = fs_image_get_boot_copy_from_ocram();
+
 	info = fs_board_get_cfg_info();
 	memset(info, 0, sizeof(struct cfg_info));
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	rev_offs = fs_image_get_board_rev_subnode_f(fdt, offs,
 						    &info->board_rev);
@@ -170,7 +177,8 @@ static void fs_setup_cfg_info(void)
 	info->board_type = gd->board_type;
 
 	string = fs_image_getprop(fdt, offs, rev_offs, "boot-dev", NULL);
-	info->boot_dev = fs_board_get_boot_dev_from_name(string);
+	info->boot_dev = fs_image_get_boot_dev_from_name(string);
+	info->boot_copy = boot_copy;
 
 	info->dram_chips = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 						"dram-chips", 1);
@@ -178,50 +186,50 @@ static void fs_setup_cfg_info(void)
 	info->dram_size = fs_image_getprop_u32(fdt, offs, rev_offs, 0,
 					       "dram-size", 0x400);
 
-	info->flags = flags;
+	info->flags = 0;
 
 	features = 0;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-emmc", NULL))
 		features |= FEAT_EMMC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-ext-rtc", NULL))
 		features |= FEAT_EXT_RTC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eeprom", NULL))
 		features |= FEAT_EEPROM;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-a", NULL))
 		features |= FEAT_ETH_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-b", NULL))
 		features |= FEAT_ETH_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-a", NULL))
 		features |= FEAT_ETH_PHY_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-eth-phy-b", NULL))
 		features |= FEAT_ETH_PHY_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-audio", NULL))
 		features |= FEAT_AUDIO;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-wlan", NULL))
 		features |= FEAT_WLAN;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-bt", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-bt", NULL))
 		features |= FEAT_BT;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sd-a", NULL))
 		features |= FEAT_SDIO_A;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sd-b", NULL))
 		features |= FEAT_SDIO_B;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sdio-c", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sdio-c", NULL))
 		features |= FEAT_SDIO_C;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-dsi", NULL))
 		features |= FEAT_MIPI_DSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-mipi-csi", NULL))
 		features |= FEAT_MIPI_CSI;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-lvds", NULL))
 		features |= FEAT_LVDS;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-usb-hub", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-usb-hub", NULL))
 		features |= FEAT_USB_HUB;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-temp", NULL))
 		features |= FEAT_TEMP;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-sec", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-sec", NULL))
 		features |= FEAT_SEC;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-gpio-exp", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-gpio-exp", NULL))
 		features |= FEAT_GPIO_EXP;
-	if(fs_image_getprop(fdt, offs, rev_offs, "have-edp", NULL))
+	if (fs_image_getprop(fdt, offs, rev_offs, "have-edp", NULL))
 		features |= FEAT_EDP;
 
 	info->features = features;
@@ -231,7 +239,7 @@ int board_early_init_f(void)
 {
 	fs_setup_cfg_info();
 
-	switch(gd->board_type) {
+	switch (gd->board_type) {
 		case BT_FSSM95S:
 			init_uart_clk(0);
 			break;
@@ -449,11 +457,11 @@ int board_late_init(void)
 {
 	enum boot_device boot_dev = get_boot_device();
 	struct cfg_info *info = fs_board_get_cfg_info();
-	void *fdt;
+	const void *fdt;
 	int offs;
 	const char *board_fdt;
 
-	fdt = fs_image_get_cfg_fdt();
+	fdt = fs_image_get_ocram_cfg_fdt();
 	offs = fs_image_get_board_cfg_offs(fdt);
 	board_fdt = fs_image_getprop(fdt, offs, 0, "board-fdt", NULL);
 
@@ -608,7 +616,7 @@ int board_fix_fdt(void *fdt)
 {
 	/* Remove nodes based on fuses. */
 	board_fix_fdt_fuse(fdt);
-	
+
 	return board_fix_19x19_evk(fdt);
 }
 #endif

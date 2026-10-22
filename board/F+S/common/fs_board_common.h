@@ -101,14 +101,11 @@ struct fs_board_info {
 /* Get the configured boot device (also valid before fuses are programmed) */
 enum boot_device fs_board_get_boot_dev(void);
 
-/* Get the boot device number from the string */
-enum boot_device fs_board_get_boot_dev_from_name(const char *name);
+/* Get the copy that SPL and U-Boot were booted from */
+unsigned int fs_board_get_boot_copy(void);
 
 /* Get the boot device that is programmed in the fuses. */
 enum boot_device fs_board_get_boot_dev_from_fuses(void);
-
-/* Get the string from the boot device number */
-const char *fs_board_get_name_from_boot_dev(enum boot_device boot_dev);
 
 /* Get the board features */
 unsigned int fs_board_get_features(void);
@@ -131,6 +128,9 @@ void fs_board_init_common(const struct fs_board_info *board_info);
 
 /* Set up all board specific variables */
 void fs_board_late_init_common(const char *serial_name);
+
+/* Get pointer to DRAM based BOARD-CFG */
+char *fs_board_get_dram_cfg_addr(void);
 
 #ifdef CONFIG_FS_SELFTEST
 /* Get dram_result for bdinfo */

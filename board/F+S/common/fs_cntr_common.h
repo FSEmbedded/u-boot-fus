@@ -20,6 +20,8 @@
 #define IMX_CNTR_NAME "IMX_CONTAINER"
 #define AHAB_CNTR_NAME "AHAB_CONTAINER"
 
+#define FUS_CNTR_ALIGNMENT 0x400
+
 #if defined(CONFIG_SPL_BUILD)
 struct fsh_load_info{
 	struct fs_header_v1_0 *fsh;
@@ -43,6 +45,7 @@ bool fs_cntr_is_oem_signed(struct container_hdr *cntr);
 bool fs_cntr_is_ele_fw(struct container_hdr *cntr);
 bool fs_cntr_is_v2x_fw(struct container_hdr *cntr);
 ulong fs_cntr_get_boot_cntr_size(struct container_hdr *cntr_hdr, uint *oem_offset);
-
+bool fs_cntr_is_image_data(struct boot_img_t *img);
 
 #endif /* !__FS_CNTR_COMMON_H__ */
+

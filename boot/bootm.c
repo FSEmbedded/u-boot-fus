@@ -25,6 +25,10 @@
 #include <linux/sizes.h>
 #include <tpm-v2.h>
 #include <tpm_tcg2.h>
+#ifdef CONFIG_FS_SECURE_BOOT
+#include <asm/mach-imx/checkboot.h>
+#endif
+
 #if defined(CONFIG_CMD_USB)
 #include <usb.h>
 #endif

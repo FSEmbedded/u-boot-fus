@@ -74,7 +74,7 @@ struct generate_key_blob_hdr {
 
 int get_container_size(ulong addr, u16 *header_length);
 
-static inline bool valid_container_hdr(struct container_hdr *container)
+static inline bool valid_container_hdr(const struct container_hdr *container)
 {
 #if IS_ENABLED(CONFIG_IMX_PQC_SUPPORT)
 	return (container->tag == CONTAINER_HDR_TAG ||

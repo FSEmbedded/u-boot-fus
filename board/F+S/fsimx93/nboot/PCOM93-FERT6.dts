@@ -33,6 +33,7 @@
 		have-emmc;
 		have-ext-rtc;
 		have-eeprom;
+		have-se050;
 		have-eth-a;
 		have-eth-b;
 		have-eth-phy-a;

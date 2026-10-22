@@ -157,24 +157,11 @@
 #ifdef CONFIG_FS_SDP
 #include "fs_sdp.h"
 #endif
-
-#else
-
-#include <linux/kconfig.h>		/* Get kconfig macros only */
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
-#include "../../../include/u-boot/sha256.h"
-#include "../../../include/u-boot/sha512.h"
-#include "linux_helpers.h"
 #endif /* __UBOOT__ */
 
 #include <hash.h>
 #include "fs_image_common.h"
 #include "fs_cntr_common.h"
-
-#define FUS_CNTR_ALIGNMENT 0x400
 
 #define IMX_IMG_TYPE_ELE_FW 	0x06   /* ELE-FW */
 #define IMX_IMG_TYPE_V2X_PRI_FW	0x0B   /* Primary V2X FW */
@@ -298,6 +285,12 @@ bool fs_cntr_is_v2x_fw(struct container_hdr *cntr)
 		return false;
 
 	return true;
+}
+
+bool fs_cntr_is_image_data(struct boot_img_t *img)
+{
+	/* CHECK IMAGE FLAG "Type of Image" equals data */
+	return !!(img->hab_flags & 0x4);
 }
 
 ulong fs_cntr_get_boot_cntr_size(struct container_hdr *cntr_hdr, uint *oem_offset)
@@ -669,11 +662,20 @@ static struct boot_img_t *read_auth_image(struct spl_image_info *spl_image,
 /* NOTE:
  * On i.MX8ULP, the ELE configures tRDC (RWX flags) when using SSRAM, preventing
  * overwriting of already validated images and causing resets. To avoid this,
- * only CNTR-HDR signatures are validated via AHAB; image hashes are checked in software.
+ * only CNTR-HDR signatures, and executable Images are validated via AHAB.
+ * Images with Type "Data" are checked with software.
  */
 
 #if defined(CONFIG_TARGET_FSIMX8ULP)
-	if (!cntr_image_check_sha(&images[image_index], (void *)images[image_index].dst)) {
+	if (!fs_cntr_is_image_data(&images[image_index]) &&
+			ahab_verify_cntr_image(&images[image_index],
+						image_index)) {
+		return NULL;
+	}
+
+	if (fs_cntr_is_image_data(&images[image_index]) &&
+			!cntr_image_check_sha(&images[image_index],
+					(void *)images[image_index].dst)) {
 		printf("ERROR: image %d failed SHA check\n", image_index);
 		hang();
 		return NULL;
@@ -885,7 +887,7 @@ static bool fs_cntr_is_boot_info(struct fsh_load_info *fsh_info)
 */
 static int init_ram_info(struct ram_info_t *ram_info)
 {
-	void *fdt = fs_image_get_cfg_fdt();
+	const void *fdt = fs_image_get_ocram_cfg_fdt();
 	int offs = fs_image_get_board_cfg_offs(fdt);
 	int rev_offs = fs_image_get_board_rev_subnode(fdt, offs);;
 
@@ -1232,16 +1234,16 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	}
 
 	/* search dram-qb within index */
-	for(idx = 1; idx < num_imgs; idx++){
+	for (idx = 1; idx < num_imgs; idx++) {
 		if(fs_image_match(&dram_fsh[idx], "DRAM-QB", ram_info->type))
 			break;
 	}
 
 	/* load dram qb*/
-	if(idx < num_imgs){
+	if (idx < num_imgs) {
 		qb_idx = idx;
 		/* We need to skip images in stream */
-		if(is_boot_from_stream_device()){
+		if (is_boot_from_stream_device()) {
 			ret = fs_cntr_skip_streamed_images(&dram_info,
 					&cntr_info,
 					load_info,fw_idx+1,qb_idx-1);
@@ -1256,7 +1258,7 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 					&cntr_info,
 					load_info,
 					qb_idx);
-		if(ret){
+		if (ret) {
 			free_container(&cntr_info);
 			return ret;
 		}
@@ -1265,25 +1267,26 @@ static int fs_load_cntr_dram_info(struct fsh_load_info *fsh_info, struct ram_inf
 	}
 
 	/* search dram-timing */
-	for(idx = 1; idx < num_imgs; idx++){
-		if(fs_image_match(&dram_fsh[idx], "DRAM-TIMING", ram_info->timing))
+	for (idx = 1; idx < num_imgs; idx++) {
+		if (fs_image_match(&dram_fsh[idx], "DRAM-TIMING",
+				   ram_info->timing))
 			break;
 	}
 
-	if(idx >= num_imgs){
+	if (idx >= num_imgs) {
 		free_container(&cntr_info);
 		return -EINVAL;
 	}
 
 	/* We need to skip images in stream */
-	if(is_boot_from_stream_device()){
-		if(qb_idx >= idx)
+	if (is_boot_from_stream_device()) {
+		if (qb_idx >= idx)
 			return -EINVAL;
 
 		ret = fs_cntr_skip_streamed_images(&dram_info,
 				&cntr_info,
 				load_info,qb_idx+1,idx-1);
-		if(ret){
+		if (ret) {
 			free_container(&cntr_info);
 			return ret;
 		}
@@ -1374,8 +1377,8 @@ static struct fsh_load_info *get_uboot_info(void)
 static int fs_handle_uboot(struct fsh_load_info *fsh_info)
 {
 	struct fs_header_v1_0 *fsh = fsh_info->fsh;
-	struct fs_header_v1_0 *cfg_fsh = fs_image_get_cfg_addr();
-	void *fdt = fs_image_get_cfg_fdt();
+	struct fs_header_v1_0 *cfg_fsh = fs_image_get_ocram_cfg_addr();
+	void *fdt = (void *)fs_image_find_cfg_fdt(cfg_fsh);
 	unsigned int uboot_size;
 	unsigned int uboot_offset;
 	unsigned int nboot_start;

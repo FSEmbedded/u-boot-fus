@@ -79,10 +79,10 @@
 
 			spl-start = <0x00000000>;
 			spl-size = <0x0>;
-			nboot-start = <0x0>;
+			nboot-start = <SPL_SIZE>;
 			env-start = <0x3cc800>;
 			env-size = <0x00004000>;
-			
+
 			/* Set by SPL during boot */
 			nboot-size = <0x0>;
 			uboot-start = <0x0>;

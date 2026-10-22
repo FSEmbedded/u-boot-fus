@@ -16,7 +16,7 @@
 
 		/* DRAM: 4GB Nanya B.ICDRAM.62 */
 		dram-type = "lpddr4";
-		dram-timing = "lpddr4_pc_4g1500m2ch2cs_nanya";
+		dram-timing = "lpddr4_pc_4g1500m2ch2cs_na";
 		dram-size = <0x1000>;		/* In MiB */
 		dram-chips = <1>;
 

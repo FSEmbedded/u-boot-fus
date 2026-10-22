@@ -25,6 +25,7 @@ int bootrom_stream_continue(const struct sdp_stream_ops *stream_ops);
 int bootrom_seek_continue(const struct sdp_stream_ops *stream_ops);
 #endif
 
+bool is_boot_from_secondary(void);
 int is_boot_from_stream_device(void);
 int get_bootrom_bootdev(u32 *bdev);
 int get_bootrom_bootstage(u32 *bstage);

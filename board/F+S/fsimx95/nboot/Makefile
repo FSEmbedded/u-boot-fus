@@ -49,8 +49,8 @@ $(obj)/%_SM.fsi: $(srctree)/board/$(BOARDDIR)/m33_image.bin
 $(obj)/%_SPL.fsi: spl/u-boot-spl.bin
 	$(call cmd,copy)
 
-#$(obj)/%_CORTEX-M.fsi: $(srctree)/board/$(BOARDDIR)/m33_image.bin
-#	$(call cmd,copy)
+$(obj)/%_CORTEX-M.fsi: $(srctree)/board/$(BOARDDIR)/m7_image.bin
+	$(call cmd,copy)
 
 $(eval $(call fsc,boot_info,-a 0x400-0x40 -t BOOT-INFO -d $(BOARD)))
 
@@ -72,18 +72,6 @@ $(obj)/board_id.fsh:
 
 GIT_VERSION := $(shell KERNELVERSION=$(UBOOTVERSION) $(srctree)/scripts/setlocalversion $(srctree))
 NBOOT_VERSION := ${NBOOT_SUFFIX}_${GIT_VERSION}
-
-# 1. Prepend some macros with varying content to .dts file of each board cfg
-#quiet_cmd_cfg_dts_tmp = CAT     $@
-#      cmd_cfg_dts_tmp = \
-#	(echo "/* Macros with varying content */"; \
-#	echo "\#define NBOOT_VERSION \"$(NBOOT_VERSION)\""; \
-#	echo "\#define BOARD_CFG_NAME \"$(*F)\""; \
-#	echo "\#define SPL_SIZE $$(($$(stat -c %s $(obj)/boot_info.fs)))"; \
-#	cat $<) > $@
-
-#$(obj)/.%.dts.tmp: $(SRC_PATH)/%.dts $(obj)/boot_info.fs
-#	$(call cmd,cfg_dts_tmp)
 
 # 1. Prepend some macros with varying content to .dts file of each board cfg
 quiet_cmd_cfg_dts_tmp = CAT     $@
