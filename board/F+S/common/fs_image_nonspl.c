@@ -1333,6 +1333,8 @@ static int fs_image_get_size_from_fsh_or_ivt(struct sub_info *sub, uint *size)
 		if (!fs_image_match(fsh, sub->type, sub->descr))
 			return -ENOENT;
 		*size = fs_image_get_size(fsh, true);
+
+		return 0;
 #if !CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 	} else {
 		struct ivt *ivt = sub->img;
@@ -1344,10 +1346,12 @@ static int fs_image_get_size_from_fsh_or_ivt(struct sub_info *sub, uint *size)
 			return -ENOENT;
 		boot_data = (struct boot_data *)(ivt + 1);
 		*size = boot_data->length;
+
+		return 0;
 #endif
 	}
 
-	return 0;
+	return -ENOENT;
 }
 
 /* Struct that is big enough for all headers that we may want to load */

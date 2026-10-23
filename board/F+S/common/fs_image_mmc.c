@@ -238,7 +238,7 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 	if (sub->flags & SUB_IS_ENV) {
 		size = si->size;
 	} else if (sub->flags & SUB_IS_CNTR) {
-		size = size;
+		size = si->size;
 	} else {
 		err = fs_image_get_size_from_header(fi, offs, lim, sub, &size);
 		if (err)
@@ -271,7 +271,15 @@ static int fs_image_load_image_mmc(struct flash_info *fi, int copy,
 		err = fs_image_check_all_crc32(sub->img);
 		size -= FSH_SIZE;
 		memmove(sub->img, sub->img + FSH_SIZE, size);
+	} else if (!strncmp(sub->type, "BOOT-INFO", sizeof("BOOT-INFO")) &&
+			fs_cntr_get_boot_cntr_size(sub->img, NULL) == 0) {
+		/*
+		 * TODO: write a alternative validation compatible
+		 * with linux version.
+		 */
+		return -EINVAL;
 	}
+
 	if (err < 0)
 		return err;
 
