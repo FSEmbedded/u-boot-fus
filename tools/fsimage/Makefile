@@ -12,8 +12,7 @@ HOST_EXTRACFLAGS  = -I$(srctree)/tools \
 		-DUSE_HOSTCC \
 		-DTEXT_BASE=$(TEXT_BASE) -D__KERNEL__
 
-always := fsimage
-hostprogs-y := fsimage
+hostprogs-always-y := fsimage
 
 lib-y += fsimage_linux.o fdt.o fdt_ro.o crc32.o version.o
 

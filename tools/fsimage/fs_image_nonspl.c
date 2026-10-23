@@ -5,6 +5,7 @@
  * Linux version of fs_image_common.c.
  */
 #include <linux/kconfig.h>		/* Get kconfig macros only */
+#include <stdbool.h>
 #include <fdt_support.h>
 #include <linux/libfdt.h>
 #include <errno.h>			/* IS_ERR_VALUE() */

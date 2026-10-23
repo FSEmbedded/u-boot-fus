@@ -3,6 +3,7 @@
  * Copyright 2019 NXP
  */
 
+#ifdef __UBOOT__
 #include <config.h>
 #include <errno.h>
 #include <imx_container.h>
@@ -15,6 +16,7 @@
 #include <nand.h>
 #include <asm/arch/sys_proto.h>
 #include <asm/mach-imx/boot_mode.h>
+#endif /* __UBOOT__*/
 
 #define MMC_DEV		0
 #define QSPI_DEV	1
@@ -61,6 +63,7 @@
 #define CORE_V2X_PRI 9
 #define CORE_V2X_SND 10
 
+#ifdef __UBOOT__
 static bool is_v2x_fw_container(ulong addr)
 {
 	struct container_hdr *phdr;
@@ -87,6 +90,7 @@ static bool is_v2x_fw_container(ulong addr)
 
 	return false;
 }
+#endif /* __UBOOT__ */
 
 int get_container_size(ulong addr, u16 *header_length)
 {
@@ -130,6 +134,7 @@ int get_container_size(ulong addr, u16 *header_length)
 	return max_offset;
 }
 
+#ifdef __UBOOT__
 static int get_dev_container_size(void *dev, int dev_type, unsigned long offset, u16 *header_length, bool *v2x_cntr)
 {
 	u8 *buf = malloc(CONTAINER_HDR_ALIGNMENT);
@@ -540,3 +545,4 @@ unsigned long spl_ram_get_uboot_base(void)
 	return end;
 }
 #endif
+#endif /* __UBOOT__ */

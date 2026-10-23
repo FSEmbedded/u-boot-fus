@@ -19,3 +19,4 @@
 
 /* Include the original file */
 #include "../../board/F+S/common/fs_cntr_common.c"
+#include "../../arch/arm/mach-imx/image-container.c"
