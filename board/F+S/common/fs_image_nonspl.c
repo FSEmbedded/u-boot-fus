@@ -157,6 +157,7 @@
 #include "fs_image_common.h"		/* Own interface */
 #if CONFIG_IS_ENABLED(FS_CNTR_COMMON)
 #include <imx_container.h>
+#include <fs_cntr_common.h>
 #endif
 #if CONFIG_IS_ENABLED(IMX_HAB)
 #include <asm/mach-imx/hab.h>
@@ -3114,7 +3115,7 @@ static void *fs_image_load_nboot(struct flash_info *fi, struct nboot_info *ni,
 	struct sub_info sub;
 	const struct container_hdr *hdr;
 	struct boot_img_t *img_entry;
-	unsigned int size, offs;
+	unsigned int offs;
 
 	/* Load BOOT-INFO and prepend F&S header */
 	sub.type = "BOOT-INFO";
@@ -3128,8 +3129,7 @@ static void *fs_image_load_nboot(struct flash_info *fi, struct nboot_info *ni,
 
 	/* Determine the extra offset to the INDEX image */
 	hdr = (void *)(fsh + 1);	/* ELE boot container */
-	size = (hdr->length_msb << 8) + hdr->length_lsb;
-	offs = ALIGN(size, CONTAINER_HDR_ALIGNMENT);
+	fs_cntr_get_boot_cntr_size(hdr, &offs);
 	hdr = (void *)hdr + offs;	/* OEM boot container */
 	img_entry = (void *)(hdr + 1);	/* First image entry (INDEX) */
 	offs += img_entry->offset;	/* Start of INDEX image */
