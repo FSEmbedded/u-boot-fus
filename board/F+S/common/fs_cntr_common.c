@@ -157,9 +157,9 @@
 #ifdef CONFIG_FS_SDP
 #include "fs_sdp.h"
 #endif
+#include <hash.h>
 #endif /* __UBOOT__ */
 
-#include <hash.h>
 #include "fs_image_common.h"
 #include "fs_cntr_common.h"
 
@@ -197,51 +197,25 @@ enum sha_types {
 	SHA512,
 };
 
-/*
- * Use a "constant-length" time compare function for this
- * hash compare:
- *
- * https://crackstation.net/hashing-security.htm
- */
-static int slow_equals(u8 *a, u8 *b, int len)
-{
-	int diff = 0;
-	int i;
-
-	for (i = 0; i < len; i++)
-		diff |= a[i] ^ b[i];
-
-	return diff == 0;
-}
-
-static void __maybe_unused print_hash(u8 *hash, int hash_size)
-{
-	int i;
-	for (i = 0; i < hash_size; i++) {
-		printf("%02x", hash[i]);
-	}
-	puts("\n");
-}
-
-bool fs_cntr_is_signed(struct container_hdr *cntr)
+bool fs_cntr_is_signed(const struct container_hdr *cntr)
 {
 	/* CHECK CNTR FLAG SRK Set*/
 	return !!(cntr->flags & GENMASK(1,0) );
 }
 
-bool fs_cntr_is_nxp_signed(struct container_hdr *cntr)
+bool fs_cntr_is_nxp_signed(const struct container_hdr *cntr)
 {
 	/* CHECK CNTR FLAG SRK Set*/
 	return (cntr->flags & GENMASK(1,0)) == 0x1;
 }
 
-bool fs_cntr_is_oem_signed(struct container_hdr *cntr)
+bool fs_cntr_is_oem_signed(const struct container_hdr *cntr)
 {
 	/* CHECK CNTR FLAG SRK Set*/
 	return (cntr->flags & GENMASK(1,0)) == 0x2;
 }
 
-bool fs_cntr_is_ele_fw(struct container_hdr *cntr)
+bool fs_cntr_is_ele_fw(const struct container_hdr *cntr)
 {
 	struct boot_img_t *img_entry;
 
@@ -259,7 +233,7 @@ bool fs_cntr_is_ele_fw(struct container_hdr *cntr)
 	return true;
 }
 
-bool fs_cntr_is_v2x_fw(struct container_hdr *cntr)
+bool fs_cntr_is_v2x_fw(const struct container_hdr *cntr)
 {
 	struct boot_img_t *img_entry;
 
@@ -287,15 +261,15 @@ bool fs_cntr_is_v2x_fw(struct container_hdr *cntr)
 	return true;
 }
 
-bool fs_cntr_is_image_data(struct boot_img_t *img)
+bool fs_cntr_is_image_data(const struct boot_img_t *img)
 {
 	/* CHECK IMAGE FLAG "Type of Image" equals data */
 	return !!(img->hab_flags & 0x4);
 }
 
-ulong fs_cntr_get_boot_cntr_size(struct container_hdr *cntr_hdr, uint *oem_offset)
+ulong fs_cntr_get_boot_cntr_size(const struct container_hdr *cntr_hdr, uint *oem_offset)
 {
-	struct container_hdr * phdr = cntr_hdr;
+	const struct container_hdr * phdr = cntr_hdr;
 	u32 hdr_length;
 	u32 offset;
 
@@ -324,7 +298,35 @@ ulong fs_cntr_get_boot_cntr_size(struct container_hdr *cntr_hdr, uint *oem_offse
 }
 
 #ifdef __UBOOT__
-bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
+
+/*
+ * Use a "constant-length" time compare function for this
+ * hash compare:
+ *
+ * https://crackstation.net/hashing-security.htm
+ */
+static int slow_equals(const u8 *a, const u8 *b, int len)
+{
+	int diff = 0;
+	int i;
+
+	for (i = 0; i < len; i++)
+		diff |= a[i] ^ b[i];
+
+	return diff == 0;
+}
+
+static void __maybe_unused print_hash(u8 *hash, int hash_size)
+{
+	int i;
+	for (i = 0; i < hash_size; i++) {
+		printf("%02x", hash[i]);
+	}
+	puts("\n");
+}
+
+
+bool cntr_image_check_sha(const struct boot_img_t *img, const void *blob)
 {
 	unsigned int sha_type;
 	const char *algo_name;
@@ -368,7 +370,7 @@ bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
 	return slow_equals(sha, img->hash, sha_size);
 }
 
-bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
+bool fs_cntr_is_valid_signature(const struct container_hdr *cntr_hdr)
 {
 	__maybe_unused struct container_hdr *authhdr = NULL;
 	u16 cntr_length;
@@ -413,12 +415,12 @@ bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
 
 #else
 /* TODO: Implement alternatives for Linux */
-bool cntr_image_check_sha(struct boot_img_t *img, void *blob)
+bool cntr_image_check_sha(const struct boot_img_t *img, const void *blob)
 {
 	return false;
 }
 
-bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr)
+bool fs_cntr_is_valid_signature(const struct container_hdr *cntr_hdr)
 {
 	return false;
 }

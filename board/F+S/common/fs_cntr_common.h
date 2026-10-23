@@ -37,15 +37,15 @@ int fs_cntr_load_board_id(void);
  * Check HASH Value of a Image entry in Image Array
  * return false, if sha is invalid
  */
-bool cntr_image_check_sha(struct boot_img_t *img, void *blob);
-bool fs_cntr_is_valid_signature(struct container_hdr *cntr_hdr);
-bool fs_cntr_is_signed(struct container_hdr *cntr);
-bool fs_cntr_is_nxp_signed(struct container_hdr *cntr);
-bool fs_cntr_is_oem_signed(struct container_hdr *cntr);
-bool fs_cntr_is_ele_fw(struct container_hdr *cntr);
-bool fs_cntr_is_v2x_fw(struct container_hdr *cntr);
-ulong fs_cntr_get_boot_cntr_size(struct container_hdr *cntr_hdr, uint *oem_offset);
-bool fs_cntr_is_image_data(struct boot_img_t *img);
+bool cntr_image_check_sha(const struct boot_img_t *img, const void *blob);
+bool fs_cntr_is_valid_signature(const struct container_hdr *cntr_hdr);
+bool fs_cntr_is_signed(const struct container_hdr *cntr);
+bool fs_cntr_is_nxp_signed(const struct container_hdr *cntr);
+bool fs_cntr_is_oem_signed(const struct container_hdr *cntr);
+bool fs_cntr_is_ele_fw(const struct container_hdr *cntr);
+bool fs_cntr_is_v2x_fw(const struct container_hdr *cntr);
+ulong fs_cntr_get_boot_cntr_size(const struct container_hdr *cntr_hdr, uint *oem_offset);
+bool fs_cntr_is_image_data(const struct boot_img_t *img);
 
 #endif /* !__FS_CNTR_COMMON_H__ */
 
